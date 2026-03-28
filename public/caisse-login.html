@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>TA'BIA - Accès Caisse</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2c3e2f 0%, #1e2a1f 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 30px;
+            padding: 2rem;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            animation: fadeInUp 0.5s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-container i {
+            font-size: 4rem;
+            color: #e67e22;
+            margin-bottom: 1rem;
+        }
+
+        .login-container h1 {
+            color: #2c3e2f;
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+        }
+
+        .login-container p {
+            color: #7f8c8d;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 0.8rem;
+            font-size: 1.2rem;
+            text-align: center;
+            letter-spacing: 5px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        .login-input:focus {
+            outline: none;
+            border-color: #e67e22;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .keypad-btn {
+            padding: 0.8rem;
+            font-size: 1.2rem;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+
+        .keypad-btn:hover {
+            background: #e67e22;
+            color: white;
+            transform: scale(1.02);
+        }
+
+        .keypad-btn:active {
+            transform: scale(0.98);
+        }
+
+        .keypad-btn.delete {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .keypad-btn.delete:hover {
+            background: #c0392b;
+        }
+
+        .keypad-btn.clear {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .keypad-btn.clear:hover {
+            background: #7f8c8d;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 0.8rem;
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            display: none;
+            padding: 0.5rem;
+            background: #fef2f0;
+            border-radius: 8px;
+        }
+
+        .error-message.show {
+            display: block;
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .lock-footer {
+            margin-top: 1rem;
+            font-size: 0.7rem;
+            color: #95a5a6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .info-text {
+            font-size: 0.7rem;
+            color: #7f8c8d;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 1.5rem;
+            }
+            
+            .keypad-btn {
+                padding: 0.6rem;
+                font-size: 1rem;
+            }
+            
+            .login-input {
+                font-size: 1rem;
+                padding: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <i class="fas fa-cash-register"></i>
+        <h1>🔒 Accès Caisse</h1>
+        <p>Veuillez saisir le code d'accès à 4 chiffres</p>
+        
+        <input type="password" id="passwordInput" class="login-input" placeholder="••••" maxlength="4" autocomplete="off" inputmode="numeric">
+        
+        <div class="keypad" id="keypad">
+            <button class="keypad-btn" data-value="1">1</button>
+            <button class="keypad-btn" data-value="2">2</button>
+            <button class="keypad-btn" data-value="3">3</button>
+            <button class="keypad-btn" data-value="4">4</button>
+            <button class="keypad-btn" data-value="5">5</button>
+            <button class="keypad-btn" data-value="6">6</button>
+            <button class="keypad-btn" data-value="7">7</button>
+            <button class="keypad-btn" data-value="8">8</button>
+            <button class="keypad-btn" data-value="9">9</button>
+            <button class="keypad-btn" data-value="0">0</button>
+            <button class="keypad-btn delete" data-value="delete"><i class="fas fa-backspace"></i></button>
+            <button class="keypad-btn clear" data-value="clear">C</button>
+        </div>
+        <div style="margin-bottom: 20px; text-align: right;">
+    <a href="/caisse" style="background: #27ae60; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none;">
+        <i class="fas fa-cash-register"></i> Aller à la caisse
+    </a>
+</div>
+        
+        <button id="loginBtn" class="login-btn">
+            <i class="fas fa-unlock-alt"></i> Accéder à la caisse
+        </button>
+        
+        <div id="errorMessage" class="error-message">
+            <i class="fas fa-exclamation-triangle"></i> Code incorrect
+        </div>
+        
+        <div class="lock-footer">
+            <i class="fas fa-shield-alt"></i> Accès réservé au personnel autorisé
+        </div>
+        <div class="info-text">
+            <i class="fas fa-info-circle"></i> 5 tentatives maximum
+        </div>
+    </div>
+
+    <script>
+        let tentatives = 0;
+        const MAX_TENTATIVES = 5;
+        let tempsBlocage = false;
+
+        function setupKeypad() {
+            const passwordInput = document.getElementById('passwordInput');
+            const keypadBtns = document.querySelectorAll('.keypad-btn');
+            
+            keypadBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const value = btn.dataset.value;
+                    
+                    if (tempsBlocage) return;
+                    
+                    if (value === 'delete') {
+                        passwordInput.value = passwordInput.value.slice(0, -1);
+                    } else if (value === 'clear') {
+                        passwordInput.value = '';
+                    } else {
+                        if (passwordInput.value.length < 4) {
+                            passwordInput.value += value;
+                        }
+                    }
+                    
+                    // Effacer l'erreur quand l'utilisateur tape
+                    document.getElementById('errorMessage').classList.remove('show');
+                });
+            });
+        }
+
+        async function verifierMotDePasse() {
+            if (tempsBlocage) {
+                showError("⏳ Veuillez patienter avant de réessayer");
+                return;
+            }
+            
+            const password = document.getElementById('passwordInput').value;
+            const errorDiv = document.getElementById('errorMessage');
+            
+            if (!password || password.length < 4) {
+                showError("❌ Veuillez saisir un code à 4 chiffres");
+                return;
+            }
+            
+            // Désactiver le bouton pendant la vérification
+            const loginBtn = document.getElementById('loginBtn');
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
+            
+            try {
+                const response = await fetch('/api/caisse/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Mot de passe correct - redirection vers la caisse
+                    window.location.href = '/caisse';
+                } else {
+                    // Mot de passe incorrect
+                    tentatives++;
+                    const restantes = MAX_TENTATIVES - tentatives;
+                    
+                    if (tentatives >= MAX_TENTATIVES) {
+                        // Bloquer l'accès
+                        tempsBlocage = true;
+                        showError(`🔒 Trop de tentatives. Veuillez réessayer dans 5 minutes.`);
+                        document.getElementById('passwordInput').disabled = true;
+                        
+                        // Réactiver après 5 minutes
+                        setTimeout(() => {
+                            tempsBlocage = false;
+                            tentatives = 0;
+                            document.getElementById('passwordInput').disabled = false;
+                            document.getElementById('passwordInput').value = '';
+                            document.getElementById('errorMessage').classList.remove('show');
+                        }, 300000); // 5 minutes
+                    } else {
+                        showError(`❌ Code incorrect - ${restantes} tentative${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''}`);
+                        document.getElementById('passwordInput').value = '';
+                        document.getElementById('passwordInput').focus();
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur de connexion:', error);
+                showError("❌ Erreur de connexion au serveur");
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i class="fas fa-unlock-alt"></i> Accéder à la caisse';
+            }
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            errorDiv.classList.add('show');
+            
+            // Effacer après 3 secondes
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 3000);
+        }
+
+        // Permettre l'entrée au clavier
+        document.getElementById('passwordInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                verifierMotDePasse();
+            }
+        });
+
+        // Initialisation
+        document.addEventListener("DOMContentLoaded", () => {
+            setupKeypad();
+            document.getElementById('loginBtn').addEventListener('click', verifierMotDePasse);
+            document.getElementById('passwordInput').focus();
+        });
+    </script>
+</body>
+</html>

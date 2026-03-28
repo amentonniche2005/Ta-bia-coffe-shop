@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TA'BIA - Gestion de Stock Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ========== RESET & VARIABLES ========== */
+        :root {
+            --primary: #143621; --primary-light: #1e4d30;
+            --accent: #e3c496; --accent-hover: #c5a370;
+            --success: #27ae60; --danger: #e74c3c;
+            --warning: #f39c12; --info: #3498db;
+            --bg-body: #f4f7f6; --bg-card: #ffffff;
+            --text-main: #2c3e50; --text-muted: #7f8c8d; --border-color: #e2e8f0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: var(--bg-body); color: var(--text-main); min-height: 100vh; }
+
+        /* ========== HEADER ========== */
+        header { background: #143621; padding: 1.2rem 2rem; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .header-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .logo { display: flex; align-items: center; gap: 15px; }
+        .logo-img { height: 70px; width: 70px; border-radius: 50%; object-fit: cover; border: 2px solid #e3c496; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .logo h1 { font-family: 'Cinzel', serif; font-size: 1.8rem; font-weight: 800; color: #fdfbf7; display: flex; flex-direction: column; line-height: 1; margin: 0; }
+        .logo .logo-subtext { font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #e3c496; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;}
+        .nav-right { display: flex; gap: 1rem; align-items: center; }
+        .btn-retour { background: rgba(255,255,255,0.1); color: white; padding: 0.6rem 1.2rem; border-radius: 10px; text-decoration: none; display: flex; align-items: center; gap: 0.6rem; font-weight: 600; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s; }
+        .btn-retour:hover { background: white; color: var(--primary); transform: translateY(-2px); }
+
+        /* ========== DASHBOARD CARDS ========== */
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; padding: 2rem; max-width: 1400px; margin: 0 auto; }
+        .card { background: var(--bg-card); border-radius: 20px; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid var(--border-color); transition: all 0.3s; cursor: pointer; position: relative; overflow: hidden; }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--accent), #f1c40f); transform: scaleX(0); transform-origin: left; transition: transform 0.4s ease; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 12px 24px rgba(0,0,0,0.08); }
+        .card:hover::before { transform: scaleX(1); }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+        .card-icon { width: 50px; height: 50px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .icon-stock { background: #e3f2fd; color: var(--info); } .icon-alert { background: #fee2e2; color: var(--danger); } .icon-value { background: #e8f5e9; color: var(--success); }
+        .card h4 { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0.3rem; }
+        .card .value { font-size: 2.2rem; font-weight: 800; color: var(--text-main); }
+
+        /* ========== TABS & LAYOUT ========== */
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 2rem 2rem; }
+        .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: white; padding: 0.5rem; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid var(--border-color); overflow-x: auto; }
+        .tab { padding: 0.8rem 1.5rem; border: none; background: transparent; cursor: pointer; font-size: 0.95rem; font-weight: 600; border-radius: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; white-space: nowrap; }
+        .tab.active { background: var(--primary-light); color: white; box-shadow: 0 4px 10px rgba(44,122,75,0.3); }
+        .tab:hover:not(.active) { background: var(--bg-body); color: var(--text-main); }
+        .panel { display: none; animation: fadeIn 0.3s ease; } .panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ========== TOOLBAR & FILTERS ========== */
+        .toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; background: white; padding: 1rem 1.5rem; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); border: 1px solid var(--border-color); }
+        .filters { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+        .filter-group { display: flex; align-items: center; gap: 0.5rem; background: var(--bg-body); padding: 0.4rem 1rem; border-radius: 10px; border: 1px solid var(--border-color);}
+        .filter-group label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+        .filter-group select, .filter-group input { border: none; background: transparent; font-size: 0.85rem; outline: none; font-weight: 500; color: var(--text-main);}
+        .btn-action { background: var(--info); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; transition: all 0.2s; }
+        .btn-action:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        .btn-success { background: var(--success); } .btn-warning { background: var(--warning); } .btn-danger { background: var(--danger); }
+
+        /* ========== TABLES ========== */
+        .table-container { background: white; border-radius: 16px; overflow-x: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid var(--border-color); max-height: 600px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background: #f8fafc; padding: 1rem; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border-color); position: sticky; top: 0; z-index: 10; cursor: pointer; transition: background 0.2s; }
+        th:hover { background: #e2e8f0; } th i { margin-left: 5px; color: #cbd5e1; }
+        td { padding: 1rem; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; font-weight: 500; vertical-align: middle;}
+        tr:hover td { background: #f8fafc; } tr:last-child td { border-bottom: none; }
+
+        .stock-level-container { display: flex; align-items: center; gap: 10px; }
+        .stock-bar-bg { flex: 1; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; min-width: 60px;}
+        .stock-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
+        .badge { padding: 0.3rem 0.8rem; border-radius: 8px; font-size: 0.75rem; font-weight: 700; display: inline-block;}
+        .badge-critical { background: #fee2e2; color: var(--danger); } .badge-low { background: #fef3c7; color: var(--warning); } .badge-normal { background: #dcfce7; color: var(--success); } .badge-neutral { background: #f1f5f9; color: var(--text-muted); }
+
+        /* ========== MODALS ========== */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1000; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 20px; padding: 2rem; max-width: 450px; width: 90%; animation: modalSlideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        @keyframes modalSlideIn { from { opacity: 0; transform: scale(0.95) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .modal-header h3 { font-size: 1.2rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;}
+        .modal-close { font-size: 1.5rem; cursor: pointer; color: var(--text-muted); transition: color 0.2s; }
+        .modal-close:hover { color: var(--danger); }
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+        .form-group input, .form-group select { width: 100%; padding: 0.8rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.95rem; outline: none; background: #f8fafc; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--info); background: white; box-shadow: 0 0 0 3px rgba(52,152,219,0.1);}
+        .modal-buttons { display: flex; gap: 1rem; margin-top: 2rem; }
+        .modal-buttons button { flex: 1; padding: 0.8rem; border-radius: 10px; border: none; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s;}
+        .btn-primary { background: var(--success); color: white; } .btn-primary:hover { background: #219a52; }
+        .btn-secondary { background: #e2e8f0; color: var(--text-main); } .btn-secondary:hover { background: #cbd5e1; }
+
+        /* Notification */
+        .notification { position: fixed; bottom: 30px; right: 30px; padding: 15px 25px; border-radius: 12px; color: white; z-index: 1100; animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 25px rgba(0,0,0,0.2); font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        @keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .empty-message { text-align: center; padding: 4rem 2rem; color: var(--text-muted); font-style: italic; font-weight: 500; }
+        
+        /* Inventaire Inputs */
+        .inv-physique { width: 90px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; text-align: center; font-weight: bold; }
+        .inv-raison { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; }
+        .ecart-cell { font-weight: 800; text-align: center; font-size: 1.1rem;}
+    </style>
+</head>
+<body>
+<header>
+    <div class="header-container">
+        <div class="logo">
+            <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img" onerror="this.src='https://via.placeholder.com/70/143621/e3c496?text=TB'">
+            <h1>TA'BIA <span class="logo-subtext">Tableau de Bord</span></h1>
+        </div>
+        <div class="nav-right">
+            <a href="/caisse" class="btn-retour"><i class="fas fa-arrow-left"></i> Retour Caisse</a>
+        </div>
+    </div>
+</header>
+
+    <div class="dashboard">
+        <div class="card" onclick="ouvrirOnglet('stock')">
+            <div class="card-header">
+                <div class="card-icon icon-stock"><i class="fas fa-cube"></i></div>
+                <span class="badge badge-neutral">En temps réel</span>
+            </div>
+            <h4>Références Actives</h4>
+            <div class="value" id="totalProduits">0</div>
+        </div>
+        <div class="card" onclick="ouvrirOnglet('alertes')">
+            <div class="card-header">
+                <div class="card-icon icon-alert"><i class="fas fa-exclamation-triangle"></i></div>
+                <span class="badge badge-critical" id="badgeAlertes">Normal</span>
+            </div>
+            <h4>À Réapprovisionner</h4>
+            <div class="value" id="totalAlertes">0</div>
+        </div>
+        <div class="card" onclick="ouvrirOnglet('stock')">
+            <div class="card-header">
+                <div class="card-icon icon-value"><i class="fas fa-chart-pie"></i></div>
+                <span class="badge badge-normal">Valeur d'Achat</span>
+            </div>
+            <h4>Capital Immobilisé</h4>
+            <div class="value" id="valeurStock">0.00 DT</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" data-tab="stock" onclick="ouvrirOnglet('stock')"><i class="fas fa-box"></i> Inventaire</button>
+            <button class="tab" data-tab="mouvements" onclick="ouvrirOnglet('mouvements')"><i class="fas fa-exchange-alt"></i> Mouvements</button>
+            <button class="tab" data-tab="alertes" onclick="ouvrirOnglet('alertes')"><i class="fas fa-bell"></i> Alertes</button>
+            <button class="tab" data-tab="inventaire" onclick="ouvrirOnglet('inventaire')"><i class="fas fa-clipboard-check"></i> Audit Physique</button>
+            <button class="tab" data-tab="depenses" onclick="ouvrirOnglet('depenses')"><i class="fas fa-wallet"></i> Dépenses</button>
+        </div>
+
+        <div class="panel active" id="panel-stock">
+            <div class="toolbar">
+                <div class="filters">
+                    <div class="filter-group"><label>Catégorie</label><select id="categorieFilter"><option value="all">Toutes</option></select></div>
+                    <div class="filter-group">
+                        <label>État</label>
+                        <select id="etatFilter">
+                            <option value="all">Tous</option>
+                            <option value="rupture">En rupture</option>
+                            <option value="alerte">En alerte</option>
+                            <option value="normal">Normal</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 200px;">
+                        <i class="fas fa-search" style="color:var(--text-muted)"></i>
+                        <input type="text" id="searchFilter" placeholder="Rechercher un produit..." style="width:100%">
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn-action" style="background:var(--primary);" onclick="ouvrirModalNouveauProduit()"><i class="fas fa-box-open"></i> Nouveau Produit</button>
+                    <button class="btn-action btn-success" onclick="ouvrirModalAjoutStockGlobal()"><i class="fas fa-truck-loading"></i> Réception</button>
+                    <button class="btn-action" onclick="exporterStockCSV()"><i class="fas fa-download"></i> CSV</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th onclick="trierStock('nom')">Produit <i class="fas fa-sort"></i></th>
+                            <th>Catégorie</th>
+                            <th onclick="trierStock('stock')">Niveau de Stock <i class="fas fa-sort"></i></th>
+                            <th>Unité</th>
+                            <th onclick="trierStock('prix')">Prix Vente <i class="fas fa-sort"></i></th>
+                            <th onclick="trierStock('valeur')">Val. Achat <i class="fas fa-sort"></i></th>
+                            <th style="text-align:center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel" id="panel-mouvements">
+            <div class="toolbar">
+                <div class="filters">
+                    <div class="filter-group">
+                        <label>Type</label>
+                        <select id="mouvementType">
+                            <option value="all">Tous les flux</option>
+                            <option value="vente">Sorties (Ventes)</option>
+                            <option value="ajout">Entrées (Ajouts)</option>
+                            <option value="inventaire">Régularisations</option>
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>Du</label><input type="date" id="dateDebut"></div>
+                    <div class="filter-group"><label>Au</label><input type="date" id="dateFin"></div>
+                </div>
+                <button class="btn-action" onclick="chargerHistorique()"><i class="fas fa-filter"></i> Filtrer</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date & Heure</th>
+                            <th>Type de Flux</th>
+                            <th>Produit</th>
+                            <th style="text-align: center;">Quantité</th>
+                            <th style="text-align: center;">Avant</th>
+                            <th style="text-align: center;">Après</th>
+                            <th>Justification</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historiqueBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel" id="panel-alertes">
+            <div class="toolbar">
+                <div>
+                    <h3 style="color:var(--danger);"><i class="fas fa-exclamation-triangle"></i> Ruptures & Alertes en cours</h3>
+                </div>
+                <button class="btn-action btn-success" onclick="chargerAlertes()"><i class="fas fa-sync"></i> Actualiser</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date d'alerte</th>
+                            <th>Produit concerné</th>
+                            <th>Stock Restant</th>
+                            <th>Seuil Critique</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertesContainerBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel" id="panel-inventaire">
+            <div class="toolbar">
+                <div>
+                    <h3 style="font-size:1.1rem; color:var(--text-main);">Audit Physique du Stock</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted);">Ajustez le stock du logiciel avec la réalité du terrain.</p>
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn-action" onclick="voirHistoriqueInventaires()"><i class="fas fa-history"></i> Historique</button>
+                    <button class="btn-action btn-warning" onclick="demarrerInventaire()"><i class="fas fa-play"></i> Démarrer la saisie</button>
+                </div>
+            </div>
+            
+            <div id="inventaireForm" style="display:none; animation: fadeIn 0.4s;">
+                <div class="table-container" style="max-height: 500px; margin-bottom: 1rem;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th style="text-align:center;">Théorique</th>
+                                <th style="text-align:center;">Physique (Réel)</th>
+                                <th style="text-align:center;">Écart</th>
+                                <th style="text-align:right;">Impact Financier</th>
+                                <th>Justification</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventaireTableBody"></tbody>
+                    </table>
+                </div>
+                <div style="background: white; padding: 1rem 1.5rem; border-radius: 12px; display:flex; justify-content:space-between; align-items:center; border: 1px solid var(--border-color);">
+                    <div>
+                        <span style="font-weight:600; color:var(--text-muted);">Impact total de la régularisation : </span>
+                        <span id="impactTotalInventaire" style="font-size:1.2rem; font-weight:800; color:var(--text-main);">0.00 DT</span>
+                    </div>
+                    <div style="display:flex; gap:1rem;">
+                        <button class="btn-action" style="background:var(--text-muted);" onclick="annulerInventaire()">Annuler</button>
+                        <button class="btn-action btn-success" onclick="validerInventaire()"><i class="fas fa-check-double"></i> Valider l'ajustement</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" id="panel-depenses">
+            <div class="toolbar">
+                <div class="filters">
+                    <div class="filter-group">
+                        <label>Poste</label>
+                        <select id="depenseCategorie">
+                            <option value="all">Tous les postes</option>
+                            <option value="eau">Eau</option>
+                            <option value="electricite">Électricité</option>
+                            <option value="gaz">Gaz</option>
+                            <option value="internet">Internet</option>
+                            <option value="loyer">Loyer</option>
+                            <option value="entretien">Entretien</option>
+                            <option value="fournitures">Fournitures Diverses</option>
+                            <option value="salaires">Salaires</option>
+                            <option value="serveur 1">Serveur 1</option>
+                            <option value="serveur 2">Serveur 2</option>
+                            <option value="serveur 3">Serveur 3</option>
+                            <option value="autres">Autres frais</option>
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>Du</label><input type="date" id="depenseDateDebut"></div>
+                    <div class="filter-group"><label>Au</label><input type="date" id="depenseDateFin"></div>
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn-action" onclick="chargerDepenses()"><i class="fas fa-filter"></i> Filtrer</button>
+                    <button class="btn-action btn-warning" onclick="ouvrirModalDepense()"><i class="fas fa-plus"></i> Saisir dépense</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Catégorie</th>
+                            <th>Motif</th>
+                            <th>Paiement</th>
+                            <th style="text-align:right;">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody id="depensesTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalContainer"></div>
+
+    <script>
+        // ========== 1. UTILITAIRES & VARIABLES GLOBALES ==========
+        let stockProduits = [];
+        let stockTri = { colonne: 'nom', asc: true };
+
+        const escapeHtml = (text) => {
+            if (!text) return text;
+            return String(text).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+        };
+
+        const showNotification = (msg, bg = "var(--info)", icon = "fa-info-circle") => {
+            const notif = document.createElement("div");
+            notif.className = "notification"; notif.style.background = bg;
+            notif.innerHTML = `<i class="fas ${icon}"></i> ${msg}`;
+            document.body.appendChild(notif);
+            setTimeout(() => { notif.style.transform = "translateX(120%)"; notif.style.opacity = "0"; setTimeout(() => notif.remove(), 300); }, 3000);
+        };
+
+        const formatMoney = (amount) => parseFloat(amount || 0).toFixed(2) + " DT";
+        const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches', 'pd': '🥐 Pâtisseries', 'plat': '🍝 Plats' }; return dict[cat] || cat; };
+        function fermerModal() { document.getElementById('modalContainer').innerHTML = ''; }
+
+        function parseDateFR(dateStr) {
+            if (!dateStr) return 0;
+            const parts = dateStr.split(' ');
+            const dParts = parts[0].split('/');
+            if (dParts.length !== 3) return new Date(dateStr).getTime() || 0;
+            const time = parts[1] || "00:00:00";
+            const tParts = time.split(':');
+            return new Date(dParts[2], dParts[1] - 1, dParts[0], tParts[0]||0, tParts[1]||0, tParts[2]||0).getTime();
+        }
+
+        // ========== NAVIGATION ONGLETS ==========
+        function ouvrirOnglet(tabId) {
+            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`panel-${tabId}`).classList.add('active');
+            
+            if (tabId === 'stock') chargerStock();
+            if (tabId === 'mouvements') chargerHistorique();
+            if (tabId === 'alertes') chargerAlertes();
+            if (tabId === 'depenses') chargerDepenses();
+        }
+
+        // ========== DASHBOARD ==========
+        async function chargerDashboard() {
+            try {
+                const stockResp = await fetch('/api/stock');
+                let stock = await stockResp.json();
+                stock = Array.isArray(stock) ? stock : (stock.produits || []); // CORRECTION MAJEURE
+
+                let alertes = [];
+                try {
+                    const alertesResp = await fetch('/api/stock/alertes');
+                    if (alertesResp.ok) alertes = await alertesResp.json();
+                } catch(e) {}
+                alertes = Array.isArray(alertes) ? alertes : []; // Protection
+
+                let valeurTotaleAchat = 0;
+                stock.forEach(p => { valeurTotaleAchat += (p.stock * p.prix * 0.6); });
+                const nbAlertes = alertes.filter(a => !a.resolu).length;
+
+                document.getElementById('totalProduits').innerText = stock.length;
+                document.getElementById('valeurStock').innerText = formatMoney(valeurTotaleAchat);
+                document.getElementById('totalAlertes').innerText = nbAlertes;
+
+                const badge = document.getElementById('badgeAlertes');
+                if(nbAlertes > 0) { badge.className = 'badge badge-critical'; badge.innerText = 'Action Requise'; }
+                else { badge.className = 'badge badge-normal'; badge.innerText = 'Stock Sain'; }
+            } catch (e) { console.error(e); }
+        }
+
+        // ========== 2. MODULE STOCK ==========
+        async function chargerStock() {
+            try {
+                const res = await fetch('/api/stock');
+                let data = await res.json();
+                // CORRECTION MAJEURE : On gère si le serveur renvoie {produits: [...]} au lieu de [...]
+                stockProduits = Array.isArray(data) ? data : (data.produits || []); 
+                appliquerFiltresEtTriStock();
+            } catch (e) { showNotification("Erreur de chargement du stock", "var(--danger)", "fa-times"); }
+        }
+
+        function appliquerFiltresEtTriStock() {
+            const cat = document.getElementById('categorieFilter').value;
+            const etat = document.getElementById('etatFilter').value;
+            const search = document.getElementById('searchFilter').value.toLowerCase();
+            
+            let filtered = stockProduits.filter(p => {
+                const matchCat = cat === 'all' || p.categorie === cat;
+                const matchSearch = p.nom.toLowerCase().includes(search);
+                let matchEtat = true;
+                if(etat === 'rupture') matchEtat = p.stock <= 0;
+                if(etat === 'alerte') matchEtat = p.stock > 0 && p.stock <= (p.seuilAlerte || 10);
+                if(etat === 'normal') matchEtat = p.stock > (p.seuilAlerte || 10);
+                return matchCat && matchSearch && matchEtat;
+            });
+
+            filtered.sort((a, b) => {
+                let valA, valB;
+                if(stockTri.colonne === 'nom') { valA = a.nom.toLowerCase(); valB = b.nom.toLowerCase(); }
+                if(stockTri.colonne === 'stock') { valA = a.stock; valB = b.stock; }
+                if(stockTri.colonne === 'prix') { valA = a.prix; valB = b.prix; }
+                if(stockTri.colonne === 'valeur') { valA = a.stock * a.prix * 0.6; valB = b.stock * b.prix * 0.6; }
+                if (valA < valB) return stockTri.asc ? -1 : 1;
+                if (valA > valB) return stockTri.asc ? 1 : -1;
+                return 0;
+            });
+            afficherStockDOM(filtered);
+        }
+
+        function trierStock(colonne) {
+            if(stockTri.colonne === colonne) stockTri.asc = !stockTri.asc;
+            else { stockTri.colonne = colonne; stockTri.asc = true; }
+            appliquerFiltresEtTriStock();
+        }
+
+        function afficherStockDOM(produits) {
+            const tbody = document.getElementById('stockTableBody');
+            if(!produits.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-box-open fa-2x" style="display:block; margin-bottom:10px;"></i>Aucun produit</td></tr>'; return; }
+            
+            tbody.innerHTML = produits.map(p => {
+                const valAchat = p.stock * p.prix * 0.6;
+                const seuil = p.seuilAlerte || 10;
+                let percent = (p.stock / (seuil * 4)) * 100;
+                if(percent > 100) percent = 100;
+                
+                let colorClass = '#27ae60'; let badgeClass = 'badge-normal';
+                if(p.stock <= 0) { colorClass = '#e74c3c'; badgeClass = 'badge-critical'; percent = 100; }
+                else if (p.stock <= seuil) { colorClass = '#f39c12'; badgeClass = 'badge-low'; }
+
+                return `
+                <tr>
+                    <td><strong>${escapeHtml(p.nom)}</strong></td>
+                    <td><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
+                    <td>
+                        <div class="stock-level-container">
+                            <span class="badge ${badgeClass}" style="min-width:45px; text-align:center;">${p.stock}</span>
+                            <div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${percent}%; background:${colorClass}"></div></div>
+                        </div>
+                    </td>
+                    <td><span style="color:var(--text-muted); font-size:0.8rem;">${p.unite || 'unité'}</span></td>
+                    <td>${formatMoney(p.prix)}</td>
+                    <td style="font-weight:700; color:var(--primary);">${formatMoney(valAchat)}</td>
+                    <td style="text-align:center; min-width: 140px;">
+                        <button class="btn-action btn-success" style="padding:0.4rem 0.6rem;" title="Réception Stock" onclick="ouvrirModalAjoutStock(${p.id}, '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
+                        <button class="btn-action" style="padding:0.4rem 0.6rem; background: #3498db;" title="Modifier le produit" onclick="ouvrirModalEdition(${p.id})"><i class="fas fa-pen"></i></button>
+                        <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem;" title="Supprimer" onclick="supprimerProduit(${p.id})"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function chargerCategories() {
+            try {
+                const res = await fetch('/api/stock');
+                let data = await res.json();
+                let prods = Array.isArray(data) ? data : (data.produits || []);
+                let cats = [...new Set(prods.map(p => p.categorie).filter(Boolean))];
+                
+                const sel = document.getElementById('categorieFilter');
+                sel.innerHTML = '<option value="all">Toutes</option>';
+                cats.forEach(c => sel.innerHTML += `<option value="${c}">${getCatName(c)}</option>`);
+            } catch(e){}
+        }
+
+        // --- NOUVEAUX BOUTONS CRUD ---
+        function ouvrirModalNouveauProduit() {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                <div class="form-group"><label>Nom du produit :</label><input type="text" id="newProdName" placeholder="Ex: Espresso"></div>
+                <div class="form-group"><label>Catégorie :</label><select id="newProdCat"><option value="cafe">☕ Café</option><option value="the">🫖 Thé & Infusion</option><option value="boissons">🍹 Boisson Fraîche</option><option value="dessert">🍰 Pâtisserie & Dessert</option><option value="sale">🥪 Salé</option></select></div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="newProdPrice" step="0.1" placeholder="2.5"></div>
+                    <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" step="1" placeholder="100"></div>
+                </div>
+                <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10" step="1"></div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()">Enregistrer</button></div></div></div>
+            `;
+        }
+
+        async function sauvegarderNouveauProduit() {
+            const produitData = {
+                nom: document.getElementById('newProdName').value,
+                categorie: document.getElementById('newProdCat').value,
+                prix: parseFloat(document.getElementById('newProdPrice').value),
+                stock: parseInt(document.getElementById('newProdStock').value),
+                seuilAlerte: parseInt(document.getElementById('newProdAlerte').value),
+                unite: "unité"
+            };
+
+            if(!produitData.nom || isNaN(produitData.prix) || isNaN(produitData.stock)) return showNotification("Saisie invalide", "var(--danger)");
+
+            try {
+                const response = await fetch('/api/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produitData) });
+                if (response.ok) { showNotification("✅ Produit ajouté !"); fermerModal(); chargerStock(); chargerDashboard(); chargerCategories(); }
+            } catch (error) { showNotification("❌ Erreur serveur", "var(--danger)"); }
+        }
+
+        function ouvrirModalEdition(id) {
+            const p = stockProduits.find(x => x.id === id);
+            if(!p) return;
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
+                <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
+                    <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option><option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option><option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option><option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option><option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
+                </select></div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
+                    <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
+                </div>
+                <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}" step="1"></div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div></div></div>
+            `;
+        }
+
+        async function sauvegarderEditionProduit(id) {
+            const produitData = {
+                nom: document.getElementById('editProdName').value,
+                categorie: document.getElementById('editProdCat').value,
+                prix: parseFloat(document.getElementById('editProdPrice').value),
+                stock: parseInt(document.getElementById('editProdStock').value),
+                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value)
+            };
+            try {
+                const response = await fetch(`/api/stock/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produitData) });
+                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); chargerDashboard(); }
+            } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
+        }
+
+        async function supprimerProduit(id) {
+            if (!confirm("⚠️ Voulez-vous vraiment supprimer ce produit ? Cette action est définitive.")) return;
+            try {
+                const response = await fetch(`/api/stock/${id}`, { method: 'DELETE' });
+                if (response.ok) { showNotification("🗑️ Produit supprimé."); chargerStock(); chargerDashboard(); chargerCategories(); }
+            } catch (error) { showNotification("❌ Erreur de suppression.", "var(--danger)"); }
+        }
+
+        // --- GESTION DE LA RÉCEPTION ---
+        function ouvrirModalAjoutStock(id, nom) {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-truck"></i> Réception - ${nom}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                <div class="form-group"><label>Quantité reçue :</label><input type="number" id="qteStock" min="1" step="1"></div>
+                <div class="form-group"><label>Numéro de lot / BL :</label><input type="text" id="raisonStock" placeholder="Ex: BL-2026"></div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerAjoutStock(${id})">Valider l'entrée</button></div></div></div>
+            `;
+        }
+
+        function ouvrirModalAjoutStockGlobal() {
+            const options = stockProduits.map(p => `<option value="${p.id}">${escapeHtml(p.nom)} (Stock: ${p.stock})</option>`).join('');
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-boxes"></i> Nouvelle Réception</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                <div class="form-group"><label>Sélectionner le produit :</label><select id="produitSelect">${options}</select></div>
+                <div class="form-group"><label>Quantité reçue :</label><input type="number" id="qteGlobal" min="1" step="1"></div>
+                <div class="form-group"><label>Numéro de lot / BL :</label><input type="text" id="raisonGlobal"></div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerAjoutStockGlobal()">Enregistrer</button></div></div></div>
+            `;
+        }
+
+        async function validerAjoutStock(id) { await callAddStockApi(id, parseInt(document.getElementById('qteStock').value), document.getElementById('raisonStock').value); }
+        async function validerAjoutStockGlobal() { await callAddStockApi(document.getElementById('produitSelect').value, parseInt(document.getElementById('qteGlobal').value), document.getElementById('raisonGlobal').value); }
+
+        async function callAddStockApi(id, qte, raison) {
+            if(!id || !qte || qte <= 0) return showNotification("Saisie invalide", "var(--danger)");
+            try {
+                // Tente d'utiliser l'API historique si elle existe, sinon met à jour le stock simplement
+                const res = await fetch(`/api/stock/${id}/add`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantite: qte, raison: raison||'Livraison' }) });
+                if(res.ok) { 
+                    showNotification(`Stock mis à jour (+${qte})`, "var(--success)"); 
+                    fermerModal(); chargerStock(); chargerDashboard(); chargerHistorique(); chargerAlertes(); 
+                } else {
+                    // Si la route /add n'existe pas, on modifie le produit directement
+                    const p = stockProduits.find(x => String(x.id) === String(id));
+                    if(p) {
+                        p.stock += qte;
+                        await fetch(`/api/stock/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+                        showNotification(`Stock mis à jour (+${qte})`, "var(--success)"); 
+                        fermerModal(); chargerStock(); chargerDashboard();
+                    }
+                }
+            } catch(e) { showNotification("Erreur réseau", "var(--danger)"); }
+        }
+
+        function exporterStockCSV() {
+            let csv = "Produit,Catégorie,Stock_Actuel,Seuil_Alerte,Unité,Prix_Vente,Valeur_Achat_Estimee\n";
+            stockProduits.forEach(p => csv += `"${p.nom}","${getCatName(p.categorie)}",${p.stock},${p.seuilAlerte || 10},"${p.unite || ''}",${p.prix},${(p.stock*p.prix*0.6).toFixed(2)}\n`);
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Stock_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(a.href);
+        }
+
+        // ========== 3. MODULE MOUVEMENTS ==========
+        async function chargerHistorique() {
+            const tbody = document.getElementById('historiqueBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
+            
+            const type = document.getElementById('mouvementType').value;
+            const debutStr = document.getElementById('dateDebut').value;
+            const finStr = document.getElementById('dateFin').value;
+            
+            try {
+                const res = await fetch(`/api/stock/historique?limit=500`);
+                let data = await res.json();
+                data = Array.isArray(data) ? data : []; // PROTECTION
+
+                if(type !== 'all') data = data.filter(m => m.type === type);
+                
+                if(debutStr || finStr) {
+                    const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
+                    const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
+                    
+                    data = data.filter(m => {
+                        const tsMouv = parseDateFR(m.date);
+                        return tsMouv >= tsDebut && tsMouv <= tsFin;
+                    });
+                }
+
+                if(!data || !data.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Aucun mouvement sur cette période</td></tr>'; return; }
+
+                tbody.innerHTML = data.map(m => {
+                    let icon, color, txt;
+                    if(m.type === 'vente') { icon = 'fa-shopping-cart'; color = 'var(--info)'; txt = 'Sortie'; }
+                    else if(m.type === 'ajout') { icon = 'fa-truck-loading'; color = 'var(--success)'; txt = 'Entrée'; }
+                    else { icon = 'fa-clipboard-check'; color = 'var(--warning)'; txt = 'Audit'; }
+
+                    const prefix = m.type === 'vente' ? '-' : (m.nouveauStock > m.ancienStock ? '+' : '');
+
+                    return `
+                    <tr>
+                        <td>
+                            <div style="font-weight:600;">${m.date.split(' ')[0]}</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">${m.date.split(' ')[1] || ''}</div>
+                        </td>
+                        <td><span class="badge" style="background:${color}22; color:${color};"><i class="fas ${icon}"></i> ${txt}</span></td>
+                        <td><strong>${escapeHtml(m.produit)}</strong></td>
+                        <td style="text-align:center; font-weight:800; color:${color};">${prefix}${m.quantite}</td>
+                        <td style="text-align:center; color:var(--text-muted);">${m.ancienStock !== undefined ? m.ancienStock : '-'}</td>
+                        <td style="text-align:center; font-weight:700;">${m.nouveauStock !== undefined ? m.nouveauStock : '-'}</td>
+                        <td><span style="font-size:0.85rem;">${escapeHtml(m.raison) || (m.commandeId ? 'Cmd #'+m.commandeId : '-')}</span></td>
+                    </tr>`;
+                }).join('');
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message error">Pas d\'historique disponible</td></tr>'; }
+        }
+
+        // ========== 4. MODULE ALERTES ==========
+        async function chargerAlertes() {
+            const tbody = document.getElementById('alertesContainerBody');
+            try {
+                const res = await fetch('/api/stock/alertes');
+                let alertes = await res.json(); 
+                alertes = Array.isArray(alertes) ? alertes : []; // PROTECTION
+
+                if(!alertes.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-message"><i class="fas fa-check-circle fa-2x" style="color:var(--success); display:block; margin-bottom:10px;"></i>Aucune alerte à traiter. Tout va bien !</td></tr>'; return; }
+
+                tbody.innerHTML = alertes.filter(a => !a.resolu).map(a => `
+                <tr style="background: #fff5f5">
+                    <td>
+                        <div style="font-weight:600;">${a.date.split(' ')[0]}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">${a.date.split(' ')[1] || ''}</div>
+                    </td>
+                    <td><strong style="color:var(--danger);">${escapeHtml(a.produit)}</strong></td>
+                    <td><span class="badge badge-critical" style="font-size:1rem;">${a.stockRestant}</span></td>
+                    <td><span style="color:var(--text-muted);">Seuil d'alerte: ${a.seuil}</span></td>
+                    <td style="text-align:right;">
+                        <button class="btn-action btn-success" style="padding:0.4rem;" onclick="ouvrirModalAjoutStock(${a.produitId},'${escapeHtml(a.produit)}')"><i class="fas fa-plus"></i></button>
+                        <button class="btn-action" style="padding:0.4rem; background:var(--text-muted);" onclick="resoudreAlerte(${a.id})" title="Ignorer l'alerte"><i class="fas fa-eye-slash"></i></button>
+                    </td>
+                </tr>`).join('');
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Système d\'alertes non configuré</td></tr>';}
+        }
+
+        async function resoudreAlerte(id) {
+            try {
+                await fetch(`/api/stock/alertes/${id}/resoudre`, { method: 'PUT' });
+                showNotification("Alerte masquée", "var(--success)");
+                chargerAlertes(); chargerDashboard();
+            } catch(e){}
+        }
+
+        // ========== 5. MODULE INVENTAIRE ==========
+        function demarrerInventaire() {
+            document.getElementById('inventaireForm').style.display = 'block';
+            const tbody = document.getElementById('inventaireTableBody');
+            
+            if(!stockProduits.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Aucun produit en base</td></tr>'; return; }
+
+            tbody.innerHTML = stockProduits.map(p => `
+                <tr data-id="${p.id}" data-theorique="${p.stock}" data-prixachat="${p.prix * 0.6}">
+                    <td><strong>${escapeHtml(p.nom)}</strong><div style="font-size:0.7rem; color:var(--text-muted);">${p.unite || 'unité'}</div></td>
+                    <td style="text-align:center; font-size:1.1rem; color:var(--text-muted); font-weight:600;">${p.stock}</td>
+                    <td style="text-align:center;"><input type="number" class="inv-physique" value="${p.stock}" oninput="calculerEcartInventaire()"></td>
+                    <td class="ecart-cell">0</td>
+                    <td class="impact-cell" style="text-align:right; font-weight:600; color:var(--text-muted);">0.00 DT</td>
+                    <td><input type="text" class="inv-raison" placeholder="Ex: Produit périmé, Oubli..."></td>
+                </tr>
+            `).join('');
+            calculerEcartInventaire();
+        }
+
+        function calculerEcartInventaire() {
+            let totalImpact = 0;
+            document.querySelectorAll('#inventaireTableBody tr').forEach(tr => {
+                if(!tr.dataset.id) return;
+                const theorique = parseInt(tr.dataset.theorique);
+                const physique = parseInt(tr.querySelector('.inv-physique').value) || 0;
+                const prixAchat = parseFloat(tr.dataset.prixachat);
+                
+                const ecart = physique - theorique;
+                const impact = ecart * prixAchat;
+                totalImpact += impact;
+
+                const ecartCell = tr.querySelector('.ecart-cell');
+                const impactCell = tr.querySelector('.impact-cell');
+
+                ecartCell.textContent = ecart > 0 ? `+${ecart}` : ecart;
+                if(ecart === 0) { ecartCell.style.color = 'var(--text-muted)'; impactCell.style.color = 'var(--text-muted)'; }
+                else if(ecart > 0) { ecartCell.style.color = 'var(--success)'; impactCell.style.color = 'var(--success)'; }
+                else { ecartCell.style.color = 'var(--danger)'; impactCell.style.color = 'var(--danger)'; }
+                
+                impactCell.textContent = formatMoney(impact);
+            });
+
+            const totalEl = document.getElementById('impactTotalInventaire');
+            totalEl.textContent = formatMoney(totalImpact);
+            totalEl.style.color = totalImpact === 0 ? 'var(--text-main)' : (totalImpact > 0 ? 'var(--success)' : 'var(--danger)');
+        }
+
+        function annulerInventaire() { document.getElementById('inventaireForm').style.display = 'none'; }
+
+        async function validerInventaire() {
+            const produits = [];
+            document.querySelectorAll('#inventaireTableBody tr').forEach(tr => {
+                if(!tr.dataset.id) return;
+                const id = parseInt(tr.dataset.id);
+                const physique = parseInt(tr.querySelector('.inv-physique').value) || 0;
+                const theorique = parseInt(tr.dataset.theorique);
+                const raison = tr.querySelector('.inv-raison').value;
+                
+                if(physique !== theorique) {
+                    produits.push({ id: id, stockPhysique: physique, raison: raison || 'Régularisation', corriger: true });
+                }
+            });
+
+            if(!produits.length) return showNotification("L'inventaire est parfait, aucun ajustement nécessaire.", "var(--info)");
+            if(!confirm(`Vous allez ajuster le stock de ${produits.length} produit(s). Continuer ?`)) return;
+            
+            try {
+                const res = await fetch('/api/stock/inventaire', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ produits }) });
+                if(res.ok) {
+                    showNotification(`Inventaire enregistré avec succès`, "var(--success)");
+                    annulerInventaire(); chargerStock(); chargerHistorique(); chargerDashboard();
+                } else {
+                    // Fallback si la route d'inventaire complexe n'existe pas : on met à jour les stocks 1 par 1
+                    for (let p of produits) {
+                        const target = stockProduits.find(x => String(x.id) === String(p.id));
+                        if(target) {
+                            target.stock = p.stockPhysique;
+                            await fetch(`/api/stock/${p.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(target) });
+                        }
+                    }
+                    showNotification(`Inventaire enregistré`, "var(--success)");
+                    annulerInventaire(); chargerStock(); chargerDashboard();
+                }
+            } catch(e) { showNotification("Erreur de sauvegarde", "var(--danger)"); }
+        }
+
+        async function voirHistoriqueInventaires() {
+            try {
+                const res = await fetch('/api/stock/inventaires');
+                let data = await res.json();
+                data = Array.isArray(data) ? data : [];
+                
+                if(!data || !data.length) return showNotification("Aucun audit précédent", "var(--info)");
+                
+                let html = data.map(inv => `
+                    <div style="border:1px solid var(--border-color); border-radius:12px; margin-bottom:1rem; padding:1rem;">
+                        <div style="font-weight:700; color:var(--primary); margin-bottom:0.5rem;"><i class="fas fa-calendar-check"></i> Audit du ${inv.date}</div>
+                        ${(!inv.ecarts || !inv.ecarts.length) ? '<div style="color:var(--success); font-size:0.85rem;">✅ Stock parfait, aucun écart.</div>' : 
+                        `<table style="width:100%; font-size:0.8rem; margin-top:0.5rem;">
+                            <tr style="color:var(--text-muted); border-bottom:1px solid var(--border-color);"><th>Produit</th><th>Écart</th><th>Motif</th></tr>
+                            ${inv.ecarts.map(e => `
+                                <tr>
+                                    <td><strong>${escapeHtml(e.produit)}</strong></td>
+                                    <td style="color:${e.ecart>0?'var(--success)':'var(--danger)'}; font-weight:bold;">${e.ecart>0?'+':''}${e.ecart}</td>
+                                    <td>${escapeHtml(e.raison)}</td>
+                                </tr>`).join('')}
+                        </table>`
+                        }
+                    </div>`).join('');
+
+                document.getElementById('modalContainer').innerHTML = `
+                    <div class="modal active"><div class="modal-content" style="max-width:600px;">
+                        <div class="modal-header"><h3>Historique des Audits</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                        <div style="max-height:60vh; overflow-y:auto; padding-right:5px;">${html}</div>
+                    </div></div>`;
+            } catch(e) { showNotification("Aucun audit trouvé", "var(--warning)"); }
+        }
+
+        // ========== 6. MODULE DÉPENSES ==========
+        async function chargerDepenses() {
+            const cat = document.getElementById('depenseCategorie').value;
+            const debutStr = document.getElementById('depenseDateDebut').value;
+            const finStr = document.getElementById('depenseDateFin').value;
+            
+            try {
+                const res = await fetch('/api/depenses');
+                let data = await res.json();
+                data = Array.isArray(data) ? data : []; // PROTECTION
+                
+                if(cat !== 'all') data = data.filter(d => d.categorie === cat);
+
+                if (debutStr || finStr) {
+                    const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
+                    const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
+                    data = data.filter(d => {
+                        const tsDep = parseDateFR(d.date);
+                        return tsDep >= tsDebut && tsDep <= tsFin;
+                    });
+                }
+
+                const tbody = document.getElementById('depensesTableBody');
+                if(!data || !data.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucune dépense sur cette période</td></tr>'; return; }
+                
+                const catLabels = { eau: '💧 Eau', electricite: '⚡ Électricité', gaz: '🔥 Gaz', internet: '🌐 Internet', loyer: '🏠 Loyer', entretien: '🔧 Entretien', fournitures: '📦 Fournitures', 'salaires': '💸 Salaires', 'serveur 1': '💁 Serveur 1', 'serveur 2': '💁 Serveur 2', 'serveur 3': '💁 Serveur 3', autres: '📝 Autres' };
+
+                tbody.innerHTML = data.map(d => `
+                    <tr>
+                        <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.75rem; color:var(--text-muted);">${d.date.split(' ')[1]||''}</div></td>
+                        <td><span class="badge badge-neutral">${catLabels[d.categorie.toLowerCase()] || d.categorie}</span></td>
+                        <td><strong>${escapeHtml(d.description)}</strong></td>
+                        <td><span style="color:var(--text-muted);"><i class="fas fa-${d.mode==='especes'?'money-bill':(d.mode==='virement'?'university':'money-check')}"></i> ${d.mode}</span></td>
+                        <td style="text-align:right; font-weight:800; color:var(--danger);">${formatMoney(d.montant)}</td>
+                    </tr>`).join('');
+            } catch(e){
+                document.getElementById('depensesTableBody').innerHTML = '<tr><td colspan="5" class="empty-message">Module de dépenses non configuré sur le serveur</td></tr>';
+            }
+        }
+
+        function ouvrirModalDepense() {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-file-invoice-dollar"></i> Nouvelle dépense</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                <div class="form-group"><label>Poste de dépense :</label><select id="newDepCat">
+                    <option value="eau">Eau</option><option value="electricite">Électricité</option><option value="gaz">Gaz</option>
+                    <option value="internet">Internet</option><option value="loyer">Loyer</option><option value="entretien">Entretien</option>
+                    <option value="fournitures">Fournitures</option><option value="salaires">Salaires</option><option value="serveur 1">Serveur 1</option><option value="serveur 2">Serveur 2</option><option value="serveur 3">Serveur 3</option><option value="autres" selected>Autres</option>
+                </select></div>
+                <div class="form-group"><label>Motif exact :</label><input type="text" id="newDepDesc" placeholder="Ex: Facture STEG"></div>
+                <div style="display:flex; gap:1rem;">
+                    <div class="form-group" style="flex:1;"><label>Montant (DT) :</label><input type="number" id="newDepMontant" step="0.1" placeholder="0.00"></div>
+                    <div class="form-group" style="flex:1;"><label>Moyen :</label><select id="newDepMode"><option value="especes">Espèces</option><option value="virement">Virement</option><option value="cheque">Chèque</option></select></div>
+                </div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerDepense()">Enregistrer</button></div></div></div>
+            `;
+        }
+
+        async function validerDepense() {
+            const cat = document.getElementById('newDepCat').value;
+            const desc = document.getElementById('newDepDesc').value;
+            const montant = parseFloat(document.getElementById('newDepMontant').value);
+            const mode = document.getElementById('newDepMode').value;
+
+            if(!desc || isNaN(montant) || montant <= 0) return showNotification("Veuillez remplir tous les champs", "var(--danger)");
+            
+            try {
+                const res = await fetch('/api/depenses', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({categorie: cat, description: desc, montant: montant, mode: mode}) });
+                if(res.ok) { showNotification("Dépense enregistrée", "var(--success)"); fermerModal(); chargerDepenses(); }
+            } catch(e){ showNotification("Erreur de sauvegarde", "var(--danger)"); }
+        }
+
+        // ========== INIT DOM ==========
+        document.addEventListener("DOMContentLoaded", () => {
+            chargerDashboard(); chargerStock(); chargerCategories(); chargerHistorique(); chargerAlertes(); chargerDepenses();
+            
+            // Events Stock
+            document.getElementById('categorieFilter').addEventListener('change', appliquerFiltresEtTriStock);
+            document.getElementById('etatFilter').addEventListener('change', appliquerFiltresEtTriStock);
+            document.getElementById('searchFilter').addEventListener('input', appliquerFiltresEtTriStock);
+        });
+    </script>
+</body>
+</html>

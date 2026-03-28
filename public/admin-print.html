@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Codes Tables | TA'BIA</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ========== VARIABLES & RESET ========== */
+        :root {
+            --primary: #143621;
+            --primary-light: #1e4d30;
+            --accent: #e3c496;
+            --accent-dark: #c5a370;
+            --bg-body: #f4f7f6;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg-body); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* ========== HEADER ========== */
+        header { background: var(--primary); padding: 1.2rem 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .header-container { max-width: 1000px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 15px; }
+        .logo-img { height: 60px; width: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .logo h1 { font-size: 1.5rem; font-weight: 800; color: #fdfbf7; display: flex; flex-direction: column; line-height: 1.1; margin: 0; }
+        .logo .logo-subtext { font-size: 0.8rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; }
+
+        /* ========== MAIN CONTAINER ========== */
+        .main-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 2rem; }
+        .card { background: white; border-radius: 24px; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.08); max-width: 500px; width: 100%; text-align: center; border: 1px solid #e2e8f0; }
+        
+        .card-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--primary); }
+        .card-subtitle { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 2rem; }
+
+        /* ========== FORM & BUTTONS ========== */
+        .form-group { margin-bottom: 1.5rem; text-align: left; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; color: var(--text-main); }
+        .select-wrapper { position: relative; }
+        select { width: 100%; padding: 1rem; font-size: 1.1rem; border: 2px solid #e2e8f0; border-radius: 12px; background: #f8fafc; color: var(--text-main); outline: none; cursor: pointer; transition: all 0.2s; appearance: none; font-weight: bold; }
+        select:focus { border-color: var(--primary); background: white; }
+        .select-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+
+        .btn { width: 100%; padding: 1rem; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        .btn-primary { background: var(--primary); color: white; margin-bottom: 1.5rem; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-light); }
+        
+        /* ========== RESULT AREA ========== */
+        .result-area { background: #f8fafc; border-radius: 16px; padding: 2rem 1.5rem; margin-top: 1rem; border: 2px dashed #cbd5e1; display: none; animation: fadeIn 0.3s ease; }
+        .result-area.visible { display: block; }
+        
+        .code-display-title { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 10px; }
+        .code-display-value { font-size: 3.5rem; font-weight: 900; letter-spacing: 8px; color: #db800a; margin-bottom: 1.5rem; background: white; border-radius: 12px; padding: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+        
+        .action-row { display: flex; gap: 10px; }
+        .btn-print { background: #27ae60; color: white; flex: 2; }
+        .btn-print:hover { background: #219a52; }
+        .btn-refresh { background: #e2e8f0; color: var(--text-main); flex: 1; }
+        .btn-refresh:hover { background: #cbd5e1; }
+
+        /* ========== NOTIFICATIONS ========== */
+        .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 1rem 2rem; border-radius: 30px; font-weight: 600; z-index: 3000; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s; opacity: 0; pointer-events: none;}
+        .notification.show { transform: translate(-50%, 20px); opacity: 1; }
+        .notification.error { background: #e74c3c; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ========== PRINT FORMAT (TICKET 80mm) ========== */
+        #printArea { display: none; }
+        @media print {
+            @page { size: 80mm auto; margin: 0; }
+            body * { visibility: hidden; }
+            #printArea, #printArea * { visibility: visible; }
+            #printArea { 
+                display: block; position: absolute; top: 0; left: 0; width: 100%; 
+                padding: 5mm; text-align: center; color: black; font-family: 'Arial', sans-serif;
+            }
+            .print-header { border-bottom: 2px dashed black; padding-bottom: 10px; margin-bottom: 15px; }
+            .print-logo { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
+            .print-table { font-size: 18px; font-weight: bold; padding: 5px; border: 1px solid black; display: inline-block; border-radius: 5px; margin-bottom: 15px;}
+            
+            /* ZONE DU QR CODE (MODIFIÉE) */
+            .print-qr-container { 
+                width: 140px; 
+                height: 140px; 
+                margin: 15px auto; 
+                display: block;
+            }
+            .print-qr-img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain; /* Assure que le QR n'est pas déformé */
+            }
+
+            .print-instruction { font-size: 13px; margin-bottom: 5px; font-weight: bold; }
+            .print-code { font-size: 32px; font-weight: 900; letter-spacing: 5px; margin: 5px 0 10px 0; padding: 10px; border: 2px solid black; display: inline-block;}
+            
+            .print-footer { font-size: 10px; margin-top: 20px; border-top: 1px dashed black; padding-top: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img" onerror="this.src='https://via.placeholder.com/60/143621/e3c496?text=TB'">
+                <h1>TA'BIA <span class="logo-subtext">Admin Codes</span></h1>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="card">
+            <div class="card-title"><i class="fas fa-qrcode"></i> Codes Secrets</div>
+            <div class="card-subtitle">Générez et imprimez les accès pour les tables</div>
+
+            <div class="form-group">
+                <label>Sélectionnez une table :</label>
+                <div class="select-wrapper">
+                    <select id="numberSelect">
+                        <option value="">-- Choisir une table --</option>
+                    </select>
+                    <i class="fas fa-chevron-down select-icon"></i>
+                </div>
+            </div>
+
+            <button id="fetchBtn" class="btn btn-primary" disabled>
+                <i class="fas fa-search"></i> Afficher le code actuel
+            </button>
+
+            <div id="resultArea" class="result-area">
+                <div class="code-display-title">Code pour la Table <span id="displayTableNum"></span></div>
+                <div class="code-display-value" id="ticketCodeValue">---</div>
+                
+                <div class="action-row">
+                    <button id="printTicketBtn" class="btn btn-print">
+                        <i class="fas fa-print"></i> Imprimer
+                    </button>
+                    <button id="refreshBtn" class="btn btn-refresh" title="Générer un nouveau code">
+                        <i class="fas fa-sync-alt"></i> Nouveau
+                    </button>
+                </div>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 15px;">
+                    Dernière maj : <span id="lastUpdatedValue">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastNotif" class="notification"></div>
+
+    <div id="printArea">
+        <div class="print-header">
+            <div class="print-logo">TA'BIA COFFEE SHOP</div>
+            <div style="font-size: 11px;">Commande à table sécurisée</div>
+        </div>
+        <div class="print-table">TABLE <span id="printTableNum"></span></div>
+        
+        <div class="print-qr-container">
+            <img src="QR.png" alt="Menu QR Code" class="print-qr-img">
+        </div>
+
+        <div class="print-instruction">1. Scannez le QR ci-dessus</div>
+        <div class="print-instruction">2. Entrez ce code secret :</div>
+        <div class="print-code" id="printCodeVal">-----</div>
+        
+        <div style="font-size: 11px; margin-bottom:10px;">Conservez ce ticket pour payer à la caisse.</div>
+        <div class="print-footer">Merci de votre visite !<br>Date: <span id="printDateNow"></span></div>
+    </div>
+
+    <script>
+        let currentData = { numero: null, id: null, lastUpdated: null };
+
+        function showNotif(message, isError = false) {
+            const toast = document.getElementById('toastNotif');
+            toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
+            toast.className = `notification ${isError ? 'error' : ''} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function populateSelect() {
+            const select = document.getElementById('numberSelect');
+            for (let i = 1; i <= 20; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `Table N° ${i}`;
+                select.appendChild(option);
+            }
+        }
+
+        function updateUI() {
+            const resultArea = document.getElementById('resultArea');
+            if (currentData.id) {
+                document.getElementById('displayTableNum').textContent = currentData.numero;
+                document.getElementById('ticketCodeValue').textContent = currentData.id;
+                const date = new Date(currentData.lastUpdated);
+                document.getElementById('lastUpdatedValue').textContent = date.toLocaleString('fr-FR');
+                resultArea.classList.add('visible');
+            } else {
+                resultArea.classList.remove('visible');
+            }
+        }
+
+        async function handleFetchId() {
+            const select = document.getElementById('numberSelect');
+            const numero = select.value;
+            if (!numero) return;
+
+            const btn = document.getElementById('fetchBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recherche...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/numbers');
+                if (!response.ok) throw new Error('Erreur de récupération');
+                const numbers = await response.json();
+                
+                const found = numbers.find(n => parseInt(n.numero) === parseInt(numero));
+                if (found) {
+                    currentData = found;
+                    updateUI();
+                    showNotif('Code récupéré avec succès');
+                } else {
+                    throw new Error('Table introuvable');
+                }
+            } catch (error) {
+                showNotif(error.message, true);
+            } finally {
+                btn.innerHTML = '<i class="fas fa-search"></i> Afficher le code actuel';
+                btn.disabled = false;
+            }
+        }
+
+        async function handleRefreshId() {
+            const numero = currentData.numero;
+            if (!numero || !confirm(`Générer un NOUVEAU code pour la Table ${numero} ? L'ancien ne marchera plus.`)) return;
+
+            const btn = document.getElementById('refreshBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`/api/numbers/refresh/${numero}`, { method: 'POST' });
+                if (!response.ok) throw new Error('Erreur lors du rafraîchissement');
+                
+                const data = await response.json();
+                currentData = data;
+                updateUI();
+                showNotif('Nouveau code généré !');
+            } catch (error) {
+                showNotif(error.message, true);
+            } finally {
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Nouveau';
+                btn.disabled = false;
+            }
+        }
+
+        function imprimerTicket() {
+            if (!currentData.id) return showNotif('Aucun code à imprimer', true);
+
+            document.getElementById('printTableNum').textContent = currentData.numero;
+            document.getElementById('printCodeVal').textContent = currentData.id;
+            document.getElementById('printDateNow').textContent = new Date().toLocaleDateString('fr-FR') + ' ' + new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
+
+            window.print();
+        }
+
+        function setupListeners() {
+            const select = document.getElementById('numberSelect');
+            const fetchBtn = document.getElementById('fetchBtn');
+            
+            select.addEventListener('change', () => {
+                fetchBtn.disabled = !select.value;
+                document.getElementById('resultArea').classList.remove('visible');
+                currentData = { numero: null, id: null, lastUpdated: null };
+            });
+            
+            document.getElementById('fetchBtn').addEventListener('click', handleFetchId);
+            document.getElementById('printTicketBtn').addEventListener('click', imprimerTicket);
+            document.getElementById('refreshBtn').addEventListener('click', handleRefreshId);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateSelect();
+            setupListeners();
+        });
+    </script>
+</body>
+</html>
