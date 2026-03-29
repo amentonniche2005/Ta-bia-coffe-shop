@@ -205,57 +205,20 @@ app.post('/api/caisse/verify', (req, res) => res.json({ success: req.body.passwo
 
 // ========== 5. INITIALISATION DU MENU (SEED) ==========
 
-// ========== INITIALISATION & AUTOMATISATION ==========
-
-async function initialiserEtRefreshTables() {
-    console.log("🔄 Vérification et rafraîchissement des codes de tables...");
-    try {
-        for (let i = 1; i <= 20; i++) {
-            // On génère un code aléatoire à 5 chiffres
-            const newCode = Math.floor(Math.random() * 90000 + 10000).toString();
-            
-            // 'upsert: true' crée la table si elle n'existe pas encore
-            await TableCode.findOneAndUpdate(
-                { numero: i },
-                { code: newCode, lastUpdated: Date.now() },
-                { upsert: true, new: true }
-            );
-        }
-        io.emit('tables_refresh'); // On prévient les écrans en temps réel
-        console.log("✅ Les 20 tables sont prêtes dans MongoDB !");
-    } catch (err) {
-        console.error("❌ Erreur tables:", err);
-    }
-}
-
-// Lancer la rotation automatique TOUTES LES HEURES (3600000 ms)
-setInterval(initialiserEtRefreshTables, 3600000);
-
-// Fonction globale pour remplir la DB au lancement
 async function seedDatabase() {
-    // 1. Remplir les produits (si vide)
-    const countProd = await Product.countDocuments();
-    if (countProd === 0) {
+    const count = await Product.countDocuments();
+    if (count === 0) {
         const monMenu = [
-            { id: 1, nom: "Espresso", stock: 200, prix: 2.5, categorie: "cafe", image: "" },
-            { id: 6, nom: "Thé Pignons", stock: 80, prix: 6.5, categorie: "the", image: "" }
-            // ... ajoute tes autres produits ici
+            { id: 1, nom: "Espresso", stock: 200, seuilAlerte: 20, prix: 2.5, unite: "tasse", categorie: "cafe" },
+            { id: 2, nom: "Capucin", stock: 200, seuilAlerte: 20, prix: 3.0, unite: "tasse", categorie: "cafe" },
+            { id: 6, nom: "Thé aux Pignons", stock: 80, seuilAlerte: 10, prix: 6.5, unite: "verre", categorie: "the" },
+            { id: 14, nom: "Cheesecake Speculoos", stock: 15, seuilAlerte: 3, prix: 8.5, unite: "part", categorie: "dessert" },
+            { id: 20, nom: "Panini Poulet Fromage", stock: 30, seuilAlerte: 5, prix: 8.0, unite: "pièce", categorie: "sale" }
         ];
         await Product.insertMany(monMenu);
-        console.log("✅ Produits importés !");
+        console.log("✅ Menu initial injecté dans MongoDB !");
     }
-
-    // 2. Générer les codes de tables immédiatement
-    await initialiserEtRefreshTables();
 }
-
-// ========== DÉMARRAGE ==========
-mongoose.connection.once('open', () => {
-    server.listen(PORT, () => {
-        console.log(`🚀 TA'BIA Online sur le port ${PORT}`);
-        seedDatabase(); // On lance le remplissage ici
-    });
-});
 
 // ========== 6. DÉMARRAGE DU SERVEUR ==========
 
