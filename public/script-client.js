@@ -1,3 +1,21 @@
+const socket = io(); // On se connecte au "Live"
+
+// 1. Si le stock change
+socket.on('update_stock', () => {
+    console.log("🔄 Le stock a bougé, je recharge la liste...");
+    chargerStock(); // Remplace par le nom de TA fonction qui affiche le stock
+});
+
+// 2. Si une nouvelle commande arrive (pour le Comptoir)
+socket.on('nouvelle_commande', (data) => {
+    console.log("🔔 Nouveau ticket !");
+    chargerCommandes(); // Remplace par ta fonction qui affiche les tickets
+});
+
+// 3. Si un statut change (ex: La cuisine a fini)
+socket.on('mise_a_jour_commande', () => {
+    chargerCommandes(); 
+});
 // ========== VARIABLES GLOBALES ==========
 let panier = [];
 let produits = []; 

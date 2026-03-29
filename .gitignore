@@ -1,3 +1,5 @@
 node_modules/
 .env
-*.json
+database.json
+stock.json
+depenses.json
