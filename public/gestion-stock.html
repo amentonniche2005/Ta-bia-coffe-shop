@@ -509,74 +509,83 @@
         }
 
         // --- NOUVEAUX BOUTONS CRUD ---
-        function ouvrirModalNouveauProduit() {
-            document.getElementById('modalContainer').innerHTML = `
-                <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+function ouvrirModalNouveauProduit() {
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active">
+            <div class="modal-content">
+                <div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
                 <div class="form-group"><label>Nom du produit :</label><input type="text" id="newProdName" placeholder="Ex: Espresso"></div>
-                <div class="form-group"><label>Catégorie :</label><select id="newProdCat"><option value="cafe">☕ Café</option><option value="the">🫖 Thé & Infusion</option><option value="boissons">🍹 Boisson Fraîche</option><option value="dessert">🍰 Pâtisserie & Dessert</option><option value="sale">🥪 Salé</option></select></div>
+                <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="newProdImage" placeholder="Collez le lien .jpg ici"></div>
+                <div class="form-group"><label>Catégorie :</label><select id="newProdCat"><option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option></select></div>
                 <div style="display:flex; gap:10px;">
                     <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="newProdPrice" step="0.1" placeholder="2.5"></div>
                     <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" step="1" placeholder="100"></div>
                 </div>
                 <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10" step="1"></div>
-                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()">Enregistrer</button></div></div></div>
-            <div class="form-group">
-    <label>Lien de la photo (URL) :</label>
-    <input type="text" id="editImage" placeholder="Collez le lien .jpg ou .png ici">
-</div>`
-            ;
-        }
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()">Enregistrer</button></div>
+            </div>
+        </div>`;
+}
 
-        async function sauvegarderNouveauProduit() {
-            const produitData = {
-                nom: document.getElementById('newProdName').value,
-                categorie: document.getElementById('newProdCat').value,
-                prix: parseFloat(document.getElementById('newProdPrice').value),
-                stock: parseInt(document.getElementById('newProdStock').value),
-                seuilAlerte: parseInt(document.getElementById('newProdAlerte').value),
-                unite: "unité"
-            };
+async function sauvegarderNouveauProduit() {
+    const produitData = {
+        nom: document.getElementById('newProdName').value,
+        image: document.getElementById('newProdImage').value, // 📢 Ajouté ici
+        categorie: document.getElementById('newProdCat').value,
+        prix: parseFloat(document.getElementById('newProdPrice').value),
+        stock: parseInt(document.getElementById('newProdStock').value),
+        seuilAlerte: parseInt(document.getElementById('newProdAlerte').value),
+        unite: "unité"
+    };
 
-            if(!produitData.nom || isNaN(produitData.prix) || isNaN(produitData.stock)) return showNotification("Saisie invalide", "var(--danger)");
+    if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Saisie invalide", "var(--danger)");
 
-            try {
-                const response = await fetch('/api/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produitData) });
-                if (response.ok) { showNotification("✅ Produit ajouté !"); fermerModal(); chargerStock(); chargerDashboard(); chargerCategories(); }
-            } catch (error) { showNotification("❌ Erreur serveur", "var(--danger)"); }
-        }
+    try {
+        const response = await fetch('/api/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produitData) });
+        if (response.ok) { showNotification("✅ Produit ajouté !"); fermerModal(); chargerStock(); }
+    } catch (error) { showNotification("❌ Erreur serveur", "var(--danger)"); }
+}
 
-        function ouvrirModalEdition(id) {
-            const p = stockProduits.find(x => x.id === id);
-            if(!p) return;
-            document.getElementById('modalContainer').innerHTML = `
-                <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+function ouvrirModalEdition(id) {
+    const p = stockProduits.find(x => x.id === id);
+    if(!p) return;
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active">
+            <div class="modal-content">
+                <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
                 <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
+                <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="Collez le lien .jpg ici"></div>
                 <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
-                    <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option><option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option><option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option><option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option><option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
+                    <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
+                    <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
+                    <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
+                    <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
+                    <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
                 </select></div>
                 <div style="display:flex; gap:10px;">
                     <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
                     <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
                 </div>
                 <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}" step="1"></div>
-                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div></div></div>
-            `;
-        }
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
+            </div>
+        </div>`;
+}
 
-        async function sauvegarderEditionProduit(id) {
-            const produitData = {
-                nom: document.getElementById('editProdName').value,
-                categorie: document.getElementById('editProdCat').value,
-                prix: parseFloat(document.getElementById('editProdPrice').value),
-                stock: parseInt(document.getElementById('editProdStock').value),
-                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
-                image: document.getElementById('editImage').value,
-            };
-            try {
-                const response = await fetch(`/api/stock/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produitData) });
-                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); chargerDashboard(); }
-            } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
-        }
+async function sauvegarderEditionProduit(id) {
+    const produitData = {
+        nom: document.getElementById('editProdName').value,
+        image: document.getElementById('editProdImage').value, // 📢 Ajouté ici
+        categorie: document.getElementById('editProdCat').value,
+        prix: parseFloat(document.getElementById('editProdPrice').value),
+        stock: parseInt(document.getElementById('editProdStock').value),
+        seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
+    };
+    try {
+        const response = await fetch(`/api/stock/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produitData) });
+        if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); }
+    } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
+}
 
         async function supprimerProduit(id) {
             if (!confirm("⚠️ Voulez-vous vraiment supprimer ce produit ? Cette action est définitive.")) return;
