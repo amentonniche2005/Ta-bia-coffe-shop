@@ -520,7 +520,11 @@
                 </div>
                 <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10" step="1"></div>
                 <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()">Enregistrer</button></div></div></div>
-            `;
+            <div class="form-group">
+    <label>Lien de la photo (URL) :</label>
+    <input type="text" id="editImage" placeholder="Collez le lien .jpg ou .png ici">
+</div>`
+            ;
         }
 
         async function sauvegarderNouveauProduit() {
@@ -565,7 +569,8 @@
                 categorie: document.getElementById('editProdCat').value,
                 prix: parseFloat(document.getElementById('editProdPrice').value),
                 stock: parseInt(document.getElementById('editProdStock').value),
-                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value)
+                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
+                image: document.getElementById('editImage').value,
             };
             try {
                 const response = await fetch(`/api/stock/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produitData) });

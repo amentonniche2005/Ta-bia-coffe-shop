@@ -24,8 +24,14 @@ mongoose.connect(mongoURI)
 
 // Produits du Stock
 const Product = mongoose.model('Product', new mongoose.Schema({
-    id: Number, nom: String, prix: Number, stock: Number, categorie: String, 
-    seuilAlerte: { type: Number, default: 10 }, unite: String, fournisseur: String
+    id: Number, 
+    nom: String, 
+    prix: Number, 
+    stock: Number, 
+    categorie: String, 
+    image: { type: String, default: 'https://via.placeholder.com/150' }, // 👈 On ajoute cette ligne
+    seuilAlerte: { type: Number, default: 10 }, 
+    unite: String
 }));
 
 // Historique des mouvements (Entrées/Sorties/Ventes)
