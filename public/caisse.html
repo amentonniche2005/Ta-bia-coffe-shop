@@ -534,9 +534,12 @@ async function chargerCatalogue() {
     }
 
     // 📢 NOUVELLE FONCTION : Nettoie la cuisine quand on encaisse
+// 📢 NOUVELLE FONCTION : Nettoie la cuisine quand on encaisse
     async function nettoyerCommandesCuisine(tableNum) {
         try {
-            await fetch(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
+            // 🔥 CORRECTION : On utilise fetchSecurise pour avoir le droit d'effacer
+            await fetchSecurise(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
+            
             // Si le modal des détails de table est ouvert, on le rafraîchit pour le vider
             if (String(derniereTableModal) === String(tableNum)) {
                 afficherCommandesTable(tableNum);
@@ -1015,11 +1018,14 @@ async function decrementerStock(articles) {
     function toggleStats() { const el = document.getElementById('statsProduitsContent'); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
 
     // ========== SYNCHRO CUISINE ==========
-    async function chargerCommandesCuisineInitiales() {
+async function chargerCommandesCuisineInitiales() {
         try {
-            const response = await fetch('/api/commandes');
+            // 🔥 CORRECTION : On utilise fetchSecurise pour avoir le droit de lire
+            const response = await fetchSecurise('/api/commandes');
             commandesRecues = await response.json();
-        } catch(e) { console.error("Erreur historique cuisine:", e); }
+        } catch(e) { 
+            console.error("Erreur historique cuisine:", e); 
+        }
     }
 
     async function afficherCommandesTable(tableNum) {
