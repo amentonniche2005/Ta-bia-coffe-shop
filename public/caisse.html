@@ -17,51 +17,19 @@
         .logo-img { height: 70px; width: 70px; border-radius: 50%; object-fit: cover; border: 2px solid #e3c496; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
         .logo h1 { font-size: 1.6rem; font-weight: 800; color: #fdfbf7; display: flex; flex-direction: column; line-height: 1.1; margin: 0; }
         .logo .logo-subtext { font-size: 0.85rem; font-weight: 600; color: #e3c496; text-transform: uppercase; letter-spacing: 2px; }
-        .nav-right { display: flex; gap: 1rem; align-items: center; }        
         
+        .nav-right { display: flex; gap: 1rem; align-items: center; }        
         .caisse-badge { background: #27ae60; color: white; padding: 6px 14px; border-radius: 30px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; }
-/* ========== BOUTONS DE NAVIGATION (STOCK & VERROUILLER) ========== */
-.btn-nav {
-    padding: 8px 18px;
-    border-radius: 30px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    border: none;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
-}
+        
+        /* ========== BOUTONS DE NAVIGATION ========== */
+        .btn-nav { padding: 8px 18px; border-radius: 30px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.3s ease; text-decoration: none; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+        .btn-nav:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.25); }
+        .btn-nav:active { transform: translateY(0); }
+        .btn-stock { background: #34495e; color: white; }
+        .btn-stock:hover { background: #2c3e50; }
+        .btn-lock { background: #e74c3c; color: white; }
+        .btn-lock:hover { background: #c0392b; }
 
-.btn-nav:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.25);
-}
-
-.btn-nav:active {
-    transform: translateY(0);
-}
-
-/* Couleurs spécifiques pour le Stock */
-.btn-stock {
-    background: #34495e; /* Bleu-gris très élégant */
-    color: white;
-}
-.btn-stock:hover {
-    background: #2c3e50;
-}
-
-/* Couleurs spécifiques pour le Verrouillage */
-.btn-lock {
-    background: #e74c3c; /* Rouge pour attirer l'attention */
-    color: white;
-}
-.btn-lock:hover {
-    background: #c0392b;
-}
         /* ========== LAYOUT PRINCIPAL ========== */
         .dashboard { max-width: 1600px; margin: 1.5rem auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 450px; gap: 1.5rem; }
 
@@ -207,16 +175,6 @@
         /* Responsive */
         @media (max-width: 1000px) { .dashboard { grid-template-columns: 1fr; } .tables-grid { grid-template-columns: repeat(5, 1fr); } }
         @media (max-width: 600px) { .tables-grid { grid-template-columns: repeat(3, 1fr); } }
-        
-        .btn-lock {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
     </style>
 </head>
 <body>
@@ -227,18 +185,17 @@
             <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img">
             <h1>TA'BIA <span class="logo-subtext">Caisse</span></h1>
         </div>
-<div class="nav-right">
-    <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
-<button id="btn-aller-stock" class="btn-nav btn-stock"><i class="fas fa-boxes"></i> Stock</button>  
-  <button id="btn-verrouiller" class="btn-nav btn-lock"><i class="fas fa-lock"></i> Verrouiller</button>    
-</div>
+        <div class="nav-right">
+            <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
+            <button id="btn-aller-stock" class="btn-nav btn-stock"><i class="fas fa-boxes"></i> Stock</button>  
+            <button id="btn-verrouiller" class="btn-nav btn-lock"><i class="fas fa-lock"></i> Verrouiller</button>    
+        </div>
     </div>
 </header>
 
 <div class="dashboard">
     <div class="menu-container">
-        <div class="categories" id="categoriesContainer">
-            </div>
+        <div class="categories" id="categoriesContainer"></div>
         <div class="products-grid" id="productsGrid"></div>
     </div>
 
@@ -378,15 +335,12 @@
     const monToken = localStorage.getItem('tabia_caisse_token');
 
     if (!monToken) {
-        // Si pas de token, on le jette dehors vers la page de connexion
         window.location.href = '/caisse-login.html'; 
     }
 
-    // Pour toutes nos futures requêtes vers le serveur (pour modifier le stock, etc.), 
-    // on va attacher ce Token automatiquement.
     async function fetchSecurise(url, options = {}) {
         if (!options.headers) options.headers = {};
-        options.headers['authorization'] = monToken; // On montre le badge !
+        options.headers['authorization'] = monToken; 
         options.headers['Content-Type'] = 'application/json';
         
         const reponse = await fetch(url, options);
@@ -402,6 +356,7 @@
     let tickets = {};
     let currentTable = null;
     let activeCategory = "all";
+    let produits = [];
     
     // Données sauvegardées
     let salesHistory = [];
@@ -471,28 +426,31 @@
     }
 
     // ========== GESTION TICKET CAISSE ==========
-async function chargerCatalogue() {
+    async function chargerCatalogue() {
         try {
-            // 🔥 CORRECTION : On utilise fetchSecurise au lieu de fetch
             const res = await fetchSecurise('/api/stock');
             produits = await res.json();
             renderCategories();
             renderProducts();
         } catch(e) {
-            showNotification("❌ Erreur de chargement du menu depuis le serveur", "#e74c3c");
+            showNotification("❌ Erreur de chargement du menu", "#e74c3c");
         }
     }
 
-    // ========== GESTION TICKET CAISSE (CORRIGÉ) ==========
+    // 🔥 NOUVELLE FONCTION ULTRA ROBUSTE : Ajouter au ticket
     function ajouterAuTicket(tableNum, produit, updateUI = true) {
+        // GARANTIE : On crée la table si elle n'existe pas par hasard
+        if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0 };
         const ticket = tickets[tableNum];
-        if (!ticket) return;
 
-        // 🔥 SÉCURITÉ : On s'assure que le prix et la quantité sont de vrais nombres
         const prixSecurise = parseFloat(produit.prix) || 0;
         const qteSecurise = parseInt(produit.quantite) || 1;
 
-        const existing = ticket.articles.find(a => String(a.id) === String(produit.id) && (a.variante || null) === (produit.variante || null));
+        // GARANTIE : Comparaison sécurisée même si l'ID est manquant
+        const existing = ticket.articles.find(a => 
+            (String(a.id) === String(produit.id) || a.nom === produit.nom) && 
+            (a.variante || null) === (produit.variante || null)
+        );
         
         if (existing) {
             existing.quantite += qteSecurise;
@@ -500,7 +458,6 @@ async function chargerCatalogue() {
             ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise });
         }
         
-        // 🔥 SÉCURITÉ : Recalcul propre
         ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
         sauvegarderTousLesTickets();
         
@@ -514,7 +471,6 @@ async function chargerCatalogue() {
         const ticket = tickets[tableNum];
         if (!ticket) return;
         
-        // CORRECTION : Tolère les différences de type et variantes
         const index = ticket.articles.findIndex(a => String(a.id) === String(produitId) && (a.variante || null) === (variante || null));
         
         if (index !== -1) {
@@ -527,20 +483,14 @@ async function chargerCatalogue() {
             ticket.total = ticket.articles.reduce((sum, a) => sum + (a.prix * a.quantite), 0);
             sauvegarderTousLesTickets();
             
-            // CORRECTION CRUCIALE : Mise à jour de l'UI instantanée
             if (String(currentTable) === String(tableNum)) afficherTicket();
             afficherListeTables();
         }
     }
 
-    // 📢 NOUVELLE FONCTION : Nettoie la cuisine quand on encaisse
-// 📢 NOUVELLE FONCTION : Nettoie la cuisine quand on encaisse
     async function nettoyerCommandesCuisine(tableNum) {
         try {
-            // 🔥 CORRECTION : On utilise fetchSecurise pour avoir le droit d'effacer
             await fetchSecurise(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
-            
-            // Si le modal des détails de table est ouvert, on le rafraîchit pour le vider
             if (String(derniereTableModal) === String(tableNum)) {
                 afficherCommandesTable(tableNum);
             }
@@ -549,12 +499,10 @@ async function chargerCatalogue() {
         }
     }
 
-async function viderTicket(tableNum, confirmDialogue = true) {
+    async function viderTicket(tableNum, confirmDialogue = true) {
         if (!confirmDialogue || confirm(`Vider le ticket de ${tableNum === 'Emporter' ? 'Emporter' : 'Table ' + tableNum} ?`)) {
             tickets[tableNum] = { articles: [], total: 0 };
             sauvegarderTousLesTickets();
-            
-            // J'ai supprimé ici la ligne qui effaçait accidentellement la cuisine !
             
             if (String(currentTable) === String(tableNum)) afficherTicket();
             afficherListeTables();
@@ -569,18 +517,14 @@ async function viderTicket(tableNum, confirmDialogue = true) {
         afficherListeTables();
     }
 
-    // ========== ENVOYER EN CUISINE ==========
-// ========== ENVOYER EN CUISINE (CORRIGÉ ET SÉCURISÉ) ==========
     async function envoyerEnCuisine() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
 
         try {
-            // 🔥 CORRECTION : On utilise fetchSecurise au lieu de fetch classique
             const response = await fetchSecurise('/api/commandes', {
                 method: 'POST', 
-                // Plus besoin de mettre les headers ici, fetchSecurise s'en occupe !
                 body: JSON.stringify({
                     articles: ticket.articles.map(a => ({ 
                         id: a.id, 
@@ -597,16 +541,13 @@ async function viderTicket(tableNum, confirmDialogue = true) {
                 showNotification(`👨‍🍳 Commande envoyée en cuisine !`, "#e67e22");
                 viderTicket(currentTable, false);
             } else {
-                // J'ajoute ce message pour que tu saches si le serveur a bloqué l'envoi
                 showNotification("❌ Refusé par le serveur. Vérifie ton Token.", "#e74c3c");
             }
         } catch (error) { 
             showNotification("❌ Erreur de réseau avec la cuisine", "#e74c3c"); 
-            console.error("Erreur envoi cuisine:", error);
         }
     }
 
-    // ========== AFFICHAGE INTERFACE ==========
     function afficherListeTables() {
         const container = document.getElementById('tablesGrid');
         const countSpan = document.getElementById('tablesCount');
@@ -666,7 +607,6 @@ async function viderTicket(tableNum, confirmDialogue = true) {
         
         let totalArts = 0, html = '';
         ticket.articles.forEach((item) => {
-            // 🔥 SÉCURITÉ ANTI-CRASH : On force les valeurs
             const prix = parseFloat(item.prix) || 0; 
             const qte = parseInt(item.quantite) || 1;
             const itemTotal = prix * qte;
@@ -726,9 +666,7 @@ async function viderTicket(tableNum, confirmDialogue = true) {
         }
         
         grid.innerHTML = filtered.map(p => {
-            // Couleur du texte de stock : rouge si 0 ou moins, gris sinon
             const stockColor = p.stock <= 0 ? 'color: #e74c3c; font-weight: bold;' : 'color: #64748b;';
-            
             return `
             <div class="product-card" data-id="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}">
                 <div style="font-size: 0.7rem; text-align: right; ${stockColor}">En stock : ${p.stock}</div>
@@ -737,39 +675,32 @@ async function viderTicket(tableNum, confirmDialogue = true) {
             </div>`;
         }).join('');
         
-        // Ré-attacher les clics
         document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { 
             if (!currentTable) return showNotification("❌ Sélectionnez une table d'abord !", "#e74c3c"); 
             ajouterAuTicket(currentTable, { 
-                id: parseInt(card.dataset.id), 
+                id: parseInt(card.dataset.id) || Date.now(), 
                 nom: card.dataset.nom, 
                 prix: parseFloat(card.dataset.prix) 
             }); 
         }));
     }
 
-    // ========== APPELS BACKEND (STOCK) ==========
-async function decrementerStock(articles) {
+    async function decrementerStock(articles) {
         try {
-            // 🔥 CORRECTION : On utilise fetchSecurise au lieu de fetch
             const response = await fetchSecurise('/api/stock/decrementer', {
                 method: 'POST', 
-                // Plus besoin des headers ici, fetchSecurise s'en occupe automatiquement !
                 body: JSON.stringify({ articles: articles.map(a => ({ id: a.id || a.baseId, quantite: a.quantite })) })
             });
             const result = await response.json();
-            
             if (!result.success) { 
-                showNotification(`⚠️ Note : Stock épuisé (${result.erreurs?.join(', ')}), mais vente enregistrée.`, "#f39c12"); 
+                showNotification(`⚠️ Note : Stock épuisé, mais vente enregistrée.`, "#f39c12"); 
             }
             return true; 
         } catch (error) { 
-            console.error("Erreur mise à jour stock:", error);
-            return true; // Autorise la vente même si le serveur de stock a un petit bug
+            return true;
         }
     }
 
-    // ========== PAIEMENT COMPLET ==========
     function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
         const container = document.getElementById('containerModalPaiement');
         container.innerHTML = `
@@ -835,10 +766,18 @@ async function decrementerStock(articles) {
                 const recu = parseFloat(montantRecuInput.value) || 0; 
                 if(recu < totalAvecRemise) { showNotification("❌ Montant reçu insuffisant !", "#e74c3c"); montantRecuInput.focus(); return; } 
             }
-            document.getElementById("validerPaiementBtn").disabled = true; document.getElementById("validerPaiementBtn").innerHTML = "Traitement...";
-            if (isPartial) await executerPaiementPartiel(ticketArticles, totalAvecRemise, remiseActuelle, selectedData);
-            else await executerPaiementComplet(ticketArticles, totalAvecRemise, remiseActuelle);
-            modal.remove();
+            
+            document.getElementById("validerPaiementBtn").disabled = true; 
+            document.getElementById("validerPaiementBtn").innerHTML = "⏳ Traitement...";
+            
+            try {
+                if (isPartial) await executerPaiementPartiel(ticketArticles, totalAvecRemise, remiseActuelle, selectedData);
+                else await executerPaiementComplet(ticketArticles, totalAvecRemise, remiseActuelle);
+            } catch (error) {
+                console.error("Erreur paiement:", error);
+            } finally {
+                modal.remove(); 
+            }
         };
         document.getElementById("closePaiementBtn").onclick = () => modal.remove();
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.remove(); });
@@ -848,8 +787,7 @@ async function decrementerStock(articles) {
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return;
         
-        const stockOk = await decrementerStock(ticket.articles);
-        if (!stockOk) return;
+        decrementerStock(ticket.articles);
         
         const vente = { id: Date.now(), numero: "V" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, articles: ticket.articles.map(a => ({ nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), table: currentTable };
         salesHistory.unshift(vente); sauvegarderHistorique();
@@ -858,15 +796,13 @@ async function decrementerStock(articles) {
         
         tickets[currentTable] = { articles: [], total: 0 }; sauvegarderTousLesTickets();
         
-        // 📢 AJOUT ICI : On efface les commandes en cuisine après le paiement !
-        await nettoyerCommandesCuisine(currentTable);
+        nettoyerCommandesCuisine(currentTable);
         
         afficherTicket(); afficherListeTables(); afficherHistoriqueJour(); afficherStats();
         showNotification(`✅ Paiement complet validé : ${totalPaye.toFixed(2)} DT`, "#27ae60");
         imprimerTicket(currentTable, ticket.articles, totalPaye, remise);
     }
 
-    // ========== PAIEMENT PARTIEL ==========
     function payerSelection() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
@@ -940,8 +876,8 @@ async function decrementerStock(articles) {
     async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer) {
         const ticket = tickets[currentTable];
         if (!ticket || !ticket.articles.length) return;
-        const stockOk = await decrementerStock(articlesAPayer);
-        if (!stockOk) return;
+        
+        decrementerStock(articlesAPayer);
         
         const vente = { id: Date.now(), numero: "P" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, type: "partiel", articles: articlesAPayer, table: currentTable };
         salesHistory.unshift(vente); sauvegarderHistorique();
@@ -1017,9 +953,8 @@ async function decrementerStock(articles) {
     function toggleStats() { const el = document.getElementById('statsProduitsContent'); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
 
     // ========== SYNCHRO CUISINE ==========
-async function chargerCommandesCuisineInitiales() {
+    async function chargerCommandesCuisineInitiales() {
         try {
-            // 🔥 CORRECTION : On utilise fetchSecurise pour avoir le droit de lire
             const response = await fetchSecurise('/api/commandes');
             commandesRecues = await response.json();
         } catch(e) { 
@@ -1072,82 +1007,84 @@ async function chargerCommandesCuisineInitiales() {
     function initSocket() {
         socket = io();
         
-        // 📢 1. Écoute des mises à jour de STOCK en temps réel
         socket.on('update_stock', async () => {
-            await chargerCatalogue(); // Recharge les prix et les quantités discrètement
-            if (currentTable) {
-                afficherTicket(); // Met à jour les couleurs (rouge si rupture) sur le ticket actuel
-            }
-            renderProducts(); // Rafraîchit la grille des produits pour afficher les bonnes quantités
+            await chargerCatalogue(); 
+            if (currentTable) afficherTicket(); 
+            renderProducts(); 
         });
 
-        // 📢 2. Écoute des NOUVELLES COMMANDES (clients via QR)
         socket.on('nouvelle_commande', (commande) => {
             commandesRecues.push(commande);
-            
-            // Si la fenêtre de la cuisine est ouverte sur cette table, on la met à jour
             if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) {
                 afficherCommandesTable(derniereTableModal);
             }
         });
         
-        // 📢 3. Écoute de l'avancement en CUISINE (ex: "Prête à servir")
+        // 🔥 FONCTION BLINDÉE : Réception des commandes terminées
         socket.on('mise_a_jour_commande', (commande) => {
             const idx = commandesRecues.findIndex(c => c.id === commande.id);
             const ancienne = idx !== -1 ? commandesRecues[idx] : null;
             
-            // 🔥 ACTION : Si la commande passe ENFIN à "Terminée"
             if ((!ancienne || ancienne.statut !== 'terminee') && commande.statut === 'terminee') {
                 const tableNum = commande.numeroTable || 'Emporter';
                 
-                commande.articles.forEach(article => { 
-                    let nomPropre = article.nom;
-                    let variante = article.variante;
+                // On s'assure que le ticket de la table existe bien en mémoire
+                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0 };
+
+                if (!commande.articles || commande.articles.length === 0) {
+                     showNotification(`⚠️ Commande #${commande.numero} terminée mais elle était vide !`, "#f39c12");
+                } else {
+                    commande.articles.forEach((article, arrIdx) => { 
+                        let nomPropre = article.nom || "Article";
+                        let variante = article.variante || null;
+                        
+                        if(!variante && nomPropre.includes('(')) {
+                            const parts = nomPropre.split('(');
+                            nomPropre = parts[0].trim();
+                            variante = parts[1].replace(')', '').trim();
+                        }
+
+                        let vraiPrix = parseFloat(article.prix);
+                        if (isNaN(vraiPrix) || vraiPrix === 0) {
+                            const produitCatalogue = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom === nomPropre);
+                            if (produitCatalogue) vraiPrix = parseFloat(produitCatalogue.prix);
+                        }
+
+                        // FORCER UN ID UNIQUE MÊME S'IL EST PERDU EN CUISINE (Evite les fusions d'articles)
+                        const idSecurise = article.id || article.baseId || (Date.now() + arrIdx);
+
+                        ajouterAuTicket(tableNum, { 
+                            id: idSecurise, 
+                            nom: nomPropre, 
+                            variante: variante, 
+                            prix: vraiPrix || 0, 
+                            quantite: parseInt(article.quantite) || 1 
+                        }, false); 
+                    });
                     
-                    // Nettoyage au cas où la variante est collée au nom
-                    if(!variante && nomPropre.includes('(')) {
-                        const parts = nomPropre.split('(');
-                        nomPropre = parts[0].trim();
-                        variante = parts[1].replace(')', '').trim();
-                    }
+                    showNotification(`🔔 Cuisine : Commande #${commande.numero} ajoutée au ticket !`, "#27ae60");
+                }
 
-                    // 🛡️ SÉCURITÉ ANTI-CRASH : Récupération du vrai prix dans le catalogue
-                    let vraiPrix = parseFloat(article.prix);
-                    if (isNaN(vraiPrix) || vraiPrix === 0) {
-                        const produitCatalogue = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom === nomPropre);
-                        if (produitCatalogue) vraiPrix = parseFloat(produitCatalogue.prix);
-                    }
-
-                    // On ajoute proprement l'article au ticket de la table
-                    ajouterAuTicket(tableNum, { 
-                        id: article.id || article.baseId || Date.now(), 
-                        nom: nomPropre, 
-                        variante: variante, 
-                        prix: vraiPrix || 0, 
-                        quantite: parseInt(article.quantite) || 1 
-                    }, false); 
-                });
-                
-                showNotification(`🔔 Cuisine : Commande #${commande.numero} terminée et ajoutée au ticket !`, "#27ae60");
+                // FORCE L'AFFICHAGE DU TICKET SUR L'ÉCRAN
                 afficherListeTables(); 
-                if (currentTable == tableNum) afficherTicket();
+                if (String(currentTable) === String(tableNum)) {
+                    afficherTicket();
+                }
             }
             
-            // On sauvegarde le nouvel état de la commande en mémoire
             if (idx !== -1) {
                 commandesRecues[idx] = commande;
             } else {
                 commandesRecues.push(commande);
             }
             
-            // On rafraîchit la fenêtre de la cuisine si le caissier la regarde
-            if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) {
+            if (derniereTableModal !== null && String(commande.numeroTable || 'Emporter') === String(derniereTableModal)) {
                 afficherCommandesTable(derniereTableModal);
             }
         });
     }
 
-    // ========== INITIALISATION CORRIGÉE ==========
+    // ========== INITIALISATION ==========
     document.addEventListener("DOMContentLoaded", async () => {
         chargerTickets(); chargerHistorique(); chargerStats();
         await chargerCatalogue();
@@ -1167,7 +1104,6 @@ async function chargerCommandesCuisineInitiales() {
             } else { showNotification("❌ Le ticket est vide", "#e74c3c"); }
         });
         
-        // 🔒 C'est ici que se trouve le nouveau code du bouton "Verrouiller" !
         const btnVerrouiller = document.getElementById('btn-verrouiller');
         if (btnVerrouiller) {
             btnVerrouiller.addEventListener('click', () => { 
@@ -1177,16 +1113,14 @@ async function chargerCommandesCuisineInitiales() {
                 } 
             });
         }
-    const btnAllerStock = document.getElementById('btn-aller-stock');
-if (btnAllerStock) {
-    btnAllerStock.addEventListener('click', () => {
-        // 1. On crée le laissez-passer invisible
-        sessionStorage.setItem('acces_stock_autorise', 'oui');
-        // 2. On redirige vers la page du stock (modifie le nom si ton fichier s'appelle autrement)
-        window.location.href = '/gestion-stock.html'; 
-    });
-}
-    
+
+        const btnAllerStock = document.getElementById('btn-aller-stock');
+        if (btnAllerStock) {
+            btnAllerStock.addEventListener('click', () => {
+                sessionStorage.setItem('acces_stock_autorise', 'oui');
+                window.location.href = '/gestion-stock.html'; 
+            });
+        }
     });
 </script>
 </body>

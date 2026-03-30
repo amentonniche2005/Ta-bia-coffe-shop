@@ -111,7 +111,7 @@
             <h1>TA'BIA <span class="logo-subtext">Tableau de Bord</span></h1>
         </div>
         <div class="nav-right">
-            <a href="/caisse" class="btn-retour"><i class="fas fa-arrow-left"></i> Retour Caisse</a>
+            <a href="/caisse.html" class="btn-retour"><i class="fas fa-arrow-left"></i> Retour Caisse</a>
         </div>
     </div>
 </header>
@@ -343,6 +343,33 @@
     <script src="/socket.io/socket.io.js"></script>
     
     <script>
+        // ========== 0. SÉCURITÉ : VÉRIFICATION DU TOKEN ==========
+        const monToken = localStorage.getItem('tabia_caisse_token');
+
+        if (!monToken) {
+            // Si pas de token, on redirige vers la page de connexion
+            window.location.href = '/caisse-login.html'; 
+        }
+
+        // Fonction pour parler au serveur avec le badge de sécurité
+        async function fetchSecurise(url, options = {}) {
+            if (!options.headers) options.headers = {};
+            options.headers['authorization'] = monToken; // On montre le badge
+            
+            // Si ce n'est pas une requête GET, on ajoute le content-type
+            if (options.method && options.method !== 'GET' && !options.headers['Content-Type']) {
+                options.headers['Content-Type'] = 'application/json';
+            }
+            
+            const reponse = await fetch(url, options);
+            if (reponse.status === 403 || reponse.status === 401) {
+                alert("Votre Token a expiré ou a été révoqué.");
+                localStorage.removeItem('tabia_caisse_token');
+                window.location.href = '/caisse-login.html';
+            }
+            return reponse;
+        }
+
         // ========== 1. UTILITAIRES & VARIABLES GLOBALES ==========
         let stockProduits = [];
         let stockTri = { colonne: 'nom', asc: true };
@@ -390,16 +417,18 @@
         // ========== DASHBOARD ==========
         async function chargerDashboard() {
             try {
-                const stockResp = await fetch('/api/stock');
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const stockResp = await fetchSecurise('/api/stock');
                 let stock = await stockResp.json();
-                stock = Array.isArray(stock) ? stock : (stock.produits || []); // CORRECTION MAJEURE
+                stock = Array.isArray(stock) ? stock : (stock.produits || []); 
 
                 let alertes = [];
                 try {
-                    const alertesResp = await fetch('/api/stock/alertes');
+                    // 🔥 SÉCURITÉ : fetchSecurise
+                    const alertesResp = await fetchSecurise('/api/stock/alertes');
                     if (alertesResp.ok) alertes = await alertesResp.json();
                 } catch(e) {}
-                alertes = Array.isArray(alertes) ? alertes : []; // Protection
+                alertes = Array.isArray(alertes) ? alertes : []; 
 
                 let valeurTotaleAchat = 0;
                 stock.forEach(p => { valeurTotaleAchat += (p.stock * p.prix * 0.6); });
@@ -418,9 +447,9 @@
         // ========== 2. MODULE STOCK ==========
         async function chargerStock() {
             try {
-                const res = await fetch('/api/stock');
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const res = await fetchSecurise('/api/stock');
                 let data = await res.json();
-                // CORRECTION MAJEURE : On gère si le serveur renvoie {produits: [...]} au lieu de [...]
                 stockProduits = Array.isArray(data) ? data : (data.produits || []); 
                 appliquerFiltresEtTriStock();
             } catch (e) { showNotification("Erreur de chargement du stock", "var(--danger)", "fa-times"); }
@@ -498,7 +527,8 @@
 
         async function chargerCategories() {
             try {
-                const res = await fetch('/api/stock');
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const res = await fetchSecurise('/api/stock');
                 let data = await res.json();
                 let prods = Array.isArray(data) ? data : (data.produits || []);
                 let cats = [...new Set(prods.map(p => p.categorie).filter(Boolean))];
@@ -510,98 +540,101 @@
         }
 
         // --- NOUVEAUX BOUTONS CRUD ---
-function ouvrirModalNouveauProduit() {
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active">
-            <div class="modal-content">
-                <div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-                <div class="form-group"><label>Nom du produit :</label><input type="text" id="newProdName" placeholder="Ex: Espresso"></div>
-                <div class="form-group">
-    <label>Choix / Variantes (séparés par des virgules) :</label>
-    <input type="text" id="newProdVariantes" placeholder="Ex: Vanille, Chocolat, Fraise">
-</div>
-                <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="newProdImage" placeholder="Collez le lien .jpg ici"></div>
-                <div class="form-group"><label>Catégorie :</label><select id="newProdCat"><option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option></select></div>
-                <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="newProdPrice" step="0.1" placeholder="2.5"></div>
-                    <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" step="1" placeholder="100"></div>
-                </div>
-                <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10" step="1"></div>
-                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()">Enregistrer</button></div>
-            </div>
-        </div>`;
-}
+        function ouvrirModalNouveauProduit() {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active">
+                    <div class="modal-content">
+                        <div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                        <div class="form-group"><label>Nom du produit :</label><input type="text" id="newProdName" placeholder="Ex: Espresso"></div>
+                        <div class="form-group">
+            <label>Choix / Variantes (séparés par des virgules) :</label>
+            <input type="text" id="newProdVariantes" placeholder="Ex: Vanille, Chocolat, Fraise">
+        </div>
+                        <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="newProdImage" placeholder="Collez le lien .jpg ici"></div>
+                        <div class="form-group"><label>Catégorie :</label><select id="newProdCat"><option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option></select></div>
+                        <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="newProdPrice" step="0.1" placeholder="2.5"></div>
+                            <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" step="1" placeholder="100"></div>
+                        </div>
+                        <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10" step="1"></div>
+                        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()">Enregistrer</button></div>
+                    </div>
+                </div>`;
+        }
 
-async function sauvegarderNouveauProduit() {
-    const produitData = {
-        nom: document.getElementById('newProdName').value,
-        variantes: document.getElementById('newProdVariantes').value,
-        image: document.getElementById('newProdImage').value, // 📢 Ajouté ici
-        categorie: document.getElementById('newProdCat').value,
-        prix: parseFloat(document.getElementById('newProdPrice').value),
-        stock: parseInt(document.getElementById('newProdStock').value),
-        seuilAlerte: parseInt(document.getElementById('newProdAlerte').value),
-        unite: "unité"
-    };
+        async function sauvegarderNouveauProduit() {
+            const produitData = {
+                nom: document.getElementById('newProdName').value,
+                variantes: document.getElementById('newProdVariantes').value,
+                image: document.getElementById('newProdImage').value, 
+                categorie: document.getElementById('newProdCat').value,
+                prix: parseFloat(document.getElementById('newProdPrice').value),
+                stock: parseInt(document.getElementById('newProdStock').value),
+                seuilAlerte: parseInt(document.getElementById('newProdAlerte').value),
+                unite: "unité"
+            };
 
-    if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Saisie invalide", "var(--danger)");
+            if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Saisie invalide", "var(--danger)");
 
-    try {
-        const response = await fetch('/api/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produitData) });
-        if (response.ok) { showNotification("✅ Produit ajouté !"); fermerModal(); chargerStock(); }
-    } catch (error) { showNotification("❌ Erreur serveur", "var(--danger)"); }
-}
+            try {
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const response = await fetchSecurise('/api/stock', { method: 'POST', body: JSON.stringify(produitData) });
+                if (response.ok) { showNotification("✅ Produit ajouté !"); fermerModal(); chargerStock(); }
+            } catch (error) { showNotification("❌ Erreur serveur", "var(--danger)"); }
+        }
 
-function ouvrirModalEdition(id) {
-    const p = stockProduits.find(x => x.id === id);
-    if(!p) return;
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active">
-            <div class="modal-content">
-                <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-                <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
-                <div class="form-group">
-    <label>Choix / Variantes (séparés par des virgules) :</label>
-    <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Petit, Moyen, Grand">
-</div>
-                <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="Collez le lien .jpg ici"></div>
-                <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
-                    <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
-                    <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
-                    <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
-                    <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
-                    <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
-                </select></div>
-                <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
-                    <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
-                </div>
-                <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}" step="1"></div>
-                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
-            </div>
-        </div>`;
-}
+        function ouvrirModalEdition(id) {
+            const p = stockProduits.find(x => x.id === id);
+            if(!p) return;
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active">
+                    <div class="modal-content">
+                        <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                        <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
+                        <div class="form-group">
+            <label>Choix / Variantes (séparés par des virgules) :</label>
+            <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Petit, Moyen, Grand">
+        </div>
+                        <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="Collez le lien .jpg ici"></div>
+                        <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
+                            <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
+                            <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
+                            <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
+                            <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
+                            <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
+                        </select></div>
+                        <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
+                            <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
+                        </div>
+                        <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}" step="1"></div>
+                        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
+                    </div>
+                </div>`;
+        }
 
-async function sauvegarderEditionProduit(id) {
-    const produitData = {
-        nom: document.getElementById('editProdName').value,
-        variantes: document.getElementById('editProdVariantes').value,
-        image: document.getElementById('editProdImage').value, // 📢 Ajouté ici
-        categorie: document.getElementById('editProdCat').value,
-        prix: parseFloat(document.getElementById('editProdPrice').value),
-        stock: parseInt(document.getElementById('editProdStock').value),
-        seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
-    };
-    try {
-        const response = await fetch(`/api/stock/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produitData) });
-        if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); }
-    } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
-}
+        async function sauvegarderEditionProduit(id) {
+            const produitData = {
+                nom: document.getElementById('editProdName').value,
+                variantes: document.getElementById('editProdVariantes').value,
+                image: document.getElementById('editProdImage').value,
+                categorie: document.getElementById('editProdCat').value,
+                prix: parseFloat(document.getElementById('editProdPrice').value),
+                stock: parseInt(document.getElementById('editProdStock').value),
+                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
+            };
+            try {
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
+                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); }
+            } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
+        }
 
         async function supprimerProduit(id) {
             if (!confirm("⚠️ Voulez-vous vraiment supprimer ce produit ? Cette action est définitive.")) return;
             try {
-                const response = await fetch(`/api/stock/${id}`, { method: 'DELETE' });
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const response = await fetchSecurise(`/api/stock/${id}`, { method: 'DELETE' });
                 if (response.ok) { showNotification("🗑️ Produit supprimé."); chargerStock(); chargerDashboard(); chargerCategories(); }
             } catch (error) { showNotification("❌ Erreur de suppression.", "var(--danger)"); }
         }
@@ -633,17 +666,17 @@ async function sauvegarderEditionProduit(id) {
         async function callAddStockApi(id, qte, raison) {
             if(!id || !qte || qte <= 0) return showNotification("Saisie invalide", "var(--danger)");
             try {
-                // Tente d'utiliser l'API historique si elle existe, sinon met à jour le stock simplement
-                const res = await fetch(`/api/stock/${id}/add`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantite: qte, raison: raison||'Livraison' }) });
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const res = await fetchSecurise(`/api/stock/${id}/add`, { method: 'POST', body: JSON.stringify({ quantite: qte, raison: raison||'Livraison' }) });
                 if(res.ok) { 
                     showNotification(`Stock mis à jour (+${qte})`, "var(--success)"); 
                     fermerModal(); chargerStock(); chargerDashboard(); chargerHistorique(); chargerAlertes(); 
                 } else {
-                    // Si la route /add n'existe pas, on modifie le produit directement
                     const p = stockProduits.find(x => String(x.id) === String(id));
                     if(p) {
                         p.stock += qte;
-                        await fetch(`/api/stock/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+                        // 🔥 SÉCURITÉ : fetchSecurise
+                        await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(p) });
                         showNotification(`Stock mis à jour (+${qte})`, "var(--success)"); 
                         fermerModal(); chargerStock(); chargerDashboard();
                     }
@@ -669,9 +702,10 @@ async function sauvegarderEditionProduit(id) {
             const finStr = document.getElementById('dateFin').value;
             
             try {
-                const res = await fetch(`/api/stock/historique?limit=500`);
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const res = await fetchSecurise(`/api/stock/historique?limit=500`);
                 let data = await res.json();
-                data = Array.isArray(data) ? data : []; // PROTECTION
+                data = Array.isArray(data) ? data : []; 
 
                 if(type !== 'all') data = data.filter(m => m.type === type);
                 
@@ -716,9 +750,11 @@ async function sauvegarderEditionProduit(id) {
         async function chargerAlertes() {
             const tbody = document.getElementById('alertesContainerBody');
             try {
-                const res = await fetch('/api/stock/alertes');
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const res = await fetchSecurise('/api/stock/alertes');
+                if (!res.ok) throw new Error();
                 let alertes = await res.json(); 
-                alertes = Array.isArray(alertes) ? alertes : []; // PROTECTION
+                alertes = Array.isArray(alertes) ? alertes : []; 
 
                 if(!alertes.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-message"><i class="fas fa-check-circle fa-2x" style="color:var(--success); display:block; margin-bottom:10px;"></i>Aucune alerte à traiter. Tout va bien !</td></tr>'; return; }
 
@@ -736,12 +772,13 @@ async function sauvegarderEditionProduit(id) {
                         <button class="btn-action" style="padding:0.4rem; background:var(--text-muted);" onclick="resoudreAlerte(${a.id})" title="Ignorer l'alerte"><i class="fas fa-eye-slash"></i></button>
                     </td>
                 </tr>`).join('');
-            } catch(e) { tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Système d\'alertes non configuré</td></tr>';}
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Système d\'alertes non configuré ou vide.</td></tr>';}
         }
 
         async function resoudreAlerte(id) {
             try {
-                await fetch(`/api/stock/alertes/${id}/resoudre`, { method: 'PUT' });
+                // 🔥 SÉCURITÉ : fetchSecurise
+                await fetchSecurise(`/api/stock/alertes/${id}/resoudre`, { method: 'PUT' });
                 showNotification("Alerte masquée", "var(--success)");
                 chargerAlertes(); chargerDashboard();
             } catch(e){}
@@ -815,17 +852,18 @@ async function sauvegarderEditionProduit(id) {
             if(!confirm(`Vous allez ajuster le stock de ${produits.length} produit(s). Continuer ?`)) return;
             
             try {
-                const res = await fetch('/api/stock/inventaire', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ produits }) });
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const res = await fetchSecurise('/api/stock/inventaire', { method: 'POST', body: JSON.stringify({ produits }) });
                 if(res.ok) {
                     showNotification(`Inventaire enregistré avec succès`, "var(--success)");
                     annulerInventaire(); chargerStock(); chargerHistorique(); chargerDashboard();
                 } else {
-                    // Fallback si la route d'inventaire complexe n'existe pas : on met à jour les stocks 1 par 1
                     for (let p of produits) {
                         const target = stockProduits.find(x => String(x.id) === String(p.id));
                         if(target) {
                             target.stock = p.stockPhysique;
-                            await fetch(`/api/stock/${p.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(target) });
+                            // 🔥 SÉCURITÉ : fetchSecurise
+                            await fetchSecurise(`/api/stock/${p.id}`, { method: 'PUT', body: JSON.stringify(target) });
                         }
                     }
                     showNotification(`Inventaire enregistré`, "var(--success)");
@@ -836,7 +874,8 @@ async function sauvegarderEditionProduit(id) {
 
         async function voirHistoriqueInventaires() {
             try {
-                const res = await fetch('/api/stock/inventaires');
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const res = await fetchSecurise('/api/stock/inventaires');
                 let data = await res.json();
                 data = Array.isArray(data) ? data : [];
                 
@@ -873,9 +912,10 @@ async function sauvegarderEditionProduit(id) {
             const finStr = document.getElementById('depenseDateFin').value;
             
             try {
-                const res = await fetch('/api/depenses');
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const res = await fetchSecurise('/api/depenses');
                 let data = await res.json();
-                data = Array.isArray(data) ? data : []; // PROTECTION
+                data = Array.isArray(data) ? data : []; 
                 
                 if(cat !== 'all') data = data.filter(d => d.categorie === cat);
 
@@ -932,7 +972,8 @@ async function sauvegarderEditionProduit(id) {
             if(!desc || isNaN(montant) || montant <= 0) return showNotification("Veuillez remplir tous les champs", "var(--danger)");
             
             try {
-                const res = await fetch('/api/depenses', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({categorie: cat, description: desc, montant: montant, mode: mode}) });
+                // 🔥 SÉCURITÉ : fetchSecurise
+                const res = await fetchSecurise('/api/depenses', { method: 'POST', body: JSON.stringify({categorie: cat, description: desc, montant: montant, mode: mode}) });
                 if(res.ok) { showNotification("Dépense enregistrée", "var(--success)"); fermerModal(); chargerDepenses(); }
             } catch(e){ showNotification("Erreur de sauvegarde", "var(--danger)"); }
         }
@@ -945,18 +986,17 @@ async function sauvegarderEditionProduit(id) {
             document.getElementById('categorieFilter').addEventListener('change', appliquerFiltresEtTriStock);
             document.getElementById('etatFilter').addEventListener('change', appliquerFiltresEtTriStock);
             document.getElementById('searchFilter').addEventListener('input', appliquerFiltresEtTriStock);
+            
             // ========== SYNCHRONISATION EN TEMPS RÉEL ==========
-const socket = io(); // On connecte la page au serveur en temps réel
+            const socket = io(); // On connecte la page au serveur en temps réel
 
-socket.on('update_stock', () => {
-    // Dès que le serveur signale un changement, on recharge les données discrètement
-    chargerStock();
-    chargerDashboard();
-    chargerAlertes();
-    
-    // Petite notification visuelle (optionnelle) pour te confirmer que ça a marché
-    console.log("🔄 Stock mis à jour en direct !");
-});
+            socket.on('update_stock', () => {
+                // Dès que le serveur signale un changement, on recharge les données discrètement
+                chargerStock();
+                chargerDashboard();
+                chargerAlertes();
+                console.log("🔄 Stock mis à jour en direct !");
+            });
         });
     </script>
 </body>
