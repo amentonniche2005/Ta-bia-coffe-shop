@@ -187,12 +187,13 @@ function ouvrirModalOptions(produit, options) {
     document.getElementById("optionsTitle").textContent = produit.nom;
     document.getElementById("optionPriceDisplay").textContent = `(${parseFloat(produit.prix).toFixed(2)} DT)`;
     
+    // Le code HTML généré est maintenant super propre et utilise les classes CSS
     const listHtml = options.map((opt, index) => `
-        <label class="option-label" style="cursor:pointer;">
-            <input type="radio" name="varianteOption" value="${opt}" style="display:none;" ${index === 0 ? 'checked' : ''}>
-            <div style="padding: 15px; border: 2px solid #e2e8f0; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom:10px;">
-                <span>${opt}</span>
-                <i class="fas fa-check-circle" style="color: #db800a;"></i>
+        <label class="option-label">
+            <input type="radio" name="varianteOption" value="${opt}" class="option-input" ${index === 0 ? 'checked' : ''}>
+            <div class="option-box">
+                <span class="option-text">${opt}</span>
+                <i class="fas fa-check-circle check-icon"></i>
             </div>
         </label>
     `).join('');

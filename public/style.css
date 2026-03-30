@@ -158,30 +158,66 @@ header {
 @keyframes bounceCart { 0% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.08); } 100% { transform: translateX(-50%) scale(1); } }
 
 /* ========== MODAL OPTIONS (MARQUE/CUISSON) ========== */
+/* ========== MODAL OPTIONS (MARQUE/CUISSON) PREMIUM UX ========== */
 .options-modal {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.6); z-index: 1005;
     display: flex; align-items: flex-end; justify-content: center;
+    backdrop-filter: blur(3px); /* Effet flou en arrière-plan */
 }
 .options-content {
     background: var(--white); width: 100%; max-width: 500px;
     border-radius: 25px 25px 0 0; padding: 1.5rem;
-    animation: slideInUp 0.3s ease;
+    animation: slideInUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .options-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-.close-options { background: #f1f5f9; border: none; width: 35px; height: 35px; border-radius: 50%; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; }
+.close-options { background: #f1f5f9; border: none; width: 35px; height: 35px; border-radius: 50%; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; transition: background 0.2s;}
+.close-options:active { background: #e2e8f0; }
 
-.options-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; max-height: 40vh; overflow-y: auto; }
-.option-label { cursor: pointer; }
-.option-input { display: none; }
-.option-box {
-    padding: 15px; border: 2px solid #e2e8f0; border-radius: 12px;
-    display: flex; justify-content: space-between; align-items: center;
-    font-weight: 600; color: var(--text-main); transition: all 0.2s;
+.options-list { 
+    display: flex; flex-direction: column; gap: 12px; /* Un peu plus d'espace */
+    margin-bottom: 20px; max-height: 45vh; overflow-y: auto; padding-right: 5px;
 }
-.check-icon { color: transparent; font-size: 1.2rem; transition: color 0.2s; }
-.option-input:checked + .option-box { border-color: var(--primary); background: rgba(219, 128, 10, 0.05); color: var(--primary); }
-.option-input:checked + .option-box .check-icon { color: var(--primary); }
+.option-label { 
+    cursor: pointer; 
+    display: block; 
+    -webkit-tap-highlight-color: transparent; /* Enlève le flash bleu sur mobile */
+}
+.option-input { display: none; }
+
+.option-box {
+    padding: 16px 20px; 
+    border: 2px solid #e2e8f0; 
+    border-radius: 16px; /* Bords bien arrondis */
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 600; font-size: 1.05rem;
+    color: var(--text-main); background: var(--white);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); /* Animation ultra fluide */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+/* L'icône de base (grise et un peu plus petite) */
+.check-icon { 
+    color: #cbd5e1; 
+    font-size: 1.4rem; 
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+    transform: scale(0.8); 
+}
+
+/* Effet au clic (ÉTAT SÉLECTIONNÉ) */
+.option-input:checked + .option-box { 
+    border-color: var(--primary); 
+    background: rgba(219, 128, 10, 0.08); /* Fond orangé très léger */
+    color: var(--primary); 
+    box-shadow: 0 4px 15px rgba(219, 128, 10, 0.15); /* Belle ombre colorée */
+    transform: translateY(-2px); /* L'option se soulève légèrement */
+}
+
+/* L'icône de l'état sélectionné (orange et pop) */
+.option-input:checked + .option-box .check-icon { 
+    color: var(--primary); 
+    transform: scale(1.1); /* L'icône "pop" */
+}
 
 /* ========== MODAL PANIER ========== */
 .cart-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
