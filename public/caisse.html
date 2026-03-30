@@ -415,28 +415,32 @@
         }
     }
 // ========== GESTION TICKET CAISSE (CORRIGÉ) ==========
+// Remplace ton ancienne fonction par celle-ci
 function ajouterAuTicket(tableNum, produit, updateUI = true) {
-        const ticket = tickets[tableNum];
-        if (!ticket) return;
+    const ticket = tickets[tableNum];
+    if (!ticket) return;
 
-        // On force la comparaison des IDs en String pour éviter les erreurs de type (1 vs "1")
-        const existing = ticket.articles.find(a => String(a.id) === String(produit.id) && (a.variante || null) === (produit.variante || null));
-        
-        if (existing) {
-            existing.quantite += (produit.quantite || 1);
-        } else {
-            ticket.articles.push({ ...produit, quantite: (produit.quantite || 1) });
-        }
-        
-        ticket.total = ticket.articles.reduce((s, a) => s + (a.prix * a.quantite), 0);
-        sauvegarderTousLesTickets();
-        
-        if (updateUI) {
-            if (String(currentTable) === String(tableNum)) afficherTicket();
-            afficherListeTables();
-            showNotification(`➕ ${produit.nom} ajouté`, "#27ae60");
-        }
+    // 🔥 SÉCURITÉ : On s'assure que le prix et la quantité sont de vrais nombres
+    const prixSecurise = parseFloat(produit.prix) || 0;
+    const qteSecurise = parseInt(produit.quantite) || 1;
+
+    const existing = ticket.articles.find(a => String(a.id) === String(produit.id) && (a.variante || null) === (produit.variante || null));
+    
+    if (existing) {
+        existing.quantite += qteSecurise;
+    } else {
+        ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise });
     }
+    
+    // 🔥 SÉCURITÉ : Recalcul propre
+    ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
+    sauvegarderTousLesTickets();
+    
+    if (updateUI) {
+        if (String(currentTable) === String(tableNum)) afficherTicket();
+        afficherListeTables();
+    }
+}
 
     function modifierQuantite(tableNum, produitId, variante, delta) {
         const ticket = tickets[tableNum];
@@ -560,27 +564,31 @@ function ajouterAuTicket(tableNum, produit, updateUI = true) {
             return; 
         }
         
-        let totalArts = 0, html = '';
+let totalArts = 0, html = '';
         ticket.articles.forEach((item) => {
-            const itemTotal = item.prix * item.quantite;
-            totalArts += item.quantite;
+            // 🔥 SÉCURITÉ ANTI-CRASH : On force les valeurs
+            const prix = parseFloat(item.prix) || 0; 
+            const qte = parseInt(item.quantite) || 1;
+            const itemTotal = prix * qte;
+            totalArts += qte;
+            
             const varianteVar = item.variante ? `'${item.variante}'` : 'null';
             html += `
                 <div class="ticket-item">
                     <div class="item-info">
                         <div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:#e67e22;">(${item.variante})</span>` : ''}</div>
-                        <div class="item-price">${item.prix.toFixed(2)} DT / u</div>
+                        <div class="item-price">${prix.toFixed(2)} DT / u</div>
                     </div>
                     <div class="item-actions">
                         <div class="qty-control">
                             <button type="button" onclick="modifierQuantite('${currentTable}', ${item.id}, ${varianteVar}, -1)"><i class="fas fa-minus"></i></button>
-                            <span>${item.quantite}</span>
+                            <span>${qte}</span>
                             <button type="button" onclick="modifierQuantite('${currentTable}', ${item.id}, ${varianteVar}, 1)"><i class="fas fa-plus"></i></button>
                         </div>
                         <div style="min-width: 65px; text-align: right; font-weight: bold; color: #27ae60; font-size: 0.9rem;">
                             ${itemTotal.toFixed(2)}
                         </div>
-                        <button type="button" class="remove-item" onclick="modifierQuantite('${currentTable}', ${item.id}, ${varianteVar}, -${item.quantite})"><i class="fas fa-times"></i></button>
+                        <button type="button" class="remove-item" onclick="modifierQuantite('${currentTable}', ${item.id}, ${varianteVar}, -${qte})"><i class="fas fa-times"></i></button>
                     </div>
                 </div>`;
         });
@@ -952,35 +960,54 @@ async function decrementerStock(articles) {
 
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
-    function initSocket() {
-        socket = io();
-        socket.on('nouvelle_commande', (commande) => {
-            commandesRecues.push(commande);
-            if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) afficherCommandesTable(derniereTableModal);
-        });
-        socket.on('mise_a_jour_commande', (commande) => {
-            const idx = commandesRecues.findIndex(c => c.id === commande.id);
-            const ancienne = idx !== -1 ? commandesRecues[idx] : null;
-            if ((!ancienne || ancienne.statut !== 'terminee') && commande.statut === 'terminee') {
-                const tableNum = commande.numeroTable || 'Emporter';
-                commande.articles.forEach(article => { 
-                    // Extraction de la variante si le client l'a envoyée dans le nom "Espresso (Serré)"
-                    let nomPropre = article.nom;
-                    let variante = article.variante;
-                    if(!variante && nomPropre.includes('(')) {
-                        const parts = nomPropre.split('(');
-                        nomPropre = parts[0].trim();
-                        variante = parts[1].replace(')', '').trim();
-                    }
-                    ajouterAuTicket(tableNum, { id: article.id || article.baseId, nom: nomPropre, variante: variante, prix: article.prix, quantite: article.quantite }, false); 
-                });
-                showNotification(`🔔 Cuisine : Commande #${commande.numero} terminée ! Ajoutée à la table.`, "#27ae60");
-                afficherListeTables(); if (currentTable == tableNum) afficherTicket();
-            }
-            if (idx !== -1) commandesRecues[idx] = commande; else commandesRecues.push(commande);
-            if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) afficherCommandesTable(derniereTableModal);
-        });
-    }
+function initSocket() {
+    socket = io();
+    socket.on('nouvelle_commande', (commande) => {
+        commandesRecues.push(commande);
+        if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) afficherCommandesTable(derniereTableModal);
+    });
+    
+    socket.on('mise_a_jour_commande', (commande) => {
+        const idx = commandesRecues.findIndex(c => c.id === commande.id);
+        const ancienne = idx !== -1 ? commandesRecues[idx] : null;
+        
+        if ((!ancienne || ancienne.statut !== 'terminee') && commande.statut === 'terminee') {
+            const tableNum = commande.numeroTable || 'Emporter';
+            
+            commande.articles.forEach(article => { 
+                let nomPropre = article.nom;
+                let variante = article.variante;
+                if(!variante && nomPropre.includes('(')) {
+                    const parts = nomPropre.split('(');
+                    nomPropre = parts[0].trim();
+                    variante = parts[1].replace(')', '').trim();
+                }
+
+                // 🔥 LE CORRECTIF EST ICI 🔥 (Récupération de secours du prix)
+                let vraiPrix = parseFloat(article.prix);
+                if (isNaN(vraiPrix) || vraiPrix === 0) {
+                    const produitCatalogue = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom === nomPropre);
+                    if (produitCatalogue) vraiPrix = parseFloat(produitCatalogue.prix);
+                }
+
+                ajouterAuTicket(tableNum, { 
+                    id: article.id || article.baseId || Date.now(), // Fallback ID si manquant
+                    nom: nomPropre, 
+                    variante: variante, 
+                    prix: vraiPrix || 0, 
+                    quantite: parseInt(article.quantite) || 1 
+                }, false); 
+            });
+            
+            showNotification(`🔔 Cuisine : Commande #${commande.numero} terminée ! Ajoutée à la table.`, "#27ae60");
+            afficherListeTables(); 
+            if (currentTable == tableNum) afficherTicket();
+        }
+        
+        if (idx !== -1) commandesRecues[idx] = commande; else commandesRecues.push(commande);
+        if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) afficherCommandesTable(derniereTableModal);
+    });
+}
 
     // ========== INITIALISATION CORRIGÉE ==========
     document.addEventListener("DOMContentLoaded", async () => {
