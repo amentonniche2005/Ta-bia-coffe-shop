@@ -151,6 +151,7 @@
             <button class="tab" data-tab="inventaire" onclick="ouvrirOnglet('inventaire')"><i class="fas fa-clipboard-check"></i> Audit Physique</button>
             <button class="tab" data-tab="depenses" onclick="ouvrirOnglet('depenses')"><i class="fas fa-wallet"></i> Dépenses</button>
             <button class="tab" data-tab="fidelite" onclick="ouvrirOnglet('fidelite')"><i class="fas fa-id-card"></i> Clients Fidèles</button>
+            <button class="tab" data-tab="serveurs" onclick="ouvrirOnglet('serveurs')"><i class="fas fa-user-tie"></i> Serveurs</button>
         </div>
 
         <div class="panel active" id="panel-stock">
@@ -357,6 +358,29 @@
             <tbody id="fideliteTableBody"></tbody>
         </table>
     </div>
+    <div class="panel" id="panel-serveurs">
+            <div class="toolbar">
+                <div>
+                    <h3 style="font-size:1.1rem; color:var(--text-main);">Équipe & Serveurs</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted);">Suivez les performances de votre personnel en direct.</p>
+                </div>
+                <button class="btn-action btn-warning" onclick="ouvrirModalServeur()"><i class="fas fa-plus"></i> Ajouter un Serveur</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nom du Serveur</th>
+                            <th style="text-align:center;">Code de Connexion</th>
+                            <th style="text-align:center;">Articles Vendus</th>
+                            <th style="text-align:right;">Chiffre d'Affaires</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="serveursTableBody"></tbody>
+                </table>
+            </div>
+        </div>
 </div>
     </div>
 
@@ -428,6 +452,7 @@
             document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             document.getElementById(`panel-${tabId}`).classList.add('active');
+            if (tabId === 'serveurs') chargerServeurs();
             if (tabId === 'fidelite') chargerClients()
             if (tabId === 'stock') chargerStock();
             if (tabId === 'mouvements') chargerHistorique();
@@ -1049,6 +1074,76 @@ async function supprimerClient(id) {
         chargerClients();
     }
 }
+// A AJOUTER A LA FIN DU FICHIER JS DANS gestion-stock.html
+async function chargerServeurs() {
+    const tbody = document.getElementById('serveursTableBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
+    try {
+        const resServeurs = await fetchSecurise('/api/waiters');
+        const serveurs = await resServeurs.json();
+        
+        const resCmds = await fetchSecurise('/api/commandes/all');
+        const commandes = await resCmds.json();
+
+        const stats = {};
+        serveurs.forEach(s => stats[s.nom] = { total: 0, articles: 0 });
+        
+        commandes.forEach(c => {
+            if (c.statut === 'paye' && c.serveurName && stats[c.serveurName]) {
+                stats[c.serveurName].total += c.total || 0;
+                c.articles.forEach(a => stats[c.serveurName].articles += (parseInt(a.quantite) || 1));
+            }
+        });
+
+        if(serveurs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun serveur enregistré</td></tr>'; return; }
+
+        tbody.innerHTML = serveurs.map(s => `
+            <tr>
+                <td><strong>${escapeHtml(s.nom)}</strong></td>
+                <td style="text-align:center;"><span class="badge badge-neutral" style="font-size:1rem; letter-spacing:2px;">${s.code}</span></td>
+                <td style="text-align:center; font-weight:bold; color:var(--info);">${stats[s.nom].articles}</td>
+                <td style="text-align:right; font-weight:800; color:var(--success);">${formatMoney(stats[s.nom].total)}</td>
+                <td style="text-align:right;">
+                    <button class="btn-action btn-danger" onclick="supprimerServeur('${s._id}')"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur de chargement</td></tr>'; }
+}
+
+function ouvrirModalServeur() {
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active"><div class="modal-content">
+            <div class="modal-header"><h3><i class="fas fa-user-tie"></i> Ajouter un Serveur</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+            <div class="form-group"><label>Nom ou Pseudo :</label><input type="text" id="servNom" placeholder="Ex: Sami"></div>
+            <div class="form-group"><label>Code d'accès secret :</label>
+                <input type="text" id="servCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+                <button class="btn-primary" onclick="validerServeur()">Enregistrer</button>
+            </div>
+        </div></div>`;
+}
+
+async function validerServeur() {
+    const nom = document.getElementById('servNom').value;
+    const code = document.getElementById('servCode').value;
+    if (!nom || !code) return showNotification("Remplissez tous les champs", "var(--danger)");
+    
+    try {
+        const res = await fetchSecurise('/api/waiters', { method: 'POST', body: JSON.stringify({nom, code}) });
+        if(res.ok) { fermerModal(); chargerServeurs(); showNotification("Serveur ajouté avec succès !"); }
+        else showNotification("Ce code est déjà utilisé", "var(--danger)");
+    } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
+}
+
+async function supprimerServeur(id) {
+    if(confirm("Supprimer ce serveur ? Ses statistiques futures ne seront plus calculées.")) {
+        await fetchSecurise(`/api/waiters/${id}`, { method: 'DELETE' });
+        chargerServeurs();
+    }
+}
 
         // ========== INIT DOM ==========
         document.addEventListener("DOMContentLoaded", () => {
@@ -1063,8 +1158,8 @@ async function supprimerClient(id) {
             const socket = io(); // On connecte la page au serveur en temps réel
 
             socket.on('update_stock', () => {
+                chargerServeurs()
                 chargerClients();
-                // Dès que le serveur signale un changement, on recharge les données discrètement
                 chargerStock();
                 chargerDashboard();
                 chargerAlertes();

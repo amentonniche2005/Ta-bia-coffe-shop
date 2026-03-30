@@ -168,12 +168,16 @@ function afficherColonne(containerId, commandes, type) {
         return `
             <div class="ticket" data-id="${cmd.id}" onclick="voirDetails(${cmd.id})">
                 <div class="ticket-header">
-                    <span class="ticket-id">#${cmd.numero}</span>
+                    <span class="ticket-id">
+                        ${cmd.clientName ? `<span style="color:#c2410c;"><i class="fas fa-user"></i> ${cmd.clientName}</span>` : `#${cmd.numero}`}
+                        ${cmd.clientName ? `<span style="font-size:0.75rem; color:#94a3b8; margin-left:6px;">(#${cmd.numero})</span>` : ''}
+                    </span>
                     <span class="ticket-time"><i class="far fa-clock"></i> ${timeStr}</span>
                 </div>
                 <div class="badges-row">
                     ${tableBadge}
                     ${typeOrigine}
+                    ${cmd.serveurName ? `<span class="badge" style="background:#8b5cf6; color:white; border:1px solid #7c3aed;"><i class="fas fa-user-tie"></i> ${cmd.serveurName}</span>` : ""}
                 </div>
                 <ul class="items-list">
                     ${itemsHtml}
