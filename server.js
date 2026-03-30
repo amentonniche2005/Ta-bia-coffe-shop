@@ -107,7 +107,11 @@ app.post('/api/commandes', async (req, res) => {
 // --- LECTURE QR CODES ---
 // Permet à la page client de vérifier le numéro de table
 app.get('/api/numbers', async (req, res) => {
-    try { res.json(await TableCode.find({}).sort({ numero: 1 })); } catch (err) { res.status(500).json(err); }
+    try { 
+        res.json(await TableCode.find({}).sort({ numero: 1 })); 
+    } catch (err) { 
+        res.status(500).json(err); 
+    }
 });
 
 
@@ -219,13 +223,17 @@ app.get('/api/depenses', verifierToken, async (req, res) => res.json(await Expen
 app.post('/api/depenses', verifierToken, async (req, res) => { await new Expense(req.body).save(); res.json({ success: true }); });
 
 // --- QR CODES (GÉNÉRATION) ---
-app.post('/api/numbers/refresh/:numero', verifierToken, async (req, res) => {
-    const updated = await TableCode.findOneAndUpdate(
-        { numero: req.params.numero }, 
-        { code: Math.floor(Math.random()*90000+10000).toString(), lastUpdated: Date.now() }, 
-        { upsert: true, new: true }
-    );
-    res.json(updated);
+app.post('/api/numbers/refresh/:numero', async (req, res) => {
+    try {
+        const updated = await TableCode.findOneAndUpdate(
+            { numero: req.params.numero }, 
+            { code: Math.floor(Math.random()*90000+10000).toString(), lastUpdated: Date.now() }, 
+            { upsert: true, new: true }
+        );
+        res.json(updated);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 
