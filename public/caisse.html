@@ -471,9 +471,10 @@
     }
 
     // ========== GESTION TICKET CAISSE ==========
-    async function chargerCatalogue() {
+async function chargerCatalogue() {
         try {
-            const res = await fetch('/api/stock');
+            // 🔥 CORRECTION : On utilise fetchSecurise au lieu de fetch
+            const res = await fetchSecurise('/api/stock');
             produits = await res.json();
             renderCategories();
             renderProducts();
@@ -567,25 +568,40 @@
     }
 
     // ========== ENVOYER EN CUISINE ==========
+// ========== ENVOYER EN CUISINE (CORRIGÉ ET SÉCURISÉ) ==========
     async function envoyerEnCuisine() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
 
         try {
-            const response = await fetch('/api/commandes', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+            // 🔥 CORRECTION : On utilise fetchSecurise au lieu de fetch classique
+            const response = await fetchSecurise('/api/commandes', {
+                method: 'POST', 
+                // Plus besoin de mettre les headers ici, fetchSecurise s'en occupe !
                 body: JSON.stringify({
-                    articles: ticket.articles.map(a => ({ id: a.id, nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, prix: a.prix, quantite: a.quantite })),
+                    articles: ticket.articles.map(a => ({ 
+                        id: a.id, 
+                        nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, 
+                        prix: a.prix, 
+                        quantite: a.quantite 
+                    })),
                     numeroTable: currentTable === 'Emporter' ? 'Emporter' : currentTable,
                     clientId: null
                 })
             });
+            
             if (response.ok) {
                 showNotification(`👨‍🍳 Commande envoyée en cuisine !`, "#e67e22");
                 viderTicket(currentTable, false);
+            } else {
+                // J'ajoute ce message pour que tu saches si le serveur a bloqué l'envoi
+                showNotification("❌ Refusé par le serveur. Vérifie ton Token.", "#e74c3c");
             }
-        } catch (error) { showNotification("❌ Erreur réseau", "#e74c3c"); }
+        } catch (error) { 
+            showNotification("❌ Erreur de réseau avec la cuisine", "#e74c3c"); 
+            console.error("Erreur envoi cuisine:", error);
+        }
     }
 
     // ========== AFFICHAGE INTERFACE ==========
@@ -731,21 +747,23 @@
     }
 
     // ========== APPELS BACKEND (STOCK) ==========
-    async function decrementerStock(articles) {
+async function decrementerStock(articles) {
         try {
-            const response = await fetch('/api/stock/decrementer', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+            // 🔥 CORRECTION : On utilise fetchSecurise au lieu de fetch
+            const response = await fetchSecurise('/api/stock/decrementer', {
+                method: 'POST', 
+                // Plus besoin des headers ici, fetchSecurise s'en occupe automatiquement !
                 body: JSON.stringify({ articles: articles.map(a => ({ id: a.id || a.baseId, quantite: a.quantite })) })
             });
             const result = await response.json();
             
             if (!result.success) { 
-                // On affiche juste une alerte orange, mais on retourne TRUE pour ne pas bloquer la vente
                 showNotification(`⚠️ Note : Stock épuisé (${result.erreurs?.join(', ')}), mais vente enregistrée.`, "#f39c12"); 
             }
-            return true; // <--- TRÈS IMPORTANT : On renvoie toujours true pour ne jamais bloquer la caisse
+            return true; 
         } catch (error) { 
-            return true; // Autorise même si le serveur a un petit bug
+            console.error("Erreur mise à jour stock:", error);
+            return true; // Autorise la vente même si le serveur de stock a un petit bug
         }
     }
 
