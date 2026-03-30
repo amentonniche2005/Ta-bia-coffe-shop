@@ -175,21 +175,14 @@
     </div>
 <script src="/socket.io/socket.io.js"></script>
     <script>
-let currentData = { numero: null, code: null, lastUpdated: null };
+l<script src="/socket.io/socket.io.js"></script>
+    
+    <script>
+        const socket = io(); // Connexion en temps réel
+        
+        // CORRECTION 1 : On utilise 'code' au lieu de 'id'
+        let currentData = { numero: null, code: null, lastUpdated: null };
 
-// 📢 AJOUT 2 : La connexion en direct
-        const socket = io();
-
-        socket.on('tables_refresh', () => {
-            showNotif("🔄 Les codes des tables viennent d'être régénérés !");
-            
-            // Si tu étais en train de regarder le code d'une table, 
-            // on le met à jour automatiquement sous tes yeux sans que tu cliques.
-            const select = document.getElementById('numberSelect');
-            if (select.value) {
-                handleFetchId();
-            }
-        });
         function showNotif(message, isError = false) {
             const toast = document.getElementById('toastNotif');
             toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
@@ -209,9 +202,11 @@ let currentData = { numero: null, code: null, lastUpdated: null };
 
         function updateUI() {
             const resultArea = document.getElementById('resultArea');
-            if (currentData.id) {
+            if (currentData.code) { // CORRECTION 2 : On vérifie 'code'
                 document.getElementById('displayTableNum').textContent = currentData.numero;
-                document.getElementById('ticketCodeValue').textContent = currentData.id;
+                document.getElementById('ticketCodeValue').textContent = currentData.code;
+                document.getElementById('printCodeVal').textContent = currentData.code;
+                
                 const date = new Date(currentData.lastUpdated);
                 document.getElementById('lastUpdatedValue').textContent = date.toLocaleString('fr-FR');
                 resultArea.classList.add('visible');
@@ -232,15 +227,21 @@ let currentData = { numero: null, code: null, lastUpdated: null };
             try {
                 const response = await fetch('/api/numbers');
                 if (!response.ok) throw new Error('Erreur de récupération');
-                const numbers = await response.json();
+                const tables = await response.json();
                 
-                const found = numbers.find(n => parseInt(n.numero) === parseInt(numero));
+                const found = tables.find(n => parseInt(n.numero) === parseInt(numero));
                 if (found) {
                     currentData = found;
                     updateUI();
                     showNotif('Code récupéré avec succès');
                 } else {
-                    throw new Error('Table introuvable');
+                    // CORRECTION 3 : Si la table n'a pas de code, on propose de le créer
+                    if(confirm(`La Table ${numero} n'a pas encore de code. Voulez-vous en générer un maintenant ?`)) {
+                        currentData.numero = numero;
+                        handleRefreshId();
+                    } else {
+                        throw new Error('Table introuvable dans la base');
+                    }
                 }
             } catch (error) {
                 showNotif(error.message, true);
@@ -251,14 +252,16 @@ let currentData = { numero: null, code: null, lastUpdated: null };
         }
 
         async function handleRefreshId() {
-            const numero = currentData.numero;
-            if (!numero || !confirm(`Générer un NOUVEAU code pour la Table ${numero} ? L'ancien ne marchera plus.`)) return;
+            const numero = currentData.numero || document.getElementById('numberSelect').value;
+            if (!numero) return;
 
             const btn = document.getElementById('refreshBtn');
+            const btnOriginal = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             btn.disabled = true;
 
             try {
+                // Cette route force la création d'un nouveau code dans MongoDB
                 const response = await fetch(`/api/numbers/refresh/${numero}`, { method: 'POST' });
                 if (!response.ok) throw new Error('Erreur lors du rafraîchissement');
                 
@@ -269,16 +272,16 @@ let currentData = { numero: null, code: null, lastUpdated: null };
             } catch (error) {
                 showNotif(error.message, true);
             } finally {
-                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Nouveau';
+                btn.innerHTML = btnOriginal; // Remet l'icône originale
                 btn.disabled = false;
             }
         }
 
         function imprimerTicket() {
-            if (!currentData.id) return showNotif('Aucun code à imprimer', true);
+            if (!currentData.code) return showNotif('Aucun code à imprimer', true);
 
             document.getElementById('printTableNum').textContent = currentData.numero;
-            document.getElementById('printCodeVal').textContent = currentData.id;
+            document.getElementById('printCodeVal').textContent = currentData.code; // CORRECTION 4
             document.getElementById('printDateNow').textContent = new Date().toLocaleDateString('fr-FR') + ' ' + new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
 
             window.print();
@@ -291,18 +294,27 @@ let currentData = { numero: null, code: null, lastUpdated: null };
             select.addEventListener('change', () => {
                 fetchBtn.disabled = !select.value;
                 document.getElementById('resultArea').classList.remove('visible');
-                currentData = { numero: null, id: null, lastUpdated: null };
+                currentData = { numero: null, code: null, lastUpdated: null };
             });
             
             document.getElementById('fetchBtn').addEventListener('click', handleFetchId);
             document.getElementById('printTicketBtn').addEventListener('click', imprimerTicket);
             document.getElementById('refreshBtn').addEventListener('click', handleRefreshId);
+
+            // CORRECTION 5 : Rafraîchissement automatique
+            socket.on('tables_refresh', () => {
+                showNotif("🔄 Les codes ont été régénérés par le serveur !");
+                if (select.value) {
+                    handleFetchId();
+                }
+            });
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             populateSelect();
             setupListeners();
         });
+    </script>
     </script>
 </body>
 </html>
