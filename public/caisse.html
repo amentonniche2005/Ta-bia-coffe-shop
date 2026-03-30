@@ -329,6 +329,30 @@
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
+    // 🛡️ SÉCURITÉ : Vérification du Token au chargement de la page
+const monToken = localStorage.getItem('tabia_caisse_token');
+
+if (!monToken) {
+    // Si pas de token, on le jette dehors vers la page de connexion
+    window.location.href = '/caisse-login.html'; 
+}
+
+// Pour toutes nos futures requêtes vers le serveur (pour modifier le stock, etc.), 
+// on va attacher ce Token automatiquement.
+async function fetchSecurise(url, options = {}) {
+    if (!options.headers) options.headers = {};
+    options.headers['authorization'] = monToken; // On montre le badge !
+    options.headers['Content-Type'] = 'application/json';
+    
+    const reponse = await fetch(url, options);
+    if (reponse.status === 403) {
+        alert("Votre Token a expiré ou a été révoqué par le développeur.");
+        localStorage.removeItem('tabia_caisse_token');
+        window.location.href = '/caisse-login.html';
+    }
+    return reponse;
+}
+    
     // ========== MENU COMPLET (SALON DE THÉ) ==========
 
 

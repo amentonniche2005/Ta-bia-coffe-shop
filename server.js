@@ -72,7 +72,21 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
-const CAISSE_PASSWORD = process.env.CAISSE_PASSWORD || '1234';
+// Le développeur définit le Token ici (ou dans les variables d'environnement de Render)
+const CAISSE_TOKEN = process.env.CAISSE_TOKEN || '12345678';
+
+// 🛡️ LE VIGILE : Il vérifie que la caisse possède bien le Token pour chaque action
+function verifierToken(req, res, next) {
+    const tokenFourni = req.headers['authorization'];
+    
+    // Si la caisse envoie le bon token, on la laisse passer
+    if (tokenFourni === CAISSE_TOKEN) {
+        next();
+    } else {
+        // Sinon, on bloque l'action immédiatement
+        res.status(403).json({ error: "Accès refusé. Token invalide." });
+    }
+}
 
 // ========== 4. ROUTES API (AVEC TEMPS RÉEL) ==========
 
@@ -219,8 +233,14 @@ app.post('/api/numbers/refresh/:numero', async (req, res) => {
 });
 
 // --- AUTH ---
-app.post('/api/caisse/verify', (req, res) => res.json({ success: req.body.password === CAISSE_PASSWORD }));
-
+// --- AUTHENTIFICATION PAR TOKEN ---
+app.post('/api/caisse/verify', (req, res) => {
+    if (req.body.token === CAISSE_TOKEN) {
+        res.json({ success: true, message: "Token accepté" });
+    } else {
+        res.status(401).json({ success: false, message: "Token invalide" });
+    }
+});
 // ========== 5. INITIALISATION DU MENU (SEED) ==========
 
 async function seedDatabase() {
