@@ -442,17 +442,50 @@ async function verifierCodeApi(numTable, codeSaisi) {
     }
 }
 
-async function validerCommande(numTable) {
+async function validerCommande(codeSaisi) {
     const checkoutBtn = document.getElementById("checkoutBtn");
     if (checkoutBtn) { checkoutBtn.disabled = true; checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; }
 
     try {
+        let tableFinale = codeSaisi === 'Emporter' ? 'Emporter' : null;
+        let nomFidele = null;
+        let idFidele = clientId; // clientId classique (celui que tu avais déjà)
+
+        // 🔥 1. ON VÉRIFIE D'ABORD SI C'EST UN CLIENT FIDÈLE
+        if (codeSaisi !== 'Emporter') {
+            try {
+                // On interroge le serveur pour voir si ce code existe
+                const resFid = await fetch(`/api/customers/verify/${codeSaisi}`);
+                if (resFid.ok) {
+                    const data = await resFid.json();
+                    if (data.success) {
+                        nomFidele = `${data.customer.prenom} ${data.customer.nom}`;
+                        tableFinale = 'Emporter'; // Les clients fidèles sont "À emporter" par défaut
+                        idFidele = codeSaisi;     // On utilise son code secret comme ID
+                    }
+                }
+            } catch (err) { console.error("Erreur vérification fidélité:", err); }
+
+            // 🔥 2. SI CE N'EST PAS UN CLIENT FIDÈLE (On suppose que c'est une Table)
+            if (!nomFidele) {
+                tableFinale = parseInt(codeSaisi);
+                // Si la conversion en chiffre échoue (NaN), c'est que le code est totalement faux
+                if (isNaN(tableFinale)) {
+                    afficherNotification("❌ Code invalide ou inconnu", "error");
+                    if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; }
+                    return; // On arrête tout ici
+                }
+            }
+        }
+
+        // 🔥 3. ENVOI DE LA COMMANDE AU SERVEUR
         const response = await fetch('/api/commandes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
-                numeroTable: numTable === 'Emporter' ? 'Emporter' : parseInt(numTable),
-                clientId: clientId
+                numeroTable: tableFinale,
+                clientId: idFidele,
+                clientName: nomFidele // 👈 Le nom magique qui apparaîtra sur la caisse !
             })
         });
 
@@ -461,11 +494,21 @@ async function validerCommande(numTable) {
             sauvegarderCommandeClient(commande);
             
             panier = []; sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier();
-            afficherNotification("🎉 Commande envoyée avec succès !");
+            
+            // Notification personnalisée si c'est un habitué !
+            if (nomFidele) {
+                afficherNotification(`🎉 Merci ${nomFidele} ! Commande envoyée.`);
+            } else {
+                afficherNotification("🎉 Commande envoyée avec succès !");
+            }
+            
             await chargerCatalogue(); 
-        } else { afficherNotification("❌ Erreur serveur", "error"); }
-    } catch (e) { afficherNotification("❌ Erreur de connexion", "error"); } 
-    finally {
+        } else { 
+            afficherNotification("❌ Erreur serveur", "error"); 
+        }
+    } catch (e) { 
+        afficherNotification("❌ Erreur de connexion", "error"); 
+    } finally {
         if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; }
     }
 }
