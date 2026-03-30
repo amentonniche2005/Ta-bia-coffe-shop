@@ -20,9 +20,48 @@
         .nav-right { display: flex; gap: 1rem; align-items: center; }        
         
         .caisse-badge { background: #27ae60; color: white; padding: 6px 14px; border-radius: 30px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; }
-        .stock-link { background: #3498db; color: white; padding: 6px 14px; border-radius: 30px; text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; transition: transform 0.2s; }
-        .stock-link:hover { transform: translateY(-2px); }
-        
+/* ========== BOUTONS DE NAVIGATION (STOCK & VERROUILLER) ========== */
+.btn-nav {
+    padding: 8px 18px;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.btn-nav:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.25);
+}
+
+.btn-nav:active {
+    transform: translateY(0);
+}
+
+/* Couleurs spécifiques pour le Stock */
+.btn-stock {
+    background: #34495e; /* Bleu-gris très élégant */
+    color: white;
+}
+.btn-stock:hover {
+    background: #2c3e50;
+}
+
+/* Couleurs spécifiques pour le Verrouillage */
+.btn-lock {
+    background: #e74c3c; /* Rouge pour attirer l'attention */
+    color: white;
+}
+.btn-lock:hover {
+    background: #c0392b;
+}
         /* ========== LAYOUT PRINCIPAL ========== */
         .dashboard { max-width: 1600px; margin: 1.5rem auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 450px; gap: 1.5rem; }
 
@@ -188,11 +227,11 @@
             <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img">
             <h1>TA'BIA <span class="logo-subtext">Caisse</span></h1>
         </div>
-        <div class="nav-right">
-            <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
-            <a href="/gestion-stock" class="stock-link"><i class="fas fa-boxes"></i> Stock</a>
-            <button id="btn-verrouiller" class="btn-lock">🔒 Verrouiller</button>    
-        </div>
+<div class="nav-right">
+    <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
+    <a href="/gestion-stock.html" class="btn-nav btn-stock"><i class="fas fa-boxes"></i> Stock</a>
+    <button id="btn-verrouiller" class="btn-nav btn-lock"><i class="fas fa-lock"></i> Verrouiller</button>    
+</div>
     </div>
 </header>
 
