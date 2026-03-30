@@ -1,6 +1,23 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+    <script>
+    // 1. On vérifie le token de connexion général
+    const tokenCaisse = localStorage.getItem('tabia_caisse_token');
+    
+    // 2. On vérifie le laissez-passer venant de la caisse
+    const venantDeCaisse = sessionStorage.getItem('acces_stock_autorise');
+
+    // 3. Si l'un des deux manque, on bloque et on renvoie au login
+    if (!tokenCaisse || venantDeCaisse !== 'oui') {
+        alert("Accès refusé : Vous devez passer par la caisse pour accéder au stock.");
+        window.location.href = '/caisse-login.html'; 
+    }
+
+    // 4. (Optionnel mais recommandé) On détruit le laissez-passer une fois entré
+    // Ça empêche l'utilisateur de rafraîchir la page ou de copier le lien
+    sessionStorage.removeItem('acces_stock_autorise');
+</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>TA'BIA - Caisse Salon de Thé</title>
@@ -229,8 +246,8 @@
         </div>
 <div class="nav-right">
     <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
-    <a href="/gestion-stock.html" class="btn-nav btn-stock"><i class="fas fa-boxes"></i> Stock</a>
-    <button id="btn-verrouiller" class="btn-nav btn-lock"><i class="fas fa-lock"></i> Verrouiller</button>    
+<button id="btn-aller-stock" class="btn-nav btn-stock"><i class="fas fa-boxes"></i> Stock</button>  
+  <button id="btn-verrouiller" class="btn-nav btn-lock"><i class="fas fa-lock"></i> Verrouiller</button>    
 </div>
     </div>
 </header>
@@ -1154,6 +1171,16 @@
                 } 
             });
         }
+    const btnAllerStock = document.getElementById('btn-aller-stock');
+if (btnAllerStock) {
+    btnAllerStock.addEventListener('click', () => {
+        // 1. On crée le laissez-passer invisible
+        sessionStorage.setItem('acces_stock_autorise', 'oui');
+        // 2. On redirige vers la page du stock (modifie le nom si ton fichier s'appelle autrement)
+        window.location.href = '/gestion-stock.html'; 
+    });
+}
+    
     });
 </script>
 </body>
