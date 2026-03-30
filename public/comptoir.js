@@ -1,3 +1,26 @@
+// ========== SÉCURITÉ : VÉRIFICATION DU TOKEN ==========
+const monToken = localStorage.getItem('tabia_caisse_token');
+
+if (!monToken) {
+    // Si pas de token, on redirige vers la page de connexion
+    window.location.href = '/caisse-login.html'; 
+}
+
+// Fonction pour parler au serveur avec le badge de sécurité
+async function fetchSecurise(url, options = {}) {
+    if (!options.headers) options.headers = {};
+    options.headers['authorization'] = monToken; // On montre le badge
+    options.headers['Content-Type'] = 'application/json';
+    
+    const reponse = await fetch(url, options);
+    if (reponse.status === 403) {
+        alert("Votre Token a expiré ou a été révoqué.");
+        localStorage.removeItem('tabia_caisse_token');
+        window.location.href = '/caisse-login.html';
+    }
+    return reponse;
+}
+
 // ========== COMPTOIR AVEC SOCKET.IO - LOGIQUE KDS ==========
 let filtreActuel = "all";
 let commandesComptoirCache = [];
@@ -5,7 +28,8 @@ let commandesComptoirCache = [];
 // ========== CHARGEMENT INITIAL ==========
 async function chargerCommandes() {
     try {
-        const response = await fetch('/api/commandes');
+        // 🔥 CORRECTION : fetchSecurise au lieu de fetch
+        const response = await fetchSecurise('/api/commandes');
         const commandes = await response.json();
         // On ne garde que ce qui n'est pas encore encaissé à la caisse
         commandesComptoirCache = commandes.filter(c => c.statut !== 'paye');
@@ -18,9 +42,9 @@ async function chargerCommandes() {
 // ========== ACTIONS ==========
 async function demarrerPreparation(id) {
     try {
-        const response = await fetch(`/api/commandes/${id}/statut`, {
+        // 🔥 CORRECTION : fetchSecurise au lieu de fetch
+        const response = await fetchSecurise(`/api/commandes/${id}/statut`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ statut: 'en_preparation' })
         });
         if (response.ok) jouerSonAction();
@@ -31,9 +55,9 @@ async function demarrerPreparation(id) {
 
 async function terminerCommande(id) {
     try {
-        const response = await fetch(`/api/commandes/${id}/statut`, {
+        // 🔥 CORRECTION : fetchSecurise au lieu de fetch
+        const response = await fetchSecurise(`/api/commandes/${id}/statut`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ statut: 'terminee' })
         });
         if (response.ok) jouerSonAction();
