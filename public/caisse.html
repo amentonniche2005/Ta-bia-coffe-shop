@@ -207,7 +207,15 @@
             </div>
             <div class="tables-grid" id="tablesGrid"></div>
         </div>
-
+<div class="tables-list" style="margin-top: 1rem; border-top: 4px solid #3498db;">
+    <div class="tables-header" style="background: #3498db;">
+        <span><i class="fas fa-star"></i> Commandes Fidélité (À Emporter)</span>
+        <span id="loyalCount">0 commande</span>
+    </div>
+    <div id="loyalOrdersList" style="padding: 10px; display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
+        <div class="empty-message">Aucune commande fidèle en attente</div>
+    </div>
+</div>
         <div class="ticket-card">
             <div class="ticket-header">
                 <span><i class="fas fa-receipt"></i> Ticket <span id="currentTableLabel">-</span></span>
@@ -1001,6 +1009,48 @@
         });
         content.innerHTML = html;
     }
+    function afficherCommandesFideles() {
+    const container = document.getElementById('loyalOrdersList');
+    const countSpan = document.getElementById('loyalCount');
+    
+    // On filtre les commandes qui ont un nom de client et qui ne sont pas encore payées
+    const commandesFideles = commandesRecues.filter(cmd => cmd.clientName && cmd.statut !== 'paye');
+    
+    countSpan.innerText = `${commandesFideles.length} commande${commandesFideles.length > 1 ? 's' : ''}`;
+
+    if (commandesFideles.length === 0) {
+        container.innerHTML = '<div class="empty-message">Aucune commande fidèle en attente</div>';
+        return;
+    }
+
+    container.innerHTML = commandesFideles.map(cmd => `
+        <div class="vente-item" style="cursor:pointer; background:#f0f7ff; border:1px solid #3498db; border-radius:10px;" onclick="chargerCommandeFideleSurTicket('${cmd.id}')">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="color:#2980b9;"><i class="fas fa-user"></i> ${cmd.clientName}</strong>
+                <span class="badge" style="background:#3498db; color:white;">#${cmd.numero}</span>
+            </div>
+            <div style="font-size:0.8rem; color:#555;">${cmd.articles.length} articles - ${cmd.total.toFixed(2)} DT</div>
+        </div>
+    `).join('');
+}
+
+// Fonction pour basculer la commande sur le ticket de droite pour l'encaisser
+function chargerCommandeFideleSurTicket(cmdId) {
+    const cmd = commandesRecues.find(c => String(c.id) === String(cmdId));
+    if (!cmd) return;
+
+    // On utilise une table virtuelle "Fidélité" pour ne pas mélanger avec les tables physiques
+    currentTable = 'Fidélité'; 
+    tickets['Fidélité'] = {
+        articles: cmd.articles,
+        total: cmd.total,
+        clientName: cmd.clientName,
+        orderId: cmd.id
+    };
+    
+    afficherTicket();
+    showNotification(`📦 Commande de ${cmd.clientName} chargée !`);
+}
 
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
@@ -1018,6 +1068,7 @@
             if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) {
                 afficherCommandesTable(derniereTableModal);
             }
+            afficherCommandesFideles()
         });
         
         // 🔥 FONCTION BLINDÉE : Réception des commandes terminées

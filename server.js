@@ -44,13 +44,27 @@ const Expense = mongoose.model('Expense', new mongoose.Schema({
 }));
 
 const Order = mongoose.model('Order', new mongoose.Schema({
-    id: Number, numero: String, date: String, timestamp: Number, articles: Array,
-    numeroTable: String, statut: { type: String, default: 'en_attente' }, total: Number,
-    clientId: String 
+    id: Number, 
+    numero: String, 
+    date: String, 
+    timestamp: Number, 
+    articles: Array,
+    numeroTable: String, 
+    statut: { type: String, default: 'en_attente' }, 
+    total: Number,
+    clientId: String,
+    clientName: String 
 }));
 
 const TableCode = mongoose.model('TableCode', new mongoose.Schema({
     numero: Number, code: String, lastUpdated: Number
+}));
+const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({
+    nom: String,
+    prenom: String,
+    telephone: String,
+    codeFidelite: { type: String, unique: true },
+    dateInscription: { type: String, default: () => new Date().toLocaleDateString('fr-FR') }
 }));
 
 // ========== 3. MIDDLEWARES ET SÉCURITÉ ==========
@@ -119,7 +133,32 @@ app.get('/api/numbers', async (req, res) => {
 // ========== 5. ROUTES API 🔒 SÉCURISÉES =================
 // (Nécessitent le Token de la caisse/cuisine)
 // =========================================================
+// Liste des clients fidèles
+app.get('/api/customers', async (req, res) => {
+    res.json(await LoyalCustomer.find({}).sort({ _id: -1 }));
+});
 
+// Ajouter un client
+app.post('/api/customers', async (req, res) => {
+    try {
+        const nouveau = new LoyalCustomer(req.body);
+        await nouveau.save();
+        res.json({ success: true, customer: nouveau });
+    } catch (err) { res.status(500).json({ error: "Code déjà utilisé ou erreur serveur" }); }
+});
+
+// Supprimer un client
+app.delete('/api/customers/:id', async (req, res) => {
+    await LoyalCustomer.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+});
+
+// ROUTE PUBLIQUE : Vérifier un code (pour le téléphone du client)
+app.get('/api/customers/verify/:code', async (req, res) => {
+    const customer = await LoyalCustomer.findOne({ codeFidelite: req.params.code });
+    if (customer) res.json({ success: true, customer });
+    else res.status(404).json({ success: false });
+});
 // --- COMMANDES ET CUISINE ---
 app.get('/api/commandes', verifierToken, async (req, res) => {
     try { res.json(await Order.find({ statut: { $ne: 'paye' } })); } catch (err) { res.status(500).json({ error: err.message }); }

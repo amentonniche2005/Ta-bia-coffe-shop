@@ -150,6 +150,7 @@
             <button class="tab" data-tab="alertes" onclick="ouvrirOnglet('alertes')"><i class="fas fa-bell"></i> Alertes</button>
             <button class="tab" data-tab="inventaire" onclick="ouvrirOnglet('inventaire')"><i class="fas fa-clipboard-check"></i> Audit Physique</button>
             <button class="tab" data-tab="depenses" onclick="ouvrirOnglet('depenses')"><i class="fas fa-wallet"></i> Dépenses</button>
+            <button class="tab" data-tab="fidelite" onclick="ouvrirOnglet('fidelite')"><i class="fas fa-id-card"></i> Clients Fidèles</button>
         </div>
 
         <div class="panel active" id="panel-stock">
@@ -337,6 +338,26 @@
                 </table>
             </div>
         </div>
+        <div class="panel" id="panel-fidelite">
+    <div class="toolbar">
+        <div><h3>Gestion de la Fidélité</h3></div>
+        <button class="btn-action btn-warning" onclick="ouvrirModalClient()"><i class="fas fa-user-plus"></i> Inscrire un Client</button>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Nom & Prénom</th>
+                    <th>Téléphone</th>
+                    <th style="text-align:center;">Code Fidélité</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="fideliteTableBody"></tbody>
+        </table>
+    </div>
+</div>
     </div>
 
     <div id="modalContainer"></div>
@@ -977,6 +998,57 @@
                 if(res.ok) { showNotification("Dépense enregistrée", "var(--success)"); fermerModal(); chargerDepenses(); }
             } catch(e){ showNotification("Erreur de sauvegarde", "var(--danger)"); }
         }
+        async function chargerClients() {
+    const res = await fetchSecurise('/api/customers');
+    const clients = await res.json();
+    const tbody = document.getElementById('fideliteTableBody');
+    tbody.innerHTML = clients.map(c => `
+        <tr>
+            <td>${c.dateInscription}</td>
+            <td><strong>${c.nom} ${c.prenom}</strong></td>
+            <td>${c.telephone}</td>
+            <td style="text-align:center;"><span class="badge badge-normal" style="font-size:1rem;">${c.codeFidelite}</span></td>
+            <td style="text-align:right;">
+                <button class="btn-action btn-danger" onclick="supprimerClient('${c._id}')"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function ouvrirModalClient() {
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active"><div class="modal-content">
+            <div class="modal-header"><h3>Inscrire un habitué</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+            <div class="form-group"><label>Nom :</label><input type="text" id="custNom"></div>
+            <div class="form-group"><label>Prénom :</label><input type="text" id="custPrenom"></div>
+            <div class="form-group"><label>Téléphone :</label><input type="text" id="custTel"></div>
+            <div class="form-group"><label>Code Fidélité (à donner au client) :</label>
+                <input type="text" id="custCode" value="${Math.floor(1000 + Math.random() * 9000)}">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+                <button class="btn-primary" onclick="validerClient()">Enregistrer</button>
+            </div>
+        </div></div>`;
+}
+
+async function validerClient() {
+    const data = {
+        nom: document.getElementById('custNom').value,
+        prenom: document.getElementById('custPrenom').value,
+        telephone: document.getElementById('custTel').value,
+        codeFidelite: document.getElementById('custCode').value
+    };
+    const res = await fetchSecurise('/api/customers', { method: 'POST', body: JSON.stringify(data) });
+    if(res.ok) { fermerModal(); chargerClients(); showNotification("Client fidèle enregistré !"); }
+}
+
+async function supprimerClient(id) {
+    if(confirm("Supprimer ce client ?")) {
+        await fetchSecurise(`/api/customers/${id}`, { method: 'DELETE' });
+        chargerClients();
+    }
+}
 
         // ========== INIT DOM ==========
         document.addEventListener("DOMContentLoaded", () => {
