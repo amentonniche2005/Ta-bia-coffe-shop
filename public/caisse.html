@@ -1,23 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <script>
-    // 1. On vérifie le token de connexion général
-    const tokenCaisse = localStorage.getItem('tabia_caisse_token');
-    
-    // 2. On vérifie le laissez-passer venant de la caisse
-    const venantDeCaisse = sessionStorage.getItem('acces_stock_autorise');
-
-    // 3. Si l'un des deux manque, on bloque et on renvoie au login
-    if (!tokenCaisse || venantDeCaisse !== 'oui') {
-        alert("Accès refusé : Vous devez passer par la caisse pour accéder au stock.");
-        window.location.href = '/caisse-login.html'; 
-    }
-
-    // 4. (Optionnel mais recommandé) On détruit le laissez-passer une fois entré
-    // Ça empêche l'utilisateur de rafraîchir la page ou de copier le lien
-    sessionStorage.removeItem('acces_stock_autorise');
-</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>TA'BIA - Caisse Salon de Thé</title>
