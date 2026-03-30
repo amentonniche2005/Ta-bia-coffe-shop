@@ -11,22 +11,18 @@
         body { background: #f5f7fb; color: #1e293b; padding-bottom: 2rem; }
         
         /* ========== HEADER ========== */
-/* ========== HEADER PREMIUM VERT FONCÉ ========== */
         header { background: #143621; padding: 1.2rem 2rem; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .header-container { max-width: 1600px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; width: 100%; }
         .logo { display: flex; align-items: center; gap: 15px; }
         .logo-img { height: 70px; width: 70px; border-radius: 50%; object-fit: cover; border: 2px solid #e3c496; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
         .logo h1 { font-size: 1.6rem; font-weight: 800; color: #fdfbf7; display: flex; flex-direction: column; line-height: 1.1; margin: 0; }
         .logo .logo-subtext { font-size: 0.85rem; font-weight: 600; color: #e3c496; text-transform: uppercase; letter-spacing: 2px; }
-        .nav-right { display: flex; gap: 1rem; align-items: center; }        nav { max-width: 1600px; margin: 0 auto; padding: 0.8rem 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
-        .logo h1 { font-size: 1.5rem; color: #e67e22; display: flex; align-items: center; gap: 8px; }
-        .logo p { font-size: 0.7rem; color: #64748b; }
-        .nav-right { display: flex; align-items: center; gap: 0.8rem; }
+        .nav-right { display: flex; gap: 1rem; align-items: center; }        
+        
         .caisse-badge { background: #27ae60; color: white; padding: 6px 14px; border-radius: 30px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; }
         .stock-link { background: #3498db; color: white; padding: 6px 14px; border-radius: 30px; text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; transition: transform 0.2s; }
         .stock-link:hover { transform: translateY(-2px); }
-        .logout-btn { background: #e74c3c; color: white; border: none; padding: 6px 14px; border-radius: 30px; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; }
-
+        
         /* ========== LAYOUT PRINCIPAL ========== */
         .dashboard { max-width: 1600px; margin: 1.5rem auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 450px; gap: 1.5rem; }
 
@@ -172,15 +168,16 @@
         /* Responsive */
         @media (max-width: 1000px) { .dashboard { grid-template-columns: 1fr; } .tables-grid { grid-template-columns: repeat(5, 1fr); } }
         @media (max-width: 600px) { .tables-grid { grid-template-columns: repeat(3, 1fr); } }
+        
         .btn-lock {
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-}
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -194,7 +191,8 @@
         <div class="nav-right">
             <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
             <a href="/gestion-stock" class="stock-link"><i class="fas fa-boxes"></i> Stock</a>
-<button id="btn-verrouiller" class="btn-lock">🔒 Verrouiller la caisse</button>        </div>
+            <button id="btn-verrouiller" class="btn-lock">🔒 Verrouiller</button>    
+        </div>
     </div>
 </header>
 
@@ -338,49 +336,30 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
     // 🛡️ SÉCURITÉ : Vérification du Token au chargement de la page
-const monToken = localStorage.getItem('tabia_caisse_token');
+    const monToken = localStorage.getItem('tabia_caisse_token');
 
-if (!monToken) {
-    // Si pas de token, on le jette dehors vers la page de connexion
-    window.location.href = '/caisse-login.html'; 
-}
-
-// Pour toutes nos futures requêtes vers le serveur (pour modifier le stock, etc.), 
-// on va attacher ce Token automatiquement.
-async function fetchSecurise(url, options = {}) {
-    if (!options.headers) options.headers = {};
-    options.headers['authorization'] = monToken; // On montre le badge !
-    options.headers['Content-Type'] = 'application/json';
-    
-    const reponse = await fetch(url, options);
-    if (reponse.status === 403) {
-        alert("Votre Token a expiré ou a été révoqué par le développeur.");
-        localStorage.removeItem('tabia_caisse_token');
-        window.location.href = '/caisse-login.html';
+    if (!monToken) {
+        // Si pas de token, on le jette dehors vers la page de connexion
+        window.location.href = '/caisse-login.html'; 
     }
-    return reponse;
-}
-    // On sélectionne le bouton qu'on vient de créer
-const boutonVerrouiller = document.getElementById('btn-verrouiller');
 
-// On sélectionne tes blocs HTML (attention à bien mettre les mêmes ID que dans ton HTML)
-const ecranCaisse = document.getElementById('interface-caisse'); // Le grand bloc de ta caisse
-const ecranToken = document.getElementById('interface-token');   // Le bloc qui demande le mot de passe/token
+    // Pour toutes nos futures requêtes vers le serveur (pour modifier le stock, etc.), 
+    // on va attacher ce Token automatiquement.
+    async function fetchSecurise(url, options = {}) {
+        if (!options.headers) options.headers = {};
+        options.headers['authorization'] = monToken; // On montre le badge !
+        options.headers['Content-Type'] = 'application/json';
+        
+        const reponse = await fetch(url, options);
+        if (reponse.status === 403) {
+            alert("Votre Token a expiré ou a été révoqué par le développeur.");
+            localStorage.removeItem('tabia_caisse_token');
+            window.location.href = '/caisse-login.html';
+        }
+        return reponse;
+    }
 
-// L'action : quand on clique sur le bouton "Verrouiller"
-boutonVerrouiller.addEventListener('click', () => {
-    // 1. On cache l'écran de la caisse
-    ecranCaisse.style.display = 'none';
-    
-    // 2. On affiche l'écran qui demande le token
-    ecranToken.style.display = 'block';
-
-    // 3. On vide le champ texte où tu tapes le token pour qu'il soit prêt pour la prochaine fois
-    document.getElementById('input-token').value = ''; 
-});
     // ========== MENU COMPLET (SALON DE THÉ) ==========
-
-
     let tickets = {};
     let currentTable = null;
     let activeCategory = "all";
@@ -463,33 +442,33 @@ boutonVerrouiller.addEventListener('click', () => {
             showNotification("❌ Erreur de chargement du menu depuis le serveur", "#e74c3c");
         }
     }
-// ========== GESTION TICKET CAISSE (CORRIGÉ) ==========
-// Remplace ton ancienne fonction par celle-ci
-function ajouterAuTicket(tableNum, produit, updateUI = true) {
-    const ticket = tickets[tableNum];
-    if (!ticket) return;
 
-    // 🔥 SÉCURITÉ : On s'assure que le prix et la quantité sont de vrais nombres
-    const prixSecurise = parseFloat(produit.prix) || 0;
-    const qteSecurise = parseInt(produit.quantite) || 1;
+    // ========== GESTION TICKET CAISSE (CORRIGÉ) ==========
+    function ajouterAuTicket(tableNum, produit, updateUI = true) {
+        const ticket = tickets[tableNum];
+        if (!ticket) return;
 
-    const existing = ticket.articles.find(a => String(a.id) === String(produit.id) && (a.variante || null) === (produit.variante || null));
-    
-    if (existing) {
-        existing.quantite += qteSecurise;
-    } else {
-        ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise });
+        // 🔥 SÉCURITÉ : On s'assure que le prix et la quantité sont de vrais nombres
+        const prixSecurise = parseFloat(produit.prix) || 0;
+        const qteSecurise = parseInt(produit.quantite) || 1;
+
+        const existing = ticket.articles.find(a => String(a.id) === String(produit.id) && (a.variante || null) === (produit.variante || null));
+        
+        if (existing) {
+            existing.quantite += qteSecurise;
+        } else {
+            ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise });
+        }
+        
+        // 🔥 SÉCURITÉ : Recalcul propre
+        ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
+        sauvegarderTousLesTickets();
+        
+        if (updateUI) {
+            if (String(currentTable) === String(tableNum)) afficherTicket();
+            afficherListeTables();
+        }
     }
-    
-    // 🔥 SÉCURITÉ : Recalcul propre
-    ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
-    sauvegarderTousLesTickets();
-    
-    if (updateUI) {
-        if (String(currentTable) === String(tableNum)) afficherTicket();
-        afficherListeTables();
-    }
-}
 
     function modifierQuantite(tableNum, produitId, variante, delta) {
         const ticket = tickets[tableNum];
@@ -513,19 +492,21 @@ function ajouterAuTicket(tableNum, produit, updateUI = true) {
             afficherListeTables();
         }
     }
-// 📢 NOUVELLE FONCTION : Nettoie la cuisine quand on encaisse
-async function nettoyerCommandesCuisine(tableNum) {
-    try {
-        await fetch(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
-        // Si le modal des détails de table est ouvert, on le rafraîchit pour le vider
-        if (String(derniereTableModal) === String(tableNum)) {
-            afficherCommandesTable(tableNum);
+
+    // 📢 NOUVELLE FONCTION : Nettoie la cuisine quand on encaisse
+    async function nettoyerCommandesCuisine(tableNum) {
+        try {
+            await fetch(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
+            // Si le modal des détails de table est ouvert, on le rafraîchit pour le vider
+            if (String(derniereTableModal) === String(tableNum)) {
+                afficherCommandesTable(tableNum);
+            }
+        } catch (error) {
+            console.error("Erreur nettoyage cuisine:", error);
         }
-    } catch (error) {
-        console.error("Erreur nettoyage cuisine:", error);
     }
-}
-async function viderTicket(tableNum, confirmDialogue = true) {
+
+    async function viderTicket(tableNum, confirmDialogue = true) {
         if (!confirmDialogue || confirm(`Vider le ticket de ${tableNum === 'Emporter' ? 'Emporter' : 'Table ' + tableNum} ?`)) {
             tickets[tableNum] = { articles: [], total: 0 };
             sauvegarderTousLesTickets();
@@ -626,7 +607,7 @@ async function viderTicket(tableNum, confirmDialogue = true) {
             return; 
         }
         
-let totalArts = 0, html = '';
+        let totalArts = 0, html = '';
         ticket.articles.forEach((item) => {
             // 🔥 SÉCURITÉ ANTI-CRASH : On force les valeurs
             const prix = parseFloat(item.prix) || 0; 
@@ -676,7 +657,7 @@ let totalArts = 0, html = '';
         }));
     }
 
-function renderProducts() {
+    function renderProducts() {
         const grid = document.getElementById('productsGrid');
         if (!grid) return;
         
@@ -711,7 +692,7 @@ function renderProducts() {
     }
 
     // ========== APPELS BACKEND (STOCK) ==========
-async function decrementerStock(articles) {
+    async function decrementerStock(articles) {
         try {
             const response = await fetch('/api/stock/decrementer', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -804,7 +785,7 @@ async function decrementerStock(articles) {
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.remove(); });
     }
 
-async function executerPaiementComplet(articles, totalPaye, remise) {
+    async function executerPaiementComplet(articles, totalPaye, remise) {
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return;
         
@@ -941,6 +922,7 @@ async function executerPaiementComplet(articles, totalPaye, remise) {
         const ticketElem = document.getElementById('ticketCaisse'); ticketElem.style.display = 'block';
         setTimeout(() => { window.print(); ticketElem.style.display = 'none'; }, 300);
     }
+    
     function imprimerTicketCourant() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
@@ -1025,83 +1007,83 @@ async function executerPaiementComplet(articles, totalPaye, remise) {
 
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
-function initSocket() {
-    socket = io();
-    
-    // 📢 1. Écoute des mises à jour de STOCK en temps réel
-    socket.on('update_stock', async () => {
-        await chargerCatalogue(); // Recharge les prix et les quantités discrètement
-        if (currentTable) {
-            afficherTicket(); // Met à jour les couleurs (rouge si rupture) sur le ticket actuel
-        }
-        renderProducts(); // Rafraîchit la grille des produits pour afficher les bonnes quantités
-    });
-
-    // 📢 2. Écoute des NOUVELLES COMMANDES (clients via QR)
-    socket.on('nouvelle_commande', (commande) => {
-        commandesRecues.push(commande);
+    function initSocket() {
+        socket = io();
         
-        // Si la fenêtre de la cuisine est ouverte sur cette table, on la met à jour
-        if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) {
-            afficherCommandesTable(derniereTableModal);
-        }
-    });
-    
-    // 📢 3. Écoute de l'avancement en CUISINE (ex: "Prête à servir")
-    socket.on('mise_a_jour_commande', (commande) => {
-        const idx = commandesRecues.findIndex(c => c.id === commande.id);
-        const ancienne = idx !== -1 ? commandesRecues[idx] : null;
-        
-        // 🔥 ACTION : Si la commande passe ENFIN à "Terminée"
-        if ((!ancienne || ancienne.statut !== 'terminee') && commande.statut === 'terminee') {
-            const tableNum = commande.numeroTable || 'Emporter';
-            
-            commande.articles.forEach(article => { 
-                let nomPropre = article.nom;
-                let variante = article.variante;
-                
-                // Nettoyage au cas où la variante est collée au nom
-                if(!variante && nomPropre.includes('(')) {
-                    const parts = nomPropre.split('(');
-                    nomPropre = parts[0].trim();
-                    variante = parts[1].replace(')', '').trim();
-                }
+        // 📢 1. Écoute des mises à jour de STOCK en temps réel
+        socket.on('update_stock', async () => {
+            await chargerCatalogue(); // Recharge les prix et les quantités discrètement
+            if (currentTable) {
+                afficherTicket(); // Met à jour les couleurs (rouge si rupture) sur le ticket actuel
+            }
+            renderProducts(); // Rafraîchit la grille des produits pour afficher les bonnes quantités
+        });
 
-                // 🛡️ SÉCURITÉ ANTI-CRASH : Récupération du vrai prix dans le catalogue
-                let vraiPrix = parseFloat(article.prix);
-                if (isNaN(vraiPrix) || vraiPrix === 0) {
-                    const produitCatalogue = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom === nomPropre);
-                    if (produitCatalogue) vraiPrix = parseFloat(produitCatalogue.prix);
-                }
-
-                // On ajoute proprement l'article au ticket de la table
-                ajouterAuTicket(tableNum, { 
-                    id: article.id || article.baseId || Date.now(), 
-                    nom: nomPropre, 
-                    variante: variante, 
-                    prix: vraiPrix || 0, 
-                    quantite: parseInt(article.quantite) || 1 
-                }, false); 
-            });
-            
-            showNotification(`🔔 Cuisine : Commande #${commande.numero} terminée et ajoutée au ticket !`, "#27ae60");
-            afficherListeTables(); 
-            if (currentTable == tableNum) afficherTicket();
-        }
-        
-        // On sauvegarde le nouvel état de la commande en mémoire
-        if (idx !== -1) {
-            commandesRecues[idx] = commande;
-        } else {
+        // 📢 2. Écoute des NOUVELLES COMMANDES (clients via QR)
+        socket.on('nouvelle_commande', (commande) => {
             commandesRecues.push(commande);
-        }
+            
+            // Si la fenêtre de la cuisine est ouverte sur cette table, on la met à jour
+            if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) {
+                afficherCommandesTable(derniereTableModal);
+            }
+        });
         
-        // On rafraîchit la fenêtre de la cuisine si le caissier la regarde
-        if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) {
-            afficherCommandesTable(derniereTableModal);
-        }
-    });
-}
+        // 📢 3. Écoute de l'avancement en CUISINE (ex: "Prête à servir")
+        socket.on('mise_a_jour_commande', (commande) => {
+            const idx = commandesRecues.findIndex(c => c.id === commande.id);
+            const ancienne = idx !== -1 ? commandesRecues[idx] : null;
+            
+            // 🔥 ACTION : Si la commande passe ENFIN à "Terminée"
+            if ((!ancienne || ancienne.statut !== 'terminee') && commande.statut === 'terminee') {
+                const tableNum = commande.numeroTable || 'Emporter';
+                
+                commande.articles.forEach(article => { 
+                    let nomPropre = article.nom;
+                    let variante = article.variante;
+                    
+                    // Nettoyage au cas où la variante est collée au nom
+                    if(!variante && nomPropre.includes('(')) {
+                        const parts = nomPropre.split('(');
+                        nomPropre = parts[0].trim();
+                        variante = parts[1].replace(')', '').trim();
+                    }
+
+                    // 🛡️ SÉCURITÉ ANTI-CRASH : Récupération du vrai prix dans le catalogue
+                    let vraiPrix = parseFloat(article.prix);
+                    if (isNaN(vraiPrix) || vraiPrix === 0) {
+                        const produitCatalogue = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom === nomPropre);
+                        if (produitCatalogue) vraiPrix = parseFloat(produitCatalogue.prix);
+                    }
+
+                    // On ajoute proprement l'article au ticket de la table
+                    ajouterAuTicket(tableNum, { 
+                        id: article.id || article.baseId || Date.now(), 
+                        nom: nomPropre, 
+                        variante: variante, 
+                        prix: vraiPrix || 0, 
+                        quantite: parseInt(article.quantite) || 1 
+                    }, false); 
+                });
+                
+                showNotification(`🔔 Cuisine : Commande #${commande.numero} terminée et ajoutée au ticket !`, "#27ae60");
+                afficherListeTables(); 
+                if (currentTable == tableNum) afficherTicket();
+            }
+            
+            // On sauvegarde le nouvel état de la commande en mémoire
+            if (idx !== -1) {
+                commandesRecues[idx] = commande;
+            } else {
+                commandesRecues.push(commande);
+            }
+            
+            // On rafraîchit la fenêtre de la cuisine si le caissier la regarde
+            if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) {
+                afficherCommandesTable(derniereTableModal);
+            }
+        });
+    }
 
     // ========== INITIALISATION CORRIGÉE ==========
     document.addEventListener("DOMContentLoaded", async () => {
@@ -1123,11 +1105,16 @@ function initSocket() {
             } else { showNotification("❌ Le ticket est vide", "#e74c3c"); }
         });
         
-        document.getElementById('logoutBtn').addEventListener('click', () => { 
-            if (confirm("Se déconnecter de la caisse ?")) { 
-                sessionStorage.clear(); localStorage.removeItem('caisseAuth'); window.location.href = '/caisse-login'; 
-            } 
-        });
+        // 🔒 C'est ici que se trouve le nouveau code du bouton "Verrouiller" !
+        const btnVerrouiller = document.getElementById('btn-verrouiller');
+        if (btnVerrouiller) {
+            btnVerrouiller.addEventListener('click', () => { 
+                if (confirm("Voulez-vous verrouiller la caisse ?")) { 
+                    localStorage.removeItem('tabia_caisse_token'); 
+                    window.location.href = '/caisse-login.html'; 
+                } 
+            });
+        }
     });
 </script>
 </body>
