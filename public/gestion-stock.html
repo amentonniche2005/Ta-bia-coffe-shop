@@ -428,7 +428,7 @@
             document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             document.getElementById(`panel-${tabId}`).classList.add('active');
-            
+            if (tabId === 'fidelite') chargerClients()
             if (tabId === 'stock') chargerStock();
             if (tabId === 'mouvements') chargerHistorique();
             if (tabId === 'alertes') chargerAlertes();
@@ -1063,6 +1063,7 @@ async function supprimerClient(id) {
             const socket = io(); // On connecte la page au serveur en temps réel
 
             socket.on('update_stock', () => {
+                chargerClients();
                 // Dès que le serveur signale un changement, on recharge les données discrètement
                 chargerStock();
                 chargerDashboard();

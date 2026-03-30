@@ -138,13 +138,16 @@ app.get('/api/customers', async (req, res) => {
     res.json(await LoyalCustomer.find({}).sort({ _id: -1 }));
 });
 
-// Ajouter un client
+// AJOUTER UN CLIENT (Vérifie bien les 'await')
 app.post('/api/customers', async (req, res) => {
     try {
         const nouveau = new LoyalCustomer(req.body);
-        await nouveau.save();
+        await nouveau.save(); // 🔥 CRITIQUE : attend que MongoDB enregistre
         res.json({ success: true, customer: nouveau });
-    } catch (err) { res.status(500).json({ error: "Code déjà utilisé ou erreur serveur" }); }
+    } catch (err) { 
+        console.error("Erreur save client:", err);
+        res.status(500).json({ error: "Erreur serveur" }); 
+    }
 });
 
 // Supprimer un client
