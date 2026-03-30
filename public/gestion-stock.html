@@ -341,6 +341,7 @@
 
     <div id="modalContainer"></div>
     <script src="/socket.io/socket.io.js"></script>
+    
     <script>
         // ========== 1. UTILITAIRES & VARIABLES GLOBALES ==========
         let stockProduits = [];
@@ -934,6 +935,18 @@ async function sauvegarderEditionProduit(id) {
             document.getElementById('categorieFilter').addEventListener('change', appliquerFiltresEtTriStock);
             document.getElementById('etatFilter').addEventListener('change', appliquerFiltresEtTriStock);
             document.getElementById('searchFilter').addEventListener('input', appliquerFiltresEtTriStock);
+            // ========== SYNCHRONISATION EN TEMPS RÉEL ==========
+const socket = io(); // On connecte la page au serveur en temps réel
+
+socket.on('update_stock', () => {
+    // Dès que le serveur signale un changement, on recharge les données discrètement
+    chargerStock();
+    chargerDashboard();
+    chargerAlertes();
+    
+    // Petite notification visuelle (optionnelle) pour te confirmer que ça a marché
+    console.log("🔄 Stock mis à jour en direct !");
+});
         });
     </script>
 </body>

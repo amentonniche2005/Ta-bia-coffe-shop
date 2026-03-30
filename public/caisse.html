@@ -978,36 +978,56 @@ async function executerPaiementComplet(articles, totalPaye, remise) {
 
 function initSocket() {
     socket = io();
+    
+    // 📢 1. Écoute des mises à jour de STOCK en temps réel
+    socket.on('update_stock', async () => {
+        await chargerCatalogue(); // Recharge les prix et les quantités discrètement
+        if (currentTable) {
+            afficherTicket(); // Met à jour les couleurs (rouge si rupture) sur le ticket actuel
+        }
+        renderProducts(); // Rafraîchit la grille des produits pour afficher les bonnes quantités
+    });
+
+    // 📢 2. Écoute des NOUVELLES COMMANDES (clients via QR)
     socket.on('nouvelle_commande', (commande) => {
         commandesRecues.push(commande);
-        if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) afficherCommandesTable(derniereTableModal);
+        
+        // Si la fenêtre de la cuisine est ouverte sur cette table, on la met à jour
+        if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) {
+            afficherCommandesTable(derniereTableModal);
+        }
     });
     
+    // 📢 3. Écoute de l'avancement en CUISINE (ex: "Prête à servir")
     socket.on('mise_a_jour_commande', (commande) => {
         const idx = commandesRecues.findIndex(c => c.id === commande.id);
         const ancienne = idx !== -1 ? commandesRecues[idx] : null;
         
+        // 🔥 ACTION : Si la commande passe ENFIN à "Terminée"
         if ((!ancienne || ancienne.statut !== 'terminee') && commande.statut === 'terminee') {
             const tableNum = commande.numeroTable || 'Emporter';
             
             commande.articles.forEach(article => { 
                 let nomPropre = article.nom;
                 let variante = article.variante;
+                
+                // Nettoyage au cas où la variante est collée au nom
                 if(!variante && nomPropre.includes('(')) {
                     const parts = nomPropre.split('(');
                     nomPropre = parts[0].trim();
                     variante = parts[1].replace(')', '').trim();
                 }
 
-                // 🔥 LE CORRECTIF EST ICI 🔥 (Récupération de secours du prix)
+                // 🛡️ SÉCURITÉ ANTI-CRASH : Récupération du vrai prix dans le catalogue
                 let vraiPrix = parseFloat(article.prix);
                 if (isNaN(vraiPrix) || vraiPrix === 0) {
                     const produitCatalogue = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom === nomPropre);
                     if (produitCatalogue) vraiPrix = parseFloat(produitCatalogue.prix);
                 }
 
+                // On ajoute proprement l'article au ticket de la table
                 ajouterAuTicket(tableNum, { 
-                    id: article.id || article.baseId || Date.now(), // Fallback ID si manquant
+                    id: article.id || article.baseId || Date.now(), 
                     nom: nomPropre, 
                     variante: variante, 
                     prix: vraiPrix || 0, 
@@ -1015,13 +1035,22 @@ function initSocket() {
                 }, false); 
             });
             
-            showNotification(`🔔 Cuisine : Commande #${commande.numero} terminée ! Ajoutée à la table.`, "#27ae60");
+            showNotification(`🔔 Cuisine : Commande #${commande.numero} terminée et ajoutée au ticket !`, "#27ae60");
             afficherListeTables(); 
             if (currentTable == tableNum) afficherTicket();
         }
         
-        if (idx !== -1) commandesRecues[idx] = commande; else commandesRecues.push(commande);
-        if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) afficherCommandesTable(derniereTableModal);
+        // On sauvegarde le nouvel état de la commande en mémoire
+        if (idx !== -1) {
+            commandesRecues[idx] = commande;
+        } else {
+            commandesRecues.push(commande);
+        }
+        
+        // On rafraîchit la fenêtre de la cuisine si le caissier la regarde
+        if (derniereTableModal !== null && (commande.numeroTable || 'Emporter') == derniereTableModal) {
+            afficherCommandesTable(derniereTableModal);
+        }
     });
 }
 
