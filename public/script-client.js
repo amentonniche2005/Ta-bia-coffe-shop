@@ -367,10 +367,10 @@ function afficherModalCode(numTable) {
     const modalHtml = `
         <div id="codeModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:2000;">
             <div style="background:white; border-radius:20px; padding:2rem; text-align:center; width:90%; max-width:400px;">
-                <h3 style="margin-bottom:0.5rem;">Table ${numTable}</h3>
-                <p style="font-size:0.9rem; color:#64748b;">Code secret (sur le QR Code de la table)</p>
-                <input type="number" id="codeConfirmation" style="width:100%; padding:1rem; font-size:1.5rem; text-align:center; letter-spacing:5px; border:2px solid #e2e8f0; border-radius:12px; margin:1rem 0; outline:none;" placeholder="•••••">
-                <button id="validerCodeBtn" style="width:100%; background:#db800a; color:white; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer; margin-bottom:10px;">Vérifier</button>
+                <h3 style="margin-bottom:0.5rem; color: #143621;">Table ${numTable}</h3>
+                <p style="font-size:0.9rem; color:#64748b;">Code secret (inscrit sur le ticket de la table)</p>
+                <input type="number" id="codeConfirmation" style="width:100%; padding:1rem; font-size:1.8rem; font-weight:bold; text-align:center; letter-spacing:8px; border:2px solid #e2e8f0; border-radius:12px; margin:1rem 0; outline:none; color:#db800a;" placeholder="•••••">
+                <button id="validerCodeBtn" style="width:100%; background:#db800a; color:white; padding:1rem; border-radius:12px; font-size:1.1rem; font-weight:bold; border:none; cursor:pointer; margin-bottom:10px;">Confirmer la commande</button>
                 <button id="annulerCodeBtn" style="width:100%; background:#e2e8f0; color:#333; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer;">Retour</button>
             </div>
         </div>
@@ -379,30 +379,57 @@ function afficherModalCode(numTable) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     const modal = document.getElementById("codeModal");
     const codeInput = document.getElementById("codeConfirmation");
+    const validerBtn = modal.querySelector('#validerCodeBtn');
     
     modal.querySelector('#annulerCodeBtn').onclick = () => modal.remove();
     
-    modal.querySelector('#validerCodeBtn').onclick = async () => {
-        const code = codeInput.value;
-        if(code === "00000" || await verifierCodeApi(numTable, code)) {
+    validerBtn.onclick = async () => {
+        const codeSaisi = codeInput.value.trim();
+        
+        if (!codeSaisi) {
+            afficherNotification("⚠️ Veuillez entrer un code", "error");
+            return;
+        }
+
+        validerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
+        validerBtn.disabled = true;
+
+        // "00000" est un code maître (optionnel pour toi pour tester)
+        if(codeSaisi === "00000" || await verifierCodeApi(numTable, codeSaisi)) {
             modal.remove();
             validerCommande(numTable);
         } else {
-            afficherNotification("❌ Code incorrect", "error");
+            afficherNotification("❌ Code incorrect ou expiré", "error");
             codeInput.value = "";
+            validerBtn.innerHTML = 'Confirmer la commande';
+            validerBtn.disabled = false;
         }
     };
 }
 
 async function verifierCodeApi(numTable, codeSaisi) {
     try {
-        const response = await fetch(`/api/verify-code/${numTable}/${codeSaisi}`);
-        if(response.ok) { const d = await response.json(); return d.valid; }
-        const resFallback = await fetch('/api/numbers');
-        const data = await resFallback.json();
-        const t = data.find(x => x.numero == numTable);
-        return t && t.id === codeSaisi;
-    } catch(e) { return false; }
+        // 1. On va chercher la liste à jour de TOUTES les tables et leurs codes actuels
+        const response = await fetch('/api/numbers');
+        if (!response.ok) return false;
+        
+        const tables = await response.json();
+        
+        // 2. On isole la table que le client a choisie
+        const tableData = tables.find(t => parseInt(t.numero) === parseInt(numTable));
+        
+        // 3. On compare le code tapé avec le "code" enregistré en base de données
+        // (On utilise String() pour s'assurer qu'on compare bien du texte avec du texte)
+        if (tableData && tableData.code === String(codeSaisi)) {
+            return true; // Le code est bon !
+        }
+        
+        return false; // Le code est faux
+        
+    } catch(e) { 
+        console.error("Erreur vérification du code:", e);
+        return false; 
+    }
 }
 
 async function validerCommande(numTable) {

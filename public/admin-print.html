@@ -173,10 +173,23 @@
         <div style="font-size: 11px; margin-bottom:10px;">Conservez ce ticket pour payer à la caisse.</div>
         <div class="print-footer">Merci de votre visite !<br>Date: <span id="printDateNow"></span></div>
     </div>
-
+<script src="/socket.io/socket.io.js"></script>
     <script>
-        let currentData = { numero: null, id: null, lastUpdated: null };
+let currentData = { numero: null, code: null, lastUpdated: null };
 
+// 📢 AJOUT 2 : La connexion en direct
+        const socket = io();
+
+        socket.on('tables_refresh', () => {
+            showNotif("🔄 Les codes des tables viennent d'être régénérés !");
+            
+            // Si tu étais en train de regarder le code d'une table, 
+            // on le met à jour automatiquement sous tes yeux sans que tu cliques.
+            const select = document.getElementById('numberSelect');
+            if (select.value) {
+                handleFetchId();
+            }
+        });
         function showNotif(message, isError = false) {
             const toast = document.getElementById('toastNotif');
             toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
