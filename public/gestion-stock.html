@@ -516,6 +516,10 @@ function ouvrirModalNouveauProduit() {
             <div class="modal-content">
                 <div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
                 <div class="form-group"><label>Nom du produit :</label><input type="text" id="newProdName" placeholder="Ex: Espresso"></div>
+                <div class="form-group">
+    <label>Choix / Variantes (séparés par des virgules) :</label>
+    <input type="text" id="newProdVariantes" placeholder="Ex: Vanille, Chocolat, Fraise">
+</div>
                 <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="newProdImage" placeholder="Collez le lien .jpg ici"></div>
                 <div class="form-group"><label>Catégorie :</label><select id="newProdCat"><option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option></select></div>
                 <div style="display:flex; gap:10px;">
@@ -531,6 +535,7 @@ function ouvrirModalNouveauProduit() {
 async function sauvegarderNouveauProduit() {
     const produitData = {
         nom: document.getElementById('newProdName').value,
+        variantes: document.getElementById('newProdVariantes').value,
         image: document.getElementById('newProdImage').value, // 📢 Ajouté ici
         categorie: document.getElementById('newProdCat').value,
         prix: parseFloat(document.getElementById('newProdPrice').value),
@@ -555,6 +560,10 @@ function ouvrirModalEdition(id) {
             <div class="modal-content">
                 <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
                 <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
+                <div class="form-group">
+    <label>Choix / Variantes (séparés par des virgules) :</label>
+    <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Petit, Moyen, Grand">
+</div>
                 <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="Collez le lien .jpg ici"></div>
                 <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
                     <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>

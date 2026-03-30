@@ -165,17 +165,26 @@ function gererClicAjout(id) {
     const produit = produits.find(p => p.id === id);
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
-    const nomLower = (produit.nom || "").toLowerCase();
     let optionsTrouvees = null;
 
-    for (let config of variantesConfig) {
-        if (config.mots.some(mot => nomLower.includes(mot))) {
-            optionsTrouvees = config.options;
-            break;
+    // 1. On regarde d'abord si tu as écrit des variantes personnalisées dans l'Admin
+    if (produit.variantes && produit.variantes.trim() !== "") {
+        // On découpe le texte "Fraise, Vanille" en une vraie liste
+        optionsTrouvees = produit.variantes.split(',').map(v => v.trim());
+    } 
+    // 2. S'il n'y en a pas, on garde ton ancien système par mots-clés (pour les anciens produits)
+    else {
+        const nomLower = (produit.nom || "").toLowerCase();
+        for (let config of variantesConfig) {
+            if (config.mots.some(mot => nomLower.includes(mot))) {
+                optionsTrouvees = config.options;
+                break;
+            }
         }
     }
 
-    if (optionsTrouvees) {
+    // 3. On affiche la fenêtre avec les options trouvées
+    if (optionsTrouvees && optionsTrouvees.length > 0) {
         ouvrirModalOptions(produit, optionsTrouvees);
     } else {
         executerAjoutPanier(produit, null);

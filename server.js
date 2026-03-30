@@ -30,6 +30,7 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     stock: Number, 
     categorie: String, 
     image: { type: String, default: 'https://via.placeholder.com/150' }, // 👈 On ajoute cette ligne
+    variantes: { type: String, default: "" },
     seuilAlerte: { type: Number, default: 10 }, 
     unite: String
 }));
