@@ -549,13 +549,12 @@ async function chargerCatalogue() {
         }
     }
 
-    async function viderTicket(tableNum, confirmDialogue = true) {
+async function viderTicket(tableNum, confirmDialogue = true) {
         if (!confirmDialogue || confirm(`Vider le ticket de ${tableNum === 'Emporter' ? 'Emporter' : 'Table ' + tableNum} ?`)) {
             tickets[tableNum] = { articles: [], total: 0 };
             sauvegarderTousLesTickets();
             
-            // 📢 AJOUT ICI : On efface aussi les commandes en cuisine !
-            await nettoyerCommandesCuisine(tableNum);
+            // J'ai supprimé ici la ligne qui effaçait accidentellement la cuisine !
             
             if (String(currentTable) === String(tableNum)) afficherTicket();
             afficherListeTables();
