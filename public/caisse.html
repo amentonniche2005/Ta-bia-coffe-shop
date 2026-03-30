@@ -464,13 +464,26 @@ function ajouterAuTicket(tableNum, produit, updateUI = true) {
             afficherListeTables();
         }
     }
-
-    function viderTicket(tableNum, confirmDialogue = true) {
+// 📢 NOUVELLE FONCTION : Nettoie la cuisine quand on encaisse
+async function nettoyerCommandesCuisine(tableNum) {
+    try {
+        await fetch(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
+        // Si le modal des détails de table est ouvert, on le rafraîchit pour le vider
+        if (String(derniereTableModal) === String(tableNum)) {
+            afficherCommandesTable(tableNum);
+        }
+    } catch (error) {
+        console.error("Erreur nettoyage cuisine:", error);
+    }
+}
+async function viderTicket(tableNum, confirmDialogue = true) {
         if (!confirmDialogue || confirm(`Vider le ticket de ${tableNum === 'Emporter' ? 'Emporter' : 'Table ' + tableNum} ?`)) {
             tickets[tableNum] = { articles: [], total: 0 };
             sauvegarderTousLesTickets();
             
-            // CORRECTION CRUCIALE
+            // 📢 AJOUT ICI : On efface aussi les commandes en cuisine !
+            await nettoyerCommandesCuisine(tableNum);
+            
             if (String(currentTable) === String(tableNum)) afficherTicket();
             afficherListeTables();
             
@@ -742,7 +755,7 @@ async function decrementerStock(articles) {
         modal.addEventListener('click', (e) => { if(e.target === modal) modal.remove(); });
     }
 
-    async function executerPaiementComplet(articles, totalPaye, remise) {
+async function executerPaiementComplet(articles, totalPaye, remise) {
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return;
         
@@ -755,6 +768,9 @@ async function decrementerStock(articles) {
         statsTotalJour += totalPaye; sauvegarderStats();
         
         tickets[currentTable] = { articles: [], total: 0 }; sauvegarderTousLesTickets();
+        
+        // 📢 AJOUT ICI : On efface les commandes en cuisine après le paiement !
+        await nettoyerCommandesCuisine(currentTable);
         
         afficherTicket(); afficherListeTables(); afficherHistoriqueJour(); afficherStats();
         showNotification(`✅ Paiement complet validé : ${totalPaye.toFixed(2)} DT`, "#27ae60");

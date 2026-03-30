@@ -184,6 +184,23 @@ app.put('/api/commandes/:id/statut', async (req, res) => {
     io.emit('mise_a_jour_commande', cmd); // 📢 Signal Live
     res.json(cmd);
 });
+// --- NOUVEAU : Marquer toutes les commandes d'une table comme payées ---
+app.put('/api/commandes/table/:numeroTable/paye', async (req, res) => {
+    try {
+        const numeroTable = req.params.numeroTable;
+        // Trouve toutes les commandes de cette table qui sont en cuisine ou terminées
+        const commandes = await Order.find({ numeroTable: numeroTable, statut: { $ne: 'paye' } });
+        
+        for (let cmd of commandes) {
+            cmd.statut = 'paye'; // On change le statut
+            await cmd.save();
+            io.emit('mise_a_jour_commande', cmd); // 📢 Dis au Comptoir de l'effacer !
+        }
+        res.json({ success: true, effacees: commandes.length });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // --- DÉPENSES ---
 app.get('/api/depenses', async (req, res) => res.json(await Expense.find({}).sort({ _id: -1 })));
