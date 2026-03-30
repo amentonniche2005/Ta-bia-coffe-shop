@@ -172,6 +172,15 @@
         /* Responsive */
         @media (max-width: 1000px) { .dashboard { grid-template-columns: 1fr; } .tables-grid { grid-template-columns: repeat(5, 1fr); } }
         @media (max-width: 600px) { .tables-grid { grid-template-columns: repeat(3, 1fr); } }
+        .btn-lock {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
     </style>
 </head>
 <body>
@@ -185,8 +194,7 @@
         <div class="nav-right">
             <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
             <a href="/gestion-stock" class="stock-link"><i class="fas fa-boxes"></i> Stock</a>
-            <button id="logoutBtn" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Déconnexion</button>
-        </div>
+<button id="btn-verrouiller" class="btn-lock">🔒 Verrouiller la caisse</button>        </div>
     </div>
 </header>
 
@@ -352,7 +360,24 @@ async function fetchSecurise(url, options = {}) {
     }
     return reponse;
 }
+    // On sélectionne le bouton qu'on vient de créer
+const boutonVerrouiller = document.getElementById('btn-verrouiller');
+
+// On sélectionne tes blocs HTML (attention à bien mettre les mêmes ID que dans ton HTML)
+const ecranCaisse = document.getElementById('interface-caisse'); // Le grand bloc de ta caisse
+const ecranToken = document.getElementById('interface-token');   // Le bloc qui demande le mot de passe/token
+
+// L'action : quand on clique sur le bouton "Verrouiller"
+boutonVerrouiller.addEventListener('click', () => {
+    // 1. On cache l'écran de la caisse
+    ecranCaisse.style.display = 'none';
     
+    // 2. On affiche l'écran qui demande le token
+    ecranToken.style.display = 'block';
+
+    // 3. On vide le champ texte où tu tapes le token pour qu'il soit prêt pour la prochaine fois
+    document.getElementById('input-token').value = ''; 
+});
     // ========== MENU COMPLET (SALON DE THÉ) ==========
 
 

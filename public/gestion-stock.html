@@ -585,6 +585,7 @@ function ouvrirModalEdition(id) {
 async function sauvegarderEditionProduit(id) {
     const produitData = {
         nom: document.getElementById('editProdName').value,
+        variantes: document.getElementById('editProdVariantes').value,
         image: document.getElementById('editProdImage').value, // 📢 Ajouté ici
         categorie: document.getElementById('editProdCat').value,
         prix: parseFloat(document.getElementById('editProdPrice').value),
