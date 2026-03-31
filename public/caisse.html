@@ -944,7 +944,74 @@ async function envoyerEnCuisine() {
             commandesRecues = await response.json();
         } catch(e) { console.error("Erreur historique cuisine:", e); }
     }
+// 🔥 NOUVELLE FONCTION : Rattrape les commandes manquées quand la caisse était fermée
+    function synchroniserTicketsAvecServeur() {
+        let aMiseAJour = false;
 
+        commandesRecues.forEach(commande => {
+            // On ne regarde que les commandes "Prêtes" qui n'ont pas encore été payées
+            if (commande.statut === 'terminee') {
+                
+                let tableNum = String(commande.numeroTable || 'Emporter').trim();
+                let customLabel = null;
+                
+                if (commande.clientName) {
+                    tableNum = 'Fidele_' + commande.clientName;
+                    let infoTable = (commande.numeroTable && commande.numeroTable !== 'Emporter') ? ` (T${commande.numeroTable})` : '';
+                    customLabel = commande.clientName + infoTable;
+                }
+                
+                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
+                if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
+
+                // Si la caisse ne l'a pas encore dans son ticket (elle l'avait manquée)
+                if (!tickets[tableNum].orderIds.includes(commande.id)) {
+                    tickets[tableNum].orderIds.push(commande.id);
+                    if (customLabel) tickets[tableNum].label = customLabel;
+                    
+                    window.commandesTraiteesTickets.add(commande.id);
+
+                    if (commande.articles && commande.articles.length > 0) {
+                        commande.articles.forEach((article, arrIdx) => { 
+                            let nomPropre = article.nom || "Article Inconnu";
+                            let variante = article.variante || null;
+                            
+                            if(!variante && nomPropre.includes('(')) {
+                                const parts = nomPropre.split('(');
+                                nomPropre = parts[0].trim();
+                                variante = parts[1].replace(')', '').trim();
+                            }
+
+                            let vraiPrix = parseFloat(article.prix);
+                            if (isNaN(vraiPrix) || vraiPrix === 0) {
+                                const p = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom.trim().toLowerCase() === nomPropre.trim().toLowerCase());
+                                if (p) vraiPrix = parseFloat(p.prix);
+                            }
+
+                            const idSecurise = article.id || article.baseId || (Date.now() + arrIdx);
+
+                            // On ajoute silencieusement au ticket sans rafraîchir l'écran tout de suite
+                            ajouterAuTicket(tableNum, { 
+                                id: idSecurise, 
+                                nom: nomPropre, 
+                                variante: variante, 
+                                prix: vraiPrix || 0, 
+                                quantite: parseInt(article.quantite) || 1 
+                            }, false); 
+                        });
+                    }
+                    aMiseAJour = true;
+                }
+            }
+        });
+
+        // Si on a rattrapé des commandes, on sauvegarde et on met à jour l'écran
+        if (aMiseAJour) {
+            sauvegarderTousLesTickets();
+            afficherListeTables();
+            if (currentTable) afficherTicket();
+        }
+    }
     async function afficherCommandesTable(tableNum) {
         const modal = document.getElementById('modalDetailsTable');
         const content = document.getElementById('modalTableContent');
@@ -1103,6 +1170,7 @@ function initSocket() {
         selectionnerTable("1");
         
         await chargerCommandesCuisineInitiales();
+        synchroniserTicketsAvecServeur();
         initSocket();
         
         document.getElementById('viderTicketBtn').addEventListener('click', () => viderTicket(currentTable));
