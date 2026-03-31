@@ -513,18 +513,18 @@
         afficherListeTables();
     }
 
-    async function envoyerEnCuisine() {
+async function envoyerEnCuisine() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
 
-        // Si c'est un client fidèle, on envoie la commande sous le nom "Emporter" à la cuisine, mais avec son nom
         let nomTableServeur = currentTable;
         let nomClientFidele = null;
         
+        // 🔥 CORRECTION : On récupère la vraie table du client fidèle
         if (currentTable.startsWith('Fidele_')) {
-            nomTableServeur = 'Emporter';
-            nomClientFidele = ticket.label; // On envoie son nom pour la cuisine
+            nomTableServeur = ticket.numeroTableOrigine || 'Emporter';
+            nomClientFidele = ticket.label.split(' (')[0]; // On enlève le "(T4)" pour n'envoyer que le nom
         }
 
         try {
@@ -977,7 +977,7 @@
 
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
-    function initSocket() {
+function initSocket() {
         socket = io();
         
         socket.on('update_stock', async () => {
@@ -990,7 +990,7 @@
             commandesRecues.push(commande);
             // Vérifie si on a la fenêtre détails ouverte et qu'on doit la mettre à jour
             if (derniereTableModal) {
-                if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label) {
+                if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label.split(' (')[0]) {
                     afficherCommandesTable(derniereTableModal);
                 } else if (String(commande.numeroTable || 'Emporter').trim() === derniereTableModal && !commande.clientName) {
                     afficherCommandesTable(derniereTableModal);
@@ -1009,14 +1009,17 @@
                 let tableNum = String(commande.numeroTable || 'Emporter').trim();
                 let customLabel = null;
                 
-                // 🔥 CRÉATION DU BOUTON DYNAMIQUE POUR LE CLIENT FIDÈLE !
+                // 🔥 MODIFICATION ICI : CRÉATION DU BOUTON DYNAMIQUE AVEC LE NUMÉRO DE TABLE
                 if (commande.clientName) {
-                    // On utilise le nom pour regrouper ses commandes sur le même bouton
                     tableNum = 'Fidele_' + commande.clientName;
-                    customLabel = commande.clientName;
+                    
+                    // On ajoute (T4) si c'est une table, sinon on laisse le nom seul
+                    let infoTable = (commande.numeroTable && commande.numeroTable !== 'Emporter') ? ` (T${commande.numeroTable})` : '';
+                    customLabel = commande.clientName + infoTable; 
                 }
                 
-                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
+                // 🔥 MODIFICATION ICI : On sauvegarde "numeroTableOrigine" en mémoire
+                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
                 if (customLabel) tickets[tableNum].label = customLabel;
                 
                 // On garde l'ID de la commande en mémoire pour pouvoir la supprimer spécifiquement en KDS plus tard
@@ -1062,7 +1065,7 @@
             
             // Met à jour la modale cuisine si elle est ouverte
             if (derniereTableModal) {
-                if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label) {
+                if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label.split(' (')[0]) {
                     afficherCommandesTable(derniereTableModal);
                 } else if (String(commande.numeroTable || 'Emporter').trim() === derniereTableModal && !commande.clientName) {
                     afficherCommandesTable(derniereTableModal);
