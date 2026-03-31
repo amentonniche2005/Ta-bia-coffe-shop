@@ -2,14 +2,12 @@
 const monToken = localStorage.getItem('tabia_caisse_token');
 
 if (!monToken) {
-    // Si pas de token, on redirige vers la page de connexion
     window.location.href = '/caisse-login.html'; 
 }
 
-// Fonction pour parler au serveur avec le badge de sécurité
 async function fetchSecurise(url, options = {}) {
     if (!options.headers) options.headers = {};
-    options.headers['authorization'] = monToken; // On montre le badge
+    options.headers['authorization'] = monToken; 
     options.headers['Content-Type'] = 'application/json';
     
     const reponse = await fetch(url, options);
@@ -25,12 +23,10 @@ async function fetchSecurise(url, options = {}) {
 let filtreActuel = "all";
 let commandesComptoirCache = [];
 
-// ========== CHARGEMENT INITIAL ==========
 async function chargerCommandes() {
     try {
         const response = await fetchSecurise('/api/commandes');
         const commandes = await response.json();
-        // On ne garde que ce qui n'est pas encore encaissé à la caisse
         commandesComptoirCache = commandes.filter(c => c.statut !== 'paye');
         afficherCommandes();
     } catch (error) {
@@ -42,25 +38,19 @@ async function chargerCommandes() {
 async function demarrerPreparation(id) {
     try {
         const response = await fetchSecurise(`/api/commandes/${id}/statut`, {
-            method: 'PUT',
-            body: JSON.stringify({ statut: 'en_preparation' })
+            method: 'PUT', body: JSON.stringify({ statut: 'en_preparation' })
         });
         if (response.ok) jouerSonAction();
-    } catch (error) {
-        afficherNotification("❌ Erreur réseau", "error");
-    }
+    } catch (error) { afficherNotification("❌ Erreur réseau", "error"); }
 }
 
 async function terminerCommande(id) {
     try {
         const response = await fetchSecurise(`/api/commandes/${id}/statut`, {
-            method: 'PUT',
-            body: JSON.stringify({ statut: 'terminee' })
+            method: 'PUT', body: JSON.stringify({ statut: 'terminee' })
         });
         if (response.ok) jouerSonAction();
-    } catch (error) {
-        afficherNotification("❌ Erreur réseau", "error");
-    }
+    } catch (error) { afficherNotification("❌ Erreur réseau", "error"); }
 }
 
 // ========== SOCKET.IO ==========
@@ -87,7 +77,6 @@ function initSocket() {
         const nomAlerte = commande.clientName ? commande.clientName : `Commande #${commande.numero}`;
         afficherNotification(`📢 Nouvelle : ${nomAlerte}`, "info");
         
-        // Effet visuel
         setTimeout(() => {
             const el = document.querySelector(`.ticket[data-id="${commande.id}"]`);
             if(el) el.style.animation = 'flash 1s ease';
@@ -117,7 +106,6 @@ function afficherCommandes() {
     const enPreparation = commandesComptoirCache.filter(c => c.statut === 'en_preparation');
     const terminees = commandesComptoirCache.filter(c => c.statut === 'terminee');
     
-    // Tri chronologique
     enAttente.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     enPreparation.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     terminees.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -135,37 +123,38 @@ function afficherColonne(containerId, commandes, type) {
     if (!container) return;
     
     let commandesFiltrees = commandes;
+    
+    // 🔥 NOUVEAUX FILTRES AVEC CLIENT FIDÈLE 🔥
     if (filtreActuel !== "all") {
         commandesFiltrees = commandes.filter(cmd => {
-            if (filtreActuel === "client") return cmd.clientId;
-            if (filtreActuel === "comptoir") return !cmd.clientId;
+            if (filtreActuel === "fidele") return cmd.clientName != null;
+            if (filtreActuel === "client") return cmd.clientId != null && cmd.clientName == null;
+            if (filtreActuel === "comptoir") return cmd.clientId == null && cmd.clientName == null;
             return true;
         });
     }
     
     if (commandesFiltrees.length === 0) {
-        container.innerHTML = `
-            <div class='empty-col'>
-                <i class="fas fa-clipboard-check"></i>
-                <p>Aucune commande</p>
-            </div>`;
+        container.innerHTML = `<div class='empty-col'><i class="fas fa-clipboard-check"></i><p>Aucune commande</p></div>`;
         return;
     }
     
     container.innerHTML = commandesFiltrees.map(cmd => {
         const timeStr = cmd.date ? cmd.date.split(' ')[1] : new Date(cmd.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         
-        // 🌟 LOGIQUE D'AFFICHAGE DU CLIENT FIDÈLE 🌟
         const nomAffiche = cmd.clientName ? `<i class="fas fa-star"></i> ${cmd.clientName}` : `#${cmd.numero}`;
-        const colorTitre = cmd.clientName ? 'color:#ea580c; font-size:1.2rem;' : ''; // Orange si fidèle
+        const colorTitre = cmd.clientName ? 'color:#ea580c; font-size:1.2rem;' : ''; 
         
+        // On récupère s'il est sur une table ou "À Emporter"
+        const textTable = (cmd.numeroTable === 'Emporter' || !cmd.numeroTable) ? 'À Emporter' : `Table ${cmd.numeroTable}`;
+        
+        // 🔥 BADGE MIS À JOUR AVEC LE NUMÉRO DE TABLE POUR LES FIDÈLES
         const badgeTable = cmd.clientName 
-            ? `<span class="badge" style="background:#fef5e6; color:#e67e22; border:1px solid #fed7aa;"><i class="fas fa-star"></i> Fidèle</span>` 
-            : `<span class="badge badge-table"><i class="fas fa-chair"></i> Table ${cmd.numeroTable || 'Emporter'}</span>`;
+            ? `<span class="badge" style="background:#fef5e6; color:#e67e22; border:1px solid #fed7aa;"><i class="fas fa-star"></i> Fidèle - ${textTable}</span>` 
+            : `<span class="badge badge-table"><i class="fas fa-chair"></i> ${textTable}</span>`;
         
-        const badgeOrigine = cmd.clientId === 'web' 
-            ? `<span class="badge badge-client"><i class="fas fa-mobile-alt"></i> Web</span>` 
-            : ``; // On masque l'origine si ça vient de la caisse pour alléger
+        const badgeOrigine = cmd.clientId && !cmd.clientName 
+            ? `<span class="badge badge-client"><i class="fas fa-mobile-alt"></i> Web</span>` : ``;
 
         const itemsHtml = cmd.articles.map(a => `
             <li class="item-row">
@@ -177,9 +166,7 @@ function afficherColonne(containerId, commandes, type) {
         return `
             <div class="ticket" data-id="${cmd.id}" onclick="voirDetails(${cmd.id})">
                 <div class="ticket-header">
-                    <span class="ticket-id" style="${colorTitre}">
-                        ${nomAffiche}
-                    </span>
+                    <span class="ticket-id" style="${colorTitre}">${nomAffiche}</span>
                     <span class="ticket-time"><i class="far fa-clock"></i> ${timeStr}</span>
                 </div>
                 <div class="badges-row">
@@ -211,14 +198,15 @@ function voirDetails(id) {
     const cmd = commandesComptoirCache.find(c => c.id === id);
     if (!cmd) return;
     
-    // Le titre change si c'est un fidèle
     document.getElementById("modalTitle").textContent = cmd.clientName ? `Détails de ${cmd.clientName}` : `Commande #${cmd.numero}`;
     
+    const textTable = (cmd.numeroTable === 'Emporter' || !cmd.numeroTable) ? 'À Emporter' : `Table ${cmd.numeroTable}`;
+
     let html = `
         <div style="margin-bottom: 1.5rem; background: #f8fafc; padding: 1rem; border-radius: 12px; border: 1px solid #e2e8f0;">
             <div style="margin-bottom:0.5rem; font-size: 1.1rem;">
                 <strong><i class="fas fa-map-marker-alt"></i> Destination :</strong> 
-                ${cmd.clientName ? `<span style="color:#e67e22; font-weight:bold;">🌟 Client Fidèle (${cmd.clientName})</span>` : `Table ${cmd.numeroTable || 'À Emporter'}`}
+                ${cmd.clientName ? `<span style="color:#e67e22; font-weight:bold;">🌟 Fidèle (${cmd.clientName}) - ${textTable}</span>` : textTable}
             </div>
             <div style="margin-bottom:0.5rem;"><strong><i class="fas fa-compass"></i> Origine :</strong> ${cmd.clientId ? 'Client Web (Mobile)' : 'Caisse / Serveur'}</div>
             <div><strong><i class="far fa-clock"></i> Heure :</strong> ${cmd.date || new Date(cmd.timestamp).toLocaleString()}</div>

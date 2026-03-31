@@ -341,6 +341,7 @@ function afficherContenuPanier() {
 
 // ========== ENVOI COMMANDE (NOUVELLE LOGIQUE SÉCURISÉE) ==========
 // ========== ENVOI COMMANDE ==========
+// ========== ENVOI COMMANDE ==========
 function passerCommande() {
     if (panier.length === 0) return;
     fermerPanier();
@@ -369,7 +370,7 @@ function afficherModalTable() {
             const numTable = btn.getAttribute('data-table');
             modal.remove();
             
-            // 🔥 CORRECTION ICI : On affiche TOUJOURS la demande de code, même pour "Emporter"
+            // 🔥 On affiche TOUJOURS la demande de code, même pour "Emporter"
             afficherModalCode(numTable); 
         };
     });
@@ -378,7 +379,7 @@ function afficherModalTable() {
 function afficherModalCode(numTable) {
     const titre = numTable === 'Emporter' ? '🛍️ À Emporter' : `Table ${numTable}`;
     
-    // Le champ devient "text" (et non "number") pour accepter les codes fidélités avec des lettres
+    // Le champ devient "text" pour accepter les lettres et les chiffres
     const modalHtml = `
         <div id="codeModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:2000;">
             <div style="background:white; border-radius:20px; padding:2rem; text-align:center; width:90%; max-width:400px;">
@@ -412,7 +413,7 @@ function afficherModalCode(numTable) {
         let authValid = false;
         let clientData = null;
 
-        // 1. ON VÉRIFIE D'ABORD SI C'EST UN CLIENT FIDÈLE (valable pour Table ET Emporter)
+        // 1. ON VÉRIFIE D'ABORD SI C'EST UN CLIENT FIDÈLE 
         try {
             const resFid = await fetch(`/api/customers/verify/${codeSaisi}`);
             if (resFid.ok) { 
@@ -422,7 +423,7 @@ function afficherModalCode(numTable) {
                     clientData = d.customer; 
                 } 
             }
-        } catch(e) { console.error("Erreur fidélité:", e); }
+        } catch(e) {}
 
         // 2. SI CE N'EST PAS UN FIDÈLE ET QU'IL A CHOISI UNE TABLE, ON VÉRIFIE LE CODE TABLE
         if (!authValid && numTable !== 'Emporter') {
@@ -431,14 +432,12 @@ function afficherModalCode(numTable) {
                 if (resTables.ok) {
                     const tables = await resTables.json();
                     const tableData = tables.find(t => parseInt(t.numero) === parseInt(numTable));
-                    if (tableData && tableData.code === String(codeSaisi)) {
-                        authValid = true;
-                    }
+                    if (tableData && tableData.code === String(codeSaisi)) authValid = true;
                 }
-            } catch(e) { console.error("Erreur table:", e); }
+            } catch(e) {}
         }
 
-        // 3. CODE MAÎTRE (Pour dépanner ou forcer une commande à emporter sans fidélité)
+        // 3. CODE MAÎTRE (00000 pour dépanner)
         if (codeSaisi === "00000") authValid = true;
 
         if (authValid) {
@@ -461,14 +460,8 @@ async function validerCommande(numTable, clientData, codeSaisi) {
         let nomFidele = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
         let idFidele = clientData ? codeSaisi : clientId;
         
-        // 🔥 LOGIQUE CRUCIALE : 
-        // Si c'est un client fidèle, on force sa commande en "Emporter" (pour qu'il aille dans la file d'attente de la caisse et non sur une table)
-        let tableFinale = numTable;
-        if (numTable === 'Emporter' || clientData) {
-            tableFinale = 'Emporter';
-        } else {
-            tableFinale = parseInt(numTable);
-        }
+        // 🔥 LOGIQUE MISE À JOUR : Le client garde son choix (Emporter ou Table)
+        let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
 
         const response = await fetch('/api/commandes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -476,13 +469,13 @@ async function validerCommande(numTable, clientData, codeSaisi) {
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
                 numeroTable: tableFinale,
                 clientId: idFidele,
-                clientName: nomFidele // C'est ça qui fait apparaître le nom sur la caisse/cuisine !
+                clientName: nomFidele // Envoie le nom à la cuisine !
             })
         });
 
         if (response.ok) {
             const commande = await response.json();
-            sauvegarderCommandeClient(commande);
+            if(typeof sauvegarderCommandeClient === 'function') sauvegarderCommandeClient(commande);
             
             panier = []; sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier();
             
@@ -492,7 +485,7 @@ async function validerCommande(numTable, clientData, codeSaisi) {
                 afficherNotification("🎉 Commande envoyée avec succès !");
             }
             
-            await chargerCatalogue(); 
+            if(typeof chargerCatalogue === 'function') await chargerCatalogue(); 
         } else { 
             afficherNotification("❌ Erreur serveur", "error"); 
         }
@@ -599,7 +592,7 @@ function configurerEvenements() {
             document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
             e.target.classList.add("active");
             categorieActuelle = e.target.dataset.category;
-            afficherProduits();
+            if(typeof afficherProduits === 'function') afficherProduits();
         }
     });
     
