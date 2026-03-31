@@ -454,7 +454,7 @@ async function validerCommande(numTable, clientData, codeSaisi) {
         let idFidele = clientData ? codeSaisi : clientId;
         
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
-
+        const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
         const response = await fetch('/api/commandes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
