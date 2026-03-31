@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TA'BIA - Gestion de Stock Pro</title>
+    <title>TA'BIA - Gestion de Stock & Analytics</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* ========== RESET & VARIABLES ========== */
@@ -77,7 +77,7 @@
         /* ========== MODALS ========== */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1000; }
         .modal.active { display: flex; }
-        .modal-content { background: white; border-radius: 20px; padding: 2rem; max-width: 450px; width: 90%; animation: modalSlideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        .modal-content { background: white; border-radius: 20px; padding: 2rem; max-width: 450px; width: 90%; max-height: 90vh; overflow-y: auto; animation: modalSlideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
         @keyframes modalSlideIn { from { opacity: 0; transform: scale(0.95) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
         .modal-header h3 { font-size: 1.2rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;}
@@ -146,12 +146,12 @@
     <div class="container">
         <div class="tabs">
             <button class="tab active" data-tab="stock" onclick="ouvrirOnglet('stock')"><i class="fas fa-box"></i> Inventaire</button>
+            <button class="tab" data-tab="ventes" onclick="ouvrirOnglet('ventes')"><i class="fas fa-chart-line"></i> Ventes & Rapports</button>
             <button class="tab" data-tab="mouvements" onclick="ouvrirOnglet('mouvements')"><i class="fas fa-exchange-alt"></i> Mouvements</button>
             <button class="tab" data-tab="alertes" onclick="ouvrirOnglet('alertes')"><i class="fas fa-bell"></i> Alertes</button>
             <button class="tab" data-tab="inventaire" onclick="ouvrirOnglet('inventaire')"><i class="fas fa-clipboard-check"></i> Audit Physique</button>
             <button class="tab" data-tab="depenses" onclick="ouvrirOnglet('depenses')"><i class="fas fa-wallet"></i> Dépenses</button>
             <button class="tab" data-tab="fidelite" onclick="ouvrirOnglet('fidelite')"><i class="fas fa-star"></i> Clients Fidèles</button>
-            <button class="tab" data-tab="ventes" onclick="ouvrirOnglet('ventes')"><i class="fas fa-chart-line"></i> Ventes & Rapports</button>
         </div>
 
         <div class="panel active" id="panel-stock">
@@ -193,6 +193,61 @@
                     </thead>
                     <tbody id="stockTableBody"></tbody>
                 </table>
+            </div>
+        </div>
+
+        <div class="panel" id="panel-ventes">
+            <div class="toolbar">
+                <div>
+                    <h3 style="font-size:1.1rem; color:var(--text-main);">Rapports de Ventes & Clôtures</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted);">Archives automatiques de vos journaux de caisse.</p>
+                </div>
+                <div class="filters">
+                    <div class="filter-group">
+                        <label>Type de Journal</label>
+                        <select id="typeRapport" onchange="chargerRapportVentes()" style="font-weight: bold; color: var(--primary);">
+                            <option value="detail">🧾 Détail des Tickets</option>
+                            <option value="jour">📅 Journal par Jour</option>
+                            <option value="mois">📆 Journal par Mois</option>
+                            <option value="annee">📈 Journal par Année</option>
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>Du</label><input type="date" id="rapportDateDebut"></div>
+                    <div class="filter-group"><label>Au</label><input type="date" id="rapportDateFin"></div>
+                    <button class="btn-action btn-success" onclick="chargerRapportVentes()"><i class="fas fa-search"></i> Analyser</button>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+                    <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Chiffre d'Affaires Période</div>
+                    <div id="kpiCA" style="font-size: 2rem; font-weight: 800; color: var(--success); margin-top: 5px;">0.00 DT</div>
+                </div>
+                <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+                    <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Tickets Encaissés</div>
+                    <div id="kpiTickets" style="font-size: 2rem; font-weight: 800; color: var(--info); margin-top: 5px;">0</div>
+                </div>
+                <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+                    <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Panier Moyen</div>
+                    <div id="kpiMoyen" style="font-size: 2rem; font-weight: 800; color: var(--warning); margin-top: 5px;">0.00 DT</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div class="table-container" style="max-height: 500px;">
+                    <div style="padding: 1rem; background: #f8fafc; border-bottom: 2px solid var(--border-color); font-weight: bold; color: var(--primary);">🏆 Palmarès des Produits</div>
+                    <table>
+                        <thead><tr><th>Produit</th><th style="text-align:center;">Qté Vendue</th><th style="text-align:right;">CA Généré</th></tr></thead>
+                        <tbody id="rapportProduitsBody"></tbody>
+                    </table>
+                </div>
+                <div class="table-container" style="max-height: 500px;">
+                    <div id="titreTableauDroite" style="padding: 1rem; background: #f8fafc; border-bottom: 2px solid var(--border-color); font-weight: bold; color: var(--primary);">🧾 Journal des Tickets</div>
+                    <table>
+                        <thead id="enTeteTableauDroite"></thead>
+                        <tbody id="rapportTicketsBody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -339,65 +394,19 @@
                 </table>
             </div>
         </div>
-<div class="panel" id="panel-fidelite">
-    <div class="toolbar">
-        <div><h3 style="font-size:1.1rem; color:var(--text-main);">Clients Fidèles</h3><p style="font-size:0.8rem; color:var(--text-muted);">Gérez les codes secrets de vos habitués.</p></div>
-        <button class="btn-action btn-warning" onclick="ouvrirModalClient()"><i class="fas fa-user-plus"></i> Inscrire un Client</button>
-    </div>
-    <div class="table-container">
-        <table>
-            <thead><tr><th>Date</th><th>Nom & Prénom</th><th>Téléphone</th><th style="text-align:center;">Code Secret</th><th style="text-align:right;">Actions</th></tr></thead>
-            <tbody id="fideliteTableBody"></tbody>
-        </table>
-    </div>
-</div>
-<div class="panel" id="panel-ventes">
-    <div class="toolbar">
-        <div>
-            <h3 style="font-size:1.1rem; color:var(--text-main);">Rapports de Ventes</h3>
-            <p style="font-size:0.8rem; color:var(--text-muted);">Analysez vos performances et consultez vos tickets.</p>
-        </div>
-        <div class="filters">
-            <div class="filter-group"><label>Du</label><input type="date" id="rapportDateDebut"></div>
-            <div class="filter-group"><label>Au</label><input type="date" id="rapportDateFin"></div>
-            <button class="btn-action btn-success" onclick="chargerRapportVentes()"><i class="fas fa-search"></i> Analyser</button>
-        </div>
-    </div>
 
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-        <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
-            <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Chiffre d'Affaires Période</div>
-            <div id="kpiCA" style="font-size: 2rem; font-weight: 800; color: var(--success); margin-top: 5px;">0.00 DT</div>
+        <div class="panel" id="panel-fidelite">
+            <div class="toolbar">
+                <div><h3 style="font-size:1.1rem; color:var(--text-main);">Clients Fidèles</h3><p style="font-size:0.8rem; color:var(--text-muted);">Gérez les codes secrets de vos habitués.</p></div>
+                <button class="btn-action btn-warning" onclick="ouvrirModalClient()"><i class="fas fa-user-plus"></i> Inscrire un Client</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Date</th><th>Nom & Prénom</th><th>Téléphone</th><th style="text-align:center;">Code Secret</th><th style="text-align:right;">Actions</th></tr></thead>
+                    <tbody id="fideliteTableBody"></tbody>
+                </table>
+            </div>
         </div>
-        <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
-            <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Tickets Encaissés</div>
-            <div id="kpiTickets" style="font-size: 2rem; font-weight: 800; color: var(--info); margin-top: 5px;">0</div>
-        </div>
-        <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
-            <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Panier Moyen</div>
-            <div id="kpiMoyen" style="font-size: 2rem; font-weight: 800; color: var(--warning); margin-top: 5px;">0.00 DT</div>
-        </div>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-        <div class="table-container" style="max-height: 500px;">
-            <div style="padding: 1rem; background: #f8fafc; border-bottom: 2px solid var(--border-color); font-weight: bold; color: var(--primary);">🏆 Palmarès des Produits</div>
-            <table>
-                <thead><tr><th>Produit</th><th style="text-align:center;">Qté Vendue</th><th style="text-align:right;">CA Généré</th></tr></thead>
-                <tbody id="rapportProduitsBody"></tbody>
-            </table>
-        </div>
-
-        <div class="table-container" style="max-height: 500px;">
-            <div style="padding: 1rem; background: #f8fafc; border-bottom: 2px solid var(--border-color); font-weight: bold; color: var(--primary);">🧾 Journal des Tickets</div>
-            <table>
-                <thead><tr><th>Heure</th><th>Ticket</th><th>Total</th><th style="text-align:center;">Détails</th></tr></thead>
-                <tbody id="rapportTicketsBody"></tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
     </div>
 
     <div id="modalContainer"></div>
@@ -408,16 +417,13 @@
         const monToken = localStorage.getItem('tabia_caisse_token');
 
         if (!monToken) {
-            // Si pas de token, on redirige vers la page de connexion
             window.location.href = '/caisse-login.html'; 
         }
 
-        // Fonction pour parler au serveur avec le badge de sécurité
         async function fetchSecurise(url, options = {}) {
             if (!options.headers) options.headers = {};
-            options.headers['authorization'] = monToken; // On montre le badge
+            options.headers['authorization'] = monToken; 
             
-            // Si ce n'est pas une requête GET, on ajoute le content-type
             if (options.method && options.method !== 'GET' && !options.headers['Content-Type']) {
                 options.headers['Content-Type'] = 'application/json';
             }
@@ -434,6 +440,7 @@
         // ========== 1. UTILITAIRES & VARIABLES GLOBALES ==========
         let stockProduits = [];
         let stockTri = { colonne: 'nom', asc: true };
+        let toutesLesVentes = [];
 
         const escapeHtml = (text) => {
             if (!text) return text;
@@ -468,25 +475,30 @@
             document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             document.getElementById(`panel-${tabId}`).classList.add('active');
-            if (tabId === 'serveurs') chargerServeurs();
-            if (tabId === 'fidelite') chargerClients()
+            
+            if (tabId === 'fidelite') chargerClients();
             if (tabId === 'stock') chargerStock();
             if (tabId === 'mouvements') chargerHistorique();
             if (tabId === 'alertes') chargerAlertes();
             if (tabId === 'depenses') chargerDepenses();
+            if (tabId === 'ventes') {
+                if (!document.getElementById('rapportDateDebut').value) {
+                    document.getElementById('rapportDateDebut').valueAsDate = new Date();
+                    document.getElementById('rapportDateFin').valueAsDate = new Date();
+                }
+                chargerRapportVentes();
+            }
         }
 
         // ========== DASHBOARD ==========
         async function chargerDashboard() {
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const stockResp = await fetchSecurise('/api/stock');
                 let stock = await stockResp.json();
                 stock = Array.isArray(stock) ? stock : (stock.produits || []); 
 
                 let alertes = [];
                 try {
-                    // 🔥 SÉCURITÉ : fetchSecurise
                     const alertesResp = await fetchSecurise('/api/stock/alertes');
                     if (alertesResp.ok) alertes = await alertesResp.json();
                 } catch(e) {}
@@ -509,7 +521,6 @@
         // ========== 2. MODULE STOCK ==========
         async function chargerStock() {
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const res = await fetchSecurise('/api/stock');
                 let data = await res.json();
                 stockProduits = Array.isArray(data) ? data : (data.produits || []); 
@@ -589,7 +600,6 @@
 
         async function chargerCategories() {
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const res = await fetchSecurise('/api/stock');
                 let data = await res.json();
                 let prods = Array.isArray(data) ? data : (data.produits || []);
@@ -635,7 +645,7 @@
             const produitData = {
                 nom: document.getElementById('newProdName').value,
                 variantes: document.getElementById('newProdVariantes').value,
-                typeChoix: document.getElementById('newProdTypeChoix').value, // 🔥 NOUVELLE DONNÉE AJOUTÉE ICI
+                typeChoix: document.getElementById('newProdTypeChoix').value,
                 image: document.getElementById('newProdImage').value, 
                 categorie: document.getElementById('newProdCat').value,
                 prix: parseFloat(document.getElementById('newProdPrice').value),
@@ -647,7 +657,6 @@
             if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Saisie invalide", "var(--danger)");
 
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const response = await fetchSecurise('/api/stock', { method: 'POST', body: JSON.stringify(produitData) });
                 if (response.ok) { showNotification("✅ Produit ajouté !"); fermerModal(); chargerStock(); }
             } catch (error) { showNotification("❌ Erreur serveur", "var(--danger)"); }
@@ -694,7 +703,7 @@
             const produitData = {
                 nom: document.getElementById('editProdName').value,
                 variantes: document.getElementById('editProdVariantes').value,
-                typeChoix: document.getElementById('editProdTypeChoix').value, // 🔥 NOUVELLE DONNÉE AJOUTÉE ICI
+                typeChoix: document.getElementById('editProdTypeChoix').value,
                 image: document.getElementById('editProdImage').value,
                 categorie: document.getElementById('editProdCat').value,
                 prix: parseFloat(document.getElementById('editProdPrice').value),
@@ -702,7 +711,6 @@
                 seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
             };
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
                 if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); }
             } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
@@ -711,7 +719,6 @@
         async function supprimerProduit(id) {
             if (!confirm("⚠️ Voulez-vous vraiment supprimer ce produit ? Cette action est définitive.")) return;
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const response = await fetchSecurise(`/api/stock/${id}`, { method: 'DELETE' });
                 if (response.ok) { showNotification("🗑️ Produit supprimé."); chargerStock(); chargerDashboard(); chargerCategories(); }
             } catch (error) { showNotification("❌ Erreur de suppression.", "var(--danger)"); }
@@ -744,7 +751,6 @@
         async function callAddStockApi(id, qte, raison) {
             if(!id || !qte || qte <= 0) return showNotification("Saisie invalide", "var(--danger)");
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const res = await fetchSecurise(`/api/stock/${id}/add`, { method: 'POST', body: JSON.stringify({ quantite: qte, raison: raison||'Livraison' }) });
                 if(res.ok) { 
                     showNotification(`Stock mis à jour (+${qte})`, "var(--success)"); 
@@ -753,7 +759,6 @@
                     const p = stockProduits.find(x => String(x.id) === String(id));
                     if(p) {
                         p.stock += qte;
-                        // 🔥 SÉCURITÉ : fetchSecurise
                         await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(p) });
                         showNotification(`Stock mis à jour (+${qte})`, "var(--success)"); 
                         fermerModal(); chargerStock(); chargerDashboard();
@@ -780,7 +785,6 @@
             const finStr = document.getElementById('dateFin').value;
             
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const res = await fetchSecurise(`/api/stock/historique?limit=500`);
                 let data = await res.json();
                 data = Array.isArray(data) ? data : []; 
@@ -828,7 +832,6 @@
         async function chargerAlertes() {
             const tbody = document.getElementById('alertesContainerBody');
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const res = await fetchSecurise('/api/stock/alertes');
                 if (!res.ok) throw new Error();
                 let alertes = await res.json(); 
@@ -855,7 +858,6 @@
 
         async function resoudreAlerte(id) {
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 await fetchSecurise(`/api/stock/alertes/${id}/resoudre`, { method: 'PUT' });
                 showNotification("Alerte masquée", "var(--success)");
                 chargerAlertes(); chargerDashboard();
@@ -930,7 +932,6 @@
             if(!confirm(`Vous allez ajuster le stock de ${produits.length} produit(s). Continuer ?`)) return;
             
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const res = await fetchSecurise('/api/stock/inventaire', { method: 'POST', body: JSON.stringify({ produits }) });
                 if(res.ok) {
                     showNotification(`Inventaire enregistré avec succès`, "var(--success)");
@@ -940,7 +941,6 @@
                         const target = stockProduits.find(x => String(x.id) === String(p.id));
                         if(target) {
                             target.stock = p.stockPhysique;
-                            // 🔥 SÉCURITÉ : fetchSecurise
                             await fetchSecurise(`/api/stock/${p.id}`, { method: 'PUT', body: JSON.stringify(target) });
                         }
                     }
@@ -952,7 +952,6 @@
 
         async function voirHistoriqueInventaires() {
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const res = await fetchSecurise('/api/stock/inventaires');
                 let data = await res.json();
                 data = Array.isArray(data) ? data : [];
@@ -990,7 +989,6 @@
             const finStr = document.getElementById('depenseDateFin').value;
             
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const res = await fetchSecurise('/api/depenses');
                 let data = await res.json();
                 data = Array.isArray(data) ? data : []; 
@@ -1050,167 +1048,175 @@
             if(!desc || isNaN(montant) || montant <= 0) return showNotification("Veuillez remplir tous les champs", "var(--danger)");
             
             try {
-                // 🔥 SÉCURITÉ : fetchSecurise
                 const res = await fetchSecurise('/api/depenses', { method: 'POST', body: JSON.stringify({categorie: cat, description: desc, montant: montant, mode: mode}) });
                 if(res.ok) { showNotification("Dépense enregistrée", "var(--success)"); fermerModal(); chargerDepenses(); }
             } catch(e){ showNotification("Erreur de sauvegarde", "var(--danger)"); }
         }
         
-// Ouvre l'onglet fidélité proprement
-const oldOuvrirOnglet = ouvrirOnglet;
-ouvrirOnglet = function(tabId) {
-    oldOuvrirOnglet(tabId);
-    if (tabId === 'fidelite') chargerClients();
-};
-
-async function chargerClients() {
-    const tbody = document.getElementById('fideliteTableBody');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
-    try {
-        const res = await fetchSecurise('/api/customers'); const clients = await res.json();
-        if(clients.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun client fidèle enregistré</td></tr>'; return; }
-        tbody.innerHTML = clients.map(c => `<tr><td>${c.dateInscription}</td><td><strong>${escapeHtml(c.nom)} ${escapeHtml(c.prenom)}</strong></td><td>${escapeHtml(c.telephone)}</td><td style="text-align:center;"><span class="badge badge-normal" style="font-size:1rem; letter-spacing:2px;">${c.codeFidelite}</span></td><td style="text-align:right;"><button class="btn-action btn-danger" onclick="supprimerClient('${c._id}')"><i class="fas fa-trash"></i></button></td></tr>`).join('');
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur</td></tr>'; }
-}
-
-function ouvrirModalClient() {
-    document.getElementById('modalContainer').innerHTML = `<div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-star"></i> Inscrire un habitué</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div><div class="form-group"><label>Nom :</label><input type="text" id="custNom"></div><div class="form-group"><label>Prénom :</label><input type="text" id="custPrenom"></div><div class="form-group"><label>Téléphone :</label><input type="text" id="custTel"></div><div class="form-group"><label>Code Secret :</label><input type="text" id="custCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;"></div><div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerClient()">Enregistrer</button></div></div></div>`;
-}
-
-async function validerClient() {
-    const data = { nom: document.getElementById('custNom').value, prenom: document.getElementById('custPrenom').value, telephone: document.getElementById('custTel').value, codeFidelite: document.getElementById('custCode').value };
-    if(!data.nom || !data.codeFidelite) return showNotification("Nom et Code obligatoires", "var(--danger)");
-    try { const res = await fetchSecurise('/api/customers', { method: 'POST', body: JSON.stringify(data) }); if(res.ok) { fermerModal(); chargerClients(); showNotification("Client enregistré !"); } else showNotification("Ce code existe déjà", "var(--danger)"); } catch(e) { showNotification("Erreur", "var(--danger)"); }
-}
-
-async function supprimerClient(id) {
-    if(confirm("Supprimer ce client ?")) { await fetchSecurise(`/api/customers/${id}`, { method: 'DELETE' }); chargerClients(); }
-}
-
-document.addEventListener("DOMContentLoaded", () => { setTimeout(() => chargerClients(), 500); });
-// ========================================================
-// ========== NOUVEAU MODULE : RAPPORTS ET VENTES =========
-// ========================================================
-let toutesLesVentes = [];
-
-// S'assure que l'onglet se charge bien
-const oldOuvrirOngletVentes = ouvrirOnglet;
-ouvrirOnglet = function(tabId) {
-    oldOuvrirOngletVentes(tabId);
-    if (tabId === 'ventes') {
-        // Met la date d'aujourd'hui par défaut
-        document.getElementById('rapportDateDebut').valueAsDate = new Date();
-        document.getElementById('rapportDateFin').valueAsDate = new Date();
-        chargerRapportVentes();
-    }
-};
-
-async function chargerRapportVentes() {
-    try {
-        const res = await fetchSecurise('/api/ventes');
-        toutesLesVentes = await res.json();
-        
-        const debutStr = document.getElementById('rapportDateDebut').value;
-        const finStr = document.getElementById('rapportDateFin').value;
-        const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
-        const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
-
-        // 1. Filtrer par date
-        const ventesFiltrees = toutesLesVentes.filter(v => {
-            const tsVente = v.timestamp; 
-            return tsVente >= tsDebut && tsVente <= tsFin;
-        });
-
-        // 2. Calculer les KPIs globaux
-        const totalCA = ventesFiltrees.reduce((sum, v) => sum + v.total, 0);
-        const nbTickets = ventesFiltrees.length;
-        const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
-
-        document.getElementById('kpiCA').textContent = formatMoney(totalCA);
-        document.getElementById('kpiTickets').textContent = nbTickets;
-        document.getElementById('kpiMoyen').textContent = formatMoney(panierMoyen);
-
-        // 3. Regrouper les ventes par produit
-        const statsProds = {};
-        ventesFiltrees.forEach(ticket => {
-            ticket.articles.forEach(art => {
-                const nomComplet = art.nom + (art.variante ? ` (${art.variante})` : '');
-                if (!statsProds[nomComplet]) statsProds[nomComplet] = { qte: 0, ca: 0 };
-                statsProds[nomComplet].qte += art.quantite;
-                statsProds[nomComplet].ca += (art.quantite * art.prix);
-            });
-        });
-
-        // Transformer en tableau et trier du plus vendu au moins vendu
-        const topProduits = Object.keys(statsProds).map(nom => ({
-            nom, qte: statsProds[nom].qte, ca: statsProds[nom].ca
-        })).sort((a, b) => b.qte - a.qte);
-
-        // Afficher Palmarès
-        const tBodyProds = document.getElementById('rapportProduitsBody');
-        if (topProduits.length === 0) {
-            tBodyProds.innerHTML = '<tr><td colspan="3" class="empty-message">Aucune vente sur cette période</td></tr>';
-        } else {
-            tBodyProds.innerHTML = topProduits.map(p => `
-                <tr>
-                    <td><strong>${escapeHtml(p.nom)}</strong></td>
-                    <td style="text-align:center;"><span class="badge badge-neutral">${p.qte}</span></td>
-                    <td style="text-align:right; font-weight:bold; color:var(--success);">${formatMoney(p.ca)}</td>
-                </tr>
-            `).join('');
+        // ========== 7. MODULE FIDELITÉ ==========
+        async function chargerClients() {
+            const tbody = document.getElementById('fideliteTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
+            try {
+                const res = await fetchSecurise('/api/customers'); const clients = await res.json();
+                if(clients.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun client fidèle enregistré</td></tr>'; return; }
+                tbody.innerHTML = clients.map(c => `<tr><td>${c.dateInscription}</td><td><strong>${escapeHtml(c.nom)} ${escapeHtml(c.prenom)}</strong></td><td>${escapeHtml(c.telephone)}</td><td style="text-align:center;"><span class="badge badge-normal" style="font-size:1rem; letter-spacing:2px;">${c.codeFidelite}</span></td><td style="text-align:right;"><button class="btn-action btn-danger" onclick="supprimerClient('${c._id}')"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur</td></tr>'; }
         }
 
-        // 4. Afficher le Journal des Tickets
-        const tBodyTickets = document.getElementById('rapportTicketsBody');
-        if (ventesFiltrees.length === 0) {
-            tBodyTickets.innerHTML = '<tr><td colspan="4" class="empty-message">Aucun ticket</td></tr>';
-        } else {
-            tBodyTickets.innerHTML = ventesFiltrees.map(v => `
-                <tr>
-                    <td><div style="font-size:0.8rem; color:var(--text-muted);">${v.date}</div></td>
-                    <td><strong>#${v.numero}</strong><div style="font-size:0.7rem;">${v.tableOrigine}</div></td>
-                    <td style="font-weight:bold;">${formatMoney(v.total)}</td>
-                    <td style="text-align:center;">
-                        <button class="btn-action" style="padding:0.4rem; background:var(--info);" onclick="voirDetailTicket('${v.id}')"><i class="fas fa-eye"></i></button>
-                    </td>
-                </tr>
-            `).join('');
+        function ouvrirModalClient() {
+            document.getElementById('modalContainer').innerHTML = `<div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-star"></i> Inscrire un habitué</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div><div class="form-group"><label>Nom :</label><input type="text" id="custNom"></div><div class="form-group"><label>Prénom :</label><input type="text" id="custPrenom"></div><div class="form-group"><label>Téléphone :</label><input type="text" id="custTel"></div><div class="form-group"><label>Code Secret :</label><input type="text" id="custCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;"></div><div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerClient()">Enregistrer</button></div></div></div>`;
         }
 
-    } catch(e) { console.error("Erreur rapports", e); }
-}
+        async function validerClient() {
+            const data = { nom: document.getElementById('custNom').value, prenom: document.getElementById('custPrenom').value, telephone: document.getElementById('custTel').value, codeFidelite: document.getElementById('custCode').value };
+            if(!data.nom || !data.codeFidelite) return showNotification("Nom et Code obligatoires", "var(--danger)");
+            try { const res = await fetchSecurise('/api/customers', { method: 'POST', body: JSON.stringify(data) }); if(res.ok) { fermerModal(); chargerClients(); showNotification("Client enregistré !"); } else showNotification("Ce code existe déjà", "var(--danger)"); } catch(e) { showNotification("Erreur", "var(--danger)"); }
+        }
 
-function voirDetailTicket(idTicket) {
-    const ticket = toutesLesVentes.find(v => v.id === idTicket);
-    if (!ticket) return;
+        async function supprimerClient(id) {
+            if(confirm("Supprimer ce client ?")) { await fetchSecurise(`/api/customers/${id}`, { method: 'DELETE' }); chargerClients(); }
+        }
 
-    const itemsHtml = ticket.articles.map(a => `
-        <div style="display:flex; justify-content:space-between; padding: 8px 0; border-bottom: 1px dashed var(--border-color);">
-            <span><strong>${a.quantite}x</strong> ${escapeHtml(a.nom)} ${a.variante ? `<i>(${escapeHtml(a.variante)})</i>` : ''}</span>
-            <span style="font-weight:bold;">${formatMoney(a.quantite * a.prix)}</span>
-        </div>
-    `).join('');
+        // ========== 8. MODULE VENTES ET ARCHIVES ==========
+        async function chargerRapportVentes() {
+            try {
+                const res = await fetchSecurise('/api/ventes');
+                toutesLesVentes = await res.json();
+                
+                const typeRapport = document.getElementById('typeRapport').value;
+                const debutStr = document.getElementById('rapportDateDebut').value;
+                const finStr = document.getElementById('rapportDateFin').value;
+                const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
+                const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
 
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content" style="max-width:400px; background:#fdfbf7;">
-            <div style="text-align:center; border-bottom:2px solid var(--primary); padding-bottom:1rem; margin-bottom:1rem;">
-                <h2 style="font-family:'Cinzel', serif; color:var(--primary); margin-bottom:5px;">TA'BIA Coffee</h2>
-                <div style="font-size:0.8rem; color:var(--text-muted);">Copie du Ticket #${ticket.numero}</div>
-                <div style="font-size:0.8rem; color:var(--text-muted);">${ticket.date} - ${ticket.tableOrigine}</div>
-            </div>
-            
-            <div style="margin-bottom: 1.5rem;">${itemsHtml}</div>
-            
-            ${ticket.remise > 0 ? `<div style="display:flex; justify-content:space-between; color:var(--warning); font-weight:bold;"><span>Remise accordée :</span><span>${ticket.remise}%</span></div>` : ''}
-            
-            <div style="display:flex; justify-content:space-between; font-size:1.4rem; font-weight:900; color:var(--primary); border-top:2px solid var(--primary); padding-top:1rem;">
-                <span>TOTAL TTC</span>
-                <span>${formatMoney(ticket.total)}</span>
-            </div>
-            <div class="modal-buttons"><button class="btn-secondary" style="width:100%;" onclick="fermerModal()">Fermer</button></div>
-        </div></div>
-    `;
-}
+                // Filtrage
+                const ventesFiltrees = toutesLesVentes.filter(v => {
+                    const tsVente = v.timestamp; 
+                    return tsVente >= tsDebut && tsVente <= tsFin;
+                });
+
+                // Calcul KPIs
+                const totalCA = ventesFiltrees.reduce((sum, v) => sum + v.total, 0);
+                const nbTickets = ventesFiltrees.length;
+                const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
+
+                document.getElementById('kpiCA').textContent = formatMoney(totalCA);
+                document.getElementById('kpiTickets').textContent = nbTickets;
+                document.getElementById('kpiMoyen').textContent = formatMoney(panierMoyen);
+
+                // Palmarès Produits
+                const statsProds = {};
+                ventesFiltrees.forEach(ticket => {
+                    ticket.articles.forEach(art => {
+                        const nomComplet = art.nom + (art.variante ? ` (${art.variante})` : '');
+                        if (!statsProds[nomComplet]) statsProds[nomComplet] = { qte: 0, ca: 0 };
+                        statsProds[nomComplet].qte += art.quantite;
+                        statsProds[nomComplet].ca += (art.quantite * art.prix);
+                    });
+                });
+
+                const topProduits = Object.keys(statsProds).map(nom => ({
+                    nom, qte: statsProds[nom].qte, ca: statsProds[nom].ca
+                })).sort((a, b) => b.qte - a.qte);
+
+                const tBodyProds = document.getElementById('rapportProduitsBody');
+                if (topProduits.length === 0) {
+                    tBodyProds.innerHTML = '<tr><td colspan="3" class="empty-message">Aucune vente sur cette période</td></tr>';
+                } else {
+                    tBodyProds.innerHTML = topProduits.map(p => `
+                        <tr>
+                            <td><strong>${escapeHtml(p.nom)}</strong></td>
+                            <td style="text-align:center;"><span class="badge badge-neutral">${p.qte}</span></td>
+                            <td style="text-align:right; font-weight:bold; color:var(--success);">${formatMoney(p.ca)}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Journal dynamique
+                const tBodyTickets = document.getElementById('rapportTicketsBody');
+                const enTete = document.getElementById('enTeteTableauDroite');
+                const titreDroite = document.getElementById('titreTableauDroite');
+
+                if (ventesFiltrees.length === 0) {
+                    enTete.innerHTML = '<tr><th>Données</th></tr>';
+                    tBodyTickets.innerHTML = '<tr><td class="empty-message">Aucun enregistrement</td></tr>';
+                    return;
+                }
+
+                if (typeRapport === 'detail') {
+                    titreDroite.innerHTML = "🧾 Journal des Tickets";
+                    enTete.innerHTML = '<tr><th>Heure</th><th>Ticket</th><th>Total</th><th style="text-align:center;">Détails</th></tr>';
+                    tBodyTickets.innerHTML = ventesFiltrees.map(v => `
+                        <tr>
+                            <td><div style="font-size:0.8rem; color:var(--text-muted);">${v.date}</div></td>
+                            <td><strong>#${v.numero}</strong><div style="font-size:0.7rem;">${v.tableOrigine}</div></td>
+                            <td style="font-weight:bold;">${formatMoney(v.total)}</td>
+                            <td style="text-align:center;"><button class="btn-action" style="padding:0.4rem; background:var(--info);" onclick="voirDetailTicket('${v.id}')"><i class="fas fa-eye"></i></button></td>
+                        </tr>
+                    `).join('');
+                } 
+                else {
+                    const groupes = {};
+                    ventesFiltrees.forEach(v => {
+                        const datePart = v.date.split(' ')[0];
+                        const parts = datePart.split('/');
+                        
+                        let cle = '';
+                        if (typeRapport === 'jour') { cle = `${parts[0]}/${parts[1]}/${parts[2]}`; titreDroite.innerHTML = "📅 Journal Quotidien (Clôtures)"; }
+                        if (typeRapport === 'mois') { cle = `${parts[1]}/${parts[2]}`; titreDroite.innerHTML = "📆 Journal Mensuel"; }
+                        if (typeRapport === 'annee') { cle = `${parts[2]}`; titreDroite.innerHTML = "📈 Journal Annuel"; }
+
+                        if (!groupes[cle]) groupes[cle] = { ca: 0, tickets: 0 };
+                        groupes[cle].ca += v.total;
+                        groupes[cle].tickets += 1;
+                    });
+
+                    enTete.innerHTML = '<tr><th>Période</th><th style="text-align:center;">Nb Tickets</th><th style="text-align:right;">Chiffre d\'Affaires</th></tr>';
+                    
+                    tBodyTickets.innerHTML = Object.keys(groupes).map(cle => `
+                        <tr>
+                            <td><strong>${cle}</strong></td>
+                            <td style="text-align:center;"><span class="badge badge-neutral">${groupes[cle].tickets}</span></td>
+                            <td style="text-align:right; font-weight:bold; color:var(--success); font-size:1.1rem;">${formatMoney(groupes[cle].ca)}</td>
+                        </tr>
+                    `).join('');
+                }
+
+            } catch(e) { console.error("Erreur rapports", e); }
+        }
+
+        function voirDetailTicket(idTicket) {
+            const ticket = toutesLesVentes.find(v => v.id === idTicket);
+            if (!ticket) return;
+
+            const itemsHtml = ticket.articles.map(a => `
+                <div style="display:flex; justify-content:space-between; padding: 8px 0; border-bottom: 1px dashed var(--border-color);">
+                    <span><strong>${a.quantite}x</strong> ${escapeHtml(a.nom)} ${a.variante ? `<i>(${escapeHtml(a.variante)})</i>` : ''}</span>
+                    <span style="font-weight:bold;">${formatMoney(a.quantite * a.prix)}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content" style="max-width:400px; background:#fdfbf7;">
+                    <div style="text-align:center; border-bottom:2px solid var(--primary); padding-bottom:1rem; margin-bottom:1rem;">
+                        <h2 style="font-family:'Cinzel', serif; color:var(--primary); margin-bottom:5px;">TA'BIA Coffee</h2>
+                        <div style="font-size:0.8rem; color:var(--text-muted);">Copie du Ticket #${ticket.numero}</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted);">${ticket.date} - ${ticket.tableOrigine}</div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">${itemsHtml}</div>
+                    
+                    ${ticket.remise > 0 ? `<div style="display:flex; justify-content:space-between; color:var(--warning); font-weight:bold;"><span>Remise accordée :</span><span>${ticket.remise}%</span></div>` : ''}
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:1.4rem; font-weight:900; color:var(--primary); border-top:2px solid var(--primary); padding-top:1rem;">
+                        <span>TOTAL TTC</span>
+                        <span>${formatMoney(ticket.total)}</span>
+                    </div>
+                    <div class="modal-buttons"><button class="btn-secondary" style="width:100%;" onclick="fermerModal()">Fermer</button></div>
+                </div></div>
+            `;
+        }
 
         // ========== INIT DOM ==========
         document.addEventListener("DOMContentLoaded", () => {
@@ -1225,8 +1231,6 @@ function voirDetailTicket(idTicket) {
             const socket = io(); // On connecte la page au serveur en temps réel
 
             socket.on('update_stock', () => {
-                
-                chargerClients();
                 chargerStock();
                 chargerDashboard();
                 chargerAlertes();
