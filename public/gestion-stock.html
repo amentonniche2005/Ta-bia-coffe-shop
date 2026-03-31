@@ -358,7 +358,8 @@
             <tbody id="fideliteTableBody"></tbody>
         </table>
     </div>
-    <div class="panel" id="panel-serveurs">
+</div>
+<div class="panel" id="panel-serveurs">
             <div class="toolbar">
                 <div>
                     <h3 style="font-size:1.1rem; color:var(--text-main);">Équipe & Serveurs</h3>
@@ -381,7 +382,6 @@
                 </table>
             </div>
         </div>
-</div>
     </div>
 
     <div id="modalContainer"></div>
@@ -1072,6 +1072,76 @@ async function supprimerClient(id) {
     if(confirm("Supprimer ce client ?")) {
         await fetchSecurise(`/api/customers/${id}`, { method: 'DELETE' });
         chargerClients();
+    }
+}
+// A AJOUTER A LA FIN DU FICHIER JS DANS gestion-stock.html
+async function chargerServeurs() {
+    const tbody = document.getElementById('serveursTableBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
+    try {
+        const resServeurs = await fetchSecurise('/api/waiters');
+        const serveurs = await resServeurs.json();
+        
+        const resCmds = await fetchSecurise('/api/commandes/all');
+        const commandes = await resCmds.json();
+
+        const stats = {};
+        serveurs.forEach(s => stats[s.nom] = { total: 0, articles: 0 });
+        
+        commandes.forEach(c => {
+            if (c.statut === 'paye' && c.serveurName && stats[c.serveurName]) {
+                stats[c.serveurName].total += c.total || 0;
+                c.articles.forEach(a => stats[c.serveurName].articles += (parseInt(a.quantite) || 1));
+            }
+        });
+
+        if(serveurs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun serveur enregistré</td></tr>'; return; }
+
+        tbody.innerHTML = serveurs.map(s => `
+            <tr>
+                <td><strong>${escapeHtml(s.nom)}</strong></td>
+                <td style="text-align:center;"><span class="badge badge-neutral" style="font-size:1rem; letter-spacing:2px;">${s.code}</span></td>
+                <td style="text-align:center; font-weight:bold; color:var(--info);">${stats[s.nom].articles}</td>
+                <td style="text-align:right; font-weight:800; color:var(--success);">${formatMoney(stats[s.nom].total)}</td>
+                <td style="text-align:right;">
+                    <button class="btn-action btn-danger" onclick="supprimerServeur('${s._id}')"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur de chargement</td></tr>'; }
+}
+
+function ouvrirModalServeur() {
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active"><div class="modal-content">
+            <div class="modal-header"><h3><i class="fas fa-user-tie"></i> Ajouter un Serveur</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+            <div class="form-group"><label>Nom ou Pseudo :</label><input type="text" id="servNom" placeholder="Ex: Sami"></div>
+            <div class="form-group"><label>Code d'accès secret :</label>
+                <input type="text" id="servCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+                <button class="btn-primary" onclick="validerServeur()">Enregistrer</button>
+            </div>
+        </div></div>`;
+}
+
+async function validerServeur() {
+    const nom = document.getElementById('servNom').value;
+    const code = document.getElementById('servCode').value;
+    if (!nom || !code) return showNotification("Remplissez tous les champs", "var(--danger)");
+    
+    try {
+        const res = await fetchSecurise('/api/waiters', { method: 'POST', body: JSON.stringify({nom, code}) });
+        if(res.ok) { fermerModal(); chargerServeurs(); showNotification("Serveur ajouté avec succès !"); }
+        else showNotification("Ce code est déjà utilisé", "var(--danger)");
+    } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
+}
+
+async function supprimerServeur(id) {
+    if(confirm("Supprimer ce serveur ? Ses statistiques futures ne seront plus calculées.")) {
+        await fetchSecurise(`/api/waiters/${id}`, { method: 'DELETE' });
+        chargerServeurs();
     }
 }
 // A AJOUTER A LA FIN DU FICHIER JS DANS gestion-stock.html

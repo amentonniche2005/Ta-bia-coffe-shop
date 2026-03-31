@@ -165,7 +165,7 @@ function afficherColonne(containerId, commandes, type) {
             </li>
         `).join('');
 
-        return `
+return `
             <div class="ticket" data-id="${cmd.id}" onclick="voirDetails(${cmd.id})">
                 <div class="ticket-header">
                     <span class="ticket-id">

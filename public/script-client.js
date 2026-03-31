@@ -340,6 +340,7 @@ function afficherContenuPanier() {
 }
 
 // ========== ENVOI COMMANDE (NOUVELLE LOGIQUE SÉCURISÉE) ==========
+// ========== ENVOI COMMANDE (NOUVELLE LOGIQUE SÉCURISÉE) ==========
 function passerCommande() {
     if (panier.length === 0) return;
     fermerPanier();
