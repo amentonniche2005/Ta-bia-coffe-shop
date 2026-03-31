@@ -102,6 +102,13 @@
         .inv-raison { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; }
         .ecart-cell { font-weight: 800; text-align: center; font-size: 1.1rem;}
     </style>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#143621">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TA'BIA">
+    <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
 <body>
 <header>
@@ -1237,6 +1244,18 @@
                 console.log("🔄 Stock mis à jour en direct !");
             });
         });
+    </script>
+    <script>
+        // Activation du Service Worker pour l'installation PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('Service Worker enregistré avec succès:', registration.scope);
+                }).catch(error => {
+                    console.log('Échec de l\'enregistrement du Service Worker:', error);
+                });
+            });
+        }
     </script>
 </body>
 </html>
