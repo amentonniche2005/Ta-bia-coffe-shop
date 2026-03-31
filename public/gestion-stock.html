@@ -151,6 +151,7 @@
             <button class="tab" data-tab="inventaire" onclick="ouvrirOnglet('inventaire')"><i class="fas fa-clipboard-check"></i> Audit Physique</button>
             <button class="tab" data-tab="depenses" onclick="ouvrirOnglet('depenses')"><i class="fas fa-wallet"></i> Dépenses</button>
             <button class="tab" data-tab="fidelite" onclick="ouvrirOnglet('fidelite')"><i class="fas fa-star"></i> Clients Fidèles</button>
+            <button class="tab" data-tab="ventes" onclick="ouvrirOnglet('ventes')"><i class="fas fa-chart-line"></i> Ventes & Rapports</button>
         </div>
 
         <div class="panel active" id="panel-stock">
@@ -348,6 +349,52 @@
             <thead><tr><th>Date</th><th>Nom & Prénom</th><th>Téléphone</th><th style="text-align:center;">Code Secret</th><th style="text-align:right;">Actions</th></tr></thead>
             <tbody id="fideliteTableBody"></tbody>
         </table>
+    </div>
+</div>
+<div class="panel" id="panel-ventes">
+    <div class="toolbar">
+        <div>
+            <h3 style="font-size:1.1rem; color:var(--text-main);">Rapports de Ventes</h3>
+            <p style="font-size:0.8rem; color:var(--text-muted);">Analysez vos performances et consultez vos tickets.</p>
+        </div>
+        <div class="filters">
+            <div class="filter-group"><label>Du</label><input type="date" id="rapportDateDebut"></div>
+            <div class="filter-group"><label>Au</label><input type="date" id="rapportDateFin"></div>
+            <button class="btn-action btn-success" onclick="chargerRapportVentes()"><i class="fas fa-search"></i> Analyser</button>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+        <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+            <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Chiffre d'Affaires Période</div>
+            <div id="kpiCA" style="font-size: 2rem; font-weight: 800; color: var(--success); margin-top: 5px;">0.00 DT</div>
+        </div>
+        <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+            <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Tickets Encaissés</div>
+            <div id="kpiTickets" style="font-size: 2rem; font-weight: 800; color: var(--info); margin-top: 5px;">0</div>
+        </div>
+        <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+            <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Panier Moyen</div>
+            <div id="kpiMoyen" style="font-size: 2rem; font-weight: 800; color: var(--warning); margin-top: 5px;">0.00 DT</div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        <div class="table-container" style="max-height: 500px;">
+            <div style="padding: 1rem; background: #f8fafc; border-bottom: 2px solid var(--border-color); font-weight: bold; color: var(--primary);">🏆 Palmarès des Produits</div>
+            <table>
+                <thead><tr><th>Produit</th><th style="text-align:center;">Qté Vendue</th><th style="text-align:right;">CA Généré</th></tr></thead>
+                <tbody id="rapportProduitsBody"></tbody>
+            </table>
+        </div>
+
+        <div class="table-container" style="max-height: 500px;">
+            <div style="padding: 1rem; background: #f8fafc; border-bottom: 2px solid var(--border-color); font-weight: bold; color: var(--primary);">🧾 Journal des Tickets</div>
+            <table>
+                <thead><tr><th>Heure</th><th>Ticket</th><th>Total</th><th style="text-align:center;">Détails</th></tr></thead>
+                <tbody id="rapportTicketsBody"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -1041,6 +1088,129 @@ async function supprimerClient(id) {
 }
 
 document.addEventListener("DOMContentLoaded", () => { setTimeout(() => chargerClients(), 500); });
+// ========================================================
+// ========== NOUVEAU MODULE : RAPPORTS ET VENTES =========
+// ========================================================
+let toutesLesVentes = [];
+
+// S'assure que l'onglet se charge bien
+const oldOuvrirOngletVentes = ouvrirOnglet;
+ouvrirOnglet = function(tabId) {
+    oldOuvrirOngletVentes(tabId);
+    if (tabId === 'ventes') {
+        // Met la date d'aujourd'hui par défaut
+        document.getElementById('rapportDateDebut').valueAsDate = new Date();
+        document.getElementById('rapportDateFin').valueAsDate = new Date();
+        chargerRapportVentes();
+    }
+};
+
+async function chargerRapportVentes() {
+    try {
+        const res = await fetchSecurise('/api/ventes');
+        toutesLesVentes = await res.json();
+        
+        const debutStr = document.getElementById('rapportDateDebut').value;
+        const finStr = document.getElementById('rapportDateFin').value;
+        const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
+        const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
+
+        // 1. Filtrer par date
+        const ventesFiltrees = toutesLesVentes.filter(v => {
+            const tsVente = v.timestamp; 
+            return tsVente >= tsDebut && tsVente <= tsFin;
+        });
+
+        // 2. Calculer les KPIs globaux
+        const totalCA = ventesFiltrees.reduce((sum, v) => sum + v.total, 0);
+        const nbTickets = ventesFiltrees.length;
+        const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
+
+        document.getElementById('kpiCA').textContent = formatMoney(totalCA);
+        document.getElementById('kpiTickets').textContent = nbTickets;
+        document.getElementById('kpiMoyen').textContent = formatMoney(panierMoyen);
+
+        // 3. Regrouper les ventes par produit
+        const statsProds = {};
+        ventesFiltrees.forEach(ticket => {
+            ticket.articles.forEach(art => {
+                const nomComplet = art.nom + (art.variante ? ` (${art.variante})` : '');
+                if (!statsProds[nomComplet]) statsProds[nomComplet] = { qte: 0, ca: 0 };
+                statsProds[nomComplet].qte += art.quantite;
+                statsProds[nomComplet].ca += (art.quantite * art.prix);
+            });
+        });
+
+        // Transformer en tableau et trier du plus vendu au moins vendu
+        const topProduits = Object.keys(statsProds).map(nom => ({
+            nom, qte: statsProds[nom].qte, ca: statsProds[nom].ca
+        })).sort((a, b) => b.qte - a.qte);
+
+        // Afficher Palmarès
+        const tBodyProds = document.getElementById('rapportProduitsBody');
+        if (topProduits.length === 0) {
+            tBodyProds.innerHTML = '<tr><td colspan="3" class="empty-message">Aucune vente sur cette période</td></tr>';
+        } else {
+            tBodyProds.innerHTML = topProduits.map(p => `
+                <tr>
+                    <td><strong>${escapeHtml(p.nom)}</strong></td>
+                    <td style="text-align:center;"><span class="badge badge-neutral">${p.qte}</span></td>
+                    <td style="text-align:right; font-weight:bold; color:var(--success);">${formatMoney(p.ca)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // 4. Afficher le Journal des Tickets
+        const tBodyTickets = document.getElementById('rapportTicketsBody');
+        if (ventesFiltrees.length === 0) {
+            tBodyTickets.innerHTML = '<tr><td colspan="4" class="empty-message">Aucun ticket</td></tr>';
+        } else {
+            tBodyTickets.innerHTML = ventesFiltrees.map(v => `
+                <tr>
+                    <td><div style="font-size:0.8rem; color:var(--text-muted);">${v.date}</div></td>
+                    <td><strong>#${v.numero}</strong><div style="font-size:0.7rem;">${v.tableOrigine}</div></td>
+                    <td style="font-weight:bold;">${formatMoney(v.total)}</td>
+                    <td style="text-align:center;">
+                        <button class="btn-action" style="padding:0.4rem; background:var(--info);" onclick="voirDetailTicket('${v.id}')"><i class="fas fa-eye"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+    } catch(e) { console.error("Erreur rapports", e); }
+}
+
+function voirDetailTicket(idTicket) {
+    const ticket = toutesLesVentes.find(v => v.id === idTicket);
+    if (!ticket) return;
+
+    const itemsHtml = ticket.articles.map(a => `
+        <div style="display:flex; justify-content:space-between; padding: 8px 0; border-bottom: 1px dashed var(--border-color);">
+            <span><strong>${a.quantite}x</strong> ${escapeHtml(a.nom)} ${a.variante ? `<i>(${escapeHtml(a.variante)})</i>` : ''}</span>
+            <span style="font-weight:bold;">${formatMoney(a.quantite * a.prix)}</span>
+        </div>
+    `).join('');
+
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active"><div class="modal-content" style="max-width:400px; background:#fdfbf7;">
+            <div style="text-align:center; border-bottom:2px solid var(--primary); padding-bottom:1rem; margin-bottom:1rem;">
+                <h2 style="font-family:'Cinzel', serif; color:var(--primary); margin-bottom:5px;">TA'BIA Coffee</h2>
+                <div style="font-size:0.8rem; color:var(--text-muted);">Copie du Ticket #${ticket.numero}</div>
+                <div style="font-size:0.8rem; color:var(--text-muted);">${ticket.date} - ${ticket.tableOrigine}</div>
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">${itemsHtml}</div>
+            
+            ${ticket.remise > 0 ? `<div style="display:flex; justify-content:space-between; color:var(--warning); font-weight:bold;"><span>Remise accordée :</span><span>${ticket.remise}%</span></div>` : ''}
+            
+            <div style="display:flex; justify-content:space-between; font-size:1.4rem; font-weight:900; color:var(--primary); border-top:2px solid var(--primary); padding-top:1rem;">
+                <span>TOTAL TTC</span>
+                <span>${formatMoney(ticket.total)}</span>
+            </div>
+            <div class="modal-buttons"><button class="btn-secondary" style="width:100%;" onclick="fermerModal()">Fermer</button></div>
+        </div></div>
+    `;
+}
 
         // ========== INIT DOM ==========
         document.addEventListener("DOMContentLoaded", () => {

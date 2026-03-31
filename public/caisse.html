@@ -777,6 +777,17 @@ async function envoyerEnCuisine() {
 
         const vente = { id: Date.now(), numero: "V" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, articles: ticket.articles.map(a => ({ nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), table: nomOrigine };
         salesHistory.unshift(vente); sauvegarderHistorique();
+        // 🔥 NOUVEAU : Envoi de la vente au serveur pour le Grand Dashboard
+        try {
+            await fetchSecurise('/api/ventes', {
+                method: 'POST',
+                body: JSON.stringify({
+                    id: vente.id.toString(), numero: vente.numero, 
+                    total: totalPaye, remise: remise, typePaiement: 'complet',
+                    tableOrigine: nomOrigine, articles: vente.articles
+                })
+            });
+        } catch(e) { console.error("Erreur synchro vente", e); }
         ticket.articles.forEach(a => { if(!statsProduits[a.nom]) statsProduits[a.nom] = { quantite: 0, total: 0 }; statsProduits[a.nom].quantite += a.quantite; statsProduits[a.nom].total += a.prix * a.quantite; });
         statsTotalJour += totalPaye; sauvegarderStats();
         
@@ -839,6 +850,17 @@ async function envoyerEnCuisine() {
 
         const vente = { id: Date.now(), numero: "P" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, type: "partiel", articles: articlesAPayer, table: nomOrigine };
         salesHistory.unshift(vente); sauvegarderHistorique();
+        // 🔥 NOUVEAU : Envoi de la vente au serveur pour le Grand Dashboard
+        try {
+            await fetchSecurise('/api/ventes', {
+                method: 'POST',
+                body: JSON.stringify({
+                    id: vente.id.toString(), numero: vente.numero, 
+                    total: totalPaye, remise: remise, typePaiement: 'complet',
+                    tableOrigine: nomOrigine, articles: vente.articles
+                })
+            });
+        } catch(e) { console.error("Erreur synchro vente", e); }
         articlesAPayer.forEach(a => { if(!statsProduits[a.nom]) statsProduits[a.nom] = { quantite: 0, total: 0 }; statsProduits[a.nom].quantite += a.quantite; statsProduits[a.nom].total += a.prix * a.quantite; });
         statsTotalJour += totalPaye; sauvegarderStats();
         

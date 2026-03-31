@@ -68,6 +68,17 @@ const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({
     codeFidelite: { type: String, unique: true },
     dateInscription: { type: String, default: () => new Date().toLocaleDateString('fr-FR') }
 }));
+const Sale = mongoose.model('Sale', new mongoose.Schema({
+    id: String,
+    numero: String,
+    date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
+    timestamp: { type: Number, default: () => Date.now() },
+    total: Number,
+    remise: Number,
+    typePaiement: String, // complet ou partiel
+    tableOrigine: String,
+    articles: Array // Ce qu'il y a dans le ticket
+}));
 
 // ========== 3. MIDDLEWARES ET SÉCURITÉ ==========
 app.use(cors());
@@ -279,7 +290,22 @@ app.post('/api/numbers/refresh/:numero', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+// --- VENTES ET RAPPORTS ---
+// Enregistrer une vente depuis la caisse
+app.post('/api/ventes', verifierToken, async (req, res) => {
+    try {
+        const vente = new Sale(req.body);
+        await vente.save();
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
+// Récupérer les ventes pour le Dashboard
+app.get('/api/ventes', verifierToken, async (req, res) => {
+    try {
+        res.json(await Sale.find({}).sort({ timestamp: -1 }));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // ========== 6. INITIALISATION DU MENU (SEED) ==========
 async function seedDatabase() {
