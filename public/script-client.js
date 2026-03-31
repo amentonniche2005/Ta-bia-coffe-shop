@@ -461,7 +461,7 @@ async function validerCommande(numTable, clientData, codeSaisi) {
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
                 numeroTable: tableFinale,
                 clientId: idFidele,
-                clientName: nomFidele
+                clientName: nomFidele,
                 total: totalCommande // Envoie le nom à la cuisine !
             })
         });
