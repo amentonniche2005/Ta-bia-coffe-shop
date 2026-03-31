@@ -364,7 +364,6 @@
     let currentTableSelection = null;
 
     // 🔥 INITIALISATION DYNAMIQUE DES BILLETS
-    // Au lieu de limiter à 20 et Emporter, on récupère ce qui a été sauvegardé
     for (let i = 1; i <= 20; i++) tickets[String(i)] = { articles: [], total: 0 };
     tickets['Emporter'] = { articles: [], total: 0 };
 
@@ -392,7 +391,6 @@
             const stored = localStorage.getItem('tabia_caisse_tickets');
             if (stored) {
                 const saved = JSON.parse(stored);
-                // Charge TOUTES les clés (même les Fidele_Sonia)
                 Object.keys(saved).forEach(key => {
                     tickets[key] = saved[key];
                 });
@@ -490,6 +488,13 @@
     async function viderTicket(tableNum, confirmDialogue = true) {
         if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
             
+            // 🔥 NOUVEAU: Si c'est une action manuelle du caissier, on nettoie aussi la cuisine !
+            if (confirmDialogue) {
+                try {
+                    await nettoyerCommandesCuisine(tableNum);
+                } catch(e) {}
+            }
+
             if (String(tableNum).startsWith('Fidele_')) {
                 // Si c'est un ticket fidèle, on le supprime complètement pour faire disparaître le bouton
                 delete tickets[tableNum];
@@ -513,7 +518,7 @@
         afficherListeTables();
     }
 
-async function envoyerEnCuisine() {
+    async function envoyerEnCuisine() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
@@ -521,10 +526,9 @@ async function envoyerEnCuisine() {
         let nomTableServeur = currentTable;
         let nomClientFidele = null;
         
-        // 🔥 CORRECTION : On récupère la vraie table du client fidèle
         if (currentTable.startsWith('Fidele_')) {
             nomTableServeur = ticket.numeroTableOrigine || 'Emporter';
-            nomClientFidele = ticket.label.split(' (')[0]; // On enlève le "(T4)" pour n'envoyer que le nom
+            nomClientFidele = ticket.label.split(' (')[0]; 
         }
 
         try {
@@ -597,8 +601,6 @@ async function envoyerEnCuisine() {
                 const customTicket = tickets[key];
                 const hasItems = customTicket.articles.length > 0;
                 
-                // On affiche le bouton jaune unique si la commande a des articles, 
-                // OU si le caissier est en train de la regarder (currentTable)
                 if (hasItems || currentTable === key) {
                     if (hasItems) actives++;
                     html += `
@@ -610,7 +612,6 @@ async function envoyerEnCuisine() {
                         <button type="button" onclick="viderTicket('${key}'); event.stopPropagation();" class="details-btn" style="background:#e74c3c;" title="Supprimer ce ticket"><i class="fas fa-times"></i></button>
                     </div>`;
                 } else if (!hasItems && currentTable !== key) {
-                    // Nettoyage automatique en mémoire si le ticket est vide et plus sélectionné
                     delete tickets[key]; 
                 }
             }
@@ -759,25 +760,22 @@ async function envoyerEnCuisine() {
         
         decrementerStock(ticket.articles);
         
-        // Nom propre pour l'historique et le ticket de caisse
         let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) {
             nomOrigine = `Fidèle: ${ticket.label}`;
             
-            // Pour nettoyer la cuisine proprement, on marque spécifiquement CES commandes KDS comme payées
             if (ticket.orderIds && ticket.orderIds.length > 0) {
                 for (let oid of ticket.orderIds) {
                     await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) });
                 }
             }
         } else {
-            // Nettoyage classique par numéro de table ou Emporter
             nettoyerCommandesCuisine(currentTable);
         }
 
         const vente = { id: Date.now(), numero: "V" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, articles: ticket.articles.map(a => ({ nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), table: nomOrigine };
         salesHistory.unshift(vente); sauvegarderHistorique();
-        // 🔥 NOUVEAU : Envoi de la vente au serveur pour le Grand Dashboard
+        
         try {
             await fetchSecurise('/api/ventes', {
                 method: 'POST',
@@ -788,10 +786,10 @@ async function envoyerEnCuisine() {
                 })
             });
         } catch(e) { console.error("Erreur synchro vente", e); }
+        
         ticket.articles.forEach(a => { if(!statsProduits[a.nom]) statsProduits[a.nom] = { quantite: 0, total: 0 }; statsProduits[a.nom].quantite += a.quantite; statsProduits[a.nom].total += a.prix * a.quantite; });
         statsTotalJour += totalPaye; sauvegarderStats();
         
-        // Efface le ticket de la mémoire de la caisse
         if (currentTable.startsWith('Fidele_')) {
             delete tickets[currentTable];
             currentTable = 'Emporter';
@@ -850,17 +848,18 @@ async function envoyerEnCuisine() {
 
         const vente = { id: Date.now(), numero: "P" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, type: "partiel", articles: articlesAPayer, table: nomOrigine };
         salesHistory.unshift(vente); sauvegarderHistorique();
-        // 🔥 NOUVEAU : Envoi de la vente au serveur pour le Grand Dashboard
+        
         try {
             await fetchSecurise('/api/ventes', {
                 method: 'POST',
                 body: JSON.stringify({
                     id: vente.id.toString(), numero: vente.numero, 
-                    total: totalPaye, remise: remise, typePaiement: 'complet',
+                    total: totalPaye, remise: remise, typePaiement: 'partiel',
                     tableOrigine: nomOrigine, articles: vente.articles
                 })
             });
         } catch(e) { console.error("Erreur synchro vente", e); }
+        
         articlesAPayer.forEach(a => { if(!statsProduits[a.nom]) statsProduits[a.nom] = { quantite: 0, total: 0 }; statsProduits[a.nom].quantite += a.quantite; statsProduits[a.nom].total += a.prix * a.quantite; });
         statsTotalJour += totalPaye; sauvegarderStats();
         
@@ -937,21 +936,26 @@ async function envoyerEnCuisine() {
     }
     function toggleStats() { const el = document.getElementById('statsProduitsContent'); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
 
-    // ========== SYNCHRO CUISINE ==========
+    // ========== SYNCHRO CUISINE ET RATTRAPAGE ==========
     async function chargerCommandesCuisineInitiales() {
         try {
             const response = await fetchSecurise('/api/commandes');
             commandesRecues = await response.json();
         } catch(e) { console.error("Erreur historique cuisine:", e); }
     }
-// 🔥 NOUVELLE FONCTION : Rattrape les commandes manquées quand la caisse était fermée
+
+    // 🔥 NOUVELLE FONCTION : Rattrape les commandes manquées quand la caisse était fermée
     function synchroniserTicketsAvecServeur() {
         let aMiseAJour = false;
 
+        if (!commandesRecues || !Array.isArray(commandesRecues)) return;
+
         commandesRecues.forEach(commande => {
-            // On ne regarde que les commandes "Prêtes" qui n'ont pas encore été payées
             if (commande.statut === 'terminee') {
                 
+                // Si on a déjà traité cette commande pendant que la page était ouverte, on l'ignore
+                if (window.commandesTraiteesTickets && window.commandesTraiteesTickets.has(commande.id)) return;
+
                 let tableNum = String(commande.numeroTable || 'Emporter').trim();
                 let customLabel = null;
                 
@@ -964,7 +968,7 @@ async function envoyerEnCuisine() {
                 if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
                 if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
 
-                // Si la caisse ne l'a pas encore dans son ticket (elle l'avait manquée)
+                // Si la caisse ne l'a pas encore dans son ticket 
                 if (!tickets[tableNum].orderIds.includes(commande.id)) {
                     tickets[tableNum].orderIds.push(commande.id);
                     if (customLabel) tickets[tableNum].label = customLabel;
@@ -999,8 +1003,8 @@ async function envoyerEnCuisine() {
                                 quantite: parseInt(article.quantite) || 1 
                             }, false); 
                         });
+                        aMiseAJour = true;
                     }
-                    aMiseAJour = true;
                 }
             }
         });
@@ -1010,8 +1014,10 @@ async function envoyerEnCuisine() {
             sauvegarderTousLesTickets();
             afficherListeTables();
             if (currentTable) afficherTicket();
+            showNotification("🔄 Synchronisation : Nouvelles commandes de cuisine ajoutées !", "#27ae60");
         }
     }
+
     async function afficherCommandesTable(tableNum) {
         const modal = document.getElementById('modalDetailsTable');
         const content = document.getElementById('modalTableContent');
@@ -1027,14 +1033,12 @@ async function envoyerEnCuisine() {
         
         await chargerCommandesCuisineInitiales();
         
-        // Pour les fidèles, on cherche par clientName car leur table est "Emporter" côté KDS
         const commandesTable = commandesRecues.filter(cmd => {
             if (cmd.statut === 'paye') return false; 
             
             if (derniereTableModal.startsWith('Fidele_')) {
-                return cmd.clientName === tickets[derniereTableModal].label;
+                return cmd.clientName === tickets[derniereTableModal].label.split(' (')[0];
             } else {
-                // Ignore les clients fidèles quand on regarde la table "Emporter" classique
                 if (derniereTableModal === 'Emporter' && cmd.clientName) return false;
                 const cmdTable = String(cmd.numeroTable || 'Emporter').trim();
                 return cmdTable === derniereTableModal;
@@ -1066,8 +1070,15 @@ async function envoyerEnCuisine() {
 
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
-function initSocket() {
+    function initSocket() {
         socket = io();
+
+        // 🔥 NOUVEAU : Si le navigateur se réveille ou se reconnecte, on force la synchro !
+        socket.on('connect', async () => {
+            console.log("Connecté au serveur. Vérification des commandes manquées...");
+            await chargerCommandesCuisineInitiales();
+            synchroniserTicketsAvecServeur();
+        });
         
         socket.on('update_stock', async () => {
             await chargerCatalogue(); 
@@ -1077,7 +1088,6 @@ function initSocket() {
 
         socket.on('nouvelle_commande', (commande) => {
             commandesRecues.push(commande);
-            // Vérifie si on a la fenêtre détails ouverte et qu'on doit la mettre à jour
             if (derniereTableModal) {
                 if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label.split(' (')[0]) {
                     afficherCommandesTable(derniereTableModal);
@@ -1098,20 +1108,15 @@ function initSocket() {
                 let tableNum = String(commande.numeroTable || 'Emporter').trim();
                 let customLabel = null;
                 
-                // 🔥 MODIFICATION ICI : CRÉATION DU BOUTON DYNAMIQUE AVEC LE NUMÉRO DE TABLE
                 if (commande.clientName) {
                     tableNum = 'Fidele_' + commande.clientName;
-                    
-                    // On ajoute (T4) si c'est une table, sinon on laisse le nom seul
                     let infoTable = (commande.numeroTable && commande.numeroTable !== 'Emporter') ? ` (T${commande.numeroTable})` : '';
                     customLabel = commande.clientName + infoTable; 
                 }
                 
-                // 🔥 MODIFICATION ICI : On sauvegarde "numeroTableOrigine" en mémoire
                 if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
                 if (customLabel) tickets[tableNum].label = customLabel;
                 
-                // On garde l'ID de la commande en mémoire pour pouvoir la supprimer spécifiquement en KDS plus tard
                 if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
                 tickets[tableNum].orderIds.push(commande.id);
 
@@ -1152,7 +1157,6 @@ function initSocket() {
                 }
             }
             
-            // Met à jour la modale cuisine si elle est ouverte
             if (derniereTableModal) {
                 if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label.split(' (')[0]) {
                     afficherCommandesTable(derniereTableModal);
@@ -1170,7 +1174,10 @@ function initSocket() {
         selectionnerTable("1");
         
         await chargerCommandesCuisineInitiales();
+        
+        // 🔥 ON ACTIVE LE RATTRAPAGE INITIAL ICI
         synchroniserTicketsAvecServeur();
+
         initSocket();
         
         document.getElementById('viderTicketBtn').addEventListener('click', () => viderTicket(currentTable));
