@@ -14,7 +14,6 @@
         header { background: #143621; padding: 1.2rem 2rem; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .header-container { max-width: 1600px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; width: 100%; }
         .logo { display: flex; align-items: center; gap: 15px; }
-        /* 🔥 CORRECTION DU LOGO ICI 🔥 */
         .logo-img { height: 70px; width: 70px; border-radius: 50%; object-fit: cover; border: 2px solid #e3c496; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
         .logo h1 { font-size: 1.6rem; font-weight: 800; color: #fdfbf7; display: flex; flex-direction: column; line-height: 1.1; margin: 0; }
         .logo .logo-subtext { font-size: 0.85rem; font-weight: 600; color: #e3c496; text-transform: uppercase; letter-spacing: 2px; }
@@ -31,7 +30,7 @@
         .btn-lock { background: #e74c3c; color: white; }
         .btn-lock:hover { background: #c0392b; }
 
-        /* ========== LAYOUT PRINCIPAL CLASSIQUE (2 COLONNES) ========== */
+        /* ========== LAYOUT PRINCIPAL ========== */
         .dashboard { max-width: 1600px; margin: 1.5rem auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 450px; gap: 1.5rem; }
 
         /* ========== MENU PRODUITS ========== */
@@ -48,7 +47,7 @@
         /* ========== TABLES ========== */
         .tables-list { background: white; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1rem; overflow: hidden; }
         .tables-header { background: #e67e22; color: white; padding: 0.8rem 1rem; display: flex; justify-content: space-between; align-items: center; font-weight: 600;}
-        .tables-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; padding: 1rem; max-height: 250px; overflow-y: auto; }
+        .tables-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; padding: 1rem; max-height: 350px; overflow-y: auto; }
         .table-wrapper { position: relative; }
         .table-btn { width: 100%; background: #f1f5f9; border: none; padding: 0.6rem; border-radius: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 3px; }
         .table-btn.active { background: #e67e22; color: white; }
@@ -203,8 +202,8 @@
     <div>
         <div class="tables-list">
             <div class="tables-header">
-                <span><i class="fas fa-chair"></i> Tables actives</span>
-                <span id="tablesCount">0 tables</span>
+                <span><i class="fas fa-chair"></i> Tables & Emporter</span>
+                <span id="tablesCount">0 actifs</span>
             </div>
             <div class="tables-grid" id="tablesGrid"></div>
         </div>
@@ -266,7 +265,7 @@
 <div id="modalDetailsTable" class="modal-overlay">
     <div class="modal-content" style="max-width: 550px;">
         <div class="modal-header">
-            <h3><i class="fas fa-concierge-bell"></i> Commandes cuisine - Table <span id="modalTableNum"></span></h3>
+            <h3><i class="fas fa-concierge-bell"></i> Commandes cuisine - <span id="modalTableNum"></span></h3>
             <button class="close-btn" onclick="fermerModalDetails()">&times;</button>
         </div>
         <div id="modalTableContent" style="max-height: 50vh; overflow-y: auto;">
@@ -284,19 +283,15 @@
             <h3><i class="fas fa-tasks"></i> Sélection des articles à payer</h3>
             <button class="close-btn" onclick="fermerModalSelection()">&times;</button>
         </div>
-        
         <div class="selection-actions">
             <button class="btn-select-all" onclick="selectionnerTousArticles()"><i class="fas fa-check-double"></i> Tout sélectionner</button>
             <button class="btn-deselect-all" onclick="deselectionnerTousArticles()"><i class="fas fa-times"></i> Tout désélectionner</button>
         </div>
-        
         <div id="articlesListeSelection" style="max-height: 40vh; overflow-y: auto; padding-right: 5px;"></div>
-        
         <div class="selection-total">
             <span>Total sélectionné :</span>
             <span id="selectionTotal" class="montant">0.00 DT</span>
         </div>
-        
         <div class="modal-buttons">
             <button class="btn-valider" onclick="validerSelectionPaiement()"><i class="fas fa-cash-register"></i> Payer la sélection</button>
             <button class="btn-annuler" onclick="fermerModalSelection()">Annuler</button>
@@ -317,14 +312,11 @@
     <div style="display:flex; justify-content:space-between; margin:4px 0;"><span>Table:</span><span id="printTable">---</span></div>
     <div style="display:flex; justify-content:space-between; margin:4px 0;"><span>Date:</span><span id="printDate">---</span></div>
     <div style="border-top:1px dashed black; margin:6px 0;"></div>
-    
     <div id="printArticles"></div>
-    
     <div style="border-top:1px dashed black; margin:6px 0;"></div>
     <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:14px; margin-top:5px;">
         <span>TOTAL TTC</span><span id="printTotal">0.00 DT</span>
     </div>
-    
     <div style="text-align:center; margin-top:15px; font-style: italic;">Merci de votre visite !</div>
     <div style="text-align:center; margin-top:5px;">. . . . . . . . . . . . . . . .</div>
 </div>
@@ -346,37 +338,34 @@
         
         const reponse = await fetch(url, options);
         if (reponse.status === 403) {
-            alert("Votre Token a expiré ou a été révoqué par le développeur.");
+            alert("Votre Token a expiré ou a été révoqué.");
             localStorage.removeItem('tabia_caisse_token');
             window.location.href = '/caisse-login.html';
         }
         return reponse;
     }
 
-    // ========== MENU COMPLET (SALON DE THÉ) ==========
+    // ========== MENU COMPLET ET DATA ==========
     let tickets = {};
     let currentTable = null;
     let activeCategory = "all";
     let produits = [];
-    
-    // Données sauvegardées
     let salesHistory = [];
     let statsProduits = {};
     let statsTotalJour = 0;
     
-    // UI State
     let historiqueMode = 'today'; 
     let derniereTableModal = null;
     let socket = null;
     let commandesRecues = []; 
 
-    // Variables pour le paiement partiel
     let articlesDecomposes = [];
     let selectedUnits = [];
     let currentTableSelection = null;
 
-    // Initialisation structure tables (20 + Emporter)
-    for (let i = 1; i <= 20; i++) tickets[i] = { articles: [], total: 0 };
+    // 🔥 INITIALISATION DYNAMIQUE DES BILLETS
+    // Au lieu de limiter à 20 et Emporter, on récupère ce qui a été sauvegardé
+    for (let i = 1; i <= 20; i++) tickets[String(i)] = { articles: [], total: 0 };
     tickets['Emporter'] = { articles: [], total: 0 };
 
     if (!window.commandesTraiteesTickets) {
@@ -396,15 +385,17 @@
         setTimeout(() => { n.style.opacity = '0'; n.style.transform = 'translateY(20px)'; setTimeout(() => n.remove(), 300); }, 2500); 
     }
 
-    // ========== SAUVEGARDE LOCALSTORAGE ==========
     function sauvegarderTousLesTickets() { localStorage.setItem('tabia_caisse_tickets', JSON.stringify(tickets)); }
+    
     function chargerTickets() {
         try {
             const stored = localStorage.getItem('tabia_caisse_tickets');
             if (stored) {
                 const saved = JSON.parse(stored);
-                for (let i = 1; i <= 20; i++) if (saved[i]) tickets[i] = saved[i];
-                if (saved['Emporter']) tickets['Emporter'] = saved['Emporter'];
+                // Charge TOUTES les clés (même les Fidele_Sonia)
+                Object.keys(saved).forEach(key => {
+                    tickets[key] = saved[key];
+                });
             }
         } catch(e) {}
     }
@@ -437,9 +428,7 @@
             produits = await res.json();
             renderCategories();
             renderProducts();
-        } catch(e) {
-            showNotification("❌ Erreur de chargement du menu", "#e74c3c");
-        }
+        } catch(e) { showNotification("❌ Erreur de chargement du menu", "#e74c3c"); }
     }
 
     function ajouterAuTicket(tableNum, produit, updateUI = true) {
@@ -474,7 +463,6 @@
         if (!ticket) return;
         
         const index = ticket.articles.findIndex(a => String(a.id) === String(produitId) && (a.variante || null) === (variante || null));
-        
         if (index !== -1) {
             const article = ticket.articles[index];
             const nouvelleQuantite = article.quantite + delta;
@@ -496,17 +484,23 @@
             if (String(derniereTableModal) === String(tableNum)) {
                 afficherCommandesTable(tableNum);
             }
-        } catch (error) {
-            console.error("Erreur nettoyage cuisine:", error);
-        }
+        } catch (error) { console.error("Erreur nettoyage cuisine:", error); }
     }
 
     async function viderTicket(tableNum, confirmDialogue = true) {
-        if (!confirmDialogue || confirm(`Vider le ticket de ${tableNum === 'Emporter' ? 'Emporter' : 'Table ' + tableNum} ?`)) {
-            tickets[tableNum] = { articles: [], total: 0 };
-            sauvegarderTousLesTickets();
+        if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
             
-            if (String(currentTable) === String(tableNum)) afficherTicket();
+            if (String(tableNum).startsWith('Fidele_')) {
+                // Si c'est un ticket fidèle, on le supprime complètement pour faire disparaître le bouton
+                delete tickets[tableNum];
+                currentTable = 'Emporter';
+            } else {
+                // Pour une table classique ou Emporter, on remet à zéro
+                tickets[tableNum] = { articles: [], total: 0 };
+            }
+
+            sauvegarderTousLesTickets();
+            afficherTicket();
             afficherListeTables();
             
             if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3498db");
@@ -514,7 +508,7 @@
     }
 
     function selectionnerTable(tableNum) {
-        currentTable = tableNum;
+        currentTable = String(tableNum);
         afficherTicket();
         afficherListeTables();
     }
@@ -523,6 +517,15 @@
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
+
+        // Si c'est un client fidèle, on envoie la commande sous le nom "Emporter" à la cuisine, mais avec son nom
+        let nomTableServeur = currentTable;
+        let nomClientFidele = null;
+        
+        if (currentTable.startsWith('Fidele_')) {
+            nomTableServeur = 'Emporter';
+            nomClientFidele = ticket.label; // On envoie son nom pour la cuisine
+        }
 
         try {
             const response = await fetchSecurise('/api/commandes', {
@@ -534,7 +537,8 @@
                         prix: a.prix, 
                         quantite: a.quantite 
                     })),
-                    numeroTable: currentTable === 'Emporter' ? 'Emporter' : currentTable,
+                    numeroTable: nomTableServeur,
+                    clientName: nomClientFidele,
                     clientId: null
                 })
             });
@@ -543,35 +547,40 @@
                 showNotification(`👨‍🍳 Commande envoyée en cuisine !`, "#e67e22");
                 viderTicket(currentTable, false);
             } else {
-                showNotification("❌ Refusé par le serveur. Vérifie ton Token.", "#e74c3c");
+                showNotification("❌ Refusé par le serveur.", "#e74c3c");
             }
         } catch (error) { 
             showNotification("❌ Erreur de réseau avec la cuisine", "#e74c3c"); 
         }
     }
 
+    // 🔥 LA FONCTION MAGIQUE QUI DESSINE LA GRILLE
     function afficherListeTables() {
         const container = document.getElementById('tablesGrid');
         const countSpan = document.getElementById('tablesCount');
         if (!container) return;
         
         let actives = 0, html = '';
+        
+        // 1. Les 20 Tables classiques
         for (let i = 1; i <= 20; i++) {
-            const ticket = tickets[i];
-            const hasItems = ticket.articles.length > 0;
+            const tableStr = String(i);
+            const ticket = tickets[tableStr];
+            const hasItems = ticket && ticket.articles.length > 0;
             if (hasItems) actives++;
             html += `
             <div class="table-wrapper">
-                <button type="button" class="table-btn ${currentTable == i ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable(${i})">
+                <button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')">
                     <span class="table-num">Table ${i}</span>
                     <span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span>
                 </button>
-                <button type="button" onclick="afficherCommandesTable(${i}); event.stopPropagation();" class="details-btn" title="Voir Cuisine"><i class="fas fa-concierge-bell"></i></button>
+                <button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn" title="Voir Cuisine"><i class="fas fa-concierge-bell"></i></button>
             </div>`;
         }
         
+        // 2. Le bouton "Emporter" classique
         const emporter = tickets['Emporter'];
-        const emporterHasItems = emporter.articles.length > 0;
+        const emporterHasItems = emporter && emporter.articles.length > 0;
         if (emporterHasItems) actives++;
         html += `
         <div class="table-wrapper">
@@ -581,9 +590,34 @@
             </button>
             <button type="button" onclick="afficherCommandesTable('Emporter'); event.stopPropagation();" class="details-btn"><i class="fas fa-concierge-bell"></i></button>
         </div>`;
+
+        // 3. 🌟 LES BOUTONS DYNAMIQUES DES CLIENTS FIDÈLES
+        Object.keys(tickets).forEach(key => {
+            if (key.startsWith('Fidele_')) {
+                const customTicket = tickets[key];
+                const hasItems = customTicket.articles.length > 0;
+                
+                // On affiche le bouton jaune unique si la commande a des articles, 
+                // OU si le caissier est en train de la regarder (currentTable)
+                if (hasItems || currentTable === key) {
+                    if (hasItems) actives++;
+                    html += `
+                    <div class="table-wrapper">
+                        <button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="background: #fef5e6; border: 2px solid #e67e22;">
+                            <span class="table-num" style="color: #e67e22; font-size: 0.8rem;"><i class="fas fa-star"></i> ${escapeHtml(customTicket.label)}</span>
+                            <span class="table-total" style="color: #d35400;">${customTicket.total.toFixed(2)} DT</span>
+                        </button>
+                        <button type="button" onclick="viderTicket('${key}'); event.stopPropagation();" class="details-btn" style="background:#e74c3c;" title="Supprimer ce ticket"><i class="fas fa-times"></i></button>
+                    </div>`;
+                } else if (!hasItems && currentTable !== key) {
+                    // Nettoyage automatique en mémoire si le ticket est vide et plus sélectionné
+                    delete tickets[key]; 
+                }
+            }
+        });
         
         container.innerHTML = html;
-        if (countSpan) countSpan.innerText = `${actives} table${actives > 1 ? 's' : ''} active${actives > 1 ? 's' : ''}`;
+        if (countSpan) countSpan.innerText = `${actives} actif${actives > 1 ? 's' : ''}`;
     }
 
     function afficherTicket() {
@@ -599,10 +633,14 @@
         }
         
         const ticket = tickets[currentTable];
-        labelSpan.innerText = currentTable === 'Emporter' ? '📦 Emporter' : `Table ${currentTable}`;
         
-        if (!ticket.articles || ticket.articles.length === 0) { 
-            itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-receipt" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 10px; display: block;"></i>Aucun article</div>'; 
+        // Titre du ticket dynamique
+        if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter';
+        else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`;
+        else labelSpan.innerText = `Table ${currentTable}`;
+        
+        if (!ticket || !ticket.articles || ticket.articles.length === 0) { 
+            itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-receipt" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 10px; display: block;"></i>Ticket vide</div>'; 
             totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 article"; 
             return; 
         }
@@ -646,26 +684,16 @@
         const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
         
         let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
-        Array.from(cats).forEach(cat => { 
-            html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; 
-        });
-        
+        Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });
         container.innerHTML = html;
-        document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => { 
-            activeCategory = btn.dataset.cat; renderCategories(); renderProducts(); 
-        }));
+        document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => { activeCategory = btn.dataset.cat; renderCategories(); renderProducts(); }));
     }
 
     function renderProducts() {
         const grid = document.getElementById('productsGrid');
         if (!grid) return;
-        
         let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
-        
-        if (!filtered.length) { 
-            grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit dans cette catégorie</div>'; 
-            return; 
-        }
+        if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit dans cette catégorie</div>'; return; }
         
         grid.innerHTML = filtered.map(p => {
             const stockColor = p.stock <= 0 ? 'color: #e74c3c; font-weight: bold;' : 'color: #64748b;';
@@ -679,28 +707,14 @@
         
         document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { 
             if (!currentTable) return showNotification("❌ Sélectionnez une table d'abord !", "#e74c3c"); 
-            ajouterAuTicket(currentTable, { 
-                id: parseInt(card.dataset.id) || Date.now(), 
-                nom: card.dataset.nom, 
-                prix: parseFloat(card.dataset.prix) 
-            }); 
+            ajouterAuTicket(currentTable, { id: parseInt(card.dataset.id) || Date.now(), nom: card.dataset.nom, prix: parseFloat(card.dataset.prix) }); 
         }));
     }
 
     async function decrementerStock(articles) {
         try {
-            const response = await fetchSecurise('/api/stock/decrementer', {
-                method: 'POST', 
-                body: JSON.stringify({ articles: articles.map(a => ({ id: a.id || a.baseId, quantite: a.quantite })) })
-            });
-            const result = await response.json();
-            if (!result.success) { 
-                showNotification(`⚠️ Note : Stock épuisé, mais vente enregistrée.`, "#f39c12"); 
-            }
-            return true; 
-        } catch (error) { 
-            return true;
-        }
+            await fetchSecurise('/api/stock/decrementer', { method: 'POST', body: JSON.stringify({ articles: articles.map(a => ({ id: a.id || a.baseId, quantite: a.quantite })) }) });
+        } catch (error) {}
     }
 
     function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
@@ -708,81 +722,35 @@
         container.innerHTML = `
             <div id="modalPaiement" class="modal-overlay active">
                 <div class="modal-content">
-                    <div class="modal-header">
-                        <h3><i class="fas fa-cash-register"></i> ${isPartial ? 'Paiement de la sélection' : 'Encaissement'}</h3>
-                        <button type="button" class="close-btn" id="closePaiementBtn">&times;</button>
-                    </div>
+                    <div class="modal-header"><h3><i class="fas fa-cash-register"></i> ${isPartial ? 'Paiement de la sélection' : 'Encaissement'}</h3><button type="button" class="close-btn" id="closePaiementBtn">&times;</button></div>
                     <div class="montant-total" id="modalTotal">${total.toFixed(2)} DT</div>
-                    <div class="remise-section">
-                        <div class="form-group">
-                            <label><i class="fas fa-tag"></i> Remise (%)</label>
-                            <div class="remise-input">
-                                <input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0">
-                                <button type="button" id="appliquerRemiseBtn"><i class="fas fa-check"></i></button>
-                            </div>
-                            <div id="remiseInfo" style="font-size:0.8rem; color:#e67e22; margin-top:5px; font-weight: 600;"></div>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-credit-card"></i> Mode de paiement</label>
-                        <select id="selectModePaiement"><option value="especes">💰 Espèces</option><option value="carte">💳 Carte Bancaire</option></select>
-                    </div>
+                    <div class="remise-section"><div class="form-group"><label><i class="fas fa-tag"></i> Remise (%)</label><div class="remise-input"><input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0"><button type="button" id="appliquerRemiseBtn"><i class="fas fa-check"></i></button></div><div id="remiseInfo" style="font-size:0.8rem; color:#e67e22; margin-top:5px; font-weight: 600;"></div></div></div>
+                    <div class="form-group"><label><i class="fas fa-credit-card"></i> Mode de paiement</label><select id="selectModePaiement"><option value="especes">💰 Espèces</option><option value="carte">💳 Carte Bancaire</option></select></div>
                     <div class="form-group" id="montantRecuDiv"><label><i class="fas fa-money-bill-wave"></i> Montant reçu (DT)</label><input type="number" id="montantRecuInput" step="0.1" value="${total.toFixed(2)}"></div>
                     <div id="monnaieDiv" class="monnaie-div"><i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT</div>
                     <div class="modal-buttons"><button type="button" id="validerPaiementBtn" class="btn-valider">✅ Valider l'encaissement</button></div>
                 </div>
             </div>`;
         
-        const modal = document.getElementById("modalPaiement");
-        let remiseActuelle = 0; let totalAvecRemise = total;
+        const modal = document.getElementById("modalPaiement"); let remiseActuelle = 0; let totalAvecRemise = total;
+        const remiseInput = document.getElementById("remiseInput"); const appliquerRemise = document.getElementById("appliquerRemiseBtn"); const modalTotal = document.getElementById("modalTotal"); const montantRecuInput = document.getElementById("montantRecuInput"); const monnaieDiv = document.getElementById("monnaieDiv"); const monnaieSpan = document.getElementById("monnaieRendre"); const selectMode = document.getElementById("selectModePaiement"); const montantRecuDiv = document.getElementById("montantRecuDiv");
         
-        const remiseInput = document.getElementById("remiseInput");
-        const appliquerRemise = document.getElementById("appliquerRemiseBtn");
-        const modalTotal = document.getElementById("modalTotal");
-        const montantRecuInput = document.getElementById("montantRecuInput");
-        const monnaieDiv = document.getElementById("monnaieDiv");
-        const monnaieSpan = document.getElementById("monnaieRendre");
-        const selectMode = document.getElementById("selectModePaiement");
-        const montantRecuDiv = document.getElementById("montantRecuDiv");
-        
-        const updateTotal = () => {
-            totalAvecRemise = total * (1 - remiseActuelle/100);
-            modalTotal.innerText = totalAvecRemise.toFixed(2) + " DT";
-            montantRecuInput.value = totalAvecRemise.toFixed(2);
-            document.getElementById("remiseInfo").innerHTML = remiseActuelle > 0 ? `💰 Remise : ${remiseActuelle}% (- ${(total - totalAvecRemise).toFixed(2)} DT)` : '';
-            calculerMonnaie();
-        };
-        const calculerMonnaie = () => {
-            const recu = parseFloat(montantRecuInput.value) || 0;
-            const monnaie = recu - totalAvecRemise;
-            if(recu > 0 && monnaie >= 0) { monnaieSpan.innerText = monnaie.toFixed(2); monnaieDiv.style.display = "block"; } 
-            else { monnaieDiv.style.display = "none"; }
-        };
+        const updateTotal = () => { totalAvecRemise = total * (1 - remiseActuelle/100); modalTotal.innerText = totalAvecRemise.toFixed(2) + " DT"; montantRecuInput.value = totalAvecRemise.toFixed(2); document.getElementById("remiseInfo").innerHTML = remiseActuelle > 0 ? `💰 Remise : ${remiseActuelle}% (- ${(total - totalAvecRemise).toFixed(2)} DT)` : ''; calculerMonnaie(); };
+        const calculerMonnaie = () => { const recu = parseFloat(montantRecuInput.value) || 0; const monnaie = recu - totalAvecRemise; if(recu > 0 && monnaie >= 0) { monnaieSpan.innerText = monnaie.toFixed(2); monnaieDiv.style.display = "block"; } else { monnaieDiv.style.display = "none"; } };
 
         appliquerRemise.onclick = () => { let val = parseFloat(remiseInput.value) || 0; if(val<0) val=0; if(val>100) val=100; remiseActuelle = val; remiseInput.value = val; updateTotal(); };
         montantRecuInput.addEventListener('input', calculerMonnaie);
         selectMode.addEventListener('change', () => { montantRecuDiv.style.display = (selectMode.value === "especes") ? "block" : "none"; monnaieDiv.style.display = "none"; });
         
         document.getElementById("validerPaiementBtn").onclick = async () => {
-            if(selectMode.value === "especes") { 
-                const recu = parseFloat(montantRecuInput.value) || 0; 
-                if(recu < totalAvecRemise) { showNotification("❌ Montant reçu insuffisant !", "#e74c3c"); montantRecuInput.focus(); return; } 
-            }
-            
-            document.getElementById("validerPaiementBtn").disabled = true; 
-            document.getElementById("validerPaiementBtn").innerHTML = "⏳ Traitement...";
-            
+            if(selectMode.value === "especes") { const recu = parseFloat(montantRecuInput.value) || 0; if(recu < totalAvecRemise) { showNotification("❌ Montant reçu insuffisant !", "#e74c3c"); montantRecuInput.focus(); return; } }
+            document.getElementById("validerPaiementBtn").disabled = true; document.getElementById("validerPaiementBtn").innerHTML = "⏳ Traitement...";
             try {
                 if (isPartial) await executerPaiementPartiel(ticketArticles, totalAvecRemise, remiseActuelle, selectedData);
                 else await executerPaiementComplet(ticketArticles, totalAvecRemise, remiseActuelle);
-            } catch (error) {
-                console.error("Erreur paiement:", error);
-            } finally {
-                modal.remove(); 
-            }
+            } catch (error) {} finally { modal.remove(); }
         };
         document.getElementById("closePaiementBtn").onclick = () => modal.remove();
-        modal.addEventListener('click', (e) => { if(e.target === modal) modal.remove(); });
     }
 
     async function executerPaiementComplet(articles, totalPaye, remise) {
@@ -791,85 +759,70 @@
         
         decrementerStock(ticket.articles);
         
-        const vente = { id: Date.now(), numero: "V" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, articles: ticket.articles.map(a => ({ nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), table: currentTable };
+        // Nom propre pour l'historique et le ticket de caisse
+        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
+        if (currentTable.startsWith('Fidele_')) {
+            nomOrigine = `Fidèle: ${ticket.label}`;
+            
+            // Pour nettoyer la cuisine proprement, on marque spécifiquement CES commandes KDS comme payées
+            if (ticket.orderIds && ticket.orderIds.length > 0) {
+                for (let oid of ticket.orderIds) {
+                    await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) });
+                }
+            }
+        } else {
+            // Nettoyage classique par numéro de table ou Emporter
+            nettoyerCommandesCuisine(currentTable);
+        }
+
+        const vente = { id: Date.now(), numero: "V" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, articles: ticket.articles.map(a => ({ nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), table: nomOrigine };
         salesHistory.unshift(vente); sauvegarderHistorique();
         ticket.articles.forEach(a => { if(!statsProduits[a.nom]) statsProduits[a.nom] = { quantite: 0, total: 0 }; statsProduits[a.nom].quantite += a.quantite; statsProduits[a.nom].total += a.prix * a.quantite; });
         statsTotalJour += totalPaye; sauvegarderStats();
         
-        tickets[currentTable] = { articles: [], total: 0 }; sauvegarderTousLesTickets();
+        // Efface le ticket de la mémoire de la caisse
+        if (currentTable.startsWith('Fidele_')) {
+            delete tickets[currentTable];
+            currentTable = 'Emporter';
+        } else {
+            tickets[currentTable] = { articles: [], total: 0 };
+        }
         
-        nettoyerCommandesCuisine(currentTable);
-        
+        sauvegarderTousLesTickets();
         afficherTicket(); afficherListeTables(); afficherHistoriqueJour(); afficherStats();
         showNotification(`✅ Paiement complet validé : ${totalPaye.toFixed(2)} DT`, "#27ae60");
-        imprimerTicket(currentTable, ticket.articles, totalPaye, remise);
+        imprimerTicket(nomOrigine, articles, totalPaye, remise);
     }
 
     function payerSelection() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
-        if (!ticket.articles || ticket.articles.length === 0) return showNotification("❌ Le ticket est vide", "#e74c3c");
+        if (!ticket || !ticket.articles || ticket.articles.length === 0) return showNotification("❌ Le ticket est vide", "#e74c3c");
         currentTableSelection = currentTable;
         afficherModalSelectionArticles(ticket.articles);
     }
 
     function afficherModalSelectionArticles(articles) {
-        const modal = document.getElementById('modalSelectionArticles');
-        const container = document.getElementById('articlesListeSelection');
+        const modal = document.getElementById('modalSelectionArticles'); const container = document.getElementById('articlesListeSelection');
         articlesDecomposes = [];
-        articles.forEach((article, originalIndex) => {
-            for (let i = 0; i < article.quantite; i++) { articlesDecomposes.push({ id: article.id, nom: article.nom, variante: article.variante, prix: article.prix, quantite: 1, originalIndex: originalIndex, originalArticle: article, unitId: `${originalIndex}_${i}`, unitNumber: i + 1 }); }
-        });
+        articles.forEach((article, originalIndex) => { for (let i = 0; i < article.quantite; i++) { articlesDecomposes.push({ id: article.id, nom: article.nom, variante: article.variante, prix: article.prix, quantite: 1, originalIndex: originalIndex, originalArticle: article, unitId: `${originalIndex}_${i}`, unitNumber: i + 1 }); } });
         selectedUnits = articlesDecomposes.map(() => false);
         
-        let html = '';
-        articlesDecomposes.forEach((unit, index) => {
-            html += `<div class="article-select-item" data-unit-index="${index}" onclick="toggleUnitSelection(${index})"><input type="checkbox" class="article-checkbox" id="check_unit_${index}" onclick="event.stopPropagation(); toggleUnitSelection(${index})"><div class="article-info"><div class="article-name">${escapeHtml(unit.nom)} ${unit.variante ? `<span style="color:#e67e22;">(${unit.variante})</span>` : ''} <span class="unit-number">#${unit.unitNumber}</span></div><div class="article-details">${unit.prix.toFixed(2)} DT</div></div><div class="article-total">${unit.prix.toFixed(2)} DT</div></div>`;
-        });
-        container.innerHTML = html; modal.classList.add('active'); mettreAJourTotalUnites();
+        container.innerHTML = articlesDecomposes.map((unit, index) => `<div class="article-select-item" data-unit-index="${index}" onclick="toggleUnitSelection(${index})"><input type="checkbox" class="article-checkbox" id="check_unit_${index}" onclick="event.stopPropagation(); toggleUnitSelection(${index})"><div class="article-info"><div class="article-name">${escapeHtml(unit.nom)} ${unit.variante ? `<span style="color:#e67e22;">(${unit.variante})</span>` : ''} <span class="unit-number">#${unit.unitNumber}</span></div><div class="article-details">${unit.prix.toFixed(2)} DT</div></div><div class="article-total">${unit.prix.toFixed(2)} DT</div></div>`).join('');
+        modal.classList.add('active'); mettreAJourTotalUnites();
     }
 
-    function toggleUnitSelection(unitIndex) {
-        selectedUnits[unitIndex] = !selectedUnits[unitIndex];
-        const item = document.querySelector(`.article-select-item[data-unit-index="${unitIndex}"]`);
-        const checkbox = document.getElementById(`check_unit_${unitIndex}`);
-        if (selectedUnits[unitIndex]) { if (item) item.classList.add('selected'); if (checkbox) checkbox.checked = true; } 
-        else { if (item) item.classList.remove('selected'); if (checkbox) checkbox.checked = false; }
-        mettreAJourTotalUnites();
-    }
-
-    function selectionnerTousArticles() {
-        selectedUnits = selectedUnits.map(() => true);
-        document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.add('selected'); document.getElementById(`check_unit_${idx}`).checked = true; });
-        mettreAJourTotalUnites();
-    }
-    function deselectionnerTousArticles() {
-        selectedUnits = selectedUnits.map(() => false);
-        document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.remove('selected'); document.getElementById(`check_unit_${idx}`).checked = false; });
-        mettreAJourTotalUnites();
-    }
-
-    function mettreAJourTotalUnites() {
-        let total = 0, nbUnites = 0;
-        articlesDecomposes.forEach((unit, index) => { if (selectedUnits[index]) { total += unit.prix; nbUnites++; } });
-        document.getElementById('selectionTotal').innerHTML = `${total.toFixed(2)} DT <span style="font-size: 0.8rem; color: #64748b; font-weight: normal;">(${nbUnites} art.)</span>`;
-    }
+    function toggleUnitSelection(unitIndex) { selectedUnits[unitIndex] = !selectedUnits[unitIndex]; const item = document.querySelector(`.article-select-item[data-unit-index="${unitIndex}"]`); const checkbox = document.getElementById(`check_unit_${unitIndex}`); if (selectedUnits[unitIndex]) { if (item) item.classList.add('selected'); if (checkbox) checkbox.checked = true; } else { if (item) item.classList.remove('selected'); if (checkbox) checkbox.checked = false; } mettreAJourTotalUnites(); }
+    function selectionnerTousArticles() { selectedUnits = selectedUnits.map(() => true); document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.add('selected'); document.getElementById(`check_unit_${idx}`).checked = true; }); mettreAJourTotalUnites(); }
+    function deselectionnerTousArticles() { selectedUnits = selectedUnits.map(() => false); document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.remove('selected'); document.getElementById(`check_unit_${idx}`).checked = false; }); mettreAJourTotalUnites(); }
+    function mettreAJourTotalUnites() { let total = 0, nbUnites = 0; articlesDecomposes.forEach((unit, index) => { if (selectedUnits[index]) { total += unit.prix; nbUnites++; } }); document.getElementById('selectionTotal').innerHTML = `${total.toFixed(2)} DT <span style="font-size: 0.8rem; color: #64748b; font-weight: normal;">(${nbUnites} art.)</span>`; }
 
     function validerSelectionPaiement() {
         const selectedUnitsList = articlesDecomposes.filter((_, index) => selectedUnits[index]);
         if (selectedUnitsList.length === 0) return showNotification("❌ Sélectionnez au moins un article", "#e74c3c");
-        
         const unitsParProduit = {};
-        selectedUnitsList.forEach(unit => { 
-            const key = `${unit.id}_${unit.variante}`;
-            if (!unitsParProduit[key]) unitsParProduit[key] = { id: unit.id, nom: unit.nom, variante: unit.variante, prix: unit.prix, quantite: 0 }; 
-            unitsParProduit[key].quantite++; 
-        });
-        
-        const articlesAPayer = Object.values(unitsParProduit);
-        const total = articlesAPayer.reduce((s, a) => s + a.prix * a.quantite, 0);
-        const unitIdsASupprimer = selectedUnitsList.map(u => u.unitId);
-        
+        selectedUnitsList.forEach(unit => { const key = `${unit.id}_${unit.variante}`; if (!unitsParProduit[key]) unitsParProduit[key] = { id: unit.id, nom: unit.nom, variante: unit.variante, prix: unit.prix, quantite: 0 }; unitsParProduit[key].quantite++; });
+        const articlesAPayer = Object.values(unitsParProduit); const total = articlesAPayer.reduce((s, a) => s + a.prix * a.quantite, 0); const unitIdsASupprimer = selectedUnitsList.map(u => u.unitId);
         fermerModalSelection(); afficherModalPaiement(articlesAPayer, total, true, unitIdsASupprimer);
     }
 
@@ -881,7 +834,10 @@
         
         decrementerStock(articlesAPayer);
         
-        const vente = { id: Date.now(), numero: "P" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, type: "partiel", articles: articlesAPayer, table: currentTable };
+        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
+        if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle : ${ticket.label}`;
+
+        const vente = { id: Date.now(), numero: "P" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, type: "partiel", articles: articlesAPayer, table: nomOrigine };
         salesHistory.unshift(vente); sauvegarderHistorique();
         articlesAPayer.forEach(a => { if(!statsProduits[a.nom]) statsProduits[a.nom] = { quantite: 0, total: 0 }; statsProduits[a.nom].quantite += a.quantite; statsProduits[a.nom].total += a.prix * a.quantite; });
         statsTotalJour += totalPaye; sauvegarderStats();
@@ -897,18 +853,19 @@
             }
         });
         
-        tickets[currentTable] = { articles: articlesRestants, total: articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0) };
-        sauvegarderTousLesTickets();
+        tickets[currentTable].articles = articlesRestants;
+        tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
         
+        sauvegarderTousLesTickets();
         afficherTicket(); afficherListeTables(); afficherHistoriqueJour(); afficherStats();
         showNotification(`💰 Paiement partiel validé (${totalPaye.toFixed(2)} DT)`, "#27ae60");
-        imprimerTicket(currentTable, articlesAPayer, totalPaye, remise, true);
+        imprimerTicket(nomOrigine, articlesAPayer, totalPaye, remise, true);
     }
 
     // ========== IMPRESSION ==========
     function imprimerTicket(tableNum, articles, total, remise, isPartial = false) {
         const now = new Date(); const numTicket = `${isPartial?'P':'T'}-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}-${now.getHours()}${now.getMinutes()}`;
-        document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = tableNum === 'Emporter' ? '📦 Emporter' : `Table ${tableNum}`; document.getElementById('printDate').textContent = now.toLocaleString();
+        document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = tableNum; document.getElementById('printDate').textContent = now.toLocaleString();
         
         let html = '<div style="display:flex; justify-content:space-between; font-weight:bold; border-bottom:1px dashed black; padding-bottom:3px; margin-bottom:3px;"><span>Article</span><span>Qté</span><span>Prix</span></div>';
         articles.forEach(a => { html += `<div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>${a.nom} ${a.variante?`(${a.variante})`:''}</span><span>x${a.quantite}</span><span>${(a.prix * a.quantite).toFixed(2)}</span></div>`; });
@@ -923,8 +880,12 @@
     function imprimerTicketCourant() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
-        if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
-        imprimerTicket(currentTable, ticket.articles, ticket.total, 0, false);
+        if (!ticket.articles || !ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
+        
+        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
+        if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
+
+        imprimerTicket(nomOrigine, ticket.articles, ticket.total, 0, false);
     }
 
     // ========== HISTORIQUE ET STATS ==========
@@ -936,7 +897,7 @@
         let total = 0, html = '';
         ventes.slice(0, 30).forEach(v => {
             total += v.total; const articlesText = v.articles.map(a => `${a.quantite}x ${a.nom} ${a.variante?`(${a.variante})`:''}`).join(' · ');
-            html += `<div class="vente-item"><div class="vente-header"><span class="vente-numero">#${v.numero}</span> <span>${v.table === 'Emporter' ? '📦 Emporter' : `Table ${v.table}`}</span><span class="vente-total">${v.total.toFixed(2)} DT</span></div><div class="vente-date"><i class="far fa-clock"></i> ${v.date}</div><div class="vente-articles">${articlesText}</div>${v.type === 'partiel' ? '<div class="vente-badge"><i class="fas fa-cut"></i> Partiel</div>' : ''}</div>`;
+            html += `<div class="vente-item"><div class="vente-header"><span class="vente-numero">#${v.numero}</span> <span>${v.table}</span><span class="vente-total">${v.total.toFixed(2)} DT</span></div><div class="vente-date"><i class="far fa-clock"></i> ${v.date}</div><div class="vente-articles">${articlesText}</div>${v.type === 'partiel' ? '<div class="vente-badge"><i class="fas fa-cut"></i> Partiel</div>' : ''}</div>`;
         });
         html += `<div class="historique-total">Total ${historiqueMode === 'today' ? "Aujourd'hui" : "Affiché"} : <span style="color:#27ae60">${total.toFixed(2)} DT</span></div>`;
         div.innerHTML = html;
@@ -959,25 +920,36 @@
         try {
             const response = await fetchSecurise('/api/commandes');
             commandesRecues = await response.json();
-        } catch(e) { 
-            console.error("Erreur historique cuisine:", e); 
-        }
+        } catch(e) { console.error("Erreur historique cuisine:", e); }
     }
 
     async function afficherCommandesTable(tableNum) {
         const modal = document.getElementById('modalDetailsTable');
         const content = document.getElementById('modalTableContent');
         derniereTableModal = String(tableNum).trim();
-        document.getElementById('modalTableNum').textContent = tableNum === 'Emporter' ? '📦 Emporter' : tableNum;
+        
+        let titre = tableNum;
+        if (tableNum === 'Emporter') titre = '📦 Emporter';
+        if (tableNum.startsWith('Fidele_')) titre = `⭐ ${tickets[tableNum].label}`;
+        document.getElementById('modalTableNum').textContent = titre;
+        
         modal.classList.add('active');
         content.innerHTML = '<div class="empty-message">⏳ Chargement...</div>';
         
         await chargerCommandesCuisineInitiales();
         
+        // Pour les fidèles, on cherche par clientName car leur table est "Emporter" côté KDS
         const commandesTable = commandesRecues.filter(cmd => {
             if (cmd.statut === 'paye') return false; 
-            const cmdTable = String(cmd.numeroTable || 'Emporter').trim();
-            return cmdTable === derniereTableModal;
+            
+            if (derniereTableModal.startsWith('Fidele_')) {
+                return cmd.clientName === tickets[derniereTableModal].label;
+            } else {
+                // Ignore les clients fidèles quand on regarde la table "Emporter" classique
+                if (derniereTableModal === 'Emporter' && cmd.clientName) return false;
+                const cmdTable = String(cmd.numeroTable || 'Emporter').trim();
+                return cmdTable === derniereTableModal;
+            }
         });
         
         if (commandesTable.length === 0) { content.innerHTML = '<div class="empty-message"><i class="fas fa-check-circle" style="font-size:2rem; color:#cbd5e1; display:block; margin-bottom:10px;"></i>Aucune commande cuisine en cours</div>'; return; }
@@ -1016,9 +988,13 @@
 
         socket.on('nouvelle_commande', (commande) => {
             commandesRecues.push(commande);
-            const cmdTable = String(commande.numeroTable || 'Emporter').trim();
-            if (derniereTableModal !== null && cmdTable === derniereTableModal) {
-                afficherCommandesTable(derniereTableModal);
+            // Vérifie si on a la fenêtre détails ouverte et qu'on doit la mettre à jour
+            if (derniereTableModal) {
+                if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label) {
+                    afficherCommandesTable(derniereTableModal);
+                } else if (String(commande.numeroTable || 'Emporter').trim() === derniereTableModal && !commande.clientName) {
+                    afficherCommandesTable(derniereTableModal);
+                }
             }
         });
         
@@ -1030,11 +1006,22 @@
             if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
                 window.commandesTraiteesTickets.add(commande.id);
                 
-                // Si c'est un client fidèle, sa table est "Emporter"
                 let tableNum = String(commande.numeroTable || 'Emporter').trim();
-                if (commande.clientName) tableNum = 'Emporter';
+                let customLabel = null;
                 
-                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0 };
+                // 🔥 CRÉATION DU BOUTON DYNAMIQUE POUR LE CLIENT FIDÈLE !
+                if (commande.clientName) {
+                    // On utilise le nom pour regrouper ses commandes sur le même bouton
+                    tableNum = 'Fidele_' + commande.clientName;
+                    customLabel = commande.clientName;
+                }
+                
+                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
+                if (customLabel) tickets[tableNum].label = customLabel;
+                
+                // On garde l'ID de la commande en mémoire pour pouvoir la supprimer spécifiquement en KDS plus tard
+                if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
+                tickets[tableNum].orderIds.push(commande.id);
 
                 if (commande.articles && commande.articles.length > 0) {
                     commande.articles.forEach((article, arrIdx) => { 
@@ -1051,11 +1038,6 @@
                         if (isNaN(vraiPrix) || vraiPrix === 0) {
                             const p = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom.trim().toLowerCase() === nomPropre.trim().toLowerCase());
                             if (p) vraiPrix = parseFloat(p.prix);
-                        }
-
-                        // 🔥 ASTUCE : On ajoute le nom du client dans l'article pour que tu le voies sur le ticket
-                        if (commande.clientName) {
-                            nomPropre = `${nomPropre} [${commande.clientName}]`;
                         }
 
                         const idSecurise = article.id || article.baseId || (Date.now() + arrIdx);
@@ -1078,9 +1060,13 @@
                 }
             }
             
-            const cmdTable = String(commande.numeroTable || 'Emporter').trim();
-            if (derniereTableModal !== null && cmdTable === derniereTableModal) {
-                afficherCommandesTable(derniereTableModal);
+            // Met à jour la modale cuisine si elle est ouverte
+            if (derniereTableModal) {
+                if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label) {
+                    afficherCommandesTable(derniereTableModal);
+                } else if (String(commande.numeroTable || 'Emporter').trim() === derniereTableModal && !commande.clientName) {
+                    afficherCommandesTable(derniereTableModal);
+                }
             }
         });
     }
@@ -1089,7 +1075,7 @@
     document.addEventListener("DOMContentLoaded", async () => {
         chargerTickets(); chargerHistorique(); chargerStats();
         await chargerCatalogue();
-        selectionnerTable("1"); // Sélectionne la table 1 par défaut au lieu de Caisse Rapide
+        selectionnerTable("1");
         
         await chargerCommandesCuisineInitiales();
         initSocket();
