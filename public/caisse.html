@@ -390,17 +390,34 @@
         if (currentTable === 'Emporter') document.getElementById('btnCaisseRapide').classList.add('active'); else document.getElementById('btnCaisseRapide').classList.remove('active');
     }
 
-    function afficherFileDAttente() {
+function afficherFileDAttente() {
         const container = document.getElementById('fileAttenteList');
-        const file = commandesRecues.filter(cmd => { if (cmd.statut === 'paye') return false; const num = parseInt(cmd.numeroTable); return isNaN(num) || num < 1 || num > 20; });
+        
+        // On récupère toutes les commandes qui n'appartiennent pas à une table 1-20
+        const file = commandesRecues.filter(cmd => {
+            if (cmd.statut === 'paye') return false;
+            const num = parseInt(cmd.numeroTable);
+            return isNaN(num) || num < 1 || num > 20 || cmd.clientName; // Si client fidèle, va dans la file
+        });
+
         document.getElementById('fileCount').innerText = `${file.length} en attente`;
-        if (file.length === 0) { container.innerHTML = '<div class="empty-message">Aucune commande externe</div>'; return; }
+        if (file.length === 0) { container.innerHTML = '<div class="empty-message">Aucune commande fidèle ou web</div>'; return; }
 
         container.innerHTML = file.map(cmd => {
             let titre = `Commande #${cmd.numero}`; let icon = 'fas fa-shopping-bag'; let color = '#34495e'; let badge = '';
-            if (cmd.clientName) { titre = cmd.clientName; icon = 'fas fa-star'; color = '#e67e22'; badge = `<span class="badge" style="background:#fef5e6; color:#e67e22;">Fidèle</span>`; } 
-            else if (cmd.serveurName) { titre = cmd.serveurName; icon = 'fas fa-user-tie'; color = '#8b5cf6'; badge = `<span class="badge" style="background:#ede9fe; color:#8b5cf6;">Serveur</span>`; } 
-            else { titre = "Client Web"; icon = 'fas fa-mobile-alt'; color = '#3498db'; }
+            
+            // SI C'EST UN CLIENT FIDÈLE !
+            if (cmd.clientName) { 
+                titre = cmd.clientName; 
+                icon = 'fas fa-star'; 
+                color = '#e67e22'; 
+                badge = `<span class="badge" style="background:#fef5e6; color:#e67e22;">Fidèle</span>`; 
+            } else { 
+                titre = "Client Web"; 
+                icon = 'fas fa-mobile-alt'; 
+                color = '#3498db'; 
+            }
+            
             const isActive = currentTable === 'CMD_' + cmd.id ? 'active' : '';
             const statusStr = cmd.statut === 'terminee' ? '<span style="color:#27ae60;font-weight:bold;"><i class="fas fa-check"></i> Prête</span>' : '<span style="color:#f39c12;font-size:0.8rem;"><i class="fas fa-fire"></i> Cuisine</span>';
 

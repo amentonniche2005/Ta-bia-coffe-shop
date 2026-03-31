@@ -42,22 +42,17 @@ const Expense = mongoose.model('Expense', new mongoose.Schema({
 const Order = mongoose.model('Order', new mongoose.Schema({
     id: Number, numero: String, date: String, timestamp: Number, articles: Array,
     numeroTable: String, statut: { type: String, default: 'en_attente' }, total: Number,
-    clientId: String, clientName: String, serveurName: String // 👈 Ajout du Serveur
+    clientId: String, clientName: String // 👈 Ajout du Nom du Client Fidèle
 }));
 
 const TableCode = mongoose.model('TableCode', new mongoose.Schema({
     numero: Number, code: String, lastUpdated: Number
 }));
 
+// 🌟 NOUVEAU : CLIENTS FIDÈLES
 const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({
     nom: String, prenom: String, telephone: String, codeFidelite: { type: String, unique: true },
     dateInscription: { type: String, default: () => new Date().toLocaleDateString('fr-FR') }
-}));
-
-// 👨‍🍳 NOUVEAU MODÈLE : LES SERVEURS
-const Waiter = mongoose.model('Waiter', new mongoose.Schema({
-    nom: String, code: { type: String, unique: true },
-    dateAjout: { type: String, default: () => new Date().toLocaleDateString('fr-FR') }
 }));
 
 // ========== 3. MIDDLEWARES ET SÉCURITÉ ==========
@@ -73,7 +68,7 @@ function verifierToken(req, res, next) {
     else res.status(403).json({ error: "Accès refusé." });
 }
 
-// ========== 4. ROUTES PUBLIQUES (CLIENTS & SERVEURS) ==========
+// ========== 4. ROUTES PUBLIQUES ==========
 app.post('/api/caisse/verify', (req, res) => {
     if (req.body.token === CAISSE_TOKEN) res.json({ success: true }); 
     else res.status(401).json({ success: false });
@@ -83,32 +78,24 @@ app.get('/api/stock', async (req, res) => { res.json(await Product.find({}).sort
 app.post('/api/commandes', async (req, res) => {
     try {
         const cmd = new Order({ ...req.body, id: Date.now(), numero: 'CMD'+Math.floor(Math.random()*10000), date: new Date().toLocaleString('fr-FR'), timestamp: Date.now() });
-        await cmd.save();
-        io.emit('nouvelle_commande', cmd);
-        res.status(201).json(cmd);
+        await cmd.save(); io.emit('nouvelle_commande', cmd); res.status(201).json(cmd);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/numbers', async (req, res) => { res.json(await TableCode.find({}).sort({ numero: 1 })); });
-
-// Vérification Client Fidèle
-app.get('/api/customers/verify/:code', async (req, res) => {
-    const customer = await LoyalCustomer.findOne({ codeFidelite: req.params.code });
-    if (customer) res.json({ success: true, customer }); else res.status(404).json({ success: false });
-});
-
-// Vérification Serveur
-app.get('/api/waiters/verify/:code', async (req, res) => {
-    const waiter = await Waiter.findOne({ code: req.params.code });
-    if (waiter) res.json({ success: true, waiter }); else res.status(404).json({ success: false });
-});
-
 app.post('/api/numbers/refresh/:numero', async (req, res) => {
     const updated = await TableCode.findOneAndUpdate({ numero: req.params.numero }, { code: Math.floor(Math.random()*90000+10000).toString(), lastUpdated: Date.now() }, { upsert: true, new: true });
     res.json(updated);
 });
 
+// 🌟 VÉRIFIER UN CODE FIDÈLE (PUBLIC)
+app.get('/api/customers/verify/:code', async (req, res) => {
+    const customer = await LoyalCustomer.findOne({ codeFidelite: req.params.code });
+    if (customer) res.json({ success: true, customer }); else res.status(404).json({ success: false });
+});
+
 // ========== 5. ROUTES SÉCURISÉES (CAISSE & ADMIN) ==========
+// Gestion Clients Fidèles
 app.get('/api/customers', verifierToken, async (req, res) => { res.json(await LoyalCustomer.find({}).sort({ _id: -1 })); });
 app.post('/api/customers', verifierToken, async (req, res) => {
     try { const nouveau = new LoyalCustomer(req.body); await nouveau.save(); res.json({ success: true }); } 
@@ -116,16 +103,7 @@ app.post('/api/customers', verifierToken, async (req, res) => {
 });
 app.delete('/api/customers/:id', verifierToken, async (req, res) => { await LoyalCustomer.findByIdAndDelete(req.params.id); res.json({ success: true }); });
 
-app.get('/api/waiters', verifierToken, async (req, res) => { res.json(await Waiter.find({}).sort({ _id: -1 })); });
-app.post('/api/waiters', verifierToken, async (req, res) => {
-    try { const w = new Waiter(req.body); await w.save(); res.json({ success: true }); } 
-    catch (err) { res.status(500).json({ error: "Erreur" }); }
-});
-app.delete('/api/waiters/:id', verifierToken, async (req, res) => { await Waiter.findByIdAndDelete(req.params.id); res.json({ success: true }); });
-
-// Route pour les stats de la caisse/admin (récupère toutes les commandes payées)
-app.get('/api/commandes/all', verifierToken, async (req, res) => { res.json(await Order.find({ statut: 'paye' })); });
-
+// Commandes
 app.get('/api/commandes', verifierToken, async (req, res) => { res.json(await Order.find({ statut: { $ne: 'paye' } })); });
 app.put('/api/commandes/:id/statut', verifierToken, async (req, res) => {
     const cmd = await Order.findOneAndUpdate({ id: req.params.id }, { statut: req.body.statut }, { new: true });
@@ -137,6 +115,7 @@ app.put('/api/commandes/table/:numeroTable/paye', verifierToken, async (req, res
     res.json({ success: true });
 });
 
+// Stock & Dépenses
 app.post('/api/stock', verifierToken, async (req, res) => { const n = new Product({ ...req.body, id: Date.now() }); await n.save(); io.emit('update_stock'); res.json({ success: true }); });
 app.put('/api/stock/:id', verifierToken, async (req, res) => { await Product.findOneAndUpdate({ id: req.params.id }, req.body); io.emit('update_stock'); res.json({ success: true }); });
 app.delete('/api/stock/:id', verifierToken, async (req, res) => { await Product.findOneAndDelete({ id: req.params.id }); io.emit('update_stock'); res.json({ success: true }); });

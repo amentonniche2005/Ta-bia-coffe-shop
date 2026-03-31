@@ -340,7 +340,6 @@ function afficherContenuPanier() {
 }
 
 // ========== ENVOI COMMANDE (NOUVELLE LOGIQUE SÉCURISÉE) ==========
-// ========== ENVOI COMMANDE (NOUVELLE LOGIQUE SÉCURISÉE) ==========
 function passerCommande() {
     if (panier.length === 0) return;
     fermerPanier();
@@ -368,7 +367,7 @@ function afficherModalTable() {
         btn.onclick = () => {
             const numTable = btn.getAttribute('data-table');
             modal.remove();
-            afficherModalCode(numTable); // 🔥 Même À Emporter demande le code !
+            afficherModalCode(numTable); // MÊME "A EMPORTER" DEMANDE UN CODE
         };
     });
 }
@@ -379,7 +378,7 @@ function afficherModalCode(numTable) {
         <div id="codeModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:2000;">
             <div style="background:white; border-radius:20px; padding:2rem; text-align:center; width:90%; max-width:400px;">
                 <h3 style="margin-bottom:0.5rem; color: #143621;">${titre}</h3>
-                <p style="font-size:0.9rem; color:#64748b;">Code Table, Fidélité ou Serveur</p>
+                <p style="font-size:0.9rem; color:#64748b;">Code Confirmation ou Code Fidélité</p>
                 <input type="text" id="codeConfirmation" style="width:100%; padding:1rem; font-size:1.5rem; font-weight:bold; text-align:center; text-transform:uppercase; letter-spacing:4px; border:2px solid #e2e8f0; border-radius:12px; margin:1rem 0; outline:none; color:#db800a;" placeholder="•••••">
                 <button id="validerCodeBtn" style="width:100%; background:#db800a; color:white; padding:1rem; border-radius:12px; font-size:1.1rem; font-weight:bold; border:none; cursor:pointer; margin-bottom:10px;">Confirmer</button>
                 <button id="annulerCodeBtn" style="width:100%; background:#e2e8f0; color:#333; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer;">Retour</button>
@@ -403,9 +402,8 @@ function afficherModalCode(numTable) {
 
         let authValid = false;
         let clientData = null;
-        let waiterData = null;
 
-        // 1. Vérif Table (Uniquement si ce n'est pas "À Emporter")
+        // 1. Vérif Table (Si c'est pas À Emporter)
         if (numTable !== 'Emporter') {
             try {
                 const resTables = await fetch('/api/numbers');
@@ -417,7 +415,7 @@ function afficherModalCode(numTable) {
             } catch(e) {}
         }
 
-        // 2. Vérif Fidélité (Si toujours pas validé)
+        // 2. Vérif Fidélité (Dans tous les cas)
         if (!authValid) {
             try {
                 const resFid = await fetch(`/api/customers/verify/${codeSaisi}`);
@@ -425,22 +423,14 @@ function afficherModalCode(numTable) {
             } catch(e){}
         }
 
-        // 3. Vérif Serveur (Si toujours pas validé)
-        if (!authValid) {
-            try {
-                const resServ = await fetch(`/api/waiters/verify/${codeSaisi}`);
-                if(resServ.ok) { const d = await resServ.json(); if(d.success) { authValid = true; waiterData = d.waiter; } }
-            } catch(e){}
-        }
-
-        // 4. Code Maître pour dépannage
+        // 3. Code Maître
         if (codeSaisi === "00000") authValid = true;
 
         if (authValid) {
             modal.remove();
-            validerCommandeFormate(numTable, codeSaisi, clientData, waiterData);
+            validerCommandeFormate(numTable, clientData);
         } else {
-            afficherNotification("❌ Code incorrect ou non autorisé pour cette action", "error");
+            afficherNotification("❌ Code incorrect", "error");
             codeInput.value = "";
             validerBtn.innerHTML = 'Confirmer';
             validerBtn.disabled = false;
@@ -448,41 +438,33 @@ function afficherModalCode(numTable) {
     };
 }
 
-async function validerCommandeFormate(numTable, codeSaisi, clientData, waiterData) {
-    const checkoutBtn = document.getElementById("checkoutBtn");
-    if (checkoutBtn) { checkoutBtn.disabled = true; checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; }
-
+async function validerCommandeFormate(numTable, clientData) {
+    afficherNotification("⏳ Envoi de la commande...");
     try {
         let nomClient = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
-        let nomServeur = waiterData ? waiterData.nom : null;
-        
-        // Si c'est un client fidèle qui n'a pas sélectionné de table, on le force en Emporter
-        const tableFinale = (numTable === 'Emporter' || clientData) && !waiterData && isNaN(parseInt(numTable)) ? 'Emporter' : (numTable === 'Emporter' ? 'Emporter' : parseInt(numTable));
+        const tableFinale = (numTable === 'Emporter' || clientData) && isNaN(parseInt(numTable)) ? 'Emporter' : (numTable === 'Emporter' ? 'Emporter' : parseInt(numTable));
 
         const response = await fetch('/api/commandes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
                 numeroTable: tableFinale,
-                clientId: clientId, // Garde l'ID du téléphone
-                clientName: nomClient,
-                serveurName: nomServeur // 🔥 Envoie le nom du serveur !
+                clientId: clientId,
+                clientName: nomClient // ENVOI DU NOM !
             })
         });
 
         if (response.ok) {
             const commande = await response.json();
-            sauvegarderCommandeClient(commande);
+            if(typeof sauvegarderCommandeClient === 'function') sauvegarderCommandeClient(commande);
             panier = []; sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier();
             
-            if (nomServeur) afficherNotification(`👨‍🍳 Commande validée par le serveur ${nomServeur}`);
-            else if (nomClient) afficherNotification(`🎉 Merci ${nomClient} ! Commande envoyée.`);
+            if (nomClient) afficherNotification(`🎉 Merci ${nomClient} ! Commande envoyée.`);
             else afficherNotification("🎉 Commande envoyée avec succès !");
             
-            await chargerCatalogue(); 
+            if(typeof chargerCatalogue === 'function') await chargerCatalogue(); 
         } else { afficherNotification("❌ Erreur serveur", "error"); }
     } catch (e) { afficherNotification("❌ Erreur de connexion", "error"); } 
-    finally { if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; } }
 }
 
 // ========== HISTORIQUE ET SOCKET ==========

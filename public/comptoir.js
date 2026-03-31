@@ -28,7 +28,6 @@ let commandesComptoirCache = [];
 // ========== CHARGEMENT INITIAL ==========
 async function chargerCommandes() {
     try {
-        // 🔥 CORRECTION : fetchSecurise au lieu de fetch
         const response = await fetchSecurise('/api/commandes');
         const commandes = await response.json();
         // On ne garde que ce qui n'est pas encore encaissé à la caisse
@@ -42,7 +41,6 @@ async function chargerCommandes() {
 // ========== ACTIONS ==========
 async function demarrerPreparation(id) {
     try {
-        // 🔥 CORRECTION : fetchSecurise au lieu de fetch
         const response = await fetchSecurise(`/api/commandes/${id}/statut`, {
             method: 'PUT',
             body: JSON.stringify({ statut: 'en_preparation' })
@@ -55,7 +53,6 @@ async function demarrerPreparation(id) {
 
 async function terminerCommande(id) {
     try {
-        // 🔥 CORRECTION : fetchSecurise au lieu de fetch
         const response = await fetchSecurise(`/api/commandes/${id}/statut`, {
             method: 'PUT',
             body: JSON.stringify({ statut: 'terminee' })
@@ -86,7 +83,9 @@ function initSocket() {
         commandesComptoirCache.push(commande);
         afficherCommandes();
         jouerSonNouvelleCommande();
-        afficherNotification(`📢 Nouvelle commande #${commande.numero}`, "info");
+        
+        const nomAlerte = commande.clientName ? commande.clientName : `Commande #${commande.numero}`;
+        afficherNotification(`📢 Nouvelle : ${nomAlerte}`, "info");
         
         // Effet visuel
         setTimeout(() => {
@@ -155,29 +154,37 @@ function afficherColonne(containerId, commandes, type) {
     
     container.innerHTML = commandesFiltrees.map(cmd => {
         const timeStr = cmd.date ? cmd.date.split(' ')[1] : new Date(cmd.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        const typeOrigine = cmd.clientId ? `<span class="badge badge-client"><i class="fas fa-mobile-alt"></i> Web</span>` : `<span class="badge badge-table"><i class="fas fa-store"></i> Sur Place</span>`;
-        const tableBadge = cmd.numeroTable ? `<span class="badge badge-table"><i class="fas fa-chair"></i> Table ${cmd.numeroTable}</span>` : "";
+        
+        // 🌟 LOGIQUE D'AFFICHAGE DU CLIENT FIDÈLE 🌟
+        const nomAffiche = cmd.clientName ? `<i class="fas fa-star"></i> ${cmd.clientName}` : `#${cmd.numero}`;
+        const colorTitre = cmd.clientName ? 'color:#ea580c; font-size:1.2rem;' : ''; // Orange si fidèle
+        
+        const badgeTable = cmd.clientName 
+            ? `<span class="badge" style="background:#fef5e6; color:#e67e22; border:1px solid #fed7aa;"><i class="fas fa-star"></i> Fidèle</span>` 
+            : `<span class="badge badge-table"><i class="fas fa-chair"></i> Table ${cmd.numeroTable || 'Emporter'}</span>`;
+        
+        const badgeOrigine = cmd.clientId === 'web' 
+            ? `<span class="badge badge-client"><i class="fas fa-mobile-alt"></i> Web</span>` 
+            : ``; // On masque l'origine si ça vient de la caisse pour alléger
 
         const itemsHtml = cmd.articles.map(a => `
             <li class="item-row">
                 <div class="item-qty">${a.quantite || 1}</div>
-                <div class="item-name">${a.nom}</div>
+                <div class="item-name">${a.nom} ${a.variante ? `<span style="display:block; font-size:0.8rem; color:#64748b; font-weight:normal;">(${a.variante})</span>` : ''}</div>
             </li>
         `).join('');
 
-return `
+        return `
             <div class="ticket" data-id="${cmd.id}" onclick="voirDetails(${cmd.id})">
                 <div class="ticket-header">
-                    <span class="ticket-id">
-                        ${cmd.clientName ? `<span style="color:#c2410c;"><i class="fas fa-user"></i> ${cmd.clientName}</span>` : `#${cmd.numero}`}
-                        ${cmd.clientName ? `<span style="font-size:0.75rem; color:#94a3b8; margin-left:6px;">(#${cmd.numero})</span>` : ''}
+                    <span class="ticket-id" style="${colorTitre}">
+                        ${nomAffiche}
                     </span>
                     <span class="ticket-time"><i class="far fa-clock"></i> ${timeStr}</span>
                 </div>
                 <div class="badges-row">
-                    ${tableBadge}
-                    ${typeOrigine}
-                    ${cmd.serveurName ? `<span class="badge" style="background:#8b5cf6; color:white; border:1px solid #7c3aed;"><i class="fas fa-user-tie"></i> ${cmd.serveurName}</span>` : ""}
+                    ${badgeTable}
+                    ${badgeOrigine}
                 </div>
                 <ul class="items-list">
                     ${itemsHtml}
@@ -204,11 +211,15 @@ function voirDetails(id) {
     const cmd = commandesComptoirCache.find(c => c.id === id);
     if (!cmd) return;
     
-    document.getElementById("modalTitle").textContent = `Commande #${cmd.numero}`;
+    // Le titre change si c'est un fidèle
+    document.getElementById("modalTitle").textContent = cmd.clientName ? `Détails de ${cmd.clientName}` : `Commande #${cmd.numero}`;
     
     let html = `
         <div style="margin-bottom: 1.5rem; background: #f8fafc; padding: 1rem; border-radius: 12px; border: 1px solid #e2e8f0;">
-            ${cmd.numeroTable ? `<div style="margin-bottom:0.5rem;"><strong><i class="fas fa-chair"></i> Table :</strong> ${cmd.numeroTable}</div>` : ''}
+            <div style="margin-bottom:0.5rem; font-size: 1.1rem;">
+                <strong><i class="fas fa-map-marker-alt"></i> Destination :</strong> 
+                ${cmd.clientName ? `<span style="color:#e67e22; font-weight:bold;">🌟 Client Fidèle (${cmd.clientName})</span>` : `Table ${cmd.numeroTable || 'À Emporter'}`}
+            </div>
             <div style="margin-bottom:0.5rem;"><strong><i class="fas fa-compass"></i> Origine :</strong> ${cmd.clientId ? 'Client Web (Mobile)' : 'Caisse / Serveur'}</div>
             <div><strong><i class="far fa-clock"></i> Heure :</strong> ${cmd.date || new Date(cmd.timestamp).toLocaleString()}</div>
         </div>
@@ -218,7 +229,7 @@ function voirDetails(id) {
                 <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom:0.8rem; font-weight:700; font-size: 1.1rem;">
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <span style="background: #e2e8f0; padding: 4px 10px; border-radius: 6px;">${a.quantite}x</span>
-                        <span>${a.nom}</span>
+                        <span>${a.nom} ${a.variante ? `<i style="color:#64748b; font-size:0.9rem;">(${a.variante})</i>` : ''}</span>
                     </div>
                 </div>
             `).join('')}

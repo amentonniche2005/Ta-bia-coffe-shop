@@ -150,8 +150,7 @@
             <button class="tab" data-tab="alertes" onclick="ouvrirOnglet('alertes')"><i class="fas fa-bell"></i> Alertes</button>
             <button class="tab" data-tab="inventaire" onclick="ouvrirOnglet('inventaire')"><i class="fas fa-clipboard-check"></i> Audit Physique</button>
             <button class="tab" data-tab="depenses" onclick="ouvrirOnglet('depenses')"><i class="fas fa-wallet"></i> Dépenses</button>
-            <button class="tab" data-tab="fidelite" onclick="ouvrirOnglet('fidelite')"><i class="fas fa-id-card"></i> Clients Fidèles</button>
-            <button class="tab" data-tab="serveurs" onclick="ouvrirOnglet('serveurs')"><i class="fas fa-user-tie"></i> Serveurs</button>
+            <button class="tab" data-tab="fidelite" onclick="ouvrirOnglet('fidelite')"><i class="fas fa-star"></i> Clients Fidèles</button>
         </div>
 
         <div class="panel active" id="panel-stock">
@@ -339,49 +338,19 @@
                 </table>
             </div>
         </div>
-        <div class="panel" id="panel-fidelite">
+<div class="panel" id="panel-fidelite">
     <div class="toolbar">
-        <div><h3>Gestion de la Fidélité</h3></div>
+        <div><h3 style="font-size:1.1rem; color:var(--text-main);">Clients Fidèles</h3><p style="font-size:0.8rem; color:var(--text-muted);">Gérez les codes secrets de vos habitués.</p></div>
         <button class="btn-action btn-warning" onclick="ouvrirModalClient()"><i class="fas fa-user-plus"></i> Inscrire un Client</button>
     </div>
     <div class="table-container">
         <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Nom & Prénom</th>
-                    <th>Téléphone</th>
-                    <th style="text-align:center;">Code Fidélité</th>
-                    <th style="text-align:right;">Actions</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Date</th><th>Nom & Prénom</th><th>Téléphone</th><th style="text-align:center;">Code Secret</th><th style="text-align:right;">Actions</th></tr></thead>
             <tbody id="fideliteTableBody"></tbody>
         </table>
     </div>
 </div>
-<div class="panel" id="panel-serveurs">
-            <div class="toolbar">
-                <div>
-                    <h3 style="font-size:1.1rem; color:var(--text-main);">Équipe & Serveurs</h3>
-                    <p style="font-size:0.8rem; color:var(--text-muted);">Suivez les performances de votre personnel en direct.</p>
-                </div>
-                <button class="btn-action btn-warning" onclick="ouvrirModalServeur()"><i class="fas fa-plus"></i> Ajouter un Serveur</button>
-            </div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Nom du Serveur</th>
-                            <th style="text-align:center;">Code de Connexion</th>
-                            <th style="text-align:center;">Articles Vendus</th>
-                            <th style="text-align:right;">Chiffre d'Affaires</th>
-                            <th style="text-align:right;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="serveursTableBody"></tbody>
-                </table>
-            </div>
-        </div>
+
     </div>
 
     <div id="modalContainer"></div>
@@ -1023,197 +992,38 @@
                 if(res.ok) { showNotification("Dépense enregistrée", "var(--success)"); fermerModal(); chargerDepenses(); }
             } catch(e){ showNotification("Erreur de sauvegarde", "var(--danger)"); }
         }
-        async function chargerClients() {
-    const res = await fetchSecurise('/api/customers');
-    const clients = await res.json();
+// Ouvre l'onglet fidélité proprement
+const oldOuvrirOnglet = ouvrirOnglet;
+ouvrirOnglet = function(tabId) {
+    oldOuvrirOnglet(tabId);
+    if (tabId === 'fidelite') chargerClients();
+};
+
+async function chargerClients() {
     const tbody = document.getElementById('fideliteTableBody');
-    tbody.innerHTML = clients.map(c => `
-        <tr>
-            <td>${c.dateInscription}</td>
-            <td><strong>${c.nom} ${c.prenom}</strong></td>
-            <td>${c.telephone}</td>
-            <td style="text-align:center;"><span class="badge badge-normal" style="font-size:1rem;">${c.codeFidelite}</span></td>
-            <td style="text-align:right;">
-                <button class="btn-action btn-danger" onclick="supprimerClient('${c._id}')"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
+    try {
+        const res = await fetchSecurise('/api/customers'); const clients = await res.json();
+        if(clients.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun client fidèle enregistré</td></tr>'; return; }
+        tbody.innerHTML = clients.map(c => `<tr><td>${c.dateInscription}</td><td><strong>${escapeHtml(c.nom)} ${escapeHtml(c.prenom)}</strong></td><td>${escapeHtml(c.telephone)}</td><td style="text-align:center;"><span class="badge badge-normal" style="font-size:1rem; letter-spacing:2px;">${c.codeFidelite}</span></td><td style="text-align:right;"><button class="btn-action btn-danger" onclick="supprimerClient('${c._id}')"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+    } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur</td></tr>'; }
 }
 
 function ouvrirModalClient() {
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content">
-            <div class="modal-header"><h3>Inscrire un habitué</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-            <div class="form-group"><label>Nom :</label><input type="text" id="custNom"></div>
-            <div class="form-group"><label>Prénom :</label><input type="text" id="custPrenom"></div>
-            <div class="form-group"><label>Téléphone :</label><input type="text" id="custTel"></div>
-            <div class="form-group"><label>Code Fidélité (à donner au client) :</label>
-                <input type="text" id="custCode" value="${Math.floor(1000 + Math.random() * 9000)}">
-            </div>
-            <div class="modal-buttons">
-                <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
-                <button class="btn-primary" onclick="validerClient()">Enregistrer</button>
-            </div>
-        </div></div>`;
+    document.getElementById('modalContainer').innerHTML = `<div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-star"></i> Inscrire un habitué</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div><div class="form-group"><label>Nom :</label><input type="text" id="custNom"></div><div class="form-group"><label>Prénom :</label><input type="text" id="custPrenom"></div><div class="form-group"><label>Téléphone :</label><input type="text" id="custTel"></div><div class="form-group"><label>Code Secret :</label><input type="text" id="custCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;"></div><div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerClient()">Enregistrer</button></div></div></div>`;
 }
 
 async function validerClient() {
-    const data = {
-        nom: document.getElementById('custNom').value,
-        prenom: document.getElementById('custPrenom').value,
-        telephone: document.getElementById('custTel').value,
-        codeFidelite: document.getElementById('custCode').value
-    };
-    const res = await fetchSecurise('/api/customers', { method: 'POST', body: JSON.stringify(data) });
-    if(res.ok) { fermerModal(); chargerClients(); showNotification("Client fidèle enregistré !"); }
+    const data = { nom: document.getElementById('custNom').value, prenom: document.getElementById('custPrenom').value, telephone: document.getElementById('custTel').value, codeFidelite: document.getElementById('custCode').value };
+    if(!data.nom || !data.codeFidelite) return showNotification("Nom et Code obligatoires", "var(--danger)");
+    try { const res = await fetchSecurise('/api/customers', { method: 'POST', body: JSON.stringify(data) }); if(res.ok) { fermerModal(); chargerClients(); showNotification("Client enregistré !"); } else showNotification("Ce code existe déjà", "var(--danger)"); } catch(e) { showNotification("Erreur", "var(--danger)"); }
 }
 
 async function supprimerClient(id) {
-    if(confirm("Supprimer ce client ?")) {
-        await fetchSecurise(`/api/customers/${id}`, { method: 'DELETE' });
-        chargerClients();
-    }
-}
-// A AJOUTER A LA FIN DU FICHIER JS DANS gestion-stock.html
-async function chargerServeurs() {
-    const tbody = document.getElementById('serveursTableBody');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
-    try {
-        const resServeurs = await fetchSecurise('/api/waiters');
-        const serveurs = await resServeurs.json();
-        
-        const resCmds = await fetchSecurise('/api/commandes/all');
-        const commandes = await resCmds.json();
-
-        const stats = {};
-        serveurs.forEach(s => stats[s.nom] = { total: 0, articles: 0 });
-        
-        commandes.forEach(c => {
-            if (c.statut === 'paye' && c.serveurName && stats[c.serveurName]) {
-                stats[c.serveurName].total += c.total || 0;
-                c.articles.forEach(a => stats[c.serveurName].articles += (parseInt(a.quantite) || 1));
-            }
-        });
-
-        if(serveurs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun serveur enregistré</td></tr>'; return; }
-
-        tbody.innerHTML = serveurs.map(s => `
-            <tr>
-                <td><strong>${escapeHtml(s.nom)}</strong></td>
-                <td style="text-align:center;"><span class="badge badge-neutral" style="font-size:1rem; letter-spacing:2px;">${s.code}</span></td>
-                <td style="text-align:center; font-weight:bold; color:var(--info);">${stats[s.nom].articles}</td>
-                <td style="text-align:right; font-weight:800; color:var(--success);">${formatMoney(stats[s.nom].total)}</td>
-                <td style="text-align:right;">
-                    <button class="btn-action btn-danger" onclick="supprimerServeur('${s._id}')"><i class="fas fa-trash"></i></button>
-                </td>
-            </tr>
-        `).join('');
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur de chargement</td></tr>'; }
+    if(confirm("Supprimer ce client ?")) { await fetchSecurise(`/api/customers/${id}`, { method: 'DELETE' }); chargerClients(); }
 }
 
-function ouvrirModalServeur() {
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content">
-            <div class="modal-header"><h3><i class="fas fa-user-tie"></i> Ajouter un Serveur</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-            <div class="form-group"><label>Nom ou Pseudo :</label><input type="text" id="servNom" placeholder="Ex: Sami"></div>
-            <div class="form-group"><label>Code d'accès secret :</label>
-                <input type="text" id="servCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;">
-            </div>
-            <div class="modal-buttons">
-                <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
-                <button class="btn-primary" onclick="validerServeur()">Enregistrer</button>
-            </div>
-        </div></div>`;
-}
-
-async function validerServeur() {
-    const nom = document.getElementById('servNom').value;
-    const code = document.getElementById('servCode').value;
-    if (!nom || !code) return showNotification("Remplissez tous les champs", "var(--danger)");
-    
-    try {
-        const res = await fetchSecurise('/api/waiters', { method: 'POST', body: JSON.stringify({nom, code}) });
-        if(res.ok) { fermerModal(); chargerServeurs(); showNotification("Serveur ajouté avec succès !"); }
-        else showNotification("Ce code est déjà utilisé", "var(--danger)");
-    } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
-}
-
-async function supprimerServeur(id) {
-    if(confirm("Supprimer ce serveur ? Ses statistiques futures ne seront plus calculées.")) {
-        await fetchSecurise(`/api/waiters/${id}`, { method: 'DELETE' });
-        chargerServeurs();
-    }
-}
-// A AJOUTER A LA FIN DU FICHIER JS DANS gestion-stock.html
-async function chargerServeurs() {
-    const tbody = document.getElementById('serveursTableBody');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
-    try {
-        const resServeurs = await fetchSecurise('/api/waiters');
-        const serveurs = await resServeurs.json();
-        
-        const resCmds = await fetchSecurise('/api/commandes/all');
-        const commandes = await resCmds.json();
-
-        const stats = {};
-        serveurs.forEach(s => stats[s.nom] = { total: 0, articles: 0 });
-        
-        commandes.forEach(c => {
-            if (c.statut === 'paye' && c.serveurName && stats[c.serveurName]) {
-                stats[c.serveurName].total += c.total || 0;
-                c.articles.forEach(a => stats[c.serveurName].articles += (parseInt(a.quantite) || 1));
-            }
-        });
-
-        if(serveurs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun serveur enregistré</td></tr>'; return; }
-
-        tbody.innerHTML = serveurs.map(s => `
-            <tr>
-                <td><strong>${escapeHtml(s.nom)}</strong></td>
-                <td style="text-align:center;"><span class="badge badge-neutral" style="font-size:1rem; letter-spacing:2px;">${s.code}</span></td>
-                <td style="text-align:center; font-weight:bold; color:var(--info);">${stats[s.nom].articles}</td>
-                <td style="text-align:right; font-weight:800; color:var(--success);">${formatMoney(stats[s.nom].total)}</td>
-                <td style="text-align:right;">
-                    <button class="btn-action btn-danger" onclick="supprimerServeur('${s._id}')"><i class="fas fa-trash"></i></button>
-                </td>
-            </tr>
-        `).join('');
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur de chargement</td></tr>'; }
-}
-
-function ouvrirModalServeur() {
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content">
-            <div class="modal-header"><h3><i class="fas fa-user-tie"></i> Ajouter un Serveur</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-            <div class="form-group"><label>Nom ou Pseudo :</label><input type="text" id="servNom" placeholder="Ex: Sami"></div>
-            <div class="form-group"><label>Code d'accès secret :</label>
-                <input type="text" id="servCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;">
-            </div>
-            <div class="modal-buttons">
-                <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
-                <button class="btn-primary" onclick="validerServeur()">Enregistrer</button>
-            </div>
-        </div></div>`;
-}
-
-async function validerServeur() {
-    const nom = document.getElementById('servNom').value;
-    const code = document.getElementById('servCode').value;
-    if (!nom || !code) return showNotification("Remplissez tous les champs", "var(--danger)");
-    
-    try {
-        const res = await fetchSecurise('/api/waiters', { method: 'POST', body: JSON.stringify({nom, code}) });
-        if(res.ok) { fermerModal(); chargerServeurs(); showNotification("Serveur ajouté avec succès !"); }
-        else showNotification("Ce code est déjà utilisé", "var(--danger)");
-    } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
-}
-
-async function supprimerServeur(id) {
-    if(confirm("Supprimer ce serveur ? Ses statistiques futures ne seront plus calculées.")) {
-        await fetchSecurise(`/api/waiters/${id}`, { method: 'DELETE' });
-        chargerServeurs();
-    }
-}
+document.addEventListener("DOMContentLoaded", () => { setTimeout(() => chargerClients(), 500); });
 
         // ========== INIT DOM ==========
         document.addEventListener("DOMContentLoaded", () => {
@@ -1228,7 +1038,7 @@ async function supprimerServeur(id) {
             const socket = io(); // On connecte la page au serveur en temps réel
 
             socket.on('update_stock', () => {
-                chargerServeurs()
+                
                 chargerClients();
                 chargerStock();
                 chargerDashboard();
