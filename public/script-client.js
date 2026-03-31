@@ -72,7 +72,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     configurerEvenements();
 });
 
-// ========== FETCH API STOCK (SÉCURISÉ) ==========
 // ========== FETCH API STOCK (SÉCURISÉ & DYNAMIQUE) ==========
 async function chargerCatalogue() {
     try {
@@ -167,12 +166,9 @@ function gererClicAjout(id) {
 
     let optionsTrouvees = null;
 
-    // 1. On regarde d'abord si tu as écrit des variantes personnalisées dans l'Admin
     if (produit.variantes && produit.variantes.trim() !== "") {
-        // On découpe le texte "Fraise, Vanille" en une vraie liste
         optionsTrouvees = produit.variantes.split(',').map(v => v.trim());
     } 
-    // 2. S'il n'y en a pas, on garde ton ancien système par mots-clés (pour les anciens produits)
     else {
         const nomLower = (produit.nom || "").toLowerCase();
         for (let config of variantesConfig) {
@@ -183,7 +179,6 @@ function gererClicAjout(id) {
         }
     }
 
-    // 3. On affiche la fenêtre avec les options trouvées
     if (optionsTrouvees && optionsTrouvees.length > 0) {
         ouvrirModalOptions(produit, optionsTrouvees);
     } else {
@@ -196,14 +191,14 @@ function ouvrirModalOptions(produit, options) {
     document.getElementById("optionsTitle").textContent = produit.nom;
     document.getElementById("optionPriceDisplay").textContent = `(${parseFloat(produit.prix).toFixed(2)} DT)`;
     
-    // Le code HTML généré est maintenant super propre et utilise les classes CSS
+    // 🔥 NOUVELLE GESTION DE L'AFFICHAGE (UNIQUE OU MULTIPLE) 🔥
+    let isMultiple = produit.typeChoix === 'multiple';
+    let typeInput = isMultiple ? 'checkbox' : 'radio';
+    
     const listHtml = options.map((opt, index) => `
-        <label class="option-label">
-            <input type="radio" name="varianteOption" value="${opt}" class="option-input" ${index === 0 ? 'checked' : ''}>
-            <div class="option-box">
-                <span class="option-text">${opt}</span>
-                <i class="fas fa-check-circle check-icon"></i>
-            </div>
+        <label style="display:flex; align-items:center; gap:15px; padding:12px; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:8px; cursor:pointer;">
+            <input type="${typeInput}" name="varianteOption" value="${opt}" style="width:22px; height:22px; accent-color:#db800a;" ${(!isMultiple && index === 0) ? 'checked' : ''}>
+            <span style="font-weight:600; font-size:1.1rem; color:#1e293b;">${opt}</span>
         </label>
     `).join('');
     
@@ -339,8 +334,6 @@ function afficherContenuPanier() {
     totalElement.textContent = `Total: ${total.toFixed(2)} DT`;
 }
 
-// ========== ENVOI COMMANDE (NOUVELLE LOGIQUE SÉCURISÉE) ==========
-// ========== ENVOI COMMANDE ==========
 // ========== ENVOI COMMANDE ==========
 function passerCommande() {
     if (panier.length === 0) return;
@@ -460,7 +453,6 @@ async function validerCommande(numTable, clientData, codeSaisi) {
         let nomFidele = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
         let idFidele = clientData ? codeSaisi : clientId;
         
-        // 🔥 LOGIQUE MISE À JOUR : Le client garde son choix (Emporter ou Table)
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
 
         const response = await fetch('/api/commandes', {
@@ -574,10 +566,21 @@ function configurerEvenements() {
     document.getElementById("closeCart").onclick = fermerPanier;
     document.getElementById("checkoutBtn").onclick = passerCommande;
     
+    // 🔥 NOUVELLE GESTION DE LA VALIDATION DES OPTIONS (UNIQUE ET MULTIPLE)
     document.getElementById("confirmOptionBtn")?.addEventListener("click", () => {
-        const selected = document.querySelector('input[name="varianteOption"]:checked');
-        if (selected && produitEnAttenteOption) {
-            executerAjoutPanier(produitEnAttenteOption, selected.value);
+        // On cherche toutes les cases qui ont été cochées par le client
+        const checkedBoxes = document.querySelectorAll('input[name="varianteOption"]:checked');
+        
+        if (produitEnAttenteOption) {
+            let valeursChoisies = "";
+            
+            if (checkedBoxes.length > 0) {
+                // S'il a coché des choses, on colle tout avec des virgules (ex: "Harissa, Fromage")
+                valeursChoisies = Array.from(checkedBoxes).map(cb => cb.value).join(', ');
+            }
+            
+            // On ajoute au panier avec les valeurs collées
+            executerAjoutPanier(produitEnAttenteOption, valeursChoisies);
             document.getElementById("optionsModal").style.display = "none";
             produitEnAttenteOption = null;
         }
