@@ -340,6 +340,7 @@ function afficherContenuPanier() {
 }
 
 // ========== ENVOI COMMANDE (NOUVELLE LOGIQUE SÉCURISÉE) ==========
+// ========== ENVOI COMMANDE ==========
 function passerCommande() {
     if (panier.length === 0) return;
     fermerPanier();
@@ -367,20 +368,24 @@ function afficherModalTable() {
         btn.onclick = () => {
             const numTable = btn.getAttribute('data-table');
             modal.remove();
-            afficherModalCode(numTable); // MÊME "A EMPORTER" DEMANDE UN CODE
+            
+            // 🔥 CORRECTION ICI : On affiche TOUJOURS la demande de code, même pour "Emporter"
+            afficherModalCode(numTable); 
         };
     });
 }
 
 function afficherModalCode(numTable) {
     const titre = numTable === 'Emporter' ? '🛍️ À Emporter' : `Table ${numTable}`;
+    
+    // Le champ devient "text" (et non "number") pour accepter les codes fidélités avec des lettres
     const modalHtml = `
         <div id="codeModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:2000;">
             <div style="background:white; border-radius:20px; padding:2rem; text-align:center; width:90%; max-width:400px;">
                 <h3 style="margin-bottom:0.5rem; color: #143621;">${titre}</h3>
-                <p style="font-size:0.9rem; color:#64748b;">Code Confirmation ou Code Fidélité</p>
+                <p style="font-size:0.9rem; color:#64748b;">Code de la table ou Code Fidélité</p>
                 <input type="text" id="codeConfirmation" style="width:100%; padding:1rem; font-size:1.5rem; font-weight:bold; text-align:center; text-transform:uppercase; letter-spacing:4px; border:2px solid #e2e8f0; border-radius:12px; margin:1rem 0; outline:none; color:#db800a;" placeholder="•••••">
-                <button id="validerCodeBtn" style="width:100%; background:#db800a; color:white; padding:1rem; border-radius:12px; font-size:1.1rem; font-weight:bold; border:none; cursor:pointer; margin-bottom:10px;">Confirmer</button>
+                <button id="validerCodeBtn" style="width:100%; background:#db800a; color:white; padding:1rem; border-radius:12px; font-size:1.1rem; font-weight:bold; border:none; cursor:pointer; margin-bottom:10px;">Confirmer la commande</button>
                 <button id="annulerCodeBtn" style="width:100%; background:#e2e8f0; color:#333; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer;">Retour</button>
             </div>
         </div>
@@ -395,7 +400,11 @@ function afficherModalCode(numTable) {
     
     validerBtn.onclick = async () => {
         const codeSaisi = codeInput.value.trim();
-        if (!codeSaisi) return afficherNotification("⚠️ Veuillez entrer un code", "error");
+        
+        if (!codeSaisi) {
+            afficherNotification("⚠️ Veuillez entrer un code", "error");
+            return;
+        }
 
         validerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
         validerBtn.disabled = true;
@@ -403,68 +412,95 @@ function afficherModalCode(numTable) {
         let authValid = false;
         let clientData = null;
 
-        // 1. Vérif Table (Si c'est pas À Emporter)
-        if (numTable !== 'Emporter') {
+        // 1. ON VÉRIFIE D'ABORD SI C'EST UN CLIENT FIDÈLE (valable pour Table ET Emporter)
+        try {
+            const resFid = await fetch(`/api/customers/verify/${codeSaisi}`);
+            if (resFid.ok) { 
+                const d = await resFid.json(); 
+                if(d.success) { 
+                    authValid = true; 
+                    clientData = d.customer; 
+                } 
+            }
+        } catch(e) { console.error("Erreur fidélité:", e); }
+
+        // 2. SI CE N'EST PAS UN FIDÈLE ET QU'IL A CHOISI UNE TABLE, ON VÉRIFIE LE CODE TABLE
+        if (!authValid && numTable !== 'Emporter') {
             try {
                 const resTables = await fetch('/api/numbers');
                 if (resTables.ok) {
                     const tables = await resTables.json();
                     const tableData = tables.find(t => parseInt(t.numero) === parseInt(numTable));
-                    if (tableData && tableData.code === String(codeSaisi)) authValid = true;
+                    if (tableData && tableData.code === String(codeSaisi)) {
+                        authValid = true;
+                    }
                 }
-            } catch(e) {}
+            } catch(e) { console.error("Erreur table:", e); }
         }
 
-        // 2. Vérif Fidélité (Dans tous les cas)
-        if (!authValid) {
-            try {
-                const resFid = await fetch(`/api/customers/verify/${codeSaisi}`);
-                if(resFid.ok) { const d = await resFid.json(); if(d.success) { authValid = true; clientData = d.customer; } }
-            } catch(e){}
-        }
-
-        // 3. Code Maître
+        // 3. CODE MAÎTRE (Pour dépanner ou forcer une commande à emporter sans fidélité)
         if (codeSaisi === "00000") authValid = true;
 
         if (authValid) {
             modal.remove();
-            validerCommandeFormate(numTable, clientData);
+            validerCommande(numTable, clientData, codeSaisi);
         } else {
-            afficherNotification("❌ Code incorrect", "error");
+            afficherNotification("❌ Code incorrect ou expiré", "error");
             codeInput.value = "";
-            validerBtn.innerHTML = 'Confirmer';
+            validerBtn.innerHTML = 'Confirmer la commande';
             validerBtn.disabled = false;
         }
     };
 }
 
-async function validerCommandeFormate(numTable, clientData) {
-    afficherNotification("⏳ Envoi de la commande...");
+async function validerCommande(numTable, clientData, codeSaisi) {
+    const checkoutBtn = document.getElementById("checkoutBtn");
+    if (checkoutBtn) { checkoutBtn.disabled = true; checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; }
+
     try {
-        let nomClient = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
-        const tableFinale = (numTable === 'Emporter' || clientData) && isNaN(parseInt(numTable)) ? 'Emporter' : (numTable === 'Emporter' ? 'Emporter' : parseInt(numTable));
+        let nomFidele = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
+        let idFidele = clientData ? codeSaisi : clientId;
+        
+        // 🔥 LOGIQUE CRUCIALE : 
+        // Si c'est un client fidèle, on force sa commande en "Emporter" (pour qu'il aille dans la file d'attente de la caisse et non sur une table)
+        let tableFinale = numTable;
+        if (numTable === 'Emporter' || clientData) {
+            tableFinale = 'Emporter';
+        } else {
+            tableFinale = parseInt(numTable);
+        }
 
         const response = await fetch('/api/commandes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
                 numeroTable: tableFinale,
-                clientId: clientId,
-                clientName: nomClient // ENVOI DU NOM !
+                clientId: idFidele,
+                clientName: nomFidele // C'est ça qui fait apparaître le nom sur la caisse/cuisine !
             })
         });
 
         if (response.ok) {
             const commande = await response.json();
-            if(typeof sauvegarderCommandeClient === 'function') sauvegarderCommandeClient(commande);
+            sauvegarderCommandeClient(commande);
+            
             panier = []; sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier();
             
-            if (nomClient) afficherNotification(`🎉 Merci ${nomClient} ! Commande envoyée.`);
-            else afficherNotification("🎉 Commande envoyée avec succès !");
+            if (nomFidele) {
+                afficherNotification(`🎉 Merci ${nomFidele} ! Commande envoyée.`);
+            } else {
+                afficherNotification("🎉 Commande envoyée avec succès !");
+            }
             
-            if(typeof chargerCatalogue === 'function') await chargerCatalogue(); 
-        } else { afficherNotification("❌ Erreur serveur", "error"); }
-    } catch (e) { afficherNotification("❌ Erreur de connexion", "error"); } 
+            await chargerCatalogue(); 
+        } else { 
+            afficherNotification("❌ Erreur serveur", "error"); 
+        }
+    } catch (e) { 
+        afficherNotification("❌ Erreur de connexion", "error"); 
+    } finally {
+        if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; }
+    }
 }
 
 // ========== HISTORIQUE ET SOCKET ==========
@@ -479,8 +515,10 @@ function sauvegarderCommandeClient(commande) {
 function chargerMesCommandes() {
     const conteneur = document.getElementById("mesCommandes");
     if(!conteneur) return;
+    
     const hist = JSON.parse(localStorage.getItem(`tabia_mes_commandes_${clientId}`) || "[]");
     const valides = hist.filter(c => c.expiration > Date.now());
+    
     if(!valides.length) { conteneur.innerHTML = "<p class='empty-message' style='text-align:center; color:#7f8c8d;'>Aucune commande en cours</p>"; return; }
 
     conteneur.innerHTML = valides.map(cmd => {
@@ -501,7 +539,8 @@ function chargerMesCommandes() {
                 <div style="font-weight:bold; text-align:right; border-top:1px solid #f1f5f9; padding-top:5px; color:#db800a;">
                     Total: ${(cmd.total || 0).toFixed(2)} DT
                 </div>
-            </div>`;
+            </div>
+        `;
     }).join('');
 }
 
@@ -541,16 +580,31 @@ document.head.appendChild(styleNotif);
 function configurerEvenements() {
     document.getElementById("closeCart").onclick = fermerPanier;
     document.getElementById("checkoutBtn").onclick = passerCommande;
+    
     document.getElementById("confirmOptionBtn")?.addEventListener("click", () => {
         const selected = document.querySelector('input[name="varianteOption"]:checked');
-        if (selected && produitEnAttenteOption) { executerAjoutPanier(produitEnAttenteOption, selected.value); document.getElementById("optionsModal").style.display = "none"; produitEnAttenteOption = null; }
+        if (selected && produitEnAttenteOption) {
+            executerAjoutPanier(produitEnAttenteOption, selected.value);
+            document.getElementById("optionsModal").style.display = "none";
+            produitEnAttenteOption = null;
+        }
     });
-    document.getElementById("closeOptions")?.addEventListener("click", () => { document.getElementById("optionsModal").style.display = "none"; });
+    
+    document.getElementById("closeOptions")?.addEventListener("click", () => {
+        document.getElementById("optionsModal").style.display = "none";
+    });
+    
     document.getElementById("categoryTabs")?.addEventListener("click", (e) => {
         if(e.target.classList.contains("category-btn")) {
             document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
-            e.target.classList.add("active"); categorieActuelle = e.target.dataset.category; afficherProduits();
+            e.target.classList.add("active");
+            categorieActuelle = e.target.dataset.category;
+            afficherProduits();
         }
     });
-    window.onclick = (e) => { if(e.target.id === 'cartModal') fermerPanier(); if(e.target.id === 'optionsModal') document.getElementById("optionsModal").style.display = "none"; }
+    
+    window.onclick = (e) => {
+        if(e.target.id === 'cartModal') fermerPanier();
+        if(e.target.id === 'optionsModal') document.getElementById("optionsModal").style.display = "none";
+    }
 }
