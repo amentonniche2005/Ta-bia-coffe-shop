@@ -13,7 +13,7 @@ const io = socketIo(server, { cors: { origin: "*" } });
 const PORT = process.env.PORT || 3000;
 const CAISSE_TOKEN = process.env.CAISSE_TOKEN || '12345678';
 
-// 🔥 SÉCURITÉ WEBSOCKET (Faille 4 : Protection du temps réel)
+// 🔥 SÉCURITÉ WEBSOCKET
 io.use((socket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers['authorization'];
     if (token === CAISSE_TOKEN || socket.handshake.query.clientType === 'customer') {
@@ -41,7 +41,7 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     variantes: { type: String, default: "" }, 
     typeChoix: { type: String, default: "unique" },
     seuilAlerte: { type: Number, default: 10 }, unite: String,
-    actif: { type: Boolean, default: true } // 🔥 Soft Delete
+    actif: { type: Boolean, default: true }
 }));
 
 const Movement = mongoose.model('Movement', new mongoose.Schema({
@@ -167,7 +167,6 @@ app.post('/api/tickets-ouverts', verifierToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 🔥 ANTI-CRASH : Tous les blocs ci-dessous sont maintenant dans des Try/Catch
 app.get('/api/customers', verifierToken, async (req, res) => {
     try { res.json(await LoyalCustomer.find({}).sort({ _id: -1 })); }
     catch (err) { res.status(500).json({ error: err.message }); }
@@ -370,6 +369,13 @@ app.post('/api/numbers/refresh/:numero', async (req, res) => {
     }
 });
 
+// 🔥 LA ROUTE MANQUANTE POUR AFFICHER LES VENTES DANS LES RAPPORTS !
+app.get('/api/ventes', verifierToken, async (req, res) => {
+    try {
+        res.json(await Sale.find({}).sort({ timestamp: -1 }));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/ventes', verifierToken, async (req, res) => {
     try {
         let vraiTotalReel = 0;
@@ -392,7 +398,6 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
         res.json({ success: true, totalSecurise: vraiTotalReel });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 
 // ========== 6. INITIALISATION DU MENU (SEED) ==========
 async function seedDatabase() {
