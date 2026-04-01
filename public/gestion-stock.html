@@ -1152,9 +1152,10 @@ async function chargerDepenses() {
             return;
         }
 
-        if (vue === 'detail') {
-            // VUE DÉTAILLÉE (Ligne par ligne)
-            thead.innerHTML = `<tr><th>Date & Heure</th><th>Catégorie</th><th>Bénéficiaire / Motif</th><th>Mode</th><th style="text-align:right;">Montant Payé</th><th style="text-align:right;">Dette (Reste)</th></tr>`;
+if (vue === 'detail') {
+            // VUE DÉTAILLÉE (Ligne par ligne avec bouton Supprimer)
+            thead.innerHTML = `<tr><th>Date & Heure</th><th>Catégorie</th><th>Bénéficiaire / Motif</th><th>Mode</th><th style="text-align:right;">Montant Payé</th><th style="text-align:right;">Dette (Reste)</th><th style="text-align:center;">Actions</th></tr>`;
+            
             tbody.innerHTML = data.map(d => {
                 const cat = d.categoriePrincipale || d.categorie || 'Autre';
                 const detteHTML = (d.resteAPayer > 0) ? `<span style="color:var(--danger); font-weight:bold;">${formatMoney(d.resteAPayer)}</span>` : `<span style="color:var(--text-muted);">Réglé</span>`;
@@ -1167,6 +1168,11 @@ async function chargerDepenses() {
                     <td><i class="fas fa-wallet"></i> ${d.modePaiement || d.mode || 'especes'}</td>
                     <td style="text-align:right; font-weight:900; color:var(--danger);">${formatMoney(d.montantPaye || d.montant)}</td>
                     <td style="text-align:right;">${detteHTML}</td>
+                    <td style="text-align:center;">
+                        <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem; border-radius: 8px;" onclick="supprimerDepense('${d._id}')" title="Annuler cette opération">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
                 </tr>`;
             }).join('');
         } 
@@ -1208,6 +1214,27 @@ async function chargerDepenses() {
             `).join('');
         }
     } catch (e) { console.error("Erreur Depenses:", e); }
+}
+async function supprimerDepense(id) {
+    // 1. On demande confirmation au gérant pour éviter les clics par erreur
+    if (!confirm("⚠️ Êtes-vous sûr de vouloir annuler et supprimer cette opération comptable ?\nCette action va modifier vos bilans et effacer la dette si elle existe.")) {
+        return; 
+    }
+
+    try {
+        // 2. On envoie l'ordre de destruction au serveur
+        const response = await fetchSecurise(`/api/depenses/${id}`, { method: 'DELETE' });
+        
+        if (response.ok) {
+            showNotification("🗑️ Opération annulée avec succès !", "var(--success)");
+            chargerDepenses(); // 3. On recalcule tout (Bilans, Kridi, Totaux) instantanément !
+        } else {
+            showNotification("❌ Erreur lors de l'annulation", "var(--danger)");
+        }
+    } catch (e) {
+        showNotification("❌ Erreur réseau", "var(--danger)");
+        console.error(e);
+    }
 }
 
 // 🔥 MODAL DE SAISIE MULTI-FONCTIONS

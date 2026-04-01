@@ -365,6 +365,14 @@ app.post('/api/depenses', verifierToken, async (req, res) => {
         res.json({ success: true }); 
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
+app.delete('/api/depenses/:id', verifierToken, async (req, res) => {
+    try {
+        await Expense.findByIdAndDelete(req.params.id);
+        res.json({ success: true, message: "Opération supprimée" });
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
 
 app.post('/api/numbers/refresh/:numero', async (req, res) => {
     try {
