@@ -438,11 +438,11 @@
                 <button class="btn-action" style="background: #f1c40f; color: #2c3e50; font-weight: 800; font-size: 1rem; padding: 0.8rem 1.5rem;" onclick="ouvrirModalDepensePro()"><i class="fas fa-plus-circle"></i> Ajouter une Dépense</button>
             </div>
 
-            <div class="toolbar" style="margin-top: -10px; border-top-left-radius: 0; border-top-right-radius: 0; background: #f8fafc;">
-                <div class="filters">
+<div class="toolbar" style="margin-top: -10px; border-top-left-radius: 0; border-top-right-radius: 0; background: #f8fafc;">
+                <div class="filters" style="align-items: flex-end;">
                     <div class="filter-group">
                         <label style="color:var(--danger);"><i class="fas fa-calendar-alt"></i> Historique</label>
-                        <select id="vueDepenses" onchange="chargerDepenses()" style="font-weight: bold; color: var(--danger);">
+                        <select id="vueDepenses" style="font-weight: bold; color: var(--danger);">
                             <option value="detail">📑 Détail (Toutes les opérations)</option>
                             <option value="jour">📅 Résumé par Jour</option>
                             <option value="mois">📆 Résumé par Mois</option>
@@ -451,15 +451,19 @@
                     </div>
                     <div class="filter-group">
                         <label><i class="fas fa-tags"></i> Catégorie</label>
-                        <select id="filtreCatDepense" onchange="chargerDepenses()">
+                        <select id="filtreCatDepense">
                             <option value="all">Toutes les dépenses</option>
                             <option value="rh">👤 Personnel (Salaires, Avances)</option>
                             <option value="fournisseur">📦 Fournisseurs (Stock, Marchandise)</option>
                             <option value="fixes">🏠 Charges Fixes (Loyer, STEG, SONEDE...)</option>
                         </select>
                     </div>
-                    <div class="filter-group"><label>Du</label><input type="date" id="depenseDateDebut" onchange="chargerDepenses()"></div>
-                    <div class="filter-group"><label>Au</label><input type="date" id="depenseDateFin" onchange="chargerDepenses()"></div>
+                    <div class="filter-group"><label>Du</label><input type="date" id="depenseDateDebut"></div>
+                    <div class="filter-group"><label>Au</label><input type="date" id="depenseDateFin"></div>
+                    
+                    <button class="btn-action" style="background: var(--info); padding: 0.6rem 1.5rem; height: 38px; margin-bottom: 2px;" onclick="chargerDepenses()">
+                        <i class="fas fa-filter"></i> Filtrer
+                    </button>
                 </div>
             </div>
 
