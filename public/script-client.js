@@ -535,8 +535,12 @@ function chargerMesCommandes() {
 function nettoyerCommandesExpirees() { chargerMesCommandes(); }
 
 function initClientSocket() {
-    const socketClient= io({ query: { clientType: 'customer' } });
-    socketClient.on('mise_a_jour_commande', (commande) => {
+    const socket = io({ 
+    query: { clientType: 'customer' }, 
+    transports: ['websocket', 'polling'], 
+    reconnection: true 
+});
+    socket.on('mise_a_jour_commande', (commande) => {
         const key = `tabia_mes_commandes_${clientId}`;
         let hist = JSON.parse(localStorage.getItem(key) || "[]");
         const idx = hist.findIndex(c => c.id === commande.id);

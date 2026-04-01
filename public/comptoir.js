@@ -57,8 +57,12 @@ async function terminerCommande(id) {
 let socket = null;
 
 function initSocket() {
-    socket = io({ transports: ['websocket', 'polling'], reconnection: true });
     
+    socket = io({ 
+    auth: { token: monToken }, 
+    transports: ['websocket', 'polling'], 
+    reconnection: true 
+});
     socket.on('connect', () => {
         document.getElementById('onlineStatus').textContent = '🟢';
         afficherNotification('Connexion au serveur rétablie', 'success');

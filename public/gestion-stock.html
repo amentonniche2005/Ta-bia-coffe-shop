@@ -1244,7 +1244,11 @@ async function chargerRapportVentes() {
             document.getElementById('searchFilter').addEventListener('input', appliquerFiltresEtTriStock);
             
             // ========== SYNCHRONISATION EN TEMPS RÉEL ==========
-            const socket = io(); // On connecte la page au serveur en temps réel
+            const socket = io({ 
+    auth: { token: monToken }, 
+    transports: ['websocket', 'polling'], 
+    reconnection: true 
+}); // On connecte la page au serveur en temps réel
 
             socket.on('update_stock', () => {
                 chargerStock();
