@@ -432,52 +432,55 @@
 <div class="panel" id="panel-depenses">
     <div class="toolbar">
         <div>
-            <h3 style="font-size:1.1rem; color:var(--text-main);">Gestion des Charges & Dépenses</h3>
-            <p style="font-size:0.8rem; color:var(--text-muted);">Suivez vos achats de stock et frais de personnel.</p>
+            <h3 style="font-size:1.1rem; color:var(--text-main);">Comptabilité & Charges</h3>
+            <p style="font-size:0.8rem; color:var(--text-muted);">Suivi exhaustif des flux de sortie (Stock, Personnel, Fixes).</p>
         </div>
         <div class="filters">
             <div class="filter-group">
                 <label>Vue</label>
-                <select id="typeRapportDepense" onchange="chargerDepenses()" style="font-weight: bold; color: var(--danger);">
-                    <option value="detail">📑 Détail par opération</option>
-                    <option value="jour">📅 Total par Jour</option>
-                    <option value="mois">📆 Total par Mois</option>
+                <select id="typeRapportDepense" onchange="chargerDepenses()" style="font-weight: bold; color: #c0392b;">
+                    <option value="detail">📑 Journalier (Détails)</option>
+                    <option value="mois">📆 Mensuel (Groupé)</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label>Catégorie</label>
                 <select id="depenseCategorie" onchange="chargerDepenses()">
-                    <option value="all">Toutes les charges</option>
-                    <option value="achat_stock">📦 Achat Stock</option>
-                    <option value="personnel">👤 Personnel / Serveurs</option>
-                    <option value="loyer">🏠 Loyer & Fixes</option>
-                    <option value="energie">⚡ Énergie (Eau/Elec/Gaz)</option>
-                    <option value="entretien">🔧 Entretien & Travaux</option>
-                    <option value="autres">📝 Autres frais</option>
+                    <option value="all">Tout</option>
+                    <option value="personnel">👤 Staff (Salaires/Primes)</option>
+                    <option value="stock">📦 Achats Marchandises</option>
+                    <option value="utilites">⚡ Utilités (Eau/Elec/Gaz)</option>
+                    <option value="fixes">🏠 Loyer & Frais Fixes</option>
                 </select>
+            </div>
+            <div class="filter-group">
+                <i class="fas fa-user-tag"></i>
+                <input type="text" id="searchServeur" placeholder="Chercher Serveur..." oninput="chargerDepenses()">
             </div>
             <div class="filter-group"><label>Du</label><input type="date" id="depenseDateDebut"></div>
             <div class="filter-group"><label>Au</label><input type="date" id="depenseDateFin"></div>
-            <button class="btn-action btn-success" onclick="chargerDepenses()"><i class="fas fa-sync"></i> Analyser</button>
-            <button class="btn-action btn-warning" onclick="ouvrirModalDepense()"><i class="fas fa-plus"></i> Saisir</button>
+            <button class="btn-action btn-warning" onclick="ouvrirModalDepense()"><i class="fas fa-plus"></i> Saisie</button>
         </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-        <div style="background: white; padding: 1.2rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
-            <div style="color: var(--text-muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase;">Dépenses sur la période</div>
-            <div id="kpiTotalDepensePeriode" style="font-size: 1.8rem; font-weight: 800; color: var(--danger); margin-top: 5px;">0.00 DT</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <div style="background: #fff; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color); border-left: 5px solid var(--danger);">
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Sorties</div>
+            <div id="kpiTotalGlobalDepense" style="font-size: 1.5rem; font-weight: 800; color: var(--danger);">0.00 DT</div>
         </div>
-        <div style="background: white; padding: 1.2rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
-            <div style="color: var(--text-muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase;">Poste de dépense principal</div>
-            <div id="kpiPostePrincipal" style="font-size: 1.8rem; font-weight: 800; color: var(--primary); margin-top: 5px;">-</div>
+        <div style="background: #fff; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color); border-left: 5px solid var(--info);">
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Masse Salariale</div>
+            <div id="kpiTotalSalaires" style="font-size: 1.5rem; font-weight: 800; color: var(--info);">0.00 DT</div>
+        </div>
+        <div style="background: #fff; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color); border-left: 5px solid var(--success);">
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Achats Stock</div>
+            <div id="kpiTotalAchatStock" style="font-size: 1.5rem; font-weight: 800; color: var(--success);">0.00 DT</div>
         </div>
     </div>
 
     <div class="table-container">
-        <table id="depensesTable">
-            <thead id="depensesThead">
-                </thead>
+        <table>
+            <thead id="depensesThead"></thead>
             <tbody id="depensesTableBody"></tbody>
         </table>
     </div>
@@ -1091,79 +1094,75 @@
         // ========== 6. MODULE DÉPENSES ==========
 
 async function chargerDepenses() {
-    const typeVue = document.getElementById('typeRapportDepense').value;
-    const catFiltre = document.getElementById('depenseCategorie').value;
-    const debutStr = document.getElementById('depenseDateDebut').value;
-    const finStr = document.getElementById('depenseDateFin').value;
-    
+    const vue = document.getElementById('typeRapportDepense').value;
+    const cat = document.getElementById('depenseCategorie').value;
+    const search = document.getElementById('searchServeur').value.toLowerCase();
+    const debut = document.getElementById('depenseDateDebut').value;
+    const fin = document.getElementById('depenseDateFin').value;
+
     try {
         const res = await fetchSecurise('/api/depenses');
         let data = await res.json();
-        data = Array.isArray(data) ? data : []; 
+        data = Array.isArray(data) ? data : [];
 
-        // 1. Filtrage par Date
-        if (debutStr || finStr) {
-            const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
-            const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
-            data = data.filter(d => {
-                const ts = parseDateFR(d.date);
-                return ts >= tsDebut && ts <= tsFin;
-            });
-        }
+        // 1. Filtrage temporel et textuel
+        const tsDebut = debut ? new Date(debut + "T00:00:00").getTime() : 0;
+        const tsFin = fin ? new Date(fin + "T23:59:59").getTime() : Infinity;
 
-        // 2. Filtrage par Catégorie
-        if (catFiltre !== 'all') {
-            data = data.filter(d => d.categorie === catFiltre);
-        }
+        data = data.filter(d => {
+            const ts = parseDateFR(d.date);
+            const matchCat = (cat === 'all' || d.categorie === cat);
+            const matchSearch = d.description.toLowerCase().includes(search);
+            const matchDate = (ts >= tsDebut && ts <= tsFin);
+            return matchCat && matchSearch && matchDate;
+        });
 
-        // 3. Calcul des KPI
-        const total = data.reduce((sum, d) => sum + d.montant, 0);
-        document.getElementById('kpiTotalDepensePeriode').innerText = formatMoney(total);
+        // 2. Calcul des KPI pour le gérant
+        let totalGlobal = 0, totalStaff = 0, totalStock = 0;
+        data.forEach(d => {
+            totalGlobal += d.montant;
+            if (d.categorie === 'personnel') totalStaff += d.montant;
+            if (d.categorie === 'stock') totalStock += d.montant;
+        });
 
-        // Trouver la catégorie la plus gourmande
-        const stats = {};
-        data.forEach(d => { stats[d.categorie] = (stats[d.categorie] || 0) + d.montant; });
-        const topCat = Object.keys(stats).reduce((a, b) => stats[a] > stats[b] ? a : b, "-");
-        document.getElementById('kpiPostePrincipal').innerText = topCat !== "-" ? getDepenseLabel(topCat) : "-";
+        document.getElementById('kpiTotalGlobalDepense').innerText = formatMoney(totalGlobal);
+        document.getElementById('kpiTotalSalaires').innerText = formatMoney(totalStaff);
+        document.getElementById('kpiTotalAchatStock').innerText = formatMoney(totalStock);
 
-        // 4. Affichage selon la vue choisie
+        // 3. Affichage du tableau
         const thead = document.getElementById('depensesThead');
         const tbody = document.getElementById('depensesTableBody');
 
-        if (typeVue === 'detail') {
-            thead.innerHTML = `<tr><th>Date</th><th>Catégorie</th><th>Description / Serveur</th><th>Mode</th><th style="text-align:right;">Montant</th></tr>`;
+        if (vue === 'detail') {
+            thead.innerHTML = `<tr><th>Date</th><th>Type</th><th>Détail / Serveur</th><th>Mode</th><th style="text-align:right;">Montant</th></tr>`;
             tbody.innerHTML = data.map(d => `
                 <tr>
-                    <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.75rem; color:var(--text-muted);">${d.date.split(' ').slice(1).join(' ')}</div></td>
-                    <td><span class="badge badge-neutral">${getDepenseLabel(d.categorie)}</span></td>
+                    <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.7rem; color:#95a5a6;">${d.date.split(' ').slice(1).join(' ')}</div></td>
+                    <td><span class="badge" style="background:${getColorByCat(d.categorie)}15; color:${getColorByCat(d.categorie)};">${getLabelByCat(d.categorie)}</span></td>
                     <td><strong>${escapeHtml(d.description)}</strong></td>
-                    <td><i class="fas fa-wallet"></i> ${d.mode}</td>
+                    <td><span style="font-size:0.8rem;">💳 ${d.mode}</span></td>
                     <td style="text-align:right; font-weight:800; color:var(--danger);">${formatMoney(d.montant)}</td>
                 </tr>
             `).join('');
-        } 
-        else {
-            // Vue Groupée (Jour ou Mois)
+        } else {
+            // Vue groupée par mois
             const groupes = {};
             data.forEach(d => {
-                const parts = d.date.split(' ')[0].split('/'); // DD/MM/YYYY
-                const cle = (typeVue === 'jour') ? `${parts[0]}/${parts[1]}/${parts[2]}` : `${parts[1]}/${parts[2]}`;
-                if (!groupes[cle]) groupes[cle] = 0;
-                groupes[cle] += d.montant;
+                const mois = d.date.split('/')[1] + '/' + d.date.split('/')[2].split(' ')[0];
+                groupes[mois] = (groupes[mois] || 0) + d.montant;
             });
-
-            thead.innerHTML = `<tr><th>Période</th><th style="text-align:right;">Total Dépensé</th></tr>`;
-            tbody.innerHTML = Object.keys(groupes).map(cle => `
-                <tr>
-                    <td><strong>${cle}</strong></td>
-                    <td style="text-align:right; font-weight:800; color:var(--danger); font-size:1.1rem;">${formatMoney(groupes[cle])}</td>
-                </tr>
-            `).join('');
+            thead.innerHTML = `<tr><th>Période Mensuelle</th><th style="text-align:right;">Cumul Dépensé</th></tr>`;
+            tbody.innerHTML = Object.keys(groupes).map(m => `<tr><td><strong>Mois de ${m}</strong></td><td style="text-align:right; font-weight:800; color:var(--danger);">${formatMoney(groupes[m])}</td></tr>`).join('');
         }
-        
-        if (data.length === 0) tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucune donnée trouvée</td></tr>';
+    } catch (e) { console.error(e); }
+}
 
-    } catch (e) { console.error("Erreur Depenses:", e); }
+function getColorByCat(c) {
+    return { personnel: '#3498db', stock: '#27ae60', utilites: '#f39c12', fixes: '#8e44ad' }[c] || '#7f8c8d';
+}
+
+function getLabelByCat(c) {
+    return { personnel: '👤 Staff', stock: '📦 Stock', utilites: '⚡ Utilités', fixes: '🏠 Fixes' }[c] || '📝 Autre';
 }
 
 function getDepenseLabel(cat) {
@@ -1173,26 +1172,26 @@ function getDepenseLabel(cat) {
 
 function ouvrirModalDepense() {
     document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-file-invoice-dollar"></i> Saisie Comptable</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-        <div class="form-group"><label>Type de charge :</label>
-            <select id="newDepCat" onchange="ajusterDescription(this.value)">
-                <option value="achat_stock">📦 Achat Stock (Marchandises)</option>
-                <option value="personnel">👤 Salaire / Avance Serveur</option>
-                <option value="loyer">🏠 Loyer ou Charge Fixe</option>
-                <option value="energie">⚡ Facture (Eau/Elec/Internet)</option>
+        <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-calculator"></i> Sortie de Caisse</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+        <div class="form-group"><label>Catégorie de la dépense :</label>
+            <select id="newDepCat" onchange="document.getElementById('newDepDesc').placeholder = (this.value==='personnel')?'Nom du serveur + type (Salaire/Avance)':'Précisez le motif (Gaz, BL #...)'">
+                <option value="stock">📦 Achat Stock / Marchandise</option>
+                <option value="personnel">👤 Personnel (Salaire, Avance, Prime)</option>
+                <option value="utilites">⚡ Utilités (Eau, Elec, Gaz, Internet)</option>
+                <option value="fixes">🏠 Loyer & Charges Fixes</option>
                 <option value="autres">📝 Autre dépense</option>
             </select>
         </div>
-        <div class="form-group"><label id="labelDesc">Description précise :</label>
-            <input type="text" id="newDepDesc" placeholder="Ex: Achat café 5kg ou Avance Ahmed">
+        <div class="form-group"><label>Description / Serveur :</label>
+            <input type="text" id="newDepDesc" placeholder="Ex: Ahmed - Avance sur salaire">
         </div>
         <div style="display:flex; gap:1rem;">
-            <div class="form-group" style="flex:1;"><label>Montant (DT) :</label><input type="number" id="newDepMontant" step="0.5"></div>
+            <div class="form-group" style="flex:1;"><label>Montant (DT) :</label><input type="number" id="newDepMontant" step="1"></div>
             <div class="form-group" style="flex:1;"><label>Paiement :</label>
-                <select id="newDepMode"><option value="especes">Espèces</option><option value="cheque">Chèque</option><option value="virement">Virement</option></select>
+                <select id="newDepMode"><option value="especes">💸 Espèces</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
             </div>
         </div>
-        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerDepense()">Enregistrer l'écriture</button></div></div></div>
+        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerDepense()">Valider l'écriture</button></div></div></div>
     `;
 }
 
