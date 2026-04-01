@@ -1100,6 +1100,13 @@
         }
 
 // ========== 6. MODULE DÉPENSES ==========
+// =========================================================================
+// ========== MODULE DÉPENSES PRO (Complet avec Modif & Suppr) =============
+// =========================================================================
+
+// 🔥 C'EST ICI QUE ÇA BLOQUAIT : On crée la mémoire globale !
+let depensesGlobales = [];
+
 async function chargerDepenses() {
     const vue = document.getElementById('vueDepenses').value;
     const catFiltre = document.getElementById('filtreCatDepense').value;
@@ -1110,6 +1117,9 @@ async function chargerDepenses() {
         const res = await fetchSecurise('/api/depenses');
         let data = await res.json();
         data = Array.isArray(data) ? data : [];
+        
+        // 🔥 On sauvegarde TOUTES les dépenses dans la mémoire pour pouvoir les modifier !
+        depensesGlobales = data;
 
         // 1. Filtrage par Dates
         if (debutStr || finStr) {
@@ -1126,7 +1136,7 @@ async function chargerDepenses() {
             data = data.filter(d => (d.categoriePrincipale || d.categorie) === catFiltre);
         }
 
-        // 3. Calcul des KPI Globaux (Sur les données filtrées)
+        // 3. Calcul des KPI Globaux
         let totGlobal = 0, totRH = 0, totStock = 0, totDettes = 0;
         data.forEach(d => {
             const montantSorti = d.montantPaye || d.montant || 0;
@@ -1143,7 +1153,7 @@ async function chargerDepenses() {
         document.getElementById('kpiDepenseStock').textContent = formatMoney(totStock);
         document.getElementById('kpiDepenseDettes').textContent = formatMoney(totDettes);
 
-        // 4. Affichage dans le tableau selon la VUE
+        // 4. Affichage dans le tableau
         const thead = document.getElementById('depensesThead');
         const tbody = document.getElementById('depensesTableBody');
 
@@ -1152,10 +1162,8 @@ async function chargerDepenses() {
             return;
         }
 
-if (vue === 'detail') {
-            // VUE DÉTAILLÉE (Ligne par ligne avec boutons Modifier et Supprimer)
+        if (vue === 'detail') {
             thead.innerHTML = `<tr><th>Date & Heure</th><th>Catégorie</th><th>Bénéficiaire / Motif</th><th>Mode</th><th style="text-align:right;">Montant Payé</th><th style="text-align:right;">Dette (Reste)</th><th style="text-align:center;">Actions</th></tr>`;
-            
             tbody.innerHTML = data.map(d => {
                 const cat = d.categoriePrincipale || d.categorie || 'Autre';
                 const detteHTML = (d.resteAPayer > 0) ? `<span style="color:var(--danger); font-weight:bold;">${formatMoney(d.resteAPayer)}</span>` : `<span style="color:var(--text-muted);">Réglé</span>`;
@@ -1178,14 +1186,11 @@ if (vue === 'detail') {
                     </td>
                 </tr>`;
             }).join('');
-        } 
-        else {
-            // VUE HISTORIQUE GROUPÉE (Jour / Mois / Année)
+        } else {
             const groupes = {};
             data.forEach(d => {
-                const parts = d.date.split(' ')[0].split('/'); // parts = [Jour, Mois, Année]
+                const parts = d.date.split(' ')[0].split('/'); 
                 let cleDate = '';
-                
                 if (vue === 'jour') cleDate = `${parts[0]}/${parts[1]}/${parts[2]}`;
                 if (vue === 'mois') cleDate = `${parts[1]}/${parts[2]}`;
                 if (vue === 'annee') cleDate = `${parts[2]}`;
@@ -1203,7 +1208,6 @@ if (vue === 'detail') {
             });
 
             thead.innerHTML = `<tr><th>Période</th><th style="text-align:right;">Staff (RH)</th><th style="text-align:right;">Fournisseurs</th><th style="text-align:right;">Charges Fixes</th><th style="text-align:right; font-size:1.1rem; color:var(--danger);">Total Dépensé</th></tr>`;
-            
             tbody.innerHTML = Object.keys(groupes).map(cle => `
                 <tr>
                     <td><strong>${vue === 'mois' ? 'Mois de ' : ''}${cle}</strong>
@@ -1216,139 +1220,10 @@ if (vue === 'detail') {
                 </tr>
             `).join('');
         }
-    } catch (e) { console.error("Erreur Depenses:", e); }
-}
-async function supprimerDepense(id) {
-    // 1. On demande confirmation au gérant pour éviter les clics par erreur
-    if (!confirm("⚠️ Êtes-vous sûr de vouloir annuler et supprimer cette opération comptable ?\nCette action va modifier vos bilans et effacer la dette si elle existe.")) {
-        return; 
-    }
-
-    try {
-        // 2. On envoie l'ordre de destruction au serveur
-        const response = await fetchSecurise(`/api/depenses/${id}`, { method: 'DELETE' });
-        
-        if (response.ok) {
-            showNotification("🗑️ Opération annulée avec succès !", "var(--success)");
-            chargerDepenses(); // 3. On recalcule tout (Bilans, Kridi, Totaux) instantanément !
-        } else {
-            showNotification("❌ Erreur lors de l'annulation", "var(--danger)");
-        }
-    } catch (e) {
-        showNotification("❌ Erreur réseau", "var(--danger)");
-        console.error(e);
-    }
-}
-// 🔥 NOUVELLE FONCTION : OUVRIR LA MODIFICATION D'UNE DÉPENSE
-function ouvrirModalEditionDepense(id) {
-    // 1. On retrouve la dépense dans la mémoire
-    const d = depensesGlobales.find(x => x._id === id);
-    if (!d) return;
-
-    // 2. On affiche le modal (identique à l'ajout, mais avec le bouton "Mettre à jour")
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content" style="max-width: 500px;">
-        <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier la Dépense</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-        
-        <div class="form-group">
-            <label>Famille d'opération :</label>
-            <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid #3498db; font-weight:bold; color:#3498db;">
-                <option value="fournisseur">📦 Achat Fournisseur / Stock</option>
-                <option value="rh">👤 Employé (Salaire / Avance / Prime)</option>
-                <option value="fixes">🏠 Charges Fixes (STEG, SONEDE, Loyer)</option>
-            </select>
-        </div>
-
-        <div id="dynamicDepenseForm"></div> <div class="form-group" style="margin-top:15px;"><label>Mode de Paiement :</label>
-            <select id="depMode"><option value="especes">💵 Espèces (Sortie Tiroir)</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
-        </div>
-        <div class="modal-buttons">
-            <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
-            <button class="btn-primary" style="background:#3498db;" onclick="validerEditionDepense('${d._id}')"><i class="fas fa-save"></i> Mettre à jour</button>
-        </div>
-        </div></div>
-    `;
-
-    // 3. On pré-remplit les informations !
-    document.getElementById('depCatMain').value = d.categoriePrincipale || 'fixes';
-    changerFormulaireDepense(); // Affiche les bons champs selon la catégorie
-
-    // Petite astuce : on attend 50 millisecondes pour que l'ordinateur ait le temps de dessiner les champs avant de les remplir
-    setTimeout(() => {
-        if(document.getElementById('depSousCat')) document.getElementById('depSousCat').value = d.sousCategorie || '';
-        if(document.getElementById('depBeneficiaire')) document.getElementById('depBeneficiaire').value = d.beneficiaire || '';
-        if(document.getElementById('depDesc')) document.getElementById('depDesc').value = d.description || '';
-        if(document.getElementById('depMontantTotal')) document.getElementById('depMontantTotal').value = d.montantTotal || d.montant || 0;
-        if(document.getElementById('depMontantPaye')) document.getElementById('depMontantPaye').value = d.montantPaye || d.montant || 0;
-        if(document.getElementById('depMode')) document.getElementById('depMode').value = d.modePaiement || d.mode || 'especes';
-        if(typeof calcReste === 'function') calcReste();
-    }, 50);
-}
-
-// 🔥 NOUVELLE FONCTION : ENVOYER LA MISE À JOUR AU SERVEUR
-async function validerEditionDepense(id) {
-    const catMain = document.getElementById('depCatMain').value;
-    const total = parseFloat(document.getElementById('depMontantTotal').value) || 0;
-    
-    let paye = total; 
-    let reste = 0;
-    let statut = 'paye';
-
-    if (catMain === 'fournisseur') {
-        paye = parseFloat(document.getElementById('depMontantPaye').value) || 0;
-        reste = total - paye;
-        if (reste > 0) statut = 'credit';
-    }
-
-    const body = {
-        categoriePrincipale: catMain,
-        sousCategorie: document.getElementById('depSousCat') ? document.getElementById('depSousCat').value : '',
-        beneficiaire: document.getElementById('depBeneficiaire') ? document.getElementById('depBeneficiaire').value : 'Général',
-        description: document.getElementById('depDesc') ? document.getElementById('depDesc').value : '',
-        montantTotal: total,
-        montantPaye: paye,
-        resteAPayer: reste > 0 ? reste : 0,
-        statut: statut,
-        modePaiement: document.getElementById('depMode').value
-    };
-
-    if (paye < 0 || total <= 0) return showNotification("Le montant doit être valide.", "var(--danger)");
-
-    try {
-        const res = await fetchSecurise(`/api/depenses/${id}`, { method: 'PUT', body: JSON.stringify(body) });
-        if (res.ok) { 
-            showNotification("✅ Opération mise à jour avec succès", "var(--success)"); 
-            fermerModal(); 
-            chargerDepenses(); // Recalcule les KPI avec les nouveaux montants
-        } else {
-            showNotification("❌ Erreur lors de la modification", "var(--danger)");
-        }
     } catch (e) { console.error(e); }
 }
 
-// 🔥 MODAL DE SAISIE MULTI-FONCTIONS
-function ouvrirModalDepensePro() {
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content" style="max-width: 500px;">
-        <div class="modal-header"><h3><i class="fas fa-plus-circle"></i> Ajouter une Dépense</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-        
-        <div class="form-group">
-            <label>Famille d'opération :</label>
-            <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid var(--danger); font-weight:bold; color:var(--danger);">
-                <option value="fournisseur">📦 Achat Fournisseur / Stock</option>
-                <option value="rh">👤 Employé (Salaire / Avance / Prime)</option>
-                <option value="fixes">🏠 Charges Fixes (STEG, SONEDE, Loyer)</option>
-            </select>
-        </div>
-
-        <div id="dynamicDepenseForm"></div> <div class="form-group" style="margin-top:15px;"><label>Mode de Paiement :</label>
-            <select id="depMode"><option value="especes">💵 Espèces (Sortie Tiroir)</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
-        </div>
-        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" style="background:var(--danger);" onclick="validerDepensePro()"><i class="fas fa-save"></i> Valider la dépense</button></div>
-        </div></div>
-    `;
-    changerFormulaireDepense();
-}
+// --- FENÊTRES MODALES (AJOUT ET MODIFICATION) ---
 
 function changerFormulaireDepense() {
     const cat = document.getElementById('depCatMain').value;
@@ -1366,25 +1241,24 @@ function changerFormulaireDepense() {
     } 
     else if (cat === 'fournisseur') {
         container.innerHTML = `
-            <div class="form-group"><label>Fournisseur :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Grossiste Boissons, Laiterie..."></div>
-            <div class="form-group"><label>Détail (N° Facture/BL) :</label><input type="text" id="depDesc" placeholder="Ex: BL-405, 10 packs d'eau..."></div>
+            <div class="form-group"><label>Fournisseur :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Grossiste Boissons..."></div>
+            <div class="form-group"><label>Détail (N° Facture/BL) :</label><input type="text" id="depDesc" placeholder="Ex: BL-405..."></div>
             <div style="display:flex; gap:10px;">
                 <div class="form-group" style="flex:1;"><label>Coût Total Facture:</label><input type="number" id="depMontantTotal" step="0.5" oninput="calcReste()" style="font-weight:bold;"></div>
-                <div class="form-group" style="flex:1;"><label>Montant Payé (Espèces):</label><input type="number" id="depMontantPaye" step="0.5" oninput="calcReste()" style="font-weight:bold; color:var(--success);"></div>
+                <div class="form-group" style="flex:1;"><label>Montant Payé:</label><input type="number" id="depMontantPaye" step="0.5" oninput="calcReste()" style="font-weight:bold; color:var(--success);"></div>
             </div>
             <div class="form-group" style="background:#fff5f5; padding:10px; border-radius:8px; border:1px dashed var(--danger);">
                 <label style="color:var(--danger);">Reste à payer (Kridi) :</label>
-                <input type="number" id="depReste" readonly style="background:transparent; border:none; font-size:1.2rem; font-weight:900; color:var(--danger); pointer-events:none;" value="0.00">
+                <input type="number" id="depReste" readonly style="background:transparent; border:none; font-size:1.2rem; font-weight:900; color:var(--danger);" value="0.00">
             </div>
-            <input type="hidden" id="depSousCat" value="marchandise">
         `;
     } 
     else {
         container.innerHTML = `
             <div class="form-group"><label>Facture / Service :</label>
-                <select id="depSousCat"><option value="steg">⚡ Électricité & Gaz (STEG)</option><option value="sonede">💧 Eau (SONEDE)</option><option value="internet">🌐 Internet</option><option value="loyer">🏠 Loyer</option><option value="entretien">🔧 Plombier/Électricien</option><option value="autre">📝 Autre</option></select>
+                <select id="depSousCat"><option value="steg">⚡ Électricité & Gaz</option><option value="sonede">💧 Eau</option><option value="loyer">🏠 Loyer</option><option value="autre">📝 Autre</option></select>
             </div>
-            <div class="form-group"><label>Description :</label><input type="text" id="depDesc" placeholder="Ex: Facture Mars, ou Réparation machine..."></div>
+            <div class="form-group"><label>Description :</label><input type="text" id="depDesc" placeholder="Ex: Facture Mars..."></div>
             <div class="form-group"><label>Montant Sorti (DT) :</label><input type="number" id="depMontantTotal" step="0.5" style="font-size:1.2rem; font-weight:bold;"></div>
         `;
     }
@@ -1397,13 +1271,30 @@ function calcReste() {
     document.getElementById('depReste').value = reste > 0 ? reste.toFixed(2) : "0.00";
 }
 
+// 1. OUVIR L'AJOUT
+function ouvrirModalDepensePro() {
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active"><div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header"><h3><i class="fas fa-plus-circle"></i> Ajouter une Dépense</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+        <div class="form-group">
+            <label>Famille d'opération :</label>
+            <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid var(--danger); font-weight:bold; color:var(--danger);">
+                <option value="fournisseur">📦 Achat Fournisseur / Stock</option><option value="rh">👤 Employé (Salaire/Avance)</option><option value="fixes">🏠 Charges Fixes (STEG, Loyer)</option>
+            </select>
+        </div>
+        <div id="dynamicDepenseForm"></div>
+        <div class="form-group" style="margin-top:15px;"><label>Mode de Paiement :</label>
+            <select id="depMode"><option value="especes">💵 Espèces (Sortie Tiroir)</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
+        </div>
+        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" style="background:var(--danger);" onclick="validerDepensePro()"><i class="fas fa-save"></i> Valider</button></div>
+        </div></div>`;
+    changerFormulaireDepense();
+}
+
 async function validerDepensePro() {
     const catMain = document.getElementById('depCatMain').value;
     const total = parseFloat(document.getElementById('depMontantTotal').value) || 0;
-    
-    let paye = total; 
-    let reste = 0;
-    let statut = 'paye';
+    let paye = total; let reste = 0; let statut = 'paye';
 
     if (catMain === 'fournisseur') {
         paye = parseFloat(document.getElementById('depMontantPaye').value) || 0;
@@ -1413,25 +1304,86 @@ async function validerDepensePro() {
 
     const body = {
         categoriePrincipale: catMain,
-        sousCategorie: document.getElementById('depSousCat').value,
-        beneficiaire: document.getElementById('depBeneficiaire') ? document.getElementById('depBeneficiaire').value : 'Général',
-        description: document.getElementById('depDesc').value,
-        montantTotal: total,
-        montantPaye: paye,
-        resteAPayer: reste > 0 ? reste : 0,
-        statut: statut,
+        sousCategorie: document.getElementById('depSousCat') ? document.getElementById('depSousCat').value : '',
+        beneficiaire: document.getElementById('depBeneficiaire') ? document.getElementById('depBeneficiaire').value : '',
+        description: document.getElementById('depDesc') ? document.getElementById('depDesc').value : '',
+        montantTotal: total, montantPaye: paye, resteAPayer: reste > 0 ? reste : 0, statut: statut,
         modePaiement: document.getElementById('depMode').value
     };
 
-    if (paye < 0 || total <= 0) return showNotification("Le montant doit être valide.", "var(--danger)");
-
     try {
         const res = await fetchSecurise('/api/depenses', { method: 'POST', body: JSON.stringify(body) });
-        if (res.ok) { 
-            showNotification("✅ Dépense enregistrée", "var(--success)"); 
-            fermerModal(); 
-            chargerDepenses(); 
-        }
+        if (res.ok) { showNotification("✅ Enregistré", "var(--success)"); fermerModal(); chargerDepenses(); }
+    } catch (e) { console.error(e); }
+}
+
+// 2. OUVRIR LA MODIFICATION
+function ouvrirModalEditionDepense(id) {
+    const d = depensesGlobales.find(x => x._id === id);
+    if (!d) return;
+
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active"><div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier la Dépense</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+        <div class="form-group">
+            <label>Famille d'opération :</label>
+            <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid #3498db; font-weight:bold; color:#3498db;">
+                <option value="fournisseur">📦 Achat Fournisseur / Stock</option><option value="rh">👤 Employé (Salaire/Avance)</option><option value="fixes">🏠 Charges Fixes (STEG, Loyer)</option>
+            </select>
+        </div>
+        <div id="dynamicDepenseForm"></div>
+        <div class="form-group" style="margin-top:15px;"><label>Mode de Paiement :</label>
+            <select id="depMode"><option value="especes">💵 Espèces</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
+        </div>
+        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" style="background:#3498db;" onclick="validerEditionDepense('${d._id}')"><i class="fas fa-save"></i> Mettre à jour</button></div>
+        </div></div>`;
+
+    document.getElementById('depCatMain').value = d.categoriePrincipale || 'fixes';
+    changerFormulaireDepense();
+
+    setTimeout(() => {
+        if(document.getElementById('depSousCat')) document.getElementById('depSousCat').value = d.sousCategorie || '';
+        if(document.getElementById('depBeneficiaire')) document.getElementById('depBeneficiaire').value = d.beneficiaire || '';
+        if(document.getElementById('depDesc')) document.getElementById('depDesc').value = d.description || '';
+        if(document.getElementById('depMontantTotal')) document.getElementById('depMontantTotal').value = d.montantTotal || d.montant || 0;
+        if(document.getElementById('depMontantPaye')) document.getElementById('depMontantPaye').value = d.montantPaye || d.montant || 0;
+        if(document.getElementById('depMode')) document.getElementById('depMode').value = d.modePaiement || d.mode || 'especes';
+        if(typeof calcReste === 'function') calcReste();
+    }, 50);
+}
+
+async function validerEditionDepense(id) {
+    const catMain = document.getElementById('depCatMain').value;
+    const total = parseFloat(document.getElementById('depMontantTotal').value) || 0;
+    let paye = total; let reste = 0; let statut = 'paye';
+
+    if (catMain === 'fournisseur') {
+        paye = parseFloat(document.getElementById('depMontantPaye').value) || 0;
+        reste = total - paye;
+        if (reste > 0) statut = 'credit';
+    }
+
+    const body = {
+        categoriePrincipale: catMain,
+        sousCategorie: document.getElementById('depSousCat') ? document.getElementById('depSousCat').value : '',
+        beneficiaire: document.getElementById('depBeneficiaire') ? document.getElementById('depBeneficiaire').value : '',
+        description: document.getElementById('depDesc') ? document.getElementById('depDesc').value : '',
+        montantTotal: total, montantPaye: paye, resteAPayer: reste > 0 ? reste : 0, statut: statut,
+        modePaiement: document.getElementById('depMode').value
+    };
+
+    try {
+        const res = await fetchSecurise(`/api/depenses/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+        if (res.ok) { showNotification("✅ Mis à jour", "var(--success)"); fermerModal(); chargerDepenses(); }
+    } catch (e) { console.error(e); }
+}
+
+// 3. SUPPRESSION
+async function supprimerDepense(id) {
+    if (!confirm("⚠️ Êtes-vous sûr de vouloir annuler cette opération ?")) return;
+    try {
+        const response = await fetchSecurise(`/api/depenses/${id}`, { method: 'DELETE' });
+        if (response.ok) { showNotification("🗑️ Annulé", "var(--success)"); chargerDepenses(); }
     } catch (e) { console.error(e); }
 }
         
