@@ -1086,7 +1086,7 @@
         }
 
         // ========== 8. MODULE VENTES ET ARCHIVES ==========
-        async function chargerRapportVentes() {
+async function chargerRapportVentes() {
             try {
                 const res = await fetchSecurise('/api/ventes');
                 toutesLesVentes = await res.json();
@@ -1094,8 +1094,18 @@
                 const typeRapport = document.getElementById('typeRapport').value;
                 const debutStr = document.getElementById('rapportDateDebut').value;
                 const finStr = document.getElementById('rapportDateFin').value;
-                const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
-                const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
+                
+                // 🔥 NOUVEAU : Une journée commence à 02:00:00 du matin
+                const tsDebut = debutStr ? new Date(debutStr + "T02:00:00").getTime() : 0;
+                
+                // 🔥 NOUVEAU : Une journée se termine à 01:59:59 LE LENDEMAIN
+                let tsFin = Infinity;
+                if (finStr) {
+                    const dateFinObj = new Date(finStr);
+                    dateFinObj.setDate(dateFinObj.getDate() + 1); // On ajoute 1 jour
+                    dateFinObj.setHours(1, 59, 59, 999); // On s'arrête à 1h59m59s
+                    tsFin = dateFinObj.getTime();
+                }
 
                 // Filtrage
                 const ventesFiltrees = toutesLesVentes.filter(v => {
@@ -1166,13 +1176,18 @@
                 else {
                     const groupes = {};
                     ventesFiltrees.forEach(v => {
-                        const datePart = v.date.split(' ')[0];
-                        const parts = datePart.split('/');
+                        // 🔥 NOUVEAU : On recule l'heure de la vente de 2 heures (7200000 millisecondes)
+                        // Ainsi, un ticket tapé à 01h30 du matin sera compté comme appartenant au jour d'avant !
+                        const businessDate = new Date(v.timestamp - 7200000);
+                        
+                        const jour = String(businessDate.getDate()).padStart(2, '0');
+                        const mois = String(businessDate.getMonth() + 1).padStart(2, '0');
+                        const annee = businessDate.getFullYear();
                         
                         let cle = '';
-                        if (typeRapport === 'jour') { cle = `${parts[0]}/${parts[1]}/${parts[2]}`; titreDroite.innerHTML = "📅 Journal Quotidien (Clôtures)"; }
-                        if (typeRapport === 'mois') { cle = `${parts[1]}/${parts[2]}`; titreDroite.innerHTML = "📆 Journal Mensuel"; }
-                        if (typeRapport === 'annee') { cle = `${parts[2]}`; titreDroite.innerHTML = "📈 Journal Annuel"; }
+                        if (typeRapport === 'jour') { cle = `${jour}/${mois}/${annee}`; titreDroite.innerHTML = "📅 Journal Quotidien (Clôtures)"; }
+                        if (typeRapport === 'mois') { cle = `${mois}/${annee}`; titreDroite.innerHTML = "📆 Journal Mensuel"; }
+                        if (typeRapport === 'annee') { cle = `${annee}`; titreDroite.innerHTML = "📈 Journal Annuel"; }
 
                         if (!groupes[cle]) groupes[cle] = { ca: 0, tickets: 0 };
                         groupes[cle].ca += v.total;
