@@ -946,7 +946,7 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
     function initSocket() {
-        socket = io();
+        const socket = io({ auth: { token: monToken } });
 
         socket.on('connect', async () => {
             await chargerCommandesCuisineInitiales();
