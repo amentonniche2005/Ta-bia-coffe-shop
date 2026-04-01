@@ -618,26 +618,32 @@ const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 
         }
 
         // --- NOUVEAUX BOUTONS CRUD ---
-        function ouvrirModalNouveauProduit() {
+function ouvrirModalNouveauProduit() {
             document.getElementById('modalContainer').innerHTML = `
                 <div class="modal active">
                     <div class="modal-content">
                         <div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
                         <div class="form-group"><label>Nom du produit :</label><input type="text" id="newProdName" placeholder="Ex: Espresso"></div>
-                        <div class="form-group">
-                            <label>Choix / Variantes (séparés par des virgules) :</label>
-                            <input type="text" id="newProdVariantes" placeholder="Ex: Vanille, Chocolat, Fraise">
-                        </div>
+                        
                         <div class="form-group">
                             <label>Type de choix pour le client :</label>
-                            <select id="newProdTypeChoix">
+                            <select id="newProdTypeChoix" onchange="document.getElementById('divNewVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
                                 <option value="aucun" selected>🚫 Aucun choix (Produit simple)</option>
                                 <option value="unique">🔘 Un seul choix (Ex: Normal, Serré)</option>
                                 <option value="multiple">☑️ Plusieurs choix (Ex: Ingrédients Sandwich)</option>
                             </select>
                         </div>
+                        
+                        <div class="form-group" id="divNewVariantes" style="display: none;">
+                            <label>Choix / Variantes (séparés par des virgules) :</label>
+                            <input type="text" id="newProdVariantes" placeholder="Ex: Vanille, Chocolat, Fraise">
+                        </div>
+
                         <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="newProdImage" placeholder="Collez le lien .jpg ici"></div>
-<div class="form-group"><label>Catégorie :</label><select id="newProdCat"><option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="chicha">💨 Chicha</option></select></div>                        <div style="display:flex; gap:10px;">
+                        <div class="form-group"><label>Catégorie :</label><select id="newProdCat">
+                            <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="chicha">💨 Chicha</option>
+                        </select></div>
+                        <div style="display:flex; gap:10px;">
                             <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="newProdPrice" step="0.1" placeholder="2.5"></div>
                             <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" step="1" placeholder="100"></div>
                         </div>
@@ -648,10 +654,12 @@ const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 
         }
 
         async function sauvegarderNouveauProduit() {
+            const typeC = document.getElementById('newProdTypeChoix').value;
             const produitData = {
                 nom: document.getElementById('newProdName').value,
-                variantes: document.getElementById('newProdVariantes').value,
-                typeChoix: document.getElementById('newProdTypeChoix').value,
+                // 🔥 LA CORRECTION EST ICI : Si on est sur "aucun", on force le vide absolu ""
+                variantes: typeC === 'aucun' ? "" : document.getElementById('newProdVariantes').value,
+                typeChoix: typeC,
                 image: document.getElementById('newProdImage').value, 
                 categorie: document.getElementById('newProdCat').value,
                 prix: parseFloat(document.getElementById('newProdPrice').value),
@@ -676,20 +684,30 @@ const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 
                     <div class="modal-content">
                         <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
                         <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
-                        <div class="form-group">
-                            <label>Choix / Variantes (séparés par des virgules) :</label>
-                            <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Petit, Moyen, Grand">
-                        </div>
+                        
                         <div class="form-group">
                             <label>Type de choix pour le client :</label>
-                            <select id="editProdTypeChoix">
+                            <select id="editProdTypeChoix" onchange="document.getElementById('divEditVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
                                 <option value="aucun" ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'selected' : ''}>🚫 Aucun choix (Produit simple)</option>
                                 <option value="unique" ${p.typeChoix === 'unique' ? 'selected' : ''}>🔘 Un seul choix</option>
                                 <option value="multiple" ${p.typeChoix === 'multiple' ? 'selected' : ''}>☑️ Plusieurs choix</option>
                             </select>
                         </div>
+                        
+                        <div class="form-group" id="divEditVariantes" style="display: ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'none' : 'block'};">
+                            <label>Choix / Variantes (séparés par des virgules) :</label>
+                            <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Petit, Moyen, Grand">
+                        </div>
+
                         <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="Collez le lien .jpg ici"></div>
-                        <div class="form-group"><label>Catégorie :</label><select id="editProdCat"><option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option><option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option><option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option><option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option><option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option><option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option></select></div>
+                        <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
+                            <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
+                            <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
+                            <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
+                            <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
+                            <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
+                            <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option>
+                        </select></div>
                         <div style="display:flex; gap:10px;">
                             <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
                             <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
@@ -698,6 +716,25 @@ const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 
                         <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
                     </div>
                 </div>`;
+        }
+
+        async function sauvegarderEditionProduit(id) {
+            const typeC = document.getElementById('editProdTypeChoix').value;
+            const produitData = {
+                nom: document.getElementById('editProdName').value,
+                // 🔥 MÊME CORRECTION ICI POUR LA MODIFICATION
+                variantes: typeC === 'aucun' ? "" : document.getElementById('editProdVariantes').value,
+                typeChoix: typeC,
+                image: document.getElementById('editProdImage').value,
+                categorie: document.getElementById('editProdCat').value,
+                prix: parseFloat(document.getElementById('editProdPrice').value),
+                stock: parseInt(document.getElementById('editProdStock').value),
+                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
+            };
+            try {
+                const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
+                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); }
+            } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
         }
 
         async function sauvegarderEditionProduit(id) {
