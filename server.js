@@ -26,7 +26,7 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     id: Number, nom: String, prix: Number, stock: Number, categorie: String, 
     image: { type: String, default: 'https://via.placeholder.com/150' },
     variantes: { type: String, default: "" }, 
-    typeChoix: { type: String, default: "unique" }, // 🔥 NOUVELLE LIGNE AJOUTÉE ICI
+    typeChoix: { type: String, default: "unique" },
     seuilAlerte: { type: Number, default: 10 }, unite: String
 }));
 
@@ -46,38 +46,41 @@ const Expense = mongoose.model('Expense', new mongoose.Schema({
 }));
 
 const Order = mongoose.model('Order', new mongoose.Schema({
-    id: Number, 
-    numero: String, 
-    date: String, 
-    timestamp: Number, 
-    articles: Array,
-    numeroTable: String, 
-    statut: { type: String, default: 'en_attente' }, 
-    total: Number,
-    clientId: String,
-    clientName: String 
+    id: Number, numero: String, date: String, timestamp: Number, articles: Array,
+    numeroTable: String, statut: { type: String, default: 'en_attente' }, 
+    total: Number, clientId: String, clientName: String 
 }));
 
 const TableCode = mongoose.model('TableCode', new mongoose.Schema({
     numero: Number, code: String, lastUpdated: Number
 }));
+
 const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({
-    nom: String,
-    prenom: String,
-    telephone: String,
+    nom: String, prenom: String, telephone: String,
     codeFidelite: { type: String, unique: true },
     dateInscription: { type: String, default: () => new Date().toLocaleDateString('fr-FR') }
 }));
+
 const Sale = mongoose.model('Sale', new mongoose.Schema({
-    id: String,
-    numero: String,
+    id: String, numero: String,
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     timestamp: { type: Number, default: () => Date.now() },
-    total: Number,
-    remise: Number,
+    total: Number, remise: Number,
     typePaiement: String, // complet ou partiel
-    tableOrigine: String,
-    articles: Array // Ce qu'il y a dans le ticket
+    methodePaiement: { type: String, default: 'especes' }, // 🔥 NOUVEAU
+    tableOrigine: String, articles: Array
+}));
+
+// 🔥 NOUVEAU : Modèle pour la journée de caisse (Z-Report)
+const CashRegister = mongoose.model('CashRegister', new mongoose.Schema({
+    dateOuverture: { type: String, default: () => new Date().toLocaleString('fr-FR') },
+    dateFermeture: String,
+    timestampOuverture: { type: Number, default: () => Date.now() },
+    fondDeCaisse: Number,
+    totalVentesEspeces: { type: Number, default: 0 },
+    especesReelles: Number,
+    ecart: Number,
+    statut: { type: String, default: 'ouvert' } // 'ouvert' ou 'ferme'
 }));
 
 // ========== 3. MIDDLEWARES ET SÉCURITÉ ==========
@@ -88,7 +91,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 const PORT = process.env.PORT || 3000;
 const CAISSE_TOKEN = process.env.CAISSE_TOKEN || '12345678';
 
-// 🛡️ LE VIGILE : Il vérifie que la requête possède bien le Token de la caisse
 function verifierToken(req, res, next) {
     const tokenFourni = req.headers['authorization'];
     if (tokenFourni === CAISSE_TOKEN) {
@@ -99,24 +101,18 @@ function verifierToken(req, res, next) {
 }
 
 // =========================================================
-// ========== 4. ROUTES API 🔓 PUBLIQUES ==================
+// ========== 4. ROUTES API PUBLIQUES ==================
 // =========================================================
 
-// --- AUTHENTIFICATION ---
-// Pour que la caisse puisse se connecter et récupérer son Token
 app.post('/api/caisse/verify', (req, res) => {
     if (req.body.token === CAISSE_TOKEN) { res.json({ success: true, message: "Token accepté" }); } 
     else { res.status(401).json({ success: false, message: "Token invalide" }); }
 });
 
-// --- MENU CLIENTS ---
-// Les clients ont besoin de voir le menu sur leur téléphone
 app.get('/api/stock', async (req, res) => {
     try { res.json(await Product.find({}).sort({ id: 1 })); } catch (err) { res.status(500).json(err); }
 });
 
-// --- PRISE DE COMMANDE CLIENTS ---
-// Les clients doivent pouvoir envoyer une commande depuis leur téléphone
 app.post('/api/commandes', async (req, res) => {
     try {
         const cmd = new Order({ 
@@ -131,51 +127,40 @@ app.post('/api/commandes', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- LECTURE QR CODES ---
-// Permet à la page client de vérifier le numéro de table
 app.get('/api/numbers', async (req, res) => {
-    try { 
-        res.json(await TableCode.find({}).sort({ numero: 1 })); 
-    } catch (err) { 
-        res.status(500).json(err); 
-    }
+    try { res.json(await TableCode.find({}).sort({ numero: 1 })); } 
+    catch (err) { res.status(500).json(err); }
 });
 
+// =========================================================
+// ========== 5. ROUTES API SÉCURISÉES =================
+// =========================================================
 
-// =========================================================
-// ========== 5. ROUTES API 🔒 SÉCURISÉES =================
-// (Nécessitent le Token de la caisse/cuisine)
-// =========================================================
-// Liste des clients fidèles
 app.get('/api/customers', async (req, res) => {
     res.json(await LoyalCustomer.find({}).sort({ _id: -1 }));
 });
 
-// AJOUTER UN CLIENT (Vérifie bien les 'await')
 app.post('/api/customers', async (req, res) => {
     try {
         const nouveau = new LoyalCustomer(req.body);
-        await nouveau.save(); // 🔥 CRITIQUE : attend que MongoDB enregistre
+        await nouveau.save(); 
         res.json({ success: true, customer: nouveau });
     } catch (err) { 
-        console.error("Erreur save client:", err);
         res.status(500).json({ error: "Erreur serveur" }); 
     }
 });
 
-// Supprimer un client
 app.delete('/api/customers/:id', async (req, res) => {
     await LoyalCustomer.findByIdAndDelete(req.params.id);
     res.json({ success: true });
 });
 
-// ROUTE PUBLIQUE : Vérifier un code (pour le téléphone du client)
 app.get('/api/customers/verify/:code', async (req, res) => {
     const customer = await LoyalCustomer.findOne({ codeFidelite: req.params.code });
     if (customer) res.json({ success: true, customer });
     else res.status(404).json({ success: false });
 });
-// --- COMMANDES ET CUISINE ---
+
 app.get('/api/commandes', verifierToken, async (req, res) => {
     try { res.json(await Order.find({ statut: { $ne: 'paye' } })); } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -201,7 +186,48 @@ app.put('/api/commandes/table/:numeroTable/paye', verifierToken, async (req, res
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- GESTION DU STOCK (AJOUT, MODIFICATION, SUPPRESSION) ---
+// --- GESTION TIROIR CAISSE (Z-REPORT) ---
+app.get('/api/tiroir/statut', verifierToken, async (req, res) => {
+    try {
+        const session = await CashRegister.findOne({ statut: 'ouvert' });
+        res.json({ ouvert: !!session, session });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/tiroir/ouvrir', verifierToken, async (req, res) => {
+    try {
+        const session = new CashRegister({ fondDeCaisse: req.body.fond });
+        await session.save();
+        res.json({ success: true, session });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/tiroir/fermer', verifierToken, async (req, res) => {
+    try {
+        const session = await CashRegister.findOne({ statut: 'ouvert' });
+        if (!session) return res.status(400).json({ error: "Aucune caisse ouverte" });
+
+        // Calcule toutes les ventes en ESPÈCES depuis l'ouverture
+        const ventes = await Sale.find({ 
+            timestamp: { $gte: session.timestampOuverture },
+            methodePaiement: 'especes'
+        });
+        
+        const totalEspeces = ventes.reduce((sum, v) => sum + v.total, 0);
+        const attendu = session.fondDeCaisse + totalEspeces;
+        const ecart = req.body.reel - attendu;
+
+        session.dateFermeture = new Date().toLocaleString('fr-FR');
+        session.totalVentesEspeces = totalEspeces;
+        session.especesReelles = req.body.reel;
+        session.ecart = ecart;
+        session.statut = 'ferme';
+        await session.save();
+
+        res.json({ success: true, session, attendu });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/stock', verifierToken, async (req, res) => {
     const nouveau = new Product({ ...req.body, id: Date.now() });
     await nouveau.save();
@@ -233,7 +259,6 @@ app.post('/api/stock/:id/add', verifierToken, async (req, res) => {
     } else { res.status(404).send(); }
 });
 
-// Décrémentation lors d'une vente (Appelé par la Caisse)
 app.post('/api/stock/decrementer', verifierToken, async (req, res) => {
     try {
         for (let art of req.body.articles) {
@@ -247,7 +272,6 @@ app.post('/api/stock/decrementer', verifierToken, async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// --- HISTORIQUES ET INVENTAIRES ---
 app.get('/api/stock/historique', verifierToken, async (req, res) => {
     res.json(await Movement.find({}).sort({ _id: -1 }).limit(100));
 });
@@ -273,11 +297,9 @@ app.post('/api/stock/inventaire', verifierToken, async (req, res) => {
     res.json({ success: true });
 });
 
-// --- DÉPENSES ---
 app.get('/api/depenses', verifierToken, async (req, res) => res.json(await Expense.find({}).sort({ _id: -1 })));
 app.post('/api/depenses', verifierToken, async (req, res) => { await new Expense(req.body).save(); res.json({ success: true }); });
 
-// --- QR CODES (GÉNÉRATION) ---
 app.post('/api/numbers/refresh/:numero', async (req, res) => {
     try {
         const updated = await TableCode.findOneAndUpdate(
@@ -290,8 +312,7 @@ app.post('/api/numbers/refresh/:numero', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-// --- VENTES ET RAPPORTS ---
-// Enregistrer une vente depuis la caisse
+
 app.post('/api/ventes', verifierToken, async (req, res) => {
     try {
         const vente = new Sale(req.body);
@@ -300,7 +321,6 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Récupérer les ventes pour le Dashboard
 app.get('/api/ventes', verifierToken, async (req, res) => {
     try {
         res.json(await Sale.find({}).sort({ timestamp: -1 }));
@@ -312,11 +332,7 @@ async function seedDatabase() {
     const count = await Product.countDocuments();
     if (count === 0) {
         await Product.insertMany([
-            { id: 1, nom: "Espresso", stock: 200, prix: 2.5, unite: "tasse", categorie: "cafe", seuilAlerte: 20 },
-            { id: 2, nom: "Capucin", stock: 200, prix: 3.0, unite: "tasse", categorie: "cafe", seuilAlerte: 20 },
-            { id: 6, nom: "Thé aux Pignons", stock: 80, prix: 6.5, unite: "verre", categorie: "the", seuilAlerte: 10 },
-            { id: 14, nom: "Cheesecake Speculoos", stock: 15, prix: 8.5, unite: "part", categorie: "dessert", seuilAlerte: 3 },
-            { id: 20, nom: "Panini Poulet Fromage", stock: 30, prix: 8.0, unite: "pièce", categorie: "sale", seuilAlerte: 5 }
+            { id: 1, nom: "Espresso", stock: 200, prix: 2.5, unite: "tasse", categorie: "cafe", seuilAlerte: 20 }
         ]);
         console.log("✅ Menu initial injecté dans MongoDB !");
     }
