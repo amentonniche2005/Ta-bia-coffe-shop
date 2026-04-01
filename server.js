@@ -54,9 +54,19 @@ const Inventory = mongoose.model('Inventory', new mongoose.Schema({
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') }, ecarts: Array
 }));
 
+// 🔥 MODÈLE DÉPENSES "PRO" (Avec gestion RH et Dettes Fournisseurs)
 const Expense = mongoose.model('Expense', new mongoose.Schema({
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
-    categorie: String, description: String, montant: Number, mode: String
+    timestamp: { type: Number, default: () => Date.now() },
+    categoriePrincipale: String, // 'rh', 'fournisseur', 'fixes', 'autre'
+    sousCategorie: String,       // 'avance', 'salaire', 'steg', 'boissons'...
+    beneficiaire: String,        // Nom de l'employé ou du fournisseur
+    description: String,         // Motif (ex: Facture #123)
+    montantTotal: Number,        // Montant total de la facture ou du salaire
+    montantPaye: Number,         // Combien on a sorti de la caisse aujourd'hui
+    resteAPayer: { type: Number, default: 0 }, // La dette (Le fameux "Kridi")
+    statut: { type: String, default: 'paye' }, // 'paye' ou 'credit'
+    modePaiement: String
 }));
 
 const Order = mongoose.model('Order', new mongoose.Schema({

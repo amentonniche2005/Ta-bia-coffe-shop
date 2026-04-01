@@ -430,61 +430,52 @@
         </div>
 
 <div class="panel" id="panel-depenses">
-    <div class="toolbar">
-        <div>
-            <h3 style="font-size:1.1rem; color:var(--text-main);">Comptabilité & Charges</h3>
-            <p style="font-size:0.8rem; color:var(--text-muted);">Suivi exhaustif des flux de sortie (Stock, Personnel, Fixes).</p>
-        </div>
-        <div class="filters">
-            <div class="filter-group">
-                <label>Vue</label>
-                <select id="typeRapportDepense" onchange="chargerDepenses()" style="font-weight: bold; color: #c0392b;">
-                    <option value="detail">📑 Journalier (Détails)</option>
-                    <option value="mois">📆 Mensuel (Groupé)</option>
-                </select>
+            <div class="toolbar" style="background: linear-gradient(135deg, #143621, #1e4d30); color: white;">
+                <div>
+                    <h3 style="font-size:1.4rem; color: #e3c496; font-family: 'Cinzel', serif;"><i class="fas fa-chart-line"></i> Intelligence Financière</h3>
+                    <p style="font-size:0.85rem; color: #d1d5db;">Gestion RH, Dettes Fournisseurs et Rentabilité Nette.</p>
+                </div>
+                <button class="btn-action" style="background: #e3c496; color: #143621; font-weight: 800; font-size: 1rem; padding: 0.8rem 1.5rem;" onclick="ouvrirModalDepensePro()"><i class="fas fa-plus-circle"></i> Saisir une Opération</button>
             </div>
-            <div class="filter-group">
-                <label>Catégorie</label>
-                <select id="depenseCategorie" onchange="chargerDepenses()">
-                    <option value="all">Tout</option>
-                    <option value="personnel">👤 Staff (Salaires/Primes)</option>
-                    <option value="stock">📦 Achats Marchandises</option>
-                    <option value="utilites">⚡ Utilités (Eau/Elec/Gaz)</option>
-                    <option value="fixes">🏠 Loyer & Frais Fixes</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <i class="fas fa-user-tag"></i>
-                <input type="text" id="searchServeur" placeholder="Chercher Serveur..." oninput="chargerDepenses()">
-            </div>
-            <div class="filter-group"><label>Du</label><input type="date" id="depenseDateDebut"></div>
-            <div class="filter-group"><label>Au</label><input type="date" id="depenseDateFin"></div>
-            <button class="btn-action btn-warning" onclick="ouvrirModalDepense()"><i class="fas fa-plus"></i> Saisie</button>
-        </div>
-    </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-        <div style="background: #fff; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color); border-left: 5px solid var(--danger);">
-            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Sorties</div>
-            <div id="kpiTotalGlobalDepense" style="font-size: 1.5rem; font-weight: 800; color: var(--danger);">0.00 DT</div>
-        </div>
-        <div style="background: #fff; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color); border-left: 5px solid var(--info);">
-            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Masse Salariale</div>
-            <div id="kpiTotalSalaires" style="font-size: 1.5rem; font-weight: 800; color: var(--info);">0.00 DT</div>
-        </div>
-        <div style="background: #fff; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color); border-left: 5px solid var(--success);">
-            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Achats Stock</div>
-            <div id="kpiTotalAchatStock" style="font-size: 1.5rem; font-weight: 800; color: var(--success);">0.00 DT</div>
-        </div>
-    </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">
+                <button class="btn-action" style="background: var(--info);" onclick="filtrerVueDepenses('dashboard')"><i class="fas fa-tachometer-alt"></i> Bilan Net</button>
+                <button class="btn-action" style="background: #8e44ad;" onclick="filtrerVueDepenses('rh')"><i class="fas fa-users"></i> Staff & Avances</button>
+                <button class="btn-action" style="background: #d35400;" onclick="filtrerVueDepenses('fournisseur')"><i class="fas fa-truck"></i> Fournisseurs & Dettes</button>
+                <button class="btn-action" style="background: var(--text-muted);" onclick="filtrerVueDepenses('fixes')"><i class="fas fa-building"></i> Charges Fixes</button>
+            </div>
 
-    <div class="table-container">
-        <table>
-            <thead id="depensesThead"></thead>
-            <tbody id="depensesTableBody"></tbody>
-        </table>
-    </div>
-</div>
+            <div id="financeDashboard" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="background: white; padding: 1.5rem; border-radius: 16px; border-left: 5px solid var(--success); box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <div style="color: var(--text-muted); font-weight: 700; font-size: 0.8rem; text-transform: uppercase;">Entrées (Chiffre d'Affaires)</div>
+                    <div id="kpiEntrees" style="font-size: 2rem; font-weight: 800; color: var(--success);">0.00 DT</div>
+                </div>
+                <div style="background: white; padding: 1.5rem; border-radius: 16px; border-left: 5px solid var(--danger); box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <div style="color: var(--text-muted); font-weight: 700; font-size: 0.8rem; text-transform: uppercase;">Sorties (Toutes Charges)</div>
+                    <div id="kpiSorties" style="font-size: 2rem; font-weight: 800; color: var(--danger);">0.00 DT</div>
+                </div>
+                <div style="background: #143621; padding: 1.5rem; border-radius: 16px; border: 1px solid #e3c496; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                    <div style="color: #e3c496; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;"><i class="fas fa-trophy"></i> BÉNÉFICE NET ESTIMÉ</div>
+                    <div id="kpiBenefice" style="font-size: 2.2rem; font-weight: 900; color: white;">0.00 DT</div>
+                </div>
+            </div>
+
+            <div id="alertesFinancieres" style="display: flex; gap: 15px; margin-bottom: 1.5rem;">
+                <div style="flex: 1; background: #fff5f5; padding: 1rem; border-radius: 10px; border: 1px solid #fed7d7; color: #c53030; font-weight: bold;">
+                    <i class="fas fa-exclamation-circle"></i> Dettes Fournisseurs (Crédit à payer) : <span id="totalDettes" style="font-size: 1.2rem; float: right;">0.00 DT</span>
+                </div>
+                <div style="flex: 1; background: #ebf8ff; padding: 1rem; border-radius: 10px; border: 1px solid #bee3f8; color: #2b6cb0; font-weight: bold;">
+                    <i class="fas fa-hand-holding-usd"></i> Total Avances Staff (À déduire) : <span id="totalAvances" style="font-size: 1.2rem; float: right;">0.00 DT</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead id="proDepensesThead"></thead>
+                    <tbody id="proDepensesTableBody"></tbody>
+                </table>
+            </div>
+        </div>
 
         <div class="panel" id="panel-fidelite">
             <div class="toolbar">
@@ -1093,130 +1084,198 @@
 
         // ========== 6. MODULE DÉPENSES ==========
 
+
+let depensesGlobales = [];
+let vueActiveDepense = 'dashboard';
+
 async function chargerDepenses() {
-    const vue = document.getElementById('typeRapportDepense').value;
-    const cat = document.getElementById('depenseCategorie').value;
-    const search = document.getElementById('searchServeur').value.toLowerCase();
-    const debut = document.getElementById('depenseDateDebut').value;
-    const fin = document.getElementById('depenseDateFin').value;
-
     try {
-        const res = await fetchSecurise('/api/depenses');
-        let data = await res.json();
-        data = Array.isArray(data) ? data : [];
+        // 1. On récupère les Dépenses ET les Ventes pour faire le bilan !
+        const [resDep, resVen] = await Promise.all([ fetchSecurise('/api/depenses'), fetchSecurise('/api/ventes') ]);
+        depensesGlobales = await resDep.json();
+        const ventes = await resVen.json();
+        
+        // 2. Calcul du Chiffre d'Affaires
+        const totalVentes = ventes.reduce((sum, v) => sum + v.total, 0);
+        // 3. Calcul des Sorties (On compte l'argent réellement sorti : "montantPaye" ou "montantTotal" pour les anciens)
+        const totalSorties = depensesGlobales.reduce((sum, d) => sum + (d.montantPaye || d.montant || 0), 0);
+        
+        // 4. Calcul Dettes (Crédit Fournisseurs) et Avances (Staff)
+        const dettes = depensesGlobales.filter(d => d.resteAPayer > 0).reduce((sum, d) => sum + d.resteAPayer, 0);
+        const avances = depensesGlobales.filter(d => d.sousCategorie === 'avance').reduce((sum, d) => sum + (d.montantTotal || d.montant || 0), 0);
 
-        // 1. Filtrage temporel et textuel
-        const tsDebut = debut ? new Date(debut + "T00:00:00").getTime() : 0;
-        const tsFin = fin ? new Date(fin + "T23:59:59").getTime() : Infinity;
+        document.getElementById('kpiEntrees').textContent = formatMoney(totalVentes);
+        document.getElementById('kpiSorties').textContent = formatMoney(totalSorties);
+        const benef = totalVentes - totalSorties;
+        const elBenef = document.getElementById('kpiBenefice');
+        elBenef.textContent = formatMoney(benef);
+        elBenef.style.color = benef >= 0 ? '#27ae60' : '#e74c3c';
 
-        data = data.filter(d => {
-            const ts = parseDateFR(d.date);
-            const matchCat = (cat === 'all' || d.categorie === cat);
-            const matchSearch = d.description.toLowerCase().includes(search);
-            const matchDate = (ts >= tsDebut && ts <= tsFin);
-            return matchCat && matchSearch && matchDate;
-        });
+        document.getElementById('totalDettes').textContent = formatMoney(dettes);
+        document.getElementById('totalAvances').textContent = formatMoney(avances);
 
-        // 2. Calcul des KPI pour le gérant
-        let totalGlobal = 0, totalStaff = 0, totalStock = 0;
-        data.forEach(d => {
-            totalGlobal += d.montant;
-            if (d.categorie === 'personnel') totalStaff += d.montant;
-            if (d.categorie === 'stock') totalStock += d.montant;
-        });
-
-        document.getElementById('kpiTotalGlobalDepense').innerText = formatMoney(totalGlobal);
-        document.getElementById('kpiTotalSalaires').innerText = formatMoney(totalStaff);
-        document.getElementById('kpiTotalAchatStock').innerText = formatMoney(totalStock);
-
-        // 3. Affichage du tableau
-        const thead = document.getElementById('depensesThead');
-        const tbody = document.getElementById('depensesTableBody');
-
-        if (vue === 'detail') {
-            thead.innerHTML = `<tr><th>Date</th><th>Type</th><th>Détail / Serveur</th><th>Mode</th><th style="text-align:right;">Montant</th></tr>`;
-            tbody.innerHTML = data.map(d => `
-                <tr>
-                    <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.7rem; color:#95a5a6;">${d.date.split(' ').slice(1).join(' ')}</div></td>
-                    <td><span class="badge" style="background:${getColorByCat(d.categorie)}15; color:${getColorByCat(d.categorie)};">${getLabelByCat(d.categorie)}</span></td>
-                    <td><strong>${escapeHtml(d.description)}</strong></td>
-                    <td><span style="font-size:0.8rem;">💳 ${d.mode}</span></td>
-                    <td style="text-align:right; font-weight:800; color:var(--danger);">${formatMoney(d.montant)}</td>
-                </tr>
-            `).join('');
-        } else {
-            // Vue groupée par mois
-            const groupes = {};
-            data.forEach(d => {
-                const mois = d.date.split('/')[1] + '/' + d.date.split('/')[2].split(' ')[0];
-                groupes[mois] = (groupes[mois] || 0) + d.montant;
-            });
-            thead.innerHTML = `<tr><th>Période Mensuelle</th><th style="text-align:right;">Cumul Dépensé</th></tr>`;
-            tbody.innerHTML = Object.keys(groupes).map(m => `<tr><td><strong>Mois de ${m}</strong></td><td style="text-align:right; font-weight:800; color:var(--danger);">${formatMoney(groupes[m])}</td></tr>`).join('');
-        }
-    } catch (e) { console.error(e); }
+        filtrerVueDepenses(vueActiveDepense);
+    } catch (e) { console.error("Erreur Compta:", e); }
 }
 
-function getColorByCat(c) {
-    return { personnel: '#3498db', stock: '#27ae60', utilites: '#f39c12', fixes: '#8e44ad' }[c] || '#7f8c8d';
+function filtrerVueDepenses(vue) {
+    vueActiveDepense = vue;
+    const thead = document.getElementById('proDepensesThead');
+    const tbody = document.getElementById('proDepensesTableBody');
+    
+    let data = depensesGlobales;
+    if (vue !== 'dashboard') data = depensesGlobales.filter(d => d.categoriePrincipale === vue);
+
+    if (data.length === 0) {
+        thead.innerHTML = ''; tbody.innerHTML = `<tr><td class="empty-message">Aucune opération dans cette catégorie.</td></tr>`;
+        return;
+    }
+
+    if (vue === 'rh') {
+        thead.innerHTML = `<tr><th>Date</th><th>Employé</th><th>Type d'opération</th><th style="text-align:right;">Montant</th></tr>`;
+        tbody.innerHTML = data.map(d => `
+            <tr>
+                <td>${d.date.split(' ')[0]}</td>
+                <td><strong><i class="fas fa-user"></i> ${escapeHtml(d.beneficiaire || 'Inconnu')}</strong></td>
+                <td><span class="badge ${d.sousCategorie==='avance'?'badge-warning':'badge-normal'}">${(d.sousCategorie || 'Salaire').toUpperCase()}</span><br><small>${escapeHtml(d.description||'')}</small></td>
+                <td style="text-align:right; font-weight:bold; color:var(--info);">${formatMoney(d.montantTotal || d.montant)}</td>
+            </tr>`).join('');
+    } 
+    else if (vue === 'fournisseur') {
+        thead.innerHTML = `<tr><th>Date</th><th>Fournisseur</th><th>Achat</th><th>Total Facture</th><th>Payé</th><th style="text-align:right;">Reste (Dette)</th></tr>`;
+        tbody.innerHTML = data.map(d => {
+            const detteAlert = d.resteAPayer > 0 ? 'color:var(--danger); font-weight:900;' : 'color:var(--text-muted);';
+            return `
+            <tr>
+                <td>${d.date.split(' ')[0]}</td>
+                <td><strong><i class="fas fa-truck"></i> ${escapeHtml(d.beneficiaire || 'Inconnu')}</strong></td>
+                <td>${escapeHtml(d.description || 'Marchandise')}</td>
+                <td style="font-weight:bold;">${formatMoney(d.montantTotal || d.montant)}</td>
+                <td style="color:var(--success);">${formatMoney(d.montantPaye || d.montant)}</td>
+                <td style="text-align:right; ${detteAlert}">${d.resteAPayer > 0 ? '⚠️ '+formatMoney(d.resteAPayer) : 'Réglé'}</td>
+            </tr>`}).join('');
+    } 
+    else {
+        // Vue Fixes ou Dashboard
+        thead.innerHTML = `<tr><th>Date</th><th>Catégorie</th><th>Bénéficiaire / Motif</th><th>Paiement</th><th style="text-align:right;">Montant Sorti</th></tr>`;
+        tbody.innerHTML = data.map(d => `
+            <tr>
+                <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.7rem; color:var(--text-muted);">${d.date.split(' ').slice(1).join(' ')}</div></td>
+                <td><span class="badge badge-neutral" style="text-transform:uppercase;">${d.categoriePrincipale || d.categorie || 'Autre'}</span></td>
+                <td><strong>${escapeHtml(d.beneficiaire || '')}</strong><br><small>${escapeHtml(d.description || '')}</small></td>
+                <td><i class="fas fa-wallet"></i> ${d.modePaiement || d.mode || 'especes'}</td>
+                <td style="text-align:right; font-weight:900; color:var(--danger);">${formatMoney(d.montantPaye || d.montant)}</td>
+            </tr>`).join('');
+    }
 }
 
-function getLabelByCat(c) {
-    return { personnel: '👤 Staff', stock: '📦 Stock', utilites: '⚡ Utilités', fixes: '🏠 Fixes' }[c] || '📝 Autre';
-}
-
-function getDepenseLabel(cat) {
-    const labels = { achat_stock: '📦 Stock', personnel: '👤 Personnel', loyer: '🏠 Fixes', energie: '⚡ Énergie', entretien: '🔧 Entretien', autres: '📝 Autres' };
-    return labels[cat] || cat;
-}
-
-function ouvrirModalDepense() {
+// 🔥 LE MODAL INTELLIGENT (Change selon ce qu'on sélectionne)
+function ouvrirModalDepensePro() {
     document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-calculator"></i> Sortie de Caisse</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-        <div class="form-group"><label>Catégorie de la dépense :</label>
-            <select id="newDepCat" onchange="document.getElementById('newDepDesc').placeholder = (this.value==='personnel')?'Nom du serveur + type (Salaire/Avance)':'Précisez le motif (Gaz, BL #...)'">
-                <option value="stock">📦 Achat Stock / Marchandise</option>
-                <option value="personnel">👤 Personnel (Salaire, Avance, Prime)</option>
-                <option value="utilites">⚡ Utilités (Eau, Elec, Gaz, Internet)</option>
-                <option value="fixes">🏠 Loyer & Charges Fixes</option>
-                <option value="autres">📝 Autre dépense</option>
+        <div class="modal active"><div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header"><h3><i class="fas fa-calculator"></i> Saisie Comptable</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+        
+        <div class="form-group">
+            <label>Famille d'opération :</label>
+            <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid var(--primary); font-weight:bold;">
+                <option value="fournisseur">📦 Achats & Fournisseurs (Marchandise)</option>
+                <option value="rh">👤 Ressources Humaines (Staff)</option>
+                <option value="fixes">💡 Charges Fixes (STEG, Loyer...)</option>
             </select>
         </div>
-        <div class="form-group"><label>Description / Serveur :</label>
-            <input type="text" id="newDepDesc" placeholder="Ex: Ahmed - Avance sur salaire">
+
+        <div id="dynamicDepenseForm"></div> <div class="form-group" style="margin-top:15px;"><label>Mode de Paiement :</label>
+            <select id="depMode"><option value="especes">💵 Espèces (Sortie de caisse)</option><option value="virement">🏦 Virement / Carte</option><option value="cheque">📄 Chèque</option></select>
         </div>
-        <div style="display:flex; gap:1rem;">
-            <div class="form-group" style="flex:1;"><label>Montant (DT) :</label><input type="number" id="newDepMontant" step="1"></div>
-            <div class="form-group" style="flex:1;"><label>Paiement :</label>
-                <select id="newDepMode"><option value="especes">💸 Espèces</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
-            </div>
-        </div>
-        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerDepense()">Valider l'écriture</button></div></div></div>
+        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerDepensePro()"><i class="fas fa-save"></i> Enregistrer l'opération</button></div>
+        </div></div>
     `;
+    changerFormulaireDepense(); // Charger la vue par défaut
 }
 
-function ajusterDescription(val) {
-    const input = document.getElementById('newDepDesc');
-    const label = document.getElementById('labelDesc');
-    if (val === 'personnel') { label.innerText = "Nom du serveur :"; input.placeholder = "Ex: Mohamed (Salaire semaine)"; }
-    else if (val === 'achat_stock') { label.innerText = "Détail achat :"; input.placeholder = "Ex: Grossiste Boissons (BL #45)"; }
-    else { label.innerText = "Description :"; input.placeholder = ""; }
+function changerFormulaireDepense() {
+    const cat = document.getElementById('depCatMain').value;
+    const container = document.getElementById('dynamicDepenseForm');
+
+    if (cat === 'rh') {
+        container.innerHTML = `
+            <div class="form-group"><label>Nom de l'employé :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Mohamed, Sarah..."></div>
+            <div class="form-group"><label>Type de paiement :</label>
+                <select id="depSousCat"><option value="avance">⚠️ Avance sur salaire (Sلفة)</option><option value="salaire">💰 Salaire Mensuel</option><option value="prime">🎁 Prime / Bonus</option></select>
+            </div>
+            <div class="form-group"><label>Montant (DT) :</label><input type="number" id="depMontantTotal" step="1" placeholder="0.00" style="font-size:1.2rem; font-weight:bold; color:var(--info);"></div>
+            <div class="form-group"><label>Note (Optionnel) :</label><input type="text" id="depDesc" placeholder="Ex: Semaine du 1 au 7..."></div>
+        `;
+    } 
+    else if (cat === 'fournisseur') {
+        container.innerHTML = `
+            <div class="form-group"><label>Nom du Fournisseur :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Grossiste Boissons, Ben Yedder..."></div>
+            <div class="form-group"><label>Description / N° Facture :</label><input type="text" id="depDesc" placeholder="Ex: Facture BL-405, 5kg Café..."></div>
+            <div style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;"><label>Total Facture (DT):</label><input type="number" id="depMontantTotal" step="0.5" oninput="calcReste()" style="font-weight:bold;"></div>
+                <div class="form-group" style="flex:1;"><label>Montant Payé (DT):</label><input type="number" id="depMontantPaye" step="0.5" oninput="calcReste()" style="font-weight:bold; color:var(--success);"></div>
+            </div>
+            <div class="form-group" style="background:#fff5f5; padding:10px; border-radius:8px; border:1px dashed var(--danger);">
+                <label style="color:var(--danger);">Reste à payer (Dette) :</label>
+                <input type="number" id="depReste" readonly style="background:transparent; border:none; font-size:1.2rem; font-weight:900; color:var(--danger); pointer-events:none;" value="0.00">
+            </div>
+            <input type="hidden" id="depSousCat" value="marchandise">
+        `;
+    } 
+    else {
+        container.innerHTML = `
+            <div class="form-group"><label>Type de charge :</label>
+                <select id="depSousCat"><option value="steg">⚡ Électricité (STEG)</option><option value="sonede">💧 Eau (SONEDE)</option><option value="loyer">🏠 Loyer</option><option value="entretien">🔧 Entretien / Réparation</option><option value="autre">📝 Autre</option></select>
+            </div>
+            <div class="form-group"><label>Bénéficiaire / Organisme :</label><input type="text" id="depBeneficiaire" placeholder="Ex: STEG, Propriétaire, Plombier..."></div>
+            <div class="form-group"><label>Description :</label><input type="text" id="depDesc" placeholder="Ex: Mois de Mars..."></div>
+            <div class="form-group"><label>Montant Sorti (DT) :</label><input type="number" id="depMontantTotal" step="0.5" style="font-size:1.2rem; font-weight:bold;"></div>
+        `;
+    }
 }
 
-async function validerDepense() {
+function calcReste() {
+    const total = parseFloat(document.getElementById('depMontantTotal').value) || 0;
+    const paye = parseFloat(document.getElementById('depMontantPaye').value) || 0;
+    const reste = total - paye;
+    document.getElementById('depReste').value = reste > 0 ? reste.toFixed(2) : "0.00";
+}
+
+async function validerDepensePro() {
+    const catMain = document.getElementById('depCatMain').value;
+    const total = parseFloat(document.getElementById('depMontantTotal').value) || 0;
+    
+    let paye = total; 
+    let reste = 0;
+    let statut = 'paye';
+
+    if (catMain === 'fournisseur') {
+        paye = parseFloat(document.getElementById('depMontantPaye').value) || 0;
+        reste = total - paye;
+        if (reste > 0) statut = 'credit';
+    }
+
     const body = {
-        categorie: document.getElementById('newDepCat').value,
-        description: document.getElementById('newDepDesc').value,
-        montant: parseFloat(document.getElementById('newDepMontant').value),
-        mode: document.getElementById('newDepMode').value,
-        date: new Date().toLocaleString('fr-FR')
+        categoriePrincipale: catMain,
+        sousCategorie: document.getElementById('depSousCat').value,
+        beneficiaire: document.getElementById('depBeneficiaire').value || 'Non spécifié',
+        description: document.getElementById('depDesc').value,
+        montantTotal: total,
+        montantPaye: paye,
+        resteAPayer: reste > 0 ? reste : 0,
+        statut: statut,
+        modePaiement: document.getElementById('depMode').value
     };
 
-    if (!body.description || isNaN(body.montant)) return showNotification("Données incomplètes", "var(--danger)");
+    if (total <= 0) return showNotification("Le montant doit être supérieur à 0", "var(--danger)");
 
     try {
         const res = await fetchSecurise('/api/depenses', { method: 'POST', body: JSON.stringify(body) });
-        if (res.ok) { showNotification("Dépense enregistrée", "var(--success)"); fermerModal(); chargerDepenses(); }
+        if (res.ok) { 
+            showNotification("✅ Opération comptable enregistrée", "var(--success)"); 
+            fermerModal(); 
+            chargerDepenses(); // Rafraîchit le bilan
+        }
     } catch (e) { console.error(e); }
 }
         
