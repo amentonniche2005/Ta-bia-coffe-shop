@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tabia-cache-v2'; // On passe à v2
+const CACHE_NAME = 'tabia-cache-v3'; // On passe à v2
 const urlsToCache = [
   '/',
   '/index.html', // 👈 Ta page client (change le nom si c'est différent)
