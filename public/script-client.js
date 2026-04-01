@@ -48,7 +48,8 @@ const categoryLabels = {
     'the': '🫖 Thés & Infusions',
     'boissons': '🍹 Boissons',
     'dessert': '🍰 Pâtisseries',
-    'sale': '🥪 Salé & Snack'
+    'sale': '🥪 Salé & Snack',
+    'chicha': '💨 Chichas'
 };
 
 function getClientId() {

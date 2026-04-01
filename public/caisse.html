@@ -577,8 +577,7 @@
 
     function renderCategories() {
         const container = document.getElementById('categoriesContainer');
-        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé" };
-        const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
+const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", chicha: "💨 Chichas" };        const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
         
         let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
         Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });

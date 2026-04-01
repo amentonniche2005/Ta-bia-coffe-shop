@@ -463,8 +463,7 @@
         };
 
         const formatMoney = (amount) => parseFloat(amount || 0).toFixed(2) + " DT";
-        const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches', 'pd': '🥐 Pâtisseries', 'plat': '🍝 Plats' }; return dict[cat] || cat; };
-        function fermerModal() { document.getElementById('modalContainer').innerHTML = ''; }
+const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches', 'pd': '🥐 Pâtisseries', 'plat': '🍝 Plats', 'chicha': '💨 Chichas' }; return dict[cat] || cat; };        function fermerModal() { document.getElementById('modalContainer').innerHTML = ''; }
 
         function parseDateFR(dateStr) {
             if (!dateStr) return 0;
@@ -637,7 +636,7 @@
                             </select>
                         </div>
                         <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="newProdImage" placeholder="Collez le lien .jpg ici"></div>
-                        <div class="form-group"><label>Catégorie :</label><select id="newProdCat"><option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option></select></div>
+                        <div class="form-group"><label>Catégorie :</label><select id="newProdCat"><option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option></select><option value="chicha">💨 Chicha</option></div>
                         <div style="display:flex; gap:10px;">
                             <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="newProdPrice" step="0.1" placeholder="2.5"></div>
                             <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" step="1" placeholder="100"></div>
@@ -695,6 +694,7 @@
                             <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
                             <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
                             <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
+                            <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option>
                         </select></div>
                         <div style="display:flex; gap:10px;">
                             <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
