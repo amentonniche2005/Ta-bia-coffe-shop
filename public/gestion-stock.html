@@ -430,49 +430,62 @@
         </div>
 
 <div class="panel" id="panel-depenses">
-            <div class="toolbar" style="background: linear-gradient(135deg, #143621, #1e4d30); color: white;">
+            <div class="toolbar" style="background: linear-gradient(135deg, #2c3e50, #34495e); color: white;">
                 <div>
-                    <h3 style="font-size:1.4rem; color: #e3c496; font-family: 'Cinzel', serif;"><i class="fas fa-chart-line"></i> Intelligence Financière</h3>
-                    <p style="font-size:0.85rem; color: #d1d5db;">Gestion RH, Dettes Fournisseurs et Rentabilité Nette.</p>
+                    <h3 style="font-size:1.4rem; color: #f1c40f;"><i class="fas fa-file-invoice-dollar"></i> Gestion des Dépenses & RH</h3>
+                    <p style="font-size:0.85rem; color: #d1d5db;">Suivez vos sorties d'argent, salaires, avances et dettes fournisseurs.</p>
                 </div>
-                <button class="btn-action" style="background: #e3c496; color: #143621; font-weight: 800; font-size: 1rem; padding: 0.8rem 1.5rem;" onclick="ouvrirModalDepensePro()"><i class="fas fa-plus-circle"></i> Saisir une Opération</button>
+                <button class="btn-action" style="background: #f1c40f; color: #2c3e50; font-weight: 800; font-size: 1rem; padding: 0.8rem 1.5rem;" onclick="ouvrirModalDepensePro()"><i class="fas fa-plus-circle"></i> Ajouter une Dépense</button>
             </div>
 
-            <div style="display: flex; gap: 10px; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">
-                <button class="btn-action" style="background: var(--info);" onclick="filtrerVueDepenses('dashboard')"><i class="fas fa-tachometer-alt"></i> Bilan Net</button>
-                <button class="btn-action" style="background: #8e44ad;" onclick="filtrerVueDepenses('rh')"><i class="fas fa-users"></i> Staff & Avances</button>
-                <button class="btn-action" style="background: #d35400;" onclick="filtrerVueDepenses('fournisseur')"><i class="fas fa-truck"></i> Fournisseurs & Dettes</button>
-                <button class="btn-action" style="background: var(--text-muted);" onclick="filtrerVueDepenses('fixes')"><i class="fas fa-building"></i> Charges Fixes</button>
+            <div class="toolbar" style="margin-top: -10px; border-top-left-radius: 0; border-top-right-radius: 0; background: #f8fafc;">
+                <div class="filters">
+                    <div class="filter-group">
+                        <label style="color:var(--danger);"><i class="fas fa-calendar-alt"></i> Historique</label>
+                        <select id="vueDepenses" onchange="chargerDepenses()" style="font-weight: bold; color: var(--danger);">
+                            <option value="detail">📑 Détail (Toutes les opérations)</option>
+                            <option value="jour">📅 Résumé par Jour</option>
+                            <option value="mois">📆 Résumé par Mois</option>
+                            <option value="annee">📈 Résumé par Année</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label><i class="fas fa-tags"></i> Catégorie</label>
+                        <select id="filtreCatDepense" onchange="chargerDepenses()">
+                            <option value="all">Toutes les dépenses</option>
+                            <option value="rh">👤 Personnel (Salaires, Avances)</option>
+                            <option value="fournisseur">📦 Fournisseurs (Stock, Marchandise)</option>
+                            <option value="fixes">🏠 Charges Fixes (Loyer, STEG, SONEDE...)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>Du</label><input type="date" id="depenseDateDebut" onchange="chargerDepenses()"></div>
+                    <div class="filter-group"><label>Au</label><input type="date" id="depenseDateFin" onchange="chargerDepenses()"></div>
+                </div>
             </div>
 
-            <div id="financeDashboard" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-                <div style="background: white; padding: 1.5rem; border-radius: 16px; border-left: 5px solid var(--success); box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <div style="color: var(--text-muted); font-weight: 700; font-size: 0.8rem; text-transform: uppercase;">Entrées (Chiffre d'Affaires)</div>
-                    <div id="kpiEntrees" style="font-size: 2rem; font-weight: 800; color: var(--success);">0.00 DT</div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="background: white; padding: 1rem; border-radius: 12px; border-left: 5px solid var(--danger); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total des Sorties</div>
+                    <div id="kpiDepenseTotal" style="font-size: 1.5rem; font-weight: 900; color: var(--danger);">0.00 DT</div>
                 </div>
-                <div style="background: white; padding: 1.5rem; border-radius: 16px; border-left: 5px solid var(--danger); box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                    <div style="color: var(--text-muted); font-weight: 700; font-size: 0.8rem; text-transform: uppercase;">Sorties (Toutes Charges)</div>
-                    <div id="kpiSorties" style="font-size: 2rem; font-weight: 800; color: var(--danger);">0.00 DT</div>
+                <div style="background: white; padding: 1rem; border-radius: 12px; border-left: 5px solid #3498db; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Masse Salariale & Avances</div>
+                    <div id="kpiDepenseRH" style="font-size: 1.5rem; font-weight: 900; color: #3498db;">0.00 DT</div>
                 </div>
-                <div style="background: #143621; padding: 1.5rem; border-radius: 16px; border: 1px solid #e3c496; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                    <div style="color: #e3c496; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;"><i class="fas fa-trophy"></i> BÉNÉFICE NET ESTIMÉ</div>
-                    <div id="kpiBenefice" style="font-size: 2.2rem; font-weight: 900; color: white;">0.00 DT</div>
+                <div style="background: white; padding: 1rem; border-radius: 12px; border-left: 5px solid #27ae60; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Achats Fournisseurs</div>
+                    <div id="kpiDepenseStock" style="font-size: 1.5rem; font-weight: 900; color: #27ae60;">0.00 DT</div>
                 </div>
-            </div>
-
-            <div id="alertesFinancieres" style="display: flex; gap: 15px; margin-bottom: 1.5rem;">
-                <div style="flex: 1; background: #fff5f5; padding: 1rem; border-radius: 10px; border: 1px solid #fed7d7; color: #c53030; font-weight: bold;">
-                    <i class="fas fa-exclamation-circle"></i> Dettes Fournisseurs (Crédit à payer) : <span id="totalDettes" style="font-size: 1.2rem; float: right;">0.00 DT</span>
-                </div>
-                <div style="flex: 1; background: #ebf8ff; padding: 1rem; border-radius: 10px; border: 1px solid #bee3f8; color: #2b6cb0; font-weight: bold;">
-                    <i class="fas fa-hand-holding-usd"></i> Total Avances Staff (À déduire) : <span id="totalAvances" style="font-size: 1.2rem; float: right;">0.00 DT</span>
+                <div style="background: #fff5f5; padding: 1rem; border-radius: 12px; border-left: 5px solid #c0392b; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <div style="font-size: 0.75rem; color: #c0392b; font-weight: 700; text-transform: uppercase;"><i class="fas fa-exclamation-triangle"></i> Dettes à Payer (Kridi)</div>
+                    <div id="kpiDepenseDettes" style="font-size: 1.5rem; font-weight: 900; color: #c0392b;">0.00 DT</div>
                 </div>
             </div>
 
             <div class="table-container">
                 <table>
-                    <thead id="proDepensesThead"></thead>
-                    <tbody id="proDepensesTableBody"></tbody>
+                    <thead id="depensesThead"></thead>
+                    <tbody id="depensesTableBody"></tbody>
                 </table>
             </div>
         </div>
@@ -1082,115 +1095,139 @@
             } catch(e) { showNotification("Aucun audit trouvé", "var(--warning)"); }
         }
 
-        // ========== 6. MODULE DÉPENSES ==========
-
-
-let depensesGlobales = [];
-let vueActiveDepense = 'dashboard';
-
+// ========== 6. MODULE DÉPENSES ==========
 async function chargerDepenses() {
+    const vue = document.getElementById('vueDepenses').value;
+    const catFiltre = document.getElementById('filtreCatDepense').value;
+    const debutStr = document.getElementById('depenseDateDebut').value;
+    const finStr = document.getElementById('depenseDateFin').value;
+
     try {
-        // 1. On récupère les Dépenses ET les Ventes pour faire le bilan !
-        const [resDep, resVen] = await Promise.all([ fetchSecurise('/api/depenses'), fetchSecurise('/api/ventes') ]);
-        depensesGlobales = await resDep.json();
-        const ventes = await resVen.json();
-        
-        // 2. Calcul du Chiffre d'Affaires
-        const totalVentes = ventes.reduce((sum, v) => sum + v.total, 0);
-        // 3. Calcul des Sorties (On compte l'argent réellement sorti : "montantPaye" ou "montantTotal" pour les anciens)
-        const totalSorties = depensesGlobales.reduce((sum, d) => sum + (d.montantPaye || d.montant || 0), 0);
-        
-        // 4. Calcul Dettes (Crédit Fournisseurs) et Avances (Staff)
-        const dettes = depensesGlobales.filter(d => d.resteAPayer > 0).reduce((sum, d) => sum + d.resteAPayer, 0);
-        const avances = depensesGlobales.filter(d => d.sousCategorie === 'avance').reduce((sum, d) => sum + (d.montantTotal || d.montant || 0), 0);
+        const res = await fetchSecurise('/api/depenses');
+        let data = await res.json();
+        data = Array.isArray(data) ? data : [];
 
-        document.getElementById('kpiEntrees').textContent = formatMoney(totalVentes);
-        document.getElementById('kpiSorties').textContent = formatMoney(totalSorties);
-        const benef = totalVentes - totalSorties;
-        const elBenef = document.getElementById('kpiBenefice');
-        elBenef.textContent = formatMoney(benef);
-        elBenef.style.color = benef >= 0 ? '#27ae60' : '#e74c3c';
+        // 1. Filtrage par Dates
+        if (debutStr || finStr) {
+            const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
+            const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
+            data = data.filter(d => {
+                const ts = parseDateFR(d.date);
+                return ts >= tsDebut && ts <= tsFin;
+            });
+        }
 
-        document.getElementById('totalDettes').textContent = formatMoney(dettes);
-        document.getElementById('totalAvances').textContent = formatMoney(avances);
+        // 2. Filtrage par Catégorie Globale
+        if (catFiltre !== 'all') {
+            data = data.filter(d => (d.categoriePrincipale || d.categorie) === catFiltre);
+        }
 
-        filtrerVueDepenses(vueActiveDepense);
-    } catch (e) { console.error("Erreur Compta:", e); }
+        // 3. Calcul des KPI Globaux (Sur les données filtrées)
+        let totGlobal = 0, totRH = 0, totStock = 0, totDettes = 0;
+        data.forEach(d => {
+            const montantSorti = d.montantPaye || d.montant || 0;
+            totGlobal += montantSorti;
+            
+            const cat = d.categoriePrincipale || d.categorie;
+            if (cat === 'rh') totRH += montantSorti;
+            if (cat === 'fournisseur' || cat === 'achat_stock') totStock += montantSorti;
+            if (d.resteAPayer > 0) totDettes += d.resteAPayer;
+        });
+
+        document.getElementById('kpiDepenseTotal').textContent = formatMoney(totGlobal);
+        document.getElementById('kpiDepenseRH').textContent = formatMoney(totRH);
+        document.getElementById('kpiDepenseStock').textContent = formatMoney(totStock);
+        document.getElementById('kpiDepenseDettes').textContent = formatMoney(totDettes);
+
+        // 4. Affichage dans le tableau selon la VUE
+        const thead = document.getElementById('depensesThead');
+        const tbody = document.getElementById('depensesTableBody');
+
+        if (data.length === 0) {
+            thead.innerHTML = ''; tbody.innerHTML = `<tr><td class="empty-message">Aucune dépense trouvée pour cette période.</td></tr>`;
+            return;
+        }
+
+        if (vue === 'detail') {
+            // VUE DÉTAILLÉE (Ligne par ligne)
+            thead.innerHTML = `<tr><th>Date & Heure</th><th>Catégorie</th><th>Bénéficiaire / Motif</th><th>Mode</th><th style="text-align:right;">Montant Payé</th><th style="text-align:right;">Dette (Reste)</th></tr>`;
+            tbody.innerHTML = data.map(d => {
+                const cat = d.categoriePrincipale || d.categorie || 'Autre';
+                const detteHTML = (d.resteAPayer > 0) ? `<span style="color:var(--danger); font-weight:bold;">${formatMoney(d.resteAPayer)}</span>` : `<span style="color:var(--text-muted);">Réglé</span>`;
+                
+                return `
+                <tr>
+                    <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.75rem; color:var(--text-muted);">${d.date.split(' ').slice(1).join(' ')}</div></td>
+                    <td><span class="badge badge-neutral" style="text-transform:uppercase;">${cat}</span><br><small>${d.sousCategorie || ''}</small></td>
+                    <td><strong>${escapeHtml(d.beneficiaire || '-')}</strong><br><small>${escapeHtml(d.description || '')}</small></td>
+                    <td><i class="fas fa-wallet"></i> ${d.modePaiement || d.mode || 'especes'}</td>
+                    <td style="text-align:right; font-weight:900; color:var(--danger);">${formatMoney(d.montantPaye || d.montant)}</td>
+                    <td style="text-align:right;">${detteHTML}</td>
+                </tr>`;
+            }).join('');
+        } 
+        else {
+            // VUE HISTORIQUE GROUPÉE (Jour / Mois / Année)
+            const groupes = {};
+            data.forEach(d => {
+                const parts = d.date.split(' ')[0].split('/'); // parts = [Jour, Mois, Année]
+                let cleDate = '';
+                
+                if (vue === 'jour') cleDate = `${parts[0]}/${parts[1]}/${parts[2]}`;
+                if (vue === 'mois') cleDate = `${parts[1]}/${parts[2]}`;
+                if (vue === 'annee') cleDate = `${parts[2]}`;
+
+                if (!groupes[cleDate]) groupes[cleDate] = { total: 0, rh: 0, stock: 0, fixes: 0, dettes: 0 };
+                
+                const montant = d.montantPaye || d.montant || 0;
+                const cat = d.categoriePrincipale || d.categorie;
+
+                groupes[cleDate].total += montant;
+                if (cat === 'rh') groupes[cleDate].rh += montant;
+                if (cat === 'fournisseur' || cat === 'achat_stock') groupes[cleDate].stock += montant;
+                if (cat === 'fixes' || cat === 'energie' || cat === 'loyer') groupes[cleDate].fixes += montant;
+                if (d.resteAPayer > 0) groupes[cleDate].dettes += d.resteAPayer;
+            });
+
+            thead.innerHTML = `<tr><th>Période</th><th style="text-align:right;">Staff (RH)</th><th style="text-align:right;">Fournisseurs</th><th style="text-align:right;">Charges Fixes</th><th style="text-align:right; font-size:1.1rem; color:var(--danger);">Total Dépensé</th></tr>`;
+            
+            tbody.innerHTML = Object.keys(groupes).map(cle => `
+                <tr>
+                    <td><strong>${vue === 'mois' ? 'Mois de ' : ''}${cle}</strong>
+                        ${groupes[cle].dettes > 0 ? `<br><small style="color:var(--danger);"><i class="fas fa-exclamation-triangle"></i> Dettes créées: ${formatMoney(groupes[cle].dettes)}</small>` : ''}
+                    </td>
+                    <td style="text-align:right; color:#3498db; font-weight:bold;">${formatMoney(groupes[cle].rh)}</td>
+                    <td style="text-align:right; color:#27ae60; font-weight:bold;">${formatMoney(groupes[cle].stock)}</td>
+                    <td style="text-align:right; color:var(--text-muted); font-weight:bold;">${formatMoney(groupes[cle].fixes)}</td>
+                    <td style="text-align:right; font-weight:900; color:var(--danger); font-size:1.2rem;">${formatMoney(groupes[cle].total)}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (e) { console.error("Erreur Depenses:", e); }
 }
 
-function filtrerVueDepenses(vue) {
-    vueActiveDepense = vue;
-    const thead = document.getElementById('proDepensesThead');
-    const tbody = document.getElementById('proDepensesTableBody');
-    
-    let data = depensesGlobales;
-    if (vue !== 'dashboard') data = depensesGlobales.filter(d => d.categoriePrincipale === vue);
-
-    if (data.length === 0) {
-        thead.innerHTML = ''; tbody.innerHTML = `<tr><td class="empty-message">Aucune opération dans cette catégorie.</td></tr>`;
-        return;
-    }
-
-    if (vue === 'rh') {
-        thead.innerHTML = `<tr><th>Date</th><th>Employé</th><th>Type d'opération</th><th style="text-align:right;">Montant</th></tr>`;
-        tbody.innerHTML = data.map(d => `
-            <tr>
-                <td>${d.date.split(' ')[0]}</td>
-                <td><strong><i class="fas fa-user"></i> ${escapeHtml(d.beneficiaire || 'Inconnu')}</strong></td>
-                <td><span class="badge ${d.sousCategorie==='avance'?'badge-warning':'badge-normal'}">${(d.sousCategorie || 'Salaire').toUpperCase()}</span><br><small>${escapeHtml(d.description||'')}</small></td>
-                <td style="text-align:right; font-weight:bold; color:var(--info);">${formatMoney(d.montantTotal || d.montant)}</td>
-            </tr>`).join('');
-    } 
-    else if (vue === 'fournisseur') {
-        thead.innerHTML = `<tr><th>Date</th><th>Fournisseur</th><th>Achat</th><th>Total Facture</th><th>Payé</th><th style="text-align:right;">Reste (Dette)</th></tr>`;
-        tbody.innerHTML = data.map(d => {
-            const detteAlert = d.resteAPayer > 0 ? 'color:var(--danger); font-weight:900;' : 'color:var(--text-muted);';
-            return `
-            <tr>
-                <td>${d.date.split(' ')[0]}</td>
-                <td><strong><i class="fas fa-truck"></i> ${escapeHtml(d.beneficiaire || 'Inconnu')}</strong></td>
-                <td>${escapeHtml(d.description || 'Marchandise')}</td>
-                <td style="font-weight:bold;">${formatMoney(d.montantTotal || d.montant)}</td>
-                <td style="color:var(--success);">${formatMoney(d.montantPaye || d.montant)}</td>
-                <td style="text-align:right; ${detteAlert}">${d.resteAPayer > 0 ? '⚠️ '+formatMoney(d.resteAPayer) : 'Réglé'}</td>
-            </tr>`}).join('');
-    } 
-    else {
-        // Vue Fixes ou Dashboard
-        thead.innerHTML = `<tr><th>Date</th><th>Catégorie</th><th>Bénéficiaire / Motif</th><th>Paiement</th><th style="text-align:right;">Montant Sorti</th></tr>`;
-        tbody.innerHTML = data.map(d => `
-            <tr>
-                <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.7rem; color:var(--text-muted);">${d.date.split(' ').slice(1).join(' ')}</div></td>
-                <td><span class="badge badge-neutral" style="text-transform:uppercase;">${d.categoriePrincipale || d.categorie || 'Autre'}</span></td>
-                <td><strong>${escapeHtml(d.beneficiaire || '')}</strong><br><small>${escapeHtml(d.description || '')}</small></td>
-                <td><i class="fas fa-wallet"></i> ${d.modePaiement || d.mode || 'especes'}</td>
-                <td style="text-align:right; font-weight:900; color:var(--danger);">${formatMoney(d.montantPaye || d.montant)}</td>
-            </tr>`).join('');
-    }
-}
-
-// 🔥 LE MODAL INTELLIGENT (Change selon ce qu'on sélectionne)
+// 🔥 MODAL DE SAISIE MULTI-FONCTIONS
 function ouvrirModalDepensePro() {
     document.getElementById('modalContainer').innerHTML = `
         <div class="modal active"><div class="modal-content" style="max-width: 500px;">
-        <div class="modal-header"><h3><i class="fas fa-calculator"></i> Saisie Comptable</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+        <div class="modal-header"><h3><i class="fas fa-plus-circle"></i> Ajouter une Dépense</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
         
         <div class="form-group">
             <label>Famille d'opération :</label>
-            <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid var(--primary); font-weight:bold;">
-                <option value="fournisseur">📦 Achats & Fournisseurs (Marchandise)</option>
-                <option value="rh">👤 Ressources Humaines (Staff)</option>
-                <option value="fixes">💡 Charges Fixes (STEG, Loyer...)</option>
+            <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid var(--danger); font-weight:bold; color:var(--danger);">
+                <option value="fournisseur">📦 Achat Fournisseur / Stock</option>
+                <option value="rh">👤 Employé (Salaire / Avance / Prime)</option>
+                <option value="fixes">🏠 Charges Fixes (STEG, SONEDE, Loyer)</option>
             </select>
         </div>
 
         <div id="dynamicDepenseForm"></div> <div class="form-group" style="margin-top:15px;"><label>Mode de Paiement :</label>
-            <select id="depMode"><option value="especes">💵 Espèces (Sortie de caisse)</option><option value="virement">🏦 Virement / Carte</option><option value="cheque">📄 Chèque</option></select>
+            <select id="depMode"><option value="especes">💵 Espèces (Sortie Tiroir)</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
         </div>
-        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerDepensePro()"><i class="fas fa-save"></i> Enregistrer l'opération</button></div>
+        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" style="background:var(--danger);" onclick="validerDepensePro()"><i class="fas fa-save"></i> Valider la dépense</button></div>
         </div></div>
     `;
-    changerFormulaireDepense(); // Charger la vue par défaut
+    changerFormulaireDepense();
 }
 
 function changerFormulaireDepense() {
@@ -1199,24 +1236,24 @@ function changerFormulaireDepense() {
 
     if (cat === 'rh') {
         container.innerHTML = `
-            <div class="form-group"><label>Nom de l'employé :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Mohamed, Sarah..."></div>
-            <div class="form-group"><label>Type de paiement :</label>
-                <select id="depSousCat"><option value="avance">⚠️ Avance sur salaire (Sلفة)</option><option value="salaire">💰 Salaire Mensuel</option><option value="prime">🎁 Prime / Bonus</option></select>
+            <div class="form-group"><label>Nom de l'employé (Serveur) :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Ahmed, Sarah..."></div>
+            <div class="form-group"><label>Nature :</label>
+                <select id="depSousCat"><option value="avance">⚠️ Avance sur salaire (Sلفة)</option><option value="salaire">💰 Salaire Mensuel</option><option value="prime">🎁 Prime</option></select>
             </div>
-            <div class="form-group"><label>Montant (DT) :</label><input type="number" id="depMontantTotal" step="1" placeholder="0.00" style="font-size:1.2rem; font-weight:bold; color:var(--info);"></div>
-            <div class="form-group"><label>Note (Optionnel) :</label><input type="text" id="depDesc" placeholder="Ex: Semaine du 1 au 7..."></div>
+            <div class="form-group"><label>Montant donné (DT) :</label><input type="number" id="depMontantTotal" step="1" placeholder="0.00" style="font-size:1.2rem; font-weight:bold; color:#3498db;"></div>
+            <div class="form-group"><label>Période / Note :</label><input type="text" id="depDesc" placeholder="Ex: Semaine 1, ou Avance urgence..."></div>
         `;
     } 
     else if (cat === 'fournisseur') {
         container.innerHTML = `
-            <div class="form-group"><label>Nom du Fournisseur :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Grossiste Boissons, Ben Yedder..."></div>
-            <div class="form-group"><label>Description / N° Facture :</label><input type="text" id="depDesc" placeholder="Ex: Facture BL-405, 5kg Café..."></div>
+            <div class="form-group"><label>Fournisseur :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Grossiste Boissons, Laiterie..."></div>
+            <div class="form-group"><label>Détail (N° Facture/BL) :</label><input type="text" id="depDesc" placeholder="Ex: BL-405, 10 packs d'eau..."></div>
             <div style="display:flex; gap:10px;">
-                <div class="form-group" style="flex:1;"><label>Total Facture (DT):</label><input type="number" id="depMontantTotal" step="0.5" oninput="calcReste()" style="font-weight:bold;"></div>
-                <div class="form-group" style="flex:1;"><label>Montant Payé (DT):</label><input type="number" id="depMontantPaye" step="0.5" oninput="calcReste()" style="font-weight:bold; color:var(--success);"></div>
+                <div class="form-group" style="flex:1;"><label>Coût Total Facture:</label><input type="number" id="depMontantTotal" step="0.5" oninput="calcReste()" style="font-weight:bold;"></div>
+                <div class="form-group" style="flex:1;"><label>Montant Payé (Espèces):</label><input type="number" id="depMontantPaye" step="0.5" oninput="calcReste()" style="font-weight:bold; color:var(--success);"></div>
             </div>
             <div class="form-group" style="background:#fff5f5; padding:10px; border-radius:8px; border:1px dashed var(--danger);">
-                <label style="color:var(--danger);">Reste à payer (Dette) :</label>
+                <label style="color:var(--danger);">Reste à payer (Kridi) :</label>
                 <input type="number" id="depReste" readonly style="background:transparent; border:none; font-size:1.2rem; font-weight:900; color:var(--danger); pointer-events:none;" value="0.00">
             </div>
             <input type="hidden" id="depSousCat" value="marchandise">
@@ -1224,11 +1261,10 @@ function changerFormulaireDepense() {
     } 
     else {
         container.innerHTML = `
-            <div class="form-group"><label>Type de charge :</label>
-                <select id="depSousCat"><option value="steg">⚡ Électricité (STEG)</option><option value="sonede">💧 Eau (SONEDE)</option><option value="loyer">🏠 Loyer</option><option value="entretien">🔧 Entretien / Réparation</option><option value="autre">📝 Autre</option></select>
+            <div class="form-group"><label>Facture / Service :</label>
+                <select id="depSousCat"><option value="steg">⚡ Électricité & Gaz (STEG)</option><option value="sonede">💧 Eau (SONEDE)</option><option value="internet">🌐 Internet</option><option value="loyer">🏠 Loyer</option><option value="entretien">🔧 Plombier/Électricien</option><option value="autre">📝 Autre</option></select>
             </div>
-            <div class="form-group"><label>Bénéficiaire / Organisme :</label><input type="text" id="depBeneficiaire" placeholder="Ex: STEG, Propriétaire, Plombier..."></div>
-            <div class="form-group"><label>Description :</label><input type="text" id="depDesc" placeholder="Ex: Mois de Mars..."></div>
+            <div class="form-group"><label>Description :</label><input type="text" id="depDesc" placeholder="Ex: Facture Mars, ou Réparation machine..."></div>
             <div class="form-group"><label>Montant Sorti (DT) :</label><input type="number" id="depMontantTotal" step="0.5" style="font-size:1.2rem; font-weight:bold;"></div>
         `;
     }
@@ -1258,7 +1294,7 @@ async function validerDepensePro() {
     const body = {
         categoriePrincipale: catMain,
         sousCategorie: document.getElementById('depSousCat').value,
-        beneficiaire: document.getElementById('depBeneficiaire').value || 'Non spécifié',
+        beneficiaire: document.getElementById('depBeneficiaire') ? document.getElementById('depBeneficiaire').value : 'Général',
         description: document.getElementById('depDesc').value,
         montantTotal: total,
         montantPaye: paye,
@@ -1267,14 +1303,14 @@ async function validerDepensePro() {
         modePaiement: document.getElementById('depMode').value
     };
 
-    if (total <= 0) return showNotification("Le montant doit être supérieur à 0", "var(--danger)");
+    if (paye < 0 || total <= 0) return showNotification("Le montant doit être valide.", "var(--danger)");
 
     try {
         const res = await fetchSecurise('/api/depenses', { method: 'POST', body: JSON.stringify(body) });
         if (res.ok) { 
-            showNotification("✅ Opération comptable enregistrée", "var(--success)"); 
+            showNotification("✅ Dépense enregistrée", "var(--success)"); 
             fermerModal(); 
-            chargerDepenses(); // Rafraîchit le bilan
+            chargerDepenses(); 
         }
     } catch (e) { console.error(e); }
 }
