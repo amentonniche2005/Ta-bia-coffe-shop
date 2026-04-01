@@ -101,6 +101,84 @@
         .inv-physique { width: 90px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; text-align: center; font-weight: bold; }
         .inv-raison { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; }
         .ecart-cell { font-weight: 800; text-align: center; font-size: 1.1rem;}
+        /* ========== RESPONSIVE DESIGN STOCK ========== */
+@media (max-width: 768px) {
+    /* Dashboard : On passe de 3 colonnes à 1 seule */
+    .dashboard {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+    }
+
+    /* En-tête : On réduit la taille du logo */
+    .logo-img { height: 50px; width: 50px; }
+    .logo h1 { font-size: 1.3rem; }
+    
+    /* Toolbar : On empile les filtres et les boutons */
+    .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filters {
+        flex-direction: column;
+    }
+    .filter-group {
+        width: 100%;
+    }
+    .btn-action {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Transformation du tableau en "Cartes" pour mobile */
+    table, thead, tbody, th, td, tr { 
+        display: block; 
+    }
+    thead tr { 
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+    tr { 
+        border: 1px solid var(--border-color);
+        margin-bottom: 1rem;
+        border-radius: 12px;
+        background: white;
+    }
+    td { 
+        border: none;
+        border-bottom: 1px solid #eee; 
+        position: relative;
+        padding-left: 50% !important; 
+        text-align: right !important;
+    }
+    td:before { 
+        position: absolute;
+        top: 12px;
+        left: 15px;
+        width: 45%; 
+        padding-right: 10px; 
+        white-space: nowrap;
+        content: attr(data-label); /* Utilise l'attribut label */
+        font-weight: bold;
+        text-align: left;
+        color: var(--text-muted);
+    }
+    td:last-child {
+        border-bottom: none;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        padding: 1rem !important;
+    }
+    
+    /* Onglet Ventes : On passe les statistiques sur 1 colonne */
+    #panel-ventes > div[style*="grid-template-columns: repeat(3, 1fr)"] {
+        grid-template-columns: 1fr !important;
+    }
+    #panel-ventes > div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
     </style>
 </head>
 <body>

@@ -152,6 +152,59 @@
         /* Responsive */
         @media (max-width: 1000px) { .dashboard { grid-template-columns: 1fr; } .tables-grid { grid-template-columns: repeat(5, 1fr); } }
         @media (max-width: 600px) { .tables-grid { grid-template-columns: repeat(3, 1fr); } }
+        /* ========== RESPONSIVE DESIGN CAISSE ========== */
+@media (max-width: 1024px) {
+    /* On empile la zone produits et le ticket */
+    .caisse-container {
+        flex-direction: column;
+        height: auto;
+    }
+
+    /* Le ticket prend toute la largeur en bas */
+    .ticket-area {
+        width: 100%;
+        height: 500px; /* Hauteur fixe pour le ticket sur mobile */
+        border-left: none;
+        border-top: 2px solid var(--primary);
+    }
+
+    /* Les catégories deviennent une ligne défilante horizontale */
+    .categories-bar {
+        overflow-x: auto;
+        display: flex;
+        flex-wrap: nowrap;
+        padding: 10px;
+        gap: 10px;
+    }
+    .cat-btn {
+        flex: 0 0 auto;
+        min-width: 100px;
+    }
+
+    /* Grille de produits : 2 colonnes sur mobile */
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        padding: 10px;
+    }
+
+    /* Boutons tactiles plus grands */
+    .product-card {
+        padding: 15px;
+        height: 120px;
+    }
+    .btn-encaisser {
+        height: 70px; /* Plus facile de cliquer avec le pouce */
+        font-size: 1.4rem;
+    }
+}
+
+/* Optimisation spécifique pour les petits téléphones */
+@media (max-width: 480px) {
+    .products-grid {
+        grid-template-columns: 1fr 1fr; /* Forcer 2 colonnes */
+    }
+    header h1 { font-size: 1.1rem; }
+}
     </style>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#143621">
