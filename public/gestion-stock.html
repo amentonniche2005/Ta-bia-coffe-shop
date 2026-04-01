@@ -631,6 +631,7 @@ const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 
                         <div class="form-group">
                             <label>Type de choix pour le client :</label>
                             <select id="newProdTypeChoix">
+                                <option value="aucun" selected>🚫 Aucun choix (Produit simple)</option>
                                 <option value="unique">🔘 Un seul choix (Ex: Normal, Serré)</option>
                                 <option value="multiple">☑️ Plusieurs choix (Ex: Ingrédients Sandwich)</option>
                             </select>
@@ -682,7 +683,8 @@ const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 
                         <div class="form-group">
                             <label>Type de choix pour le client :</label>
                             <select id="editProdTypeChoix">
-                                <option value="unique" ${(!p.typeChoix || p.typeChoix === 'unique') ? 'selected' : ''}>🔘 Un seul choix</option>
+                                <option value="aucun" ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'selected' : ''}>🚫 Aucun choix (Produit simple)</option>
+                                <option value="unique" ${p.typeChoix === 'unique' ? 'selected' : ''}>🔘 Un seul choix</option>
                                 <option value="multiple" ${p.typeChoix === 'multiple' ? 'selected' : ''}>☑️ Plusieurs choix</option>
                             </select>
                         </div>
