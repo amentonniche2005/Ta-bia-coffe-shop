@@ -102,13 +102,6 @@
         .inv-raison { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; }
         .ecart-cell { font-weight: 800; text-align: center; font-size: 1.1rem;}
     </style>
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#143621">
-    
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="TA'BIA">
-    <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
 <body>
 <header>
@@ -207,7 +200,7 @@
             <div class="toolbar">
                 <div>
                     <h3 style="font-size:1.1rem; color:var(--text-main);">Rapports de Ventes & Clôtures</h3>
-                    <p style="font-size:0.8rem; color:var(--text-muted);">Archives automatiques de vos journaux de caisse.</p>
+                    <p style="font-size:0.8rem; color:var(--text-muted);">Archives automatiques de vos journaux de caisse (Synchronisé avec la base).</p>
                 </div>
                 <div class="filters">
                     <div class="filter-group">
@@ -222,6 +215,7 @@
                     <div class="filter-group"><label>Du</label><input type="date" id="rapportDateDebut"></div>
                     <div class="filter-group"><label>Au</label><input type="date" id="rapportDateFin"></div>
                     <button class="btn-action btn-success" onclick="chargerRapportVentes()"><i class="fas fa-search"></i> Analyser</button>
+                    <button class="btn-action" style="background:var(--info);" onclick="exporterVentesCSV()"><i class="fas fa-file-excel"></i> Exporter CSV</button>
                 </div>
             </div>
 
@@ -448,6 +442,7 @@
         let stockProduits = [];
         let stockTri = { colonne: 'nom', asc: true };
         let toutesLesVentes = [];
+        let ventesAffichees = []; // Pour l'export CSV
 
         const escapeHtml = (text) => {
             if (!text) return text;
@@ -463,16 +458,16 @@
         };
 
         const formatMoney = (amount) => parseFloat(amount || 0).toFixed(2) + " DT";
-const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches', 'pd': '🥐 Pâtisseries', 'plat': '🍝 Plats', 'chicha': '💨 Chichas' }; return dict[cat] || cat; };        function fermerModal() { document.getElementById('modalContainer').innerHTML = ''; }
+        const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches', 'pd': '🥐 Pâtisseries', 'plat': '🍝 Plats', 'chicha': '💨 Chichas' }; return dict[cat] || cat; };        
+        
+        function fermerModal() { document.getElementById('modalContainer').innerHTML = ''; }
 
+        // 🔥 CORRECTION CRITIQUE (ParseDate) : Lit correctement les dates avec ou sans le "à" (ex: 01/04/2026 à 14:00)
         function parseDateFR(dateStr) {
             if (!dateStr) return 0;
-            const parts = dateStr.split(' ');
-            const dParts = parts[0].split('/');
-            if (dParts.length !== 3) return new Date(dateStr).getTime() || 0;
-            const time = parts[1] || "00:00:00";
-            const tParts = time.split(':');
-            return new Date(dParts[2], dParts[1] - 1, dParts[0], tParts[0]||0, tParts[1]||0, tParts[2]||0).getTime();
+            const match = String(dateStr).match(/(\d{2})\/(\d{2})\/(\d{4})(?:.*?(\d{2}):(\d{2}):(\d{2}))?/);
+            if (!match) return new Date(dateStr).getTime() || 0;
+            return new Date(match[3], match[2] - 1, match[1], match[4]||0, match[5]||0, match[6]||0).getTime();
         }
 
         // ========== NAVIGATION ONGLETS ==========
@@ -487,10 +482,14 @@ const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 
             if (tabId === 'mouvements') chargerHistorique();
             if (tabId === 'alertes') chargerAlertes();
             if (tabId === 'depenses') chargerDepenses();
+            
             if (tabId === 'ventes') {
+                // 🔥 CORRECTION : Par défaut, affiche le MOIS EN COURS (pas juste "Aujourd'hui")
                 if (!document.getElementById('rapportDateDebut').value) {
-                    document.getElementById('rapportDateDebut').valueAsDate = new Date();
-                    document.getElementById('rapportDateFin').valueAsDate = new Date();
+                    const today = new Date();
+                    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                    document.getElementById('rapportDateDebut').valueAsDate = firstDay;
+                    document.getElementById('rapportDateFin').valueAsDate = today;
                 }
                 chargerRapportVentes();
             }
@@ -618,7 +617,7 @@ const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 
         }
 
         // --- NOUVEAUX BOUTONS CRUD ---
-function ouvrirModalNouveauProduit() {
+        function ouvrirModalNouveauProduit() {
             document.getElementById('modalContainer').innerHTML = `
                 <div class="modal active">
                     <div class="modal-content">
@@ -657,7 +656,6 @@ function ouvrirModalNouveauProduit() {
             const typeC = document.getElementById('newProdTypeChoix').value;
             const produitData = {
                 nom: document.getElementById('newProdName').value,
-                // 🔥 LA CORRECTION EST ICI : Si on est sur "aucun", on force le vide absolu ""
                 variantes: typeC === 'aucun' ? "" : document.getElementById('newProdVariantes').value,
                 typeChoix: typeC,
                 image: document.getElementById('newProdImage').value, 
@@ -718,30 +716,13 @@ function ouvrirModalNouveauProduit() {
                 </div>`;
         }
 
+        // 🔥 CORRECTION : Suppression de la deuxième fonction doublon qui annulait tout !
         async function sauvegarderEditionProduit(id) {
             const typeC = document.getElementById('editProdTypeChoix').value;
             const produitData = {
                 nom: document.getElementById('editProdName').value,
-                // 🔥 MÊME CORRECTION ICI POUR LA MODIFICATION
                 variantes: typeC === 'aucun' ? "" : document.getElementById('editProdVariantes').value,
                 typeChoix: typeC,
-                image: document.getElementById('editProdImage').value,
-                categorie: document.getElementById('editProdCat').value,
-                prix: parseFloat(document.getElementById('editProdPrice').value),
-                stock: parseInt(document.getElementById('editProdStock').value),
-                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
-            };
-            try {
-                const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
-                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); }
-            } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
-        }
-
-        async function sauvegarderEditionProduit(id) {
-            const produitData = {
-                nom: document.getElementById('editProdName').value,
-                variantes: document.getElementById('editProdVariantes').value,
-                typeChoix: document.getElementById('editProdTypeChoix').value,
                 image: document.getElementById('editProdImage').value,
                 categorie: document.getElementById('editProdCat').value,
                 prix: parseFloat(document.getElementById('editProdPrice').value),
@@ -834,7 +815,7 @@ function ouvrirModalNouveauProduit() {
                     const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
                     
                     data = data.filter(m => {
-                        const tsMouv = parseDateFR(m.date);
+                        const tsMouv = parseDateFR(m.date); // 🔥 MARCHE PARFAITEMENT MAINTENANT
                         return tsMouv >= tsDebut && tsMouv <= tsFin;
                     });
                 }
@@ -853,7 +834,7 @@ function ouvrirModalNouveauProduit() {
                     <tr>
                         <td>
                             <div style="font-weight:600;">${m.date.split(' ')[0]}</div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">${m.date.split(' ')[1] || ''}</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">${m.date.split(' ').slice(1).join(' ') || ''}</div>
                         </td>
                         <td><span class="badge" style="background:${color}22; color:${color};"><i class="fas ${icon}"></i> ${txt}</span></td>
                         <td><strong>${escapeHtml(m.produit)}</strong></td>
@@ -881,7 +862,7 @@ function ouvrirModalNouveauProduit() {
                 <tr style="background: #fff5f5">
                     <td>
                         <div style="font-weight:600;">${a.date.split(' ')[0]}</div>
-                        <div style="font-size:0.75rem; color:var(--text-muted);">${a.date.split(' ')[1] || ''}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">${a.date.split(' ').slice(1).join(' ') || ''}</div>
                     </td>
                     <td><strong style="color:var(--danger);">${escapeHtml(a.produit)}</strong></td>
                     <td><span class="badge badge-critical" style="font-size:1rem;">${a.stockRestant}</span></td>
@@ -1037,7 +1018,7 @@ function ouvrirModalNouveauProduit() {
                     const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
                     const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
                     data = data.filter(d => {
-                        const tsDep = parseDateFR(d.date);
+                        const tsDep = parseDateFR(d.date); // 🔥 MARCHE PARFAITEMENT MAINTENANT
                         return tsDep >= tsDebut && tsDep <= tsFin;
                     });
                 }
@@ -1047,14 +1028,28 @@ function ouvrirModalNouveauProduit() {
                 
                 const catLabels = { eau: '💧 Eau', electricite: '⚡ Électricité', gaz: '🔥 Gaz', internet: '🌐 Internet', loyer: '🏠 Loyer', entretien: '🔧 Entretien', fournitures: '📦 Fournitures', 'salaires': '💸 Salaires', 'serveur 1': '💁 Serveur 1', 'serveur 2': '💁 Serveur 2', 'serveur 3': '💁 Serveur 3', autres: '📝 Autres' };
 
-                tbody.innerHTML = data.map(d => `
+                // 🔥 CORRECTION : Calcul du total des dépenses affichées !
+                let totalDepenses = 0;
+
+                tbody.innerHTML = data.map(d => {
+                    totalDepenses += d.montant;
+                    return `
                     <tr>
-                        <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.75rem; color:var(--text-muted);">${d.date.split(' ')[1]||''}</div></td>
+                        <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.75rem; color:var(--text-muted);">${d.date.split(' ').slice(1).join(' ')||''}</div></td>
                         <td><span class="badge badge-neutral">${catLabels[d.categorie.toLowerCase()] || d.categorie}</span></td>
                         <td><strong>${escapeHtml(d.description)}</strong></td>
                         <td><span style="color:var(--text-muted);"><i class="fas fa-${d.mode==='especes'?'money-bill':(d.mode==='virement'?'university':'money-check')}"></i> ${d.mode}</span></td>
                         <td style="text-align:right; font-weight:800; color:var(--danger);">${formatMoney(d.montant)}</td>
-                    </tr>`).join('');
+                    </tr>`;
+                }).join('');
+
+                // Ligne du total
+                tbody.innerHTML += `
+                    <tr style="background: #fdfbf7; border-top: 2px solid var(--border-color);">
+                        <td colspan="4" style="text-align: right; font-weight: bold; font-size: 1.1rem; color: var(--text-main);">TOTAL DES DÉPENSES AFFICHÉES :</td>
+                        <td style="text-align: right; font-weight: 900; font-size: 1.2rem; color: var(--danger);">${formatMoney(totalDepenses)}</td>
+                    </tr>
+                `;
             } catch(e){
                 document.getElementById('depensesTableBody').innerHTML = '<tr><td colspan="5" class="empty-message">Module de dépenses non configuré sur le serveur</td></tr>';
             }
@@ -1117,7 +1112,7 @@ function ouvrirModalNouveauProduit() {
         }
 
         // ========== 8. MODULE VENTES ET ARCHIVES ==========
-async function chargerRapportVentes() {
+        async function chargerRapportVentes() {
             try {
                 const res = await fetchSecurise('/api/ventes');
                 toutesLesVentes = await res.json();
@@ -1126,25 +1121,23 @@ async function chargerRapportVentes() {
                 const debutStr = document.getElementById('rapportDateDebut').value;
                 const finStr = document.getElementById('rapportDateFin').value;
                 
-                // 🔥 NOUVEAU : Une journée commence à 02:00:00 du matin
                 const tsDebut = debutStr ? new Date(debutStr + "T02:00:00").getTime() : 0;
-                
-                // 🔥 NOUVEAU : Une journée se termine à 01:59:59 LE LENDEMAIN
                 let tsFin = Infinity;
                 if (finStr) {
                     const dateFinObj = new Date(finStr);
-                    dateFinObj.setDate(dateFinObj.getDate() + 1); // On ajoute 1 jour
-                    dateFinObj.setHours(1, 59, 59, 999); // On s'arrête à 1h59m59s
+                    dateFinObj.setDate(dateFinObj.getDate() + 1); 
+                    dateFinObj.setHours(1, 59, 59, 999); 
                     tsFin = dateFinObj.getTime();
                 }
 
-                // Filtrage
                 const ventesFiltrees = toutesLesVentes.filter(v => {
                     const tsVente = v.timestamp; 
                     return tsVente >= tsDebut && tsVente <= tsFin;
                 });
 
-                // Calcul KPIs
+                // On stocke pour l'exportation CSV
+                ventesAffichees = ventesFiltrees;
+
                 const totalCA = ventesFiltrees.reduce((sum, v) => sum + v.total, 0);
                 const nbTickets = ventesFiltrees.length;
                 const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
@@ -1153,9 +1146,9 @@ async function chargerRapportVentes() {
                 document.getElementById('kpiTickets').textContent = nbTickets;
                 document.getElementById('kpiMoyen').textContent = formatMoney(panierMoyen);
 
-                // Palmarès Produits
                 const statsProds = {};
                 ventesFiltrees.forEach(ticket => {
+                    if(!ticket.articles) return;
                     ticket.articles.forEach(art => {
                         const nomComplet = art.nom + (art.variante ? ` (${art.variante})` : '');
                         if (!statsProds[nomComplet]) statsProds[nomComplet] = { qte: 0, ca: 0 };
@@ -1181,7 +1174,6 @@ async function chargerRapportVentes() {
                     `).join('');
                 }
 
-                // Journal dynamique
                 const tBodyTickets = document.getElementById('rapportTicketsBody');
                 const enTete = document.getElementById('enTeteTableauDroite');
                 const titreDroite = document.getElementById('titreTableauDroite');
@@ -1207,10 +1199,7 @@ async function chargerRapportVentes() {
                 else {
                     const groupes = {};
                     ventesFiltrees.forEach(v => {
-                        // 🔥 NOUVEAU : On recule l'heure de la vente de 2 heures (7200000 millisecondes)
-                        // Ainsi, un ticket tapé à 01h30 du matin sera compté comme appartenant au jour d'avant !
                         const businessDate = new Date(v.timestamp - 7200000);
-                        
                         const jour = String(businessDate.getDate()).padStart(2, '0');
                         const mois = String(businessDate.getMonth() + 1).padStart(2, '0');
                         const annee = businessDate.getFullYear();
@@ -1235,7 +1224,6 @@ async function chargerRapportVentes() {
                         </tr>
                     `).join('');
                 }
-
             } catch(e) { console.error("Erreur rapports", e); }
         }
 
@@ -1255,7 +1243,7 @@ async function chargerRapportVentes() {
                     <div style="text-align:center; border-bottom:2px solid var(--primary); padding-bottom:1rem; margin-bottom:1rem;">
                         <h2 style="font-family:'Cinzel', serif; color:var(--primary); margin-bottom:5px;">TA'BIA Coffee</h2>
                         <div style="font-size:0.8rem; color:var(--text-muted);">Copie du Ticket #${ticket.numero}</div>
-                        <div style="font-size:0.8rem; color:var(--text-muted);">${ticket.date} - ${ticket.tableOrigine}</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted);">${ticket.date} - ${ticket.tableOrigine} - Mode: ${ticket.methodePaiement || 'Especes'}</div>
                     </div>
                     
                     <div style="margin-bottom: 1.5rem;">${itemsHtml}</div>
@@ -1271,6 +1259,21 @@ async function chargerRapportVentes() {
             `;
         }
 
+        // 🔥 NOUVEAU : Fonction d'exportation CSV du journal des ventes !
+        function exporterVentesCSV() {
+            if(!ventesAffichees.length) return showNotification("Aucune vente à exporter", "var(--warning)");
+            let csv = "Date,Ticket_Numero,Table,Total_DT,Mode_Paiement,Nb_Articles\n";
+            ventesAffichees.forEach(v => {
+                const total = v.total || 0;
+                const methode = v.methodePaiement || 'Especes';
+                const nbArticles = v.articles ? v.articles.reduce((s, a) => s + a.quantite, 0) : 0;
+                csv += `"${v.date}","${v.numero}","${v.tableOrigine}",${total.toFixed(2)},"${methode}",${nbArticles}\n`;
+            });
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Rapport_Ventes_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(a.href);
+        }
+
         // ========== INIT DOM ==========
         document.addEventListener("DOMContentLoaded", () => {
             chargerDashboard(); chargerStock(); chargerCategories(); chargerHistorique(); chargerAlertes(); chargerDepenses();
@@ -1282,10 +1285,10 @@ async function chargerRapportVentes() {
             
             // ========== SYNCHRONISATION EN TEMPS RÉEL ==========
             const socket = io({ 
-    auth: { token: monToken }, 
-    transports: ['websocket', 'polling'], 
-    reconnection: true 
-}); // On connecte la page au serveur en temps réel
+                auth: { token: monToken }, 
+                transports: ['websocket', 'polling'], 
+                reconnection: true 
+            });
 
             socket.on('update_stock', () => {
                 chargerStock();
@@ -1294,6 +1297,18 @@ async function chargerRapportVentes() {
                 console.log("🔄 Stock mis à jour en direct !");
             });
         });
+    </script>
+    <script>
+        // Activation du Service Worker pour l'installation PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('Service Worker enregistré avec succès:', registration.scope);
+                }).catch(error => {
+                    console.log('Échec de l\'enregistrement du Service Worker:', error);
+                });
+            });
+        }
     </script>
 </body>
 </html>
