@@ -333,9 +333,40 @@
         setTimeout(() => { n.style.opacity = '0'; n.style.transform = 'translateY(20px)'; setTimeout(() => n.remove(), 300); }, 2500); 
     }
 
-    function sauvegarderTousLesTickets() { localStorage.setItem('tabia_caisse_tickets', JSON.stringify(tickets)); }
-    
-    function chargerTickets() {
+async function sauvegarderTousLesTickets() { 
+        // Sauvegarde locale de secours
+        localStorage.setItem('tabia_caisse_tickets', JSON.stringify(tickets)); 
+        
+        // Sauvegarde sur le serveur pour la table actuelle
+        if (currentTable && tickets[currentTable]) {
+            try {
+                await fetchSecurise('/api/tickets-ouverts', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        tableNum: currentTable,
+                        ticketData: tickets[currentTable]
+                    })
+                });
+            } catch (e) { console.error("Erreur synchro cloud", e); }
+        }
+    }    
+async function chargerTickets() {
+        try {
+            // 1. On interroge la base de données
+            const res = await fetchSecurise('/api/tickets-ouverts');
+            const ticketsSauves = await res.json();
+            
+            if (ticketsSauves && ticketsSauves.length > 0) {
+                ticketsSauves.forEach(t => {
+                    tickets[t.tableNum] = t.ticketData;
+                });
+                afficherListeTables();
+                if (currentTable) afficherTicket();
+                return; // Succès, on s'arrête là !
+            }
+        } catch(e) { console.error("Le cloud est injoignable, passage en mode local"); }
+
+        // 2. Si le cloud échoue, on charge le secours local
         try {
             const stored = localStorage.getItem('tabia_caisse_tickets');
             if (stored) {
