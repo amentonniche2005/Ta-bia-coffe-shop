@@ -1153,7 +1153,7 @@ async function chargerDepenses() {
         }
 
 if (vue === 'detail') {
-            // VUE DÉTAILLÉE (Ligne par ligne avec bouton Supprimer)
+            // VUE DÉTAILLÉE (Ligne par ligne avec boutons Modifier et Supprimer)
             thead.innerHTML = `<tr><th>Date & Heure</th><th>Catégorie</th><th>Bénéficiaire / Motif</th><th>Mode</th><th style="text-align:right;">Montant Payé</th><th style="text-align:right;">Dette (Reste)</th><th style="text-align:center;">Actions</th></tr>`;
             
             tbody.innerHTML = data.map(d => {
@@ -1169,6 +1169,9 @@ if (vue === 'detail') {
                     <td style="text-align:right; font-weight:900; color:var(--danger);">${formatMoney(d.montantPaye || d.montant)}</td>
                     <td style="text-align:right;">${detteHTML}</td>
                     <td style="text-align:center;">
+                        <button class="btn-action" style="padding:0.4rem 0.6rem; border-radius: 8px; background: #3498db; margin-right: 5px;" onclick="ouvrirModalEditionDepense('${d._id}')" title="Modifier l'opération">
+                            <i class="fas fa-pen"></i>
+                        </button>
                         <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem; border-radius: 8px;" onclick="supprimerDepense('${d._id}')" title="Annuler cette opération">
                             <i class="fas fa-trash-alt"></i>
                         </button>
@@ -1235,6 +1238,92 @@ async function supprimerDepense(id) {
         showNotification("❌ Erreur réseau", "var(--danger)");
         console.error(e);
     }
+}
+// 🔥 NOUVELLE FONCTION : OUVRIR LA MODIFICATION D'UNE DÉPENSE
+function ouvrirModalEditionDepense(id) {
+    // 1. On retrouve la dépense dans la mémoire
+    const d = depensesGlobales.find(x => x._id === id);
+    if (!d) return;
+
+    // 2. On affiche le modal (identique à l'ajout, mais avec le bouton "Mettre à jour")
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active"><div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier la Dépense</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+        
+        <div class="form-group">
+            <label>Famille d'opération :</label>
+            <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid #3498db; font-weight:bold; color:#3498db;">
+                <option value="fournisseur">📦 Achat Fournisseur / Stock</option>
+                <option value="rh">👤 Employé (Salaire / Avance / Prime)</option>
+                <option value="fixes">🏠 Charges Fixes (STEG, SONEDE, Loyer)</option>
+            </select>
+        </div>
+
+        <div id="dynamicDepenseForm"></div> <div class="form-group" style="margin-top:15px;"><label>Mode de Paiement :</label>
+            <select id="depMode"><option value="especes">💵 Espèces (Sortie Tiroir)</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
+        </div>
+        <div class="modal-buttons">
+            <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+            <button class="btn-primary" style="background:#3498db;" onclick="validerEditionDepense('${d._id}')"><i class="fas fa-save"></i> Mettre à jour</button>
+        </div>
+        </div></div>
+    `;
+
+    // 3. On pré-remplit les informations !
+    document.getElementById('depCatMain').value = d.categoriePrincipale || 'fixes';
+    changerFormulaireDepense(); // Affiche les bons champs selon la catégorie
+
+    // Petite astuce : on attend 50 millisecondes pour que l'ordinateur ait le temps de dessiner les champs avant de les remplir
+    setTimeout(() => {
+        if(document.getElementById('depSousCat')) document.getElementById('depSousCat').value = d.sousCategorie || '';
+        if(document.getElementById('depBeneficiaire')) document.getElementById('depBeneficiaire').value = d.beneficiaire || '';
+        if(document.getElementById('depDesc')) document.getElementById('depDesc').value = d.description || '';
+        if(document.getElementById('depMontantTotal')) document.getElementById('depMontantTotal').value = d.montantTotal || d.montant || 0;
+        if(document.getElementById('depMontantPaye')) document.getElementById('depMontantPaye').value = d.montantPaye || d.montant || 0;
+        if(document.getElementById('depMode')) document.getElementById('depMode').value = d.modePaiement || d.mode || 'especes';
+        if(typeof calcReste === 'function') calcReste();
+    }, 50);
+}
+
+// 🔥 NOUVELLE FONCTION : ENVOYER LA MISE À JOUR AU SERVEUR
+async function validerEditionDepense(id) {
+    const catMain = document.getElementById('depCatMain').value;
+    const total = parseFloat(document.getElementById('depMontantTotal').value) || 0;
+    
+    let paye = total; 
+    let reste = 0;
+    let statut = 'paye';
+
+    if (catMain === 'fournisseur') {
+        paye = parseFloat(document.getElementById('depMontantPaye').value) || 0;
+        reste = total - paye;
+        if (reste > 0) statut = 'credit';
+    }
+
+    const body = {
+        categoriePrincipale: catMain,
+        sousCategorie: document.getElementById('depSousCat') ? document.getElementById('depSousCat').value : '',
+        beneficiaire: document.getElementById('depBeneficiaire') ? document.getElementById('depBeneficiaire').value : 'Général',
+        description: document.getElementById('depDesc') ? document.getElementById('depDesc').value : '',
+        montantTotal: total,
+        montantPaye: paye,
+        resteAPayer: reste > 0 ? reste : 0,
+        statut: statut,
+        modePaiement: document.getElementById('depMode').value
+    };
+
+    if (paye < 0 || total <= 0) return showNotification("Le montant doit être valide.", "var(--danger)");
+
+    try {
+        const res = await fetchSecurise(`/api/depenses/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+        if (res.ok) { 
+            showNotification("✅ Opération mise à jour avec succès", "var(--success)"); 
+            fermerModal(); 
+            chargerDepenses(); // Recalcule les KPI avec les nouveaux montants
+        } else {
+            showNotification("❌ Erreur lors de la modification", "var(--danger)");
+        }
+    } catch (e) { console.error(e); }
 }
 
 // 🔥 MODAL DE SAISIE MULTI-FONCTIONS

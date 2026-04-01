@@ -373,6 +373,14 @@ app.delete('/api/depenses/:id', verifierToken, async (req, res) => {
         res.status(500).json({ error: err.message }); 
     }
 });
+app.put('/api/depenses/:id', verifierToken, async (req, res) => {
+    try {
+        const misAJour = await Expense.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json({ success: true, depense: misAJour });
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
 
 app.post('/api/numbers/refresh/:numero', async (req, res) => {
     try {
