@@ -161,15 +161,24 @@ function afficherProduits() {
 }
 
 // ========== GESTION DES VARIANTES (OPTIONS) ==========
+// ========== GESTION DES VARIANTES (OPTIONS) ==========
 function gererClicAjout(id) {
     const produit = produits.find(p => p.id === id);
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
     let optionsTrouvees = null;
 
+    // 🔥 NOUVEAU: Si on a explicitement forcé "aucun choix" dans le tableau de bord
+    if (produit.typeChoix === 'aucun') {
+        executerAjoutPanier(produit, null);
+        return; // On s'arrête là, le produit va direct au panier !
+    }
+
+    // Sinon, on cherche s'il y a des variantes spécifiques écrites (ex: "Grand, Petit")
     if (produit.variantes && produit.variantes.trim() !== "") {
         optionsTrouvees = produit.variantes.split(',').map(v => v.trim());
     } 
+    // Sinon, on applique la règle automatique par mots-clés (si ça n'a pas été forcé sur 'aucun')
     else {
         const nomLower = (produit.nom || "").toLowerCase();
         for (let config of variantesConfig) {
