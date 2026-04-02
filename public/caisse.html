@@ -141,70 +141,43 @@
         .notification { position: fixed; bottom: 20px; right: 20px; background: #2c3e50; color: white; padding: 12px 24px; border-radius: 12px; z-index: 3000; display: flex; align-items: center; gap: 10px; font-weight: 500; box-shadow: 0 5px 15px rgba(0,0,0,0.2); transition: all 0.3s;}
         .empty-message { text-align: center; padding: 2rem; color: #94a3b8; font-style: italic; font-size: 0.9rem;}
 
-        .ticket-caisse { width: 80mm; max-width: 80mm; background: white; padding: 10px; font-family: 'Courier New', Courier, monospace; font-size: 11px; display: none; margin: 0 auto; color: black;}
-        @media print { 
-            @page { size: 80mm auto; margin: 0; } 
-            body * { visibility: hidden; } 
-            #ticketCaisse, #ticketCaisse * { visibility: visible; } 
-            #ticketCaisse { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 5mm; } 
-        }
-
         /* Responsive */
         @media (max-width: 1000px) { .dashboard { grid-template-columns: 1fr; } .tables-grid { grid-template-columns: repeat(5, 1fr); } }
         @media (max-width: 600px) { .tables-grid { grid-template-columns: repeat(3, 1fr); } }
         /* ========== RESPONSIVE DESIGN CAISSE ========== */
-@media (max-width: 1024px) {
-    /* On empile la zone produits et le ticket */
-    .caisse-container {
-        flex-direction: column;
-        height: auto;
-    }
+        @media (max-width: 1024px) {
+            .caisse-container { flex-direction: column; height: auto; }
+            .ticket-area { width: 100%; height: 500px; border-left: none; border-top: 2px solid var(--primary); }
+            .categories-bar { overflow-x: auto; display: flex; flex-wrap: nowrap; padding: 10px; gap: 10px; }
+            .cat-btn { flex: 0 0 auto; min-width: 100px; }
+            .products-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); padding: 10px; }
+            .product-card { padding: 15px; height: 120px; }
+            .btn-encaisser { height: 70px; font-size: 1.4rem; }
+        }
+        @media (max-width: 480px) {
+            .products-grid { grid-template-columns: 1fr 1fr; }
+            header h1 { font-size: 1.1rem; }
+        }
 
-    /* Le ticket prend toute la largeur en bas */
-    .ticket-area {
-        width: 100%;
-        height: 500px; /* Hauteur fixe pour le ticket sur mobile */
-        border-left: none;
-        border-top: 2px solid var(--primary);
-    }
+        /* ========== IMPRESSION THERMIQUE (80mm) ========== */
+        #zone-impression { display: none; } /* Caché sur l'écran */
 
-    /* Les catégories deviennent une ligne défilante horizontale */
-    .categories-bar {
-        overflow-x: auto;
-        display: flex;
-        flex-wrap: nowrap;
-        padding: 10px;
-        gap: 10px;
-    }
-    .cat-btn {
-        flex: 0 0 auto;
-        min-width: 100px;
-    }
-
-    /* Grille de produits : 2 colonnes sur mobile */
-    .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        padding: 10px;
-    }
-
-    /* Boutons tactiles plus grands */
-    .product-card {
-        padding: 15px;
-        height: 120px;
-    }
-    .btn-encaisser {
-        height: 70px; /* Plus facile de cliquer avec le pouce */
-        font-size: 1.4rem;
-    }
-}
-
-/* Optimisation spécifique pour les petits téléphones */
-@media (max-width: 480px) {
-    .products-grid {
-        grid-template-columns: 1fr 1fr; /* Forcer 2 colonnes */
-    }
-    header h1 { font-size: 1.1rem; }
-}
+        @media print {
+            body * { visibility: hidden; } /* On cache la caisse */
+            #zone-impression, #zone-impression * { visibility: visible; } /* On montre le ticket */
+            
+            #zone-impression {
+                display: block;
+                position: absolute;
+                left: 0; top: 0;
+                width: 80mm; /* Largeur du papier thermique */
+                margin: 0; padding: 0;
+                font-family: 'Courier New', monospace; /* Police de ticket */
+                font-size: 12px;
+                color: black;
+            }
+            @page { margin: 0; } /* Supprime les marges blanches */
+        }
     </style>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#143621">
@@ -215,6 +188,7 @@
     <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
 <body>
+<div id="zone-impression"></div>
 
 <header>
     <div class="header-container">
@@ -223,6 +197,7 @@
             <h1>TA'BIA <span class="logo-subtext">Caisse</span></h1>
         </div>
         <div class="nav-right">
+            <button onclick="ouvrirTiroirManuel()" class="btn-nav" style="background: #e74c3c; color: white;"><i class="fas fa-lock-open"></i> Ouvrir Tiroir</button>
             <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
             <button id="btn-tiroir" class="btn-nav" style="background: #e74c3c; color: white;"><i class="fas fa-lock"></i> Caisse Fermée</button>
             <button id="btn-aller-stock" class="btn-nav btn-stock"><i class="fas fa-boxes"></i> Stock</button>  
@@ -310,26 +285,6 @@
 
 <div id="containerModalPaiement"></div>
 
-<div id="ticketCaisse" class="ticket-caisse">
-    <div style="text-align:center; border-bottom:1px dashed black; padding-bottom:6px; margin-bottom:6px;">
-        <div style="font-size:14px; font-weight:bold;">☕ TA'BIA Coffee Shop</div>
-        <div>23 Av. souk el-asr, Tunis</div>
-        <div>Tel: 71 234 043</div>
-        <div>NIF: 1234567X | RC: 1234567</div>
-    </div>
-    <div style="display:flex; justify-content:space-between; margin:4px 0;"><span>Ticket N°:</span><span id="printNumero">---</span></div>
-    <div style="display:flex; justify-content:space-between; margin:4px 0;"><span>Table:</span><span id="printTable">---</span></div>
-    <div style="display:flex; justify-content:space-between; margin:4px 0;"><span>Date:</span><span id="printDate">---</span></div>
-    <div style="border-top:1px dashed black; margin:6px 0;"></div>
-    <div id="printArticles"></div>
-    <div style="border-top:1px dashed black; margin:6px 0;"></div>
-    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:14px; margin-top:5px;">
-        <span>TOTAL TTC</span><span id="printTotal">0.00 DT</span>
-    </div>
-    <div style="text-align:center; margin-top:15px; font-style: italic;">Merci de votre visite !</div>
-    <div style="text-align:center; margin-top:5px;">. . . . . . . . . . . . . . . .</div>
-</div>
-
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
     // 🛡️ SÉCURITÉ : Vérification du Token
@@ -386,40 +341,27 @@
         setTimeout(() => { n.style.opacity = '0'; n.style.transform = 'translateY(20px)'; setTimeout(() => n.remove(), 300); }, 2500); 
     }
 
-async function sauvegarderTousLesTickets() { 
-        // Sauvegarde locale de secours
+    async function sauvegarderTousLesTickets() { 
         localStorage.setItem('tabia_caisse_tickets', JSON.stringify(tickets)); 
-        
-        // Sauvegarde sur le serveur pour la table actuelle
         if (currentTable && tickets[currentTable]) {
             try {
-                await fetchSecurise('/api/tickets-ouverts', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        tableNum: currentTable,
-                        ticketData: tickets[currentTable]
-                    })
-                });
+                await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: tickets[currentTable] }) });
             } catch (e) { console.error("Erreur synchro cloud", e); }
         }
     }    
-async function chargerTickets() {
+
+    async function chargerTickets() {
         try {
-            // 1. On interroge la base de données
             const res = await fetchSecurise('/api/tickets-ouverts');
             const ticketsSauves = await res.json();
-            
             if (ticketsSauves && ticketsSauves.length > 0) {
-                ticketsSauves.forEach(t => {
-                    tickets[t.tableNum] = t.ticketData;
-                });
+                ticketsSauves.forEach(t => { tickets[t.tableNum] = t.ticketData; });
                 afficherListeTables();
                 if (currentTable) afficherTicket();
-                return; // Succès, on s'arrête là !
+                return;
             }
         } catch(e) { console.error("Le cloud est injoignable, passage en mode local"); }
 
-        // 2. Si le cloud échoue, on charge le secours local
         try {
             const stored = localStorage.getItem('tabia_caisse_tickets');
             if (stored) {
@@ -441,14 +383,9 @@ async function chargerTickets() {
     function ajouterAuTicket(tableNum, produit, updateUI = true) {
         if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0 };
         const ticket = tickets[tableNum];
-
         const prixSecurise = parseFloat(produit.prix) || 0;
         const qteSecurise = parseInt(produit.quantite) || 1;
-
-        const existing = ticket.articles.find(a => 
-            (String(a.id) === String(produit.id) || a.nom === produit.nom) && 
-            (a.variante || null) === (produit.variante || null)
-        );
+        const existing = ticket.articles.find(a => (String(a.id) === String(produit.id) || a.nom === produit.nom) && (a.variante || null) === (produit.variante || null));
         
         if (existing) { existing.quantite += qteSecurise; } 
         else { ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise }); }
@@ -456,27 +393,20 @@ async function chargerTickets() {
         ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
         sauvegarderTousLesTickets();
         
-        if (updateUI) {
-            if (String(currentTable) === String(tableNum)) afficherTicket();
-            afficherListeTables();
-        }
+        if (updateUI) { if (String(currentTable) === String(tableNum)) afficherTicket(); afficherListeTables(); }
     }
 
     function modifierQuantite(tableNum, produitId, variante, delta) {
         const ticket = tickets[tableNum];
         if (!ticket) return;
-        
         const index = ticket.articles.findIndex(a => String(a.id) === String(produitId) && (a.variante || null) === (variante || null));
         if (index !== -1) {
             const article = ticket.articles[index];
             const nouvelleQuantite = article.quantite + delta;
-            
             if (nouvelleQuantite <= 0) ticket.articles.splice(index, 1);
             else article.quantite = nouvelleQuantite;
-            
             ticket.total = ticket.articles.reduce((sum, a) => sum + (a.prix * a.quantite), 0);
             sauvegarderTousLesTickets();
-            
             if (String(currentTable) === String(tableNum)) afficherTicket();
             afficherListeTables();
         }
@@ -491,178 +421,81 @@ async function chargerTickets() {
 
     async function viderTicket(tableNum, confirmDialogue = true) {
         if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
-            if (confirmDialogue) {
-                try { await nettoyerCommandesCuisine(tableNum); } catch(e) {}
-            }
-            if (String(tableNum).startsWith('Fidele_')) {
-                delete tickets[tableNum];
-                currentTable = 'Emporter';
-            } else {
-                tickets[tableNum] = { articles: [], total: 0 };
-            }
-
-            sauvegarderTousLesTickets();
-            afficherTicket();
-            afficherListeTables();
-            
+            if (confirmDialogue) { try { await nettoyerCommandesCuisine(tableNum); } catch(e) {} }
+            if (String(tableNum).startsWith('Fidele_')) { delete tickets[tableNum]; currentTable = 'Emporter'; } 
+            else { tickets[tableNum] = { articles: [], total: 0 }; }
+            sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
             if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3498db");
         }
     }
 
-    function selectionnerTable(tableNum) {
-        currentTable = String(tableNum);
-        afficherTicket();
-        afficherListeTables();
-    }
+    function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
 
     async function envoyerEnCuisine() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
 
-        let nomTableServeur = currentTable;
-        let nomClientFidele = null;
-        
-        if (currentTable.startsWith('Fidele_')) {
-            nomTableServeur = ticket.numeroTableOrigine || 'Emporter';
-            nomClientFidele = ticket.label.split(' (')[0]; 
-        }
+        let nomTableServeur = currentTable; let nomClientFidele = null;
+        if (currentTable.startsWith('Fidele_')) { nomTableServeur = ticket.numeroTableOrigine || 'Emporter'; nomClientFidele = ticket.label.split(' (')[0]; }
 
         try {
             const response = await fetchSecurise('/api/commandes', {
                 method: 'POST', 
-                body: JSON.stringify({
-                    articles: ticket.articles.map(a => ({ id: a.id, nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, prix: a.prix, quantite: a.quantite })),
-                    numeroTable: nomTableServeur, clientName: nomClientFidele, clientId: null
-                })
+                body: JSON.stringify({ articles: ticket.articles.map(a => ({ id: a.id, nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, prix: a.prix, quantite: a.quantite })), numeroTable: nomTableServeur, clientName: nomClientFidele, clientId: null })
             });
-            
-            if (response.ok) {
-                showNotification(`👨‍🍳 Commande envoyée en cuisine !`, "#e67e22");
-                viderTicket(currentTable, false);
-            } else { showNotification("❌ Refusé par le serveur.", "#e74c3c"); }
+            if (response.ok) { showNotification(`👨‍🍳 Commande envoyée en cuisine !`, "#e67e22"); viderTicket(currentTable, false); } 
+            else { showNotification("❌ Refusé par le serveur.", "#e74c3c"); }
         } catch (error) { showNotification("❌ Erreur de réseau avec la cuisine", "#e74c3c"); }
     }
 
     function afficherListeTables() {
-        const container = document.getElementById('tablesGrid');
-        const countSpan = document.getElementById('tablesCount');
-        if (!container) return;
-        
-        let actives = 0, html = '';
+        const container = document.getElementById('tablesGrid'); const countSpan = document.getElementById('tablesCount');
+        if (!container) return; let actives = 0, html = '';
         
         for (let i = 1; i <= 20; i++) {
-            const tableStr = String(i);
-            const ticket = tickets[tableStr];
-            const hasItems = ticket && ticket.articles.length > 0;
+            const tableStr = String(i); const ticket = tickets[tableStr]; const hasItems = ticket && ticket.articles.length > 0;
             if (hasItems) actives++;
-            html += `
-            <div class="table-wrapper">
-                <button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')">
-                    <span class="table-num">Table ${i}</span>
-                    <span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span>
-                </button>
-                <button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn" title="Voir Cuisine"><i class="fas fa-concierge-bell"></i></button>
-            </div>`;
+            html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')"><span class="table-num">Table ${i}</span><span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn" title="Voir Cuisine"><i class="fas fa-concierge-bell"></i></button></div>`;
         }
         
-        const emporter = tickets['Emporter'];
-        const emporterHasItems = emporter && emporter.articles.length > 0;
+        const emporter = tickets['Emporter']; const emporterHasItems = emporter && emporter.articles.length > 0;
         if (emporterHasItems) actives++;
-        html += `
-        <div class="table-wrapper">
-            <button type="button" class="table-btn ${currentTable === 'Emporter' ? 'active' : ''} ${emporterHasItems ? 'has-items' : ''}" onclick="selectionnerTable('Emporter')">
-                <span class="table-num">📦 Emporter</span>
-                <span class="table-total">${emporterHasItems ? emporter.total.toFixed(2) + ' DT' : '-'}</span>
-            </button>
-            <button type="button" onclick="afficherCommandesTable('Emporter'); event.stopPropagation();" class="details-btn"><i class="fas fa-concierge-bell"></i></button>
-        </div>`;
+        html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === 'Emporter' ? 'active' : ''} ${emporterHasItems ? 'has-items' : ''}" onclick="selectionnerTable('Emporter')"><span class="table-num">📦 Emporter</span><span class="table-total">${emporterHasItems ? emporter.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('Emporter'); event.stopPropagation();" class="details-btn"><i class="fas fa-concierge-bell"></i></button></div>`;
 
         Object.keys(tickets).forEach(key => {
             if (key.startsWith('Fidele_')) {
-                const customTicket = tickets[key];
-                const hasItems = customTicket.articles.length > 0;
+                const customTicket = tickets[key]; const hasItems = customTicket.articles.length > 0;
                 if (hasItems || currentTable === key) {
                     if (hasItems) actives++;
-                    html += `
-                    <div class="table-wrapper">
-                        <button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="background: #fef5e6; border: 2px solid #e67e22;">
-                            <span class="table-num" style="color: #e67e22; font-size: 0.8rem;"><i class="fas fa-star"></i> ${escapeHtml(customTicket.label)}</span>
-                            <span class="table-total" style="color: #d35400;">${customTicket.total.toFixed(2)} DT</span>
-                        </button>
-                        <button type="button" onclick="viderTicket('${key}'); event.stopPropagation();" class="details-btn" style="background:#e74c3c;" title="Supprimer ce ticket"><i class="fas fa-times"></i></button>
-                    </div>`;
-                } else if (!hasItems && currentTable !== key) {
-                    delete tickets[key]; 
-                }
+                    html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="background: #fef5e6; border: 2px solid #e67e22;"><span class="table-num" style="color: #e67e22; font-size: 0.8rem;"><i class="fas fa-star"></i> ${escapeHtml(customTicket.label)}</span><span class="table-total" style="color: #d35400;">${customTicket.total.toFixed(2)} DT</span></button><button type="button" onclick="viderTicket('${key}'); event.stopPropagation();" class="details-btn" style="background:#e74c3c;" title="Supprimer ce ticket"><i class="fas fa-times"></i></button></div>`;
+                } else if (!hasItems && currentTable !== key) { delete tickets[key]; }
             }
         });
         
-        container.innerHTML = html;
-        if (countSpan) countSpan.innerText = `${actives} actif${actives > 1 ? 's' : ''}`;
+        container.innerHTML = html; if (countSpan) countSpan.innerText = `${actives} actif${actives > 1 ? 's' : ''}`;
     }
 
     function afficherTicket() {
-        const itemsDiv = document.getElementById('ticketItemsList');
-        const totalSpan = document.getElementById('ticketTotal');
-        const countSpan = document.getElementById('articleCount');
-        const labelSpan = document.getElementById('currentTableLabel');
+        const itemsDiv = document.getElementById('ticketItemsList'); const totalSpan = document.getElementById('ticketTotal'); const countSpan = document.getElementById('articleCount'); const labelSpan = document.getElementById('currentTableLabel');
         
-        if (!currentTable) { 
-            itemsDiv.innerHTML = '<div class="empty-message">Sélectionnez une table</div>'; 
-            totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 article"; labelSpan.innerText = "-"; 
-            return; 
-        }
-        
+        if (!currentTable) { itemsDiv.innerHTML = '<div class="empty-message">Sélectionnez une table</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 article"; labelSpan.innerText = "-"; return; }
         const ticket = tickets[currentTable];
-        
-        if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter';
-        else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`;
-        else labelSpan.innerText = `Table ${currentTable}`;
-        
-        if (!ticket || !ticket.articles || ticket.articles.length === 0) { 
-            itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-receipt" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 10px; display: block;"></i>Ticket vide</div>'; 
-            totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 article"; 
-            return; 
-        }
+        if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter'; else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
+        if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-receipt" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 10px; display: block;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 article"; return; }
         
         let totalArts = 0, html = '';
         ticket.articles.forEach((item) => {
-            const prix = parseFloat(item.prix) || 0; 
-            const qte = parseInt(item.quantite) || 1;
-            const itemTotal = prix * qte;
-            totalArts += qte;
-            
-            const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null';
-            html += `
-                <div class="ticket-item">
-                    <div class="item-info">
-                        <div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:#e67e22;">(${item.variante})</span>` : ''}</div>
-                        <div class="item-price">${prix.toFixed(2)} DT / u</div>
-                    </div>
-                    <div class="item-actions">
-                        <div class="qty-control">
-                            <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1)"><i class="fas fa-minus"></i></button>
-                            <span>${qte}</span>
-                            <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1)"><i class="fas fa-plus"></i></button>
-                        </div>
-                        <div style="min-width: 65px; text-align: right; font-weight: bold; color: #27ae60; font-size: 0.9rem;">
-                            ${itemTotal.toFixed(2)}
-                        </div>
-                        <button type="button" class="remove-item" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -${qte})"><i class="fas fa-times"></i></button>
-                    </div>
-                </div>`;
+            const prix = parseFloat(item.prix) || 0; const qte = parseInt(item.quantite) || 1; const itemTotal = prix * qte; totalArts += qte; const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null';
+            html += `<div class="ticket-item"><div class="item-info"><div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:#e67e22;">(${item.variante})</span>` : ''}</div><div class="item-price">${prix.toFixed(2)} DT / u</div></div><div class="item-actions"><div class="qty-control"><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1)"><i class="fas fa-minus"></i></button><span>${qte}</span><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1)"><i class="fas fa-plus"></i></button></div><div style="min-width: 65px; text-align: right; font-weight: bold; color: #27ae60; font-size: 0.9rem;">${itemTotal.toFixed(2)}</div><button type="button" class="remove-item" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -${qte})"><i class="fas fa-times"></i></button></div></div>`;
         });
         
-        itemsDiv.innerHTML = html;
-        totalSpan.innerText = ticket.total.toFixed(2) + " DT";
-        countSpan.innerText = totalArts + (totalArts > 1 ? " articles" : " article");
+        itemsDiv.innerHTML = html; totalSpan.innerText = ticket.total.toFixed(2) + " DT"; countSpan.innerText = totalArts + (totalArts > 1 ? " articles" : " article");
     }
 
     function renderCategories() {
         const container = document.getElementById('categoriesContainer');
-const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", chicha: "💨 Chichas" };        const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
-        
+        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", chicha: "💨 Chichas" }; const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
         let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
         Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });
         container.innerHTML = html;
@@ -670,65 +503,23 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
     }
 
     function renderProducts() {
-        const grid = document.getElementById('productsGrid');
-        if (!grid) return;
+        const grid = document.getElementById('productsGrid'); if (!grid) return;
         let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
         if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit dans cette catégorie</div>'; return; }
-        
-        grid.innerHTML = filtered.map(p => {
-            const stockColor = p.stock <= 0 ? 'color: #e74c3c; font-weight: bold;' : 'color: #64748b;';
-            return `
-            <div class="product-card" data-id="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}">
-                <div style="font-size: 0.7rem; text-align: right; ${stockColor}">En stock : ${p.stock}</div>
-                <div class="product-name">${escapeHtml(p.nom)}</div>
-                <div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div>
-            </div>`;
-        }).join('');
-        
-        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { 
-            if (!currentTable) return showNotification("❌ Sélectionnez une table d'abord !", "#e74c3c"); 
-            ajouterAuTicket(currentTable, { id: parseInt(card.dataset.id) || Date.now(), nom: card.dataset.nom, prix: parseFloat(card.dataset.prix) }); 
-        }));
+        grid.innerHTML = filtered.map(p => { const stockColor = p.stock <= 0 ? 'color: #e74c3c; font-weight: bold;' : 'color: #64748b;'; return `<div class="product-card" data-id="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}"><div style="font-size: 0.7rem; text-align: right; ${stockColor}">En stock : ${p.stock}</div><div class="product-name">${escapeHtml(p.nom)}</div><div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div></div>`; }).join('');
+        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { if (!currentTable) return showNotification("❌ Sélectionnez une table d'abord !", "#e74c3c"); ajouterAuTicket(currentTable, { id: parseInt(card.dataset.id) || Date.now(), nom: card.dataset.nom, prix: parseFloat(card.dataset.prix) }); }));
     }
 
-    async function decrementerStock(articles) {
-        try {
-            await fetchSecurise('/api/stock/decrementer', { method: 'POST', body: JSON.stringify({ articles: articles.map(a => ({ id: a.id || a.baseId, quantite: a.quantite })) }) });
-        } catch (error) {}
-    }
+    async function decrementerStock(articles) { try { await fetchSecurise('/api/stock/decrementer', { method: 'POST', body: JSON.stringify({ articles: articles.map(a => ({ id: a.id || a.baseId, quantite: a.quantite })) }) }); } catch (error) {} }
 
     function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
-        if (!caisseOuverte) {
-            showNotification("❌ Veuillez ouvrir la caisse d'abord !", "#e74c3c");
-            return;
-        }
-
+        if (!caisseOuverte) { showNotification("❌ Veuillez ouvrir la caisse d'abord !", "#e74c3c"); return; }
         const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `
-            <div id="modalPaiement" class="modal-overlay active">
-                <div class="modal-content">
-                    <div class="modal-header"><h3><i class="fas fa-cash-register"></i> ${isPartial ? 'Paiement de la sélection' : 'Encaissement'}</h3><button type="button" class="close-btn" id="closePaiementBtn">&times;</button></div>
-                    <div class="montant-total" id="modalTotal">${total.toFixed(2)} DT</div>
-                    <div class="remise-section"><div class="form-group"><label><i class="fas fa-tag"></i> Remise (%)</label><div class="remise-input"><input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0"><button type="button" id="appliquerRemiseBtn"><i class="fas fa-check"></i></button></div><div id="remiseInfo" style="font-size:0.8rem; color:#e67e22; margin-top:5px; font-weight: 600;"></div></div></div>
-                    <div class="form-group"><label><i class="fas fa-credit-card"></i> Mode de paiement</label>
-                        <select id="selectModePaiement">
-                            <option value="especes">💰 Espèces</option>
-                            <option value="carte">💳 Carte Bancaire</option>
-                            <option value="ticket_resto">🎫 Ticket Resto</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="montantRecuDiv"><label><i class="fas fa-money-bill-wave"></i> Montant reçu (DT)</label><input type="number" id="montantRecuInput" step="0.1" value="${total.toFixed(2)}"></div>
-                    <div id="monnaieDiv" class="monnaie-div"><i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT</div>
-                    <div class="modal-buttons"><button type="button" id="validerPaiementBtn" class="btn-valider">✅ Valider l'encaissement</button></div>
-                </div>
-            </div>`;
-        
+        container.innerHTML = `<div id="modalPaiement" class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-cash-register"></i> ${isPartial ? 'Paiement de la sélection' : 'Encaissement'}</h3><button type="button" class="close-btn" id="closePaiementBtn">&times;</button></div><div class="montant-total" id="modalTotal">${total.toFixed(2)} DT</div><div class="remise-section"><div class="form-group"><label><i class="fas fa-tag"></i> Remise (%)</label><div class="remise-input"><input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0"><button type="button" id="appliquerRemiseBtn"><i class="fas fa-check"></i></button></div><div id="remiseInfo" style="font-size:0.8rem; color:#e67e22; margin-top:5px; font-weight: 600;"></div></div></div><div class="form-group"><label><i class="fas fa-credit-card"></i> Mode de paiement</label><select id="selectModePaiement"><option value="especes">💰 Espèces</option><option value="carte">💳 Carte Bancaire</option><option value="ticket_resto">🎫 Ticket Resto</option></select></div><div class="form-group" id="montantRecuDiv"><label><i class="fas fa-money-bill-wave"></i> Montant reçu (DT)</label><input type="number" id="montantRecuInput" step="0.1" value="${total.toFixed(2)}"></div><div id="monnaieDiv" class="monnaie-div"><i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT</div><div class="modal-buttons"><button type="button" id="validerPaiementBtn" class="btn-valider">✅ Valider l'encaissement</button></div></div></div>`;
         const modal = document.getElementById("modalPaiement"); let remiseActuelle = 0; let totalAvecRemise = total;
         const remiseInput = document.getElementById("remiseInput"); const appliquerRemise = document.getElementById("appliquerRemiseBtn"); const modalTotal = document.getElementById("modalTotal"); const montantRecuInput = document.getElementById("montantRecuInput"); const monnaieDiv = document.getElementById("monnaieDiv"); const monnaieSpan = document.getElementById("monnaieRendre"); const selectMode = document.getElementById("selectModePaiement"); const montantRecuDiv = document.getElementById("montantRecuDiv");
-        
         const updateTotal = () => { totalAvecRemise = total * (1 - remiseActuelle/100); modalTotal.innerText = totalAvecRemise.toFixed(2) + " DT"; montantRecuInput.value = totalAvecRemise.toFixed(2); document.getElementById("remiseInfo").innerHTML = remiseActuelle > 0 ? `💰 Remise : ${remiseActuelle}% (- ${(total - totalAvecRemise).toFixed(2)} DT)` : ''; calculerMonnaie(); };
         const calculerMonnaie = () => { const recu = parseFloat(montantRecuInput.value) || 0; const monnaie = recu - totalAvecRemise; if(recu > 0 && monnaie >= 0) { monnaieSpan.innerText = monnaie.toFixed(2); monnaieDiv.style.display = "block"; } else { monnaieDiv.style.display = "none"; } };
-
         appliquerRemise.onclick = () => { let val = parseFloat(remiseInput.value) || 0; if(val<0) val=0; if(val>100) val=100; remiseActuelle = val; remiseInput.value = val; updateTotal(); };
         montantRecuInput.addEventListener('input', calculerMonnaie);
         selectMode.addEventListener('change', () => { montantRecuDiv.style.display = (selectMode.value === "especes") ? "block" : "none"; monnaieDiv.style.display = "none"; });
@@ -754,9 +545,7 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
         if (currentTable.startsWith('Fidele_')) {
             nomOrigine = `Fidèle: ${ticket.label}`;
             if (ticket.orderIds && ticket.orderIds.length > 0) {
-                for (let oid of ticket.orderIds) {
-                    await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) });
-                }
+                for (let oid of ticket.orderIds) { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); }
             }
         } else { nettoyerCommandesCuisine(currentTable); }
 
@@ -765,22 +554,18 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
         try {
             await fetchSecurise('/api/ventes', {
                 method: 'POST',
-                body: JSON.stringify({
-                    id: vente.id.toString(), numero: vente.numero, 
-                    total: totalPaye, remise: remise, typePaiement: 'complet',
-                    tableOrigine: nomOrigine, articles: vente.articles,
-                    methodePaiement: methodePaiement
-                })
+                body: JSON.stringify({ id: vente.id.toString(), numero: vente.numero, total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: vente.articles, methodePaiement: methodePaiement })
             });
         } catch(e) { console.error("Erreur synchro vente", e); }
         
         if (currentTable.startsWith('Fidele_')) { delete tickets[currentTable]; currentTable = 'Emporter'; } 
         else { tickets[currentTable] = { articles: [], total: 0 }; }
         
-        sauvegarderTousLesTickets();
-        afficherTicket(); afficherListeTables();
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
         showNotification(`✅ Paiement complet validé : ${totalPaye.toFixed(2)} DT`, "#27ae60");
-        imprimerTicket(nomOrigine, articles, totalPaye, remise);
+        
+        // 🔥 L'IMPRESSION AVEC LE BON FORMAT !
+        imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
     }
 
     function payerSelection() {
@@ -831,12 +616,7 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
         try {
             await fetchSecurise('/api/ventes', {
                 method: 'POST',
-                body: JSON.stringify({
-                    id: vente.id.toString(), numero: vente.numero, 
-                    total: totalPaye, remise: remise, typePaiement: 'partiel',
-                    tableOrigine: nomOrigine, articles: vente.articles,
-                    methodePaiement: methodePaiement
-                })
+                body: JSON.stringify({ id: vente.id.toString(), numero: vente.numero, total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: vente.articles, methodePaiement: methodePaiement })
             });
         } catch(e) { console.error("Erreur synchro vente", e); }
         
@@ -854,36 +634,11 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
         tickets[currentTable].articles = articlesRestants;
         tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
         
-        sauvegarderTousLesTickets();
-        afficherTicket(); afficherListeTables();
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
         showNotification(`💰 Paiement partiel validé (${totalPaye.toFixed(2)} DT)`, "#27ae60");
-        imprimerTicket(nomOrigine, articlesAPayer, totalPaye, remise, true);
-    }
-
-    // ========== IMPRESSION ==========
-    function imprimerTicket(tableNum, articles, total, remise, isPartial = false) {
-        const now = new Date(); const numTicket = `${isPartial?'P':'T'}-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}-${now.getHours()}${now.getMinutes()}`;
-        document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = tableNum; document.getElementById('printDate').textContent = now.toLocaleString();
         
-        let html = '<div style="display:flex; justify-content:space-between; font-weight:bold; border-bottom:1px dashed black; padding-bottom:3px; margin-bottom:3px;"><span>Article</span><span>Qté</span><span>Prix</span></div>';
-        articles.forEach(a => { html += `<div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>${a.nom} ${a.variante?`(${a.variante})`:''}</span><span>x${a.quantite}</span><span>${(a.prix * a.quantite).toFixed(2)}</span></div>`; });
-        if (remise > 0) { const totalOriginal = total / (1 - remise/100); html += `<div style="display:flex; justify-content:space-between; margin-top:5px; font-weight:bold;"><span>Remise ${remise}%</span><span>- ${(totalOriginal - total).toFixed(2)}</span></div>`; }
-        if (isPartial) html += `<div style="margin-top:8px; text-align:center; font-weight:bold;">*** PAIEMENT PARTIEL ***</div>`;
-        
-        document.getElementById('printArticles').innerHTML = html; document.getElementById('printTotal').textContent = `${total.toFixed(2)} DT`;
-        const ticketElem = document.getElementById('ticketCaisse'); ticketElem.style.display = 'block';
-        setTimeout(() => { window.print(); ticketElem.style.display = 'none'; }, 300);
-    }
-    
-    function imprimerTicketCourant() {
-        if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
-        const ticket = tickets[currentTable];
-        if (!ticket.articles || !ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
-        
-        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
-        if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
-
-        imprimerTicket(nomOrigine, ticket.articles, ticket.total, 0, false);
+        // 🔥 L'IMPRESSION DU PARTIEL !
+        imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
     }
 
     // ========== SYNCHRO CUISINE ET RATTRAPAGE ==========
@@ -999,22 +754,9 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
     function initSocket() {
-        socket = io({ 
-    auth: { token: monToken }, 
-    transports: ['websocket', 'polling'], 
-    reconnection: true 
-});
-
-        socket.on('connect', async () => {
-            await chargerCommandesCuisineInitiales();
-            synchroniserTicketsAvecServeur();
-        });
-        
-        socket.on('update_stock', async () => {
-            await chargerCatalogue(); 
-            if (currentTable) afficherTicket(); 
-            renderProducts(); 
-        });
+        socket = io({ auth: { token: monToken }, transports: ['websocket', 'polling'], reconnection: true });
+        socket.on('connect', async () => { await chargerCommandesCuisineInitiales(); synchroniserTicketsAvecServeur(); });
+        socket.on('update_stock', async () => { await chargerCatalogue(); if (currentTable) afficherTicket(); renderProducts(); });
 
         socket.on('nouvelle_commande', (commande) => {
             commandesRecues.push(commande);
@@ -1176,6 +918,85 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
         };
     }
 
+    // 🔥 GÉNÉRATEUR DE TICKET THERMIQUE COMPLET
+    function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
+        const date = new Date().toLocaleString('fr-FR');
+        const numTicket = Math.floor(1000 + Math.random() * 9000); 
+        const infoClient = nomClient ? `<p style="margin:0;">Client: ${nomClient}</p>` : '';
+        
+        let html = `
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h2 style="margin:0; font-size: 20px; font-weight:bold;">TA'BIA COFFEE</h2>
+                <p style="margin:0; font-size: 12px;">Tunis</p>
+                <hr style="border-top: 1px dashed black; margin: 5px 0;">
+            </div>
+            <div style="margin-bottom: 10px; font-size: 12px;">
+                <p style="margin:0;">Date: ${date}</p>
+                <p style="margin:0;">Ticket N°: ${numTicket}</p>
+                <p style="margin:0;">Table: ${numTable}</p>
+                ${infoClient}
+            </div>
+            <hr style="border-top: 1px dashed black; margin: 5px 0;">
+            <table style="width: 100%; font-size: 12px; text-align: left;">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Qté</th>
+                        <th style="width: 55%;">Article</th>
+                        <th style="text-align:right; width: 30%;">Prix</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        panierArticles.forEach(art => {
+            const nom = art.nom + (art.variante ? ` <br><small>(${art.variante})</small>` : '');
+            html += `
+                <tr>
+                    <td style="vertical-align:top; font-weight:bold;">${art.quantite}x</td>
+                    <td style="vertical-align:top;">${nom}</td>
+                    <td style="text-align:right; vertical-align:top;">${(art.prix * art.quantite).toFixed(2)}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+            </table>
+            <hr style="border-top: 1px dashed black; margin: 5px 0;">
+            <div style="text-align: right; font-size: 16px; font-weight: bold; margin: 10px 0;">
+                TOTAL: ${parseFloat(total).toFixed(2)} DT
+            </div>
+            <div style="text-align: right; font-size: 12px; margin-bottom: 15px;">
+                Payé en : ${methodePaiement.toUpperCase()}
+            </div>
+            <div style="text-align: center; font-size: 12px;">
+                <p style="margin:0;">Merci de votre visite !</p>
+                <br><br><br>
+            </div>
+        `;
+
+        document.getElementById('zone-impression').innerHTML = html;
+        window.print();
+    }
+
+    // Fonction pour réimprimer le ticket si on clique sur le bouton "Imprimer ticket"
+    function imprimerTicketCourant() {
+        if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
+        const ticket = tickets[currentTable];
+        if (!ticket.articles || !ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
+        
+        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
+        if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
+
+        imprimerTicket(ticket.articles, nomOrigine, "RÉIMPRESSION", ticket.total, currentTable.startsWith('Fidele_') ? ticket.label : null);
+    }
+
+    // 🔥 BOUTON D'URGENCE : OUVRIR LE TIROIR SANS VENTE
+    function ouvrirTiroirManuel() {
+        document.getElementById('zone-impression').innerHTML = "<div style='font-size:1px;'>.</div>";
+        window.print();
+    }
+
     // ========== INITIALISATION ==========
     document.addEventListener("DOMContentLoaded", async () => {
         chargerTickets();
@@ -1185,9 +1006,7 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
         await chargerCommandesCuisineInitiales();
         synchroniserTicketsAvecServeur();
         
-        // 🔥 VERIFICATION TIROIR CAISSE
         verifierStatutCaisse();
-
         initSocket();
         
         document.getElementById('viderTicketBtn').addEventListener('click', () => viderTicket(currentTable));
