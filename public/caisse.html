@@ -961,10 +961,15 @@
     }
 
     // 🔥 GÉNÉRATEUR DE TICKET THERMIQUE COMPLET
-function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
+    function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
         const now = new Date(); 
         const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
         const numTicket = Math.floor(1000 + Math.random() * 9000); 
+        
+        // --- CALCUL DE LA TVA TUNISIENNE (19%) ---
+        const ttc = parseFloat(total);
+        const ht = ttc / 1.19; 
+        const tva = ttc - ht;
         
         // Remplissage de l'en-tête
         document.getElementById('printDate').textContent = dateStr;
@@ -979,11 +984,11 @@ function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomCli
             divClient.style.display = 'none';
         }
         
-        // Remplissage des articles (Alignement parfait avec Flexbox)
+        // Remplissage des articles
         let htmlArticles = '';
         panierArticles.forEach(a => { 
             const nom = a.nom + (a.variante ? ` (${a.variante})` : '');
-            const montant = (a.prix * a.quantite).toFixed(2);
+            const montant = (a.prix * a.quantite).toFixed(3); // 3 décimales pour les millimes
             htmlArticles += `
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px; align-items:flex-start;">
                     <span style="width: 15%; font-weight:bold;">${a.quantite}x</span>
@@ -993,14 +998,30 @@ function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomCli
             `; 
         });
         
-        document.getElementById('printArticles').innerHTML = htmlArticles; 
-        document.getElementById('printTotal').textContent = `${parseFloat(total).toFixed(2)} DT`;
+        // --- AJOUT DU BLOC HT & TVA ---
+        htmlArticles += `
+            <div style="border-top:1px dashed black; margin:6px 0;"></div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px;">
+                <span>Total HT</span>
+                <span>${ht.toFixed(3)} DT</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:2px;">
+                <span>TVA (19%)</span>
+                <span>${tva.toFixed(3)} DT</span>
+            </div>
+        `;
         
-        // Traduction propre du mode de paiement
+        document.getElementById('printArticles').innerHTML = htmlArticles; 
+        
+        // Le Total Final TTC bien mis en évidence
+        document.getElementById('printTotal').textContent = `${ttc.toFixed(3)} DT`;
+        
+        // Traduction du mode de paiement
         let methodeText = "ESPÈCES";
         if (methodePaiement === 'carte') methodeText = "CARTE BANCAIRE";
+        if (methodePaiement === 'carte_vip') methodeText = "CARTE VIP (SOLDE)";
         if (methodePaiement === 'ticket_resto') methodeText = "TICKET RESTO";
-        if (methodePaiement === 'A PAYER') methodeText = "NOTE PROVISOIRE (NON PAYÉ)"; // <== L'ajout magique
+        if (methodePaiement === 'A PAYER') methodeText = "NOTE PROVISOIRE (NON PAYÉ)"; 
         
         document.getElementById('printPaiement').textContent = methodeText;
         
