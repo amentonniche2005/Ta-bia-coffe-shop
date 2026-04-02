@@ -160,23 +160,29 @@
         }
 
         /* ========== IMPRESSION THERMIQUE (80mm) ========== */
-        #zone-impression { display: none; } /* Caché sur l'écran */
-
-        @media print {
-            body * { visibility: hidden; } /* On cache la caisse */
-            #zone-impression, #zone-impression * { visibility: visible; } /* On montre le ticket */
-            
-            #zone-impression {
-                display: block;
-                position: absolute;
-                left: 0; top: 0;
-                width: 80mm; /* Largeur du papier thermique */
-                margin: 0; padding: 0;
-                font-family: 'Courier New', monospace; /* Police de ticket */
-                font-size: 12px;
-                color: black;
-            }
-            @page { margin: 0; } /* Supprime les marges blanches */
+        .ticket-caisse { 
+            width: 80mm; 
+            max-width: 80mm; 
+            background: white; 
+            padding: 0; 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 12px; 
+            display: none; 
+            margin: 0 auto; 
+            color: black;
+        }
+        
+        @media print { 
+            @page { size: 80mm auto; margin: 0; } 
+            body * { visibility: hidden; } 
+            #ticketCaisse, #ticketCaisse * { visibility: visible; } 
+            #ticketCaisse { 
+                display: block; 
+                position: absolute; 
+                top: 0; left: 0; 
+                width: 100%; 
+                padding: 2mm 5mm; 
+            } 
         }
     </style>
     <link rel="manifest" href="/manifest.json">
@@ -188,7 +194,6 @@
     <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
 <body>
-<div id="zone-impression"></div>
 
 <header>
     <div class="header-container">
@@ -284,7 +289,44 @@
 </div>
 
 <div id="containerModalPaiement"></div>
-
+<div id="ticketCaisse" class="ticket-caisse">
+    <div style="text-align:center; border-bottom:1px dashed black; padding-bottom:6px; margin-bottom:6px;">
+        <div style="font-size:18px; font-weight:bold; font-family: 'Arial', sans-serif;">☕ TA'BIA COFFEE</div>
+        <div style="font-size:11px; margin-top:3px;">23 Av. Souk El-Asr, Tunis</div>
+        <div style="font-size:11px;">Tel: 55 000 000</div>
+        <div style="font-size:11px; font-weight:bold; margin-top:2px;">M.F: 1234567/X/A/M/000</div>
+    </div>
+    
+    <div style="font-size:11px; margin-bottom: 6px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Date:</span><span id="printDate">---</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Ticket N°:</span><span id="printNumero">---</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Table:</span><span id="printTable">---</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;" id="printClientDiv"><span>Client:</span><span id="printClient">---</span></div>
+    </div>
+    
+    <div style="border-top:1px dashed black; margin:6px 0;"></div>
+    
+    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-bottom: 4px;">
+        <span style="width: 15%;">Qté</span>
+        <span style="width: 55%;">Désignation</span>
+        <span style="width: 30%; text-align:right;">Montant</span>
+    </div>
+    
+    <div id="printArticles" style="font-size:11px;"></div>
+    
+    <div style="border-top:1px dashed black; margin:6px 0;"></div>
+    
+    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:16px; margin-top:5px;">
+        <span>TOTAL TTC</span><span id="printTotal">0.00 DT</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px; color:#333;">
+        <span>Mode de Paiement:</span><span id="printPaiement" style="font-weight:bold;">ESPECES</span>
+    </div>
+    
+    <div style="text-align:center; margin-top:15px; font-size:12px; font-weight:bold;">Merci de votre visite !</div>
+    <div style="text-align:center; font-size:10px; margin-top:2px;">À très bientôt</div>
+    <div style="text-align:center; margin-top:5px;">- - - - - - - - - - - - - - - </div>
+</div>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
     // 🛡️ SÉCURITÉ : Vérification du Token
@@ -919,64 +961,57 @@
     }
 
     // 🔥 GÉNÉRATEUR DE TICKET THERMIQUE COMPLET
-    function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
-        const date = new Date().toLocaleString('fr-FR');
+function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
+        const now = new Date(); 
+        const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
         const numTicket = Math.floor(1000 + Math.random() * 9000); 
-        const infoClient = nomClient ? `<p style="margin:0;">Client: ${nomClient}</p>` : '';
         
-        let html = `
-            <div style="text-align: center; margin-bottom: 10px;">
-                <h2 style="margin:0; font-size: 20px; font-weight:bold;">TA'BIA COFFEE</h2>
-                <p style="margin:0; font-size: 12px;">Tunis</p>
-                <hr style="border-top: 1px dashed black; margin: 5px 0;">
-            </div>
-            <div style="margin-bottom: 10px; font-size: 12px;">
-                <p style="margin:0;">Date: ${date}</p>
-                <p style="margin:0;">Ticket N°: ${numTicket}</p>
-                <p style="margin:0;">Table: ${numTable}</p>
-                ${infoClient}
-            </div>
-            <hr style="border-top: 1px dashed black; margin: 5px 0;">
-            <table style="width: 100%; font-size: 12px; text-align: left;">
-                <thead>
-                    <tr>
-                        <th style="width: 15%;">Qté</th>
-                        <th style="width: 55%;">Article</th>
-                        <th style="text-align:right; width: 30%;">Prix</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        panierArticles.forEach(art => {
-            const nom = art.nom + (art.variante ? ` <br><small>(${art.variante})</small>` : '');
-            html += `
-                <tr>
-                    <td style="vertical-align:top; font-weight:bold;">${art.quantite}x</td>
-                    <td style="vertical-align:top;">${nom}</td>
-                    <td style="text-align:right; vertical-align:top;">${(art.prix * art.quantite).toFixed(2)}</td>
-                </tr>
-            `;
+        // Remplissage de l'en-tête
+        document.getElementById('printDate').textContent = dateStr;
+        document.getElementById('printNumero').textContent = numTicket;
+        document.getElementById('printTable').textContent = numTable;
+        
+        const divClient = document.getElementById('printClientDiv');
+        if (nomClient) {
+            divClient.style.display = 'flex';
+            document.getElementById('printClient').textContent = nomClient;
+        } else {
+            divClient.style.display = 'none';
+        }
+        
+        // Remplissage des articles (Alignement parfait avec Flexbox)
+        let htmlArticles = '';
+        panierArticles.forEach(a => { 
+            const nom = a.nom + (a.variante ? ` (${a.variante})` : '');
+            const montant = (a.prix * a.quantite).toFixed(2);
+            htmlArticles += `
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px; align-items:flex-start;">
+                    <span style="width: 15%; font-weight:bold;">${a.quantite}x</span>
+                    <span style="width: 55%; padding-right:5px;">${nom}</span>
+                    <span style="width: 30%; text-align:right; font-weight:bold;">${montant}</span>
+                </div>
+            `; 
         });
-
-        html += `
-                </tbody>
-            </table>
-            <hr style="border-top: 1px dashed black; margin: 5px 0;">
-            <div style="text-align: right; font-size: 16px; font-weight: bold; margin: 10px 0;">
-                TOTAL: ${parseFloat(total).toFixed(2)} DT
-            </div>
-            <div style="text-align: right; font-size: 12px; margin-bottom: 15px;">
-                Payé en : ${methodePaiement.toUpperCase()}
-            </div>
-            <div style="text-align: center; font-size: 12px;">
-                <p style="margin:0;">Merci de votre visite !</p>
-                <br><br><br>
-            </div>
-        `;
-
-        document.getElementById('zone-impression').innerHTML = html;
-        window.print();
+        
+        document.getElementById('printArticles').innerHTML = htmlArticles; 
+        document.getElementById('printTotal').textContent = `${parseFloat(total).toFixed(2)} DT`;
+        
+        // Traduction propre du mode de paiement
+        let methodeText = "ESPÈCES";
+        if (methodePaiement === 'carte') methodeText = "CARTE BANCAIRE";
+        if (methodePaiement === 'ticket_resto') methodeText = "TICKET RESTO";
+        if (methodePaiement === 'A PAYER') methodeText = "NOTE PROVISOIRE (NON PAYÉ)"; // <== L'ajout magique
+        
+        document.getElementById('printPaiement').textContent = methodeText;
+        
+        // On affiche, on imprime, on cache
+        const ticketElem = document.getElementById('ticketCaisse'); 
+        ticketElem.style.display = 'block';
+        
+        setTimeout(() => { 
+            window.print(); 
+            ticketElem.style.display = 'none'; 
+        }, 300);
     }
 
     // Fonction pour réimprimer le ticket si on clique sur le bouton "Imprimer ticket"
@@ -988,13 +1023,24 @@
         let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
 
-        imprimerTicket(ticket.articles, nomOrigine, "RÉIMPRESSION", ticket.total, currentTable.startsWith('Fidele_') ? ticket.label : null);
+        // L'astuce ici est d'envoyer "A PAYER" au lieu de "especes" ou "carte"
+        imprimerTicket(ticket.articles, nomOrigine, "A PAYER", ticket.total, currentTable.startsWith('Fidele_') ? ticket.label : null);
     }
 
     // 🔥 BOUTON D'URGENCE : OUVRIR LE TIROIR SANS VENTE
-    function ouvrirTiroirManuel() {
-        document.getElementById('zone-impression').innerHTML = "<div style='font-size:1px;'>.</div>";
-        window.print();
+function ouvrirTiroirManuel() {
+        const ticketElem = document.getElementById('ticketCaisse');
+        const oldHtml = ticketElem.innerHTML; // On sauvegarde le vrai design
+        
+        // On met juste un point invisible pour ouvrir le tiroir sans gâcher de papier
+        ticketElem.innerHTML = "<div style='font-size:1px;'>.</div>";
+        ticketElem.style.display = 'block';
+        
+        setTimeout(() => { 
+            window.print(); 
+            ticketElem.style.display = 'none'; 
+            ticketElem.innerHTML = oldHtml; // On restaure le design
+        }, 300);
     }
 
     // ========== INITIALISATION ==========
