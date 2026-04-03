@@ -447,18 +447,23 @@ async function chargerCatalogue() {
 
         showNotification(`🔄 Synchronisation de ${ventesEnAttente.length} ventes hors-ligne...`, "#3498db");
 
-        let ventesRestantes = [];
+let ventesRestantes = [];
         for (let vente of ventesEnAttente) {
             try {
-                // On envoie la vente au serveur MongoDB
+                // 1. On envoie la vente au serveur
                 const res = await fetchSecurise('/api/ventes', {
                     method: 'POST', body: JSON.stringify(vente)
                 });
-                // Si le serveur refuse pour une raison X, on la garde en mémoire
-                if (!res.ok) ventesRestantes.push(vente); 
+                
+                if (res.ok) {
+                    // 🔥 LA CORRECTION EST ICI : Si la vente est bien reçue par MongoDB, 
+                    // on met à jour le stock en différé !
+                    await decrementerStock(vente.articles);
+                } else {
+                    ventesRestantes.push(vente); // Si erreur bizarre, on garde la vente
+                }
             } catch (e) {
-                // Si ça recoupe pendant l'envoi, on la garde
-                ventesRestantes.push(vente); 
+                ventesRestantes.push(vente); // Si internet recoupe, on garde la vente
             }
         }
 
@@ -639,8 +644,8 @@ async function chargerCatalogue() {
             }
         } else { nettoyerCommandesCuisine(currentTable); }
 
-        const vente = { id: Date.now(), numero: "V" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, articles: ticket.articles.map(a => ({ nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), table: nomOrigine, methodePaiement: methodePaiement };
-        
+// N'oublie pas d'ajouter "id: a.id," juste avant "nom: a.nom" !
+        const vente = { id: Date.now(), numero: "V" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), table: nomOrigine, methodePaiement: methodePaiement };        
 const venteBody = { id: vente.id.toString(), numero: vente.numero, total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: vente.articles, methodePaiement: methodePaiement };
 
         // 🔥 LOGIQUE HORS-LIGNE INTELLIGENTE
