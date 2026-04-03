@@ -206,7 +206,10 @@
             <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
             <button id="btn-tiroir" class="btn-nav" style="background: #e74c3c; color: white;"><i class="fas fa-lock"></i> Caisse Fermée</button>
             <button id="btn-aller-stock" class="btn-nav btn-stock"><i class="fas fa-boxes"></i> Stock</button>  
-            <button id="btn-verrouiller" class="btn-nav btn-lock"><i class="fas fa-lock"></i> Verrouiller</button>    
+            <button id="btn-verrouiller" class="btn-nav btn-lock"><i class="fas fa-lock"></i> Verrouiller</button>
+            <button id="btn-connect-tiroir" onclick="connecterTiroirUSB()" class="btn-nav" style="background: #8e44ad; color: white;">
+    <i class="fab fa-usb"></i> Connecter Tiroir
+</button>    
         </div>
     </div>
 </header>
@@ -633,7 +636,9 @@ let ventesRestantes = [];
     async function executerPaiementComplet(articles, totalPaye, remise, methodePaiement = 'especes') {
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return;
-        
+        if (methodePaiement === 'especes' && portTiroirUSB) {
+            ouvrirTiroirManuel();
+        }
         decrementerStock(ticket.articles);
         
         let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
@@ -1113,28 +1118,56 @@ const venteBody = { id: vente.id.toString(), numero: vente.numero, total: totalP
     }
 
     // 🔥 BOUTON D'URGENCE : OUVRIR LE TIROIR SANS VENTE
-function ouvrirTiroirManuel() {
-        const ticketElem = document.getElementById('ticketCaisse');
-        const oldHtml = ticketElem.innerHTML; // On sauvegarde le vrai design
-        
-        // On met juste un point invisible pour ouvrir le tiroir sans gâcher de papier
-        ticketElem.innerHTML = "<div style='font-size:1px;'>.</div>";
-        ticketElem.style.display = 'block';
-        
-        setTimeout(() => { 
-            window.print(); 
-            ticketElem.style.display = 'none'; 
-            ticketElem.innerHTML = oldHtml; // On restaure le design
-        }, 300);
-    }
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
-                .then(reg => console.log('Service Worker activé !'))
-                .catch(err => console.log('Erreur Service Worker', err));
-        });
+// =========================================================
+    // 🔥 CONTRÔLE MATÉRIEL DIRECT DU TIROIR-CAISSE (USB)
+    // =========================================================
+    let portTiroirUSB = null;
+
+    // 1. Fonction pour autoriser et connecter le boîtier USB
+    async function connecterTiroirUSB() {
+        try {
+            // Ouvre une fenêtre Chrome demandant de choisir l'appareil USB
+            portTiroirUSB = await navigator.serial.requestPort();
+            
+            // Ouvre la communication série (9600 baud est le standard matériel)
+            await portTiroirUSB.open({ baudRate: 9600 });
+            
+            showNotification("🔌 Tiroir USB connecté avec succès !", "#27ae60");
+            
+            // On change l'aspect du bouton pour rassurer le caissier
+            const btnConnect = document.getElementById('btn-connect-tiroir');
+            btnConnect.innerHTML = '<i class="fas fa-check-circle"></i> Tiroir Connecté';
+            btnConnect.style.background = '#27ae60';
+            
+        } catch (erreur) {
+            console.error("Erreur USB:", erreur);
+            showNotification("❌ Connexion au tiroir annulée ou échouée.", "#e74c3c");
+        }
     }
 
+    // 2. NOUVELLE FONCTION : Ouverture du tiroir (Bouton Rouge)
+    async function ouvrirTiroirManuel() {
+        // Si le caissier n'a pas encore connecté l'USB
+        if (!portTiroirUSB) {
+            showNotification("⚠️ Veuillez d'abord cliquer sur 'Connecter Tiroir' en haut !", "#f39c12");
+            return;
+        }
+
+        try {
+            const writer = portTiroirUSB.writable.getWriter();
+            
+            // C'est le signal électrique universel (Code ESC p) qui fait sauter le loquet du tiroir
+            const codeElectrique = new Uint8Array([0x1B, 0x70, 0x00, 0x19, 0xFA]);
+            
+            // On envoie la décharge électrique
+            await writer.write(codeElectrique);
+            writer.releaseLock();
+            
+        } catch (erreur) {
+            console.error("Erreur d'ouverture:", erreur);
+            showNotification("❌ Erreur : Impossible d'ouvrir le tiroir. Vérifiez le câble.", "#e74c3c");
+        }
+    }
     // ========== INITIALISATION ==========
     document.addEventListener("DOMContentLoaded", async () => {
         chargerTickets();
