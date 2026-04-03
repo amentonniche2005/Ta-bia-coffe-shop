@@ -557,38 +557,50 @@ async function chargerCatalogue() {
     // 🔥 3. SYNCHRONISATION AUTOMATIQUE AU RETOUR D'INTERNET
     window.addEventListener('online', syncVentesHorsLigne);
 
+// 🔥 VARIABLE DE VERROUILLAGE
+    let isSyncingOffline = false;
+
     async function syncVentesHorsLigne() {
-        // On regarde s'il y a des ventes bloquées dans le navigateur
+        // 1. Si on est DÉJÀ en train de synchroniser, on bloque pour éviter les doublons !
+        if (isSyncingOffline) return; 
+        
         const ventesEnAttente = JSON.parse(localStorage.getItem('tabia_ventes_offline') || '[]');
         if (ventesEnAttente.length === 0) return;
 
+        // On active le verrou
+        isSyncingOffline = true;
         showNotification(`🔄 Synchronisation de ${ventesEnAttente.length} ventes hors-ligne...`, "#3498db");
 
-let ventesRestantes = [];
+        let ventesRestantes = [];
         for (let vente of ventesEnAttente) {
             try {
-                // 1. On envoie la vente au serveur
+                // On envoie la vente au serveur
                 const res = await fetchSecurise('/api/ventes', {
                     method: 'POST', body: JSON.stringify(vente)
                 });
                 
-                if (res.ok) {
-                    // 🔥 LA CORRECTION EST ICI : Si la vente est bien reçue par MongoDB, 
-                    // on met à jour le stock en différé !
-                    await decrementerStock(vente.articles);
-                } else {
-                    ventesRestantes.push(vente); // Si erreur bizarre, on garde la vente
+                if (!res.ok) {
+                    // Si le serveur a une vraie erreur (ex: bug interne), on garde la vente
+                    ventesRestantes.push(vente); 
                 }
+                // 🔥 NOTE IMPORTANTE : On a SUPPRIMÉ la ligne "decrementerStock" ici. 
+                // C'est le serveur qui s'occupe du stock !
             } catch (e) {
-                ventesRestantes.push(vente); // Si internet recoupe, on garde la vente
+                // Si internet recoupe en plein milieu du transfert, on garde la vente
+                ventesRestantes.push(vente); 
             }
         }
 
-        // On met à jour la mémoire du navigateur
+        // On met à jour la mémoire du navigateur UNIQUEMENT avec ce qui a échoué
         localStorage.setItem('tabia_ventes_offline', JSON.stringify(ventesRestantes));
+        
+        // On libère le verrou
+        isSyncingOffline = false;
         
         if (ventesRestantes.length === 0) {
             showNotification("✅ Toutes les ventes hors-ligne sont synchronisées !", "#27ae60");
+        } else {
+            showNotification(`⚠️ ${ventesRestantes.length} ventes n'ont pas pu être envoyées.`, "#f39c12");
         }
     }
 

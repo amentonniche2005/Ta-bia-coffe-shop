@@ -404,10 +404,20 @@ app.get('/api/ventes', verifierToken, async (req, res) => {
 
 app.post('/api/ventes', verifierToken, async (req, res) => {
     try {
+        // 🔥 NOUVEAU : SYSTÈME ANTI-DOUBLON (Idempotence)
+        if (req.body.id) {
+            const venteExistante = await Sale.findOne({ id: req.body.id.toString() });
+            if (venteExistante) {
+                // Si la vente est déjà dans la base de données, on ne fait rien !
+                // On dit juste à la caisse que c'est bon pour qu'elle l'efface de sa mémoire.
+                return res.json({ success: true, message: "Vente déjà synchronisée (Ignoré)" });
+            }
+        }
+
         let vraiTotalReel = 0;
         const articlesVendus = req.body.articles;
 
-        // 1. BUCLE SÉCURISÉE : Calcul du total ET déduction du stock
+        // 1. BOUCLE SÉCURISÉE : Calcul du total ET déduction du stock
         for (let art of articlesVendus) {
             // On cherche le produit dans la base de données
             const produitDb = await Product.findOne({ $or: [{ id: art.id }, { nom: art.nom }] });
@@ -453,6 +463,7 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
         
         res.json({ success: true, totalSecurise: vraiTotalReel });
     } catch (err) { 
+        // 5. On attrape n'importe quelle erreur qui se produit dans tout le bloc au-dessus
         res.status(500).json({ error: err.message }); 
     }
 });
