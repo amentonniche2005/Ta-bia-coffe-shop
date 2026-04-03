@@ -99,6 +99,17 @@
             background: linear-gradient(135deg, #f39c12, #e67e22);
             box-shadow: 0 6px 20px rgba(230, 126, 34, 0.5);
         }
+        /* Style USB (Violet/Indigo Premium) */
+        .btn-usb {
+            background: linear-gradient(135deg, #8e44ad, #9b59b6);
+            box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3);
+            color: white;
+        }
+        .btn-usb:hover {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            box-shadow: 0 6px 20px rgba(142, 68, 173, 0.5);
+            color: white;
+        }
 
         /* ========== LAYOUT PRINCIPAL ========== */
         .dashboard { max-width: 1600px; margin: 1.5rem auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 450px; gap: 1.5rem; align-items: start; }
@@ -277,6 +288,10 @@
             </div>
             
             <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 6px;"></div>
+
+            <button id="btn-connect-tiroir" onclick="connecterTiroirUSB()" class="btn-nav btn-usb">
+                <i class="fab fa-usb"></i> Connecter Tiroir
+            </button>
 
             <button onclick="ouvrirTiroirManuel()" class="btn-nav btn-danger">
                 <i class="fas fa-lock-open"></i> Tiroir
