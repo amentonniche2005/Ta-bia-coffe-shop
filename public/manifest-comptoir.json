@@ -1,0 +1,13 @@
+{
+  "name": "TA'BIA Cuisine",
+  "short_name": "Cuisine",
+  "description": "Écran de préparation des commandes",
+  "start_url": "/comptoir.html",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#143621",
+  "icons": [
+    { "src": "logo.jpg", "sizes": "192x192", "type": "image/jpeg" },
+    { "src": "logo.jpg", "sizes": "512x512", "type": "image/jpeg" }
+  ]
+}

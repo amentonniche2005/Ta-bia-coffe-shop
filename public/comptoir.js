@@ -298,6 +298,14 @@ style.textContent = `
     @keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 `;
 document.head.appendChild(style);
+// 🔥 INSCRIPTION DU SERVICE WORKER (Pour l'installation de l'application)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker activé sur cette application !'))
+                .catch(err => console.log('Erreur Service Worker', err));
+        });
+    }
 
 // ========== INIT ==========
 document.addEventListener("DOMContentLoaded", () => {

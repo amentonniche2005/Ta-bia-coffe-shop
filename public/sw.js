@@ -1,9 +1,13 @@
-const CACHE_NAME = 'tabia-caisse-v7';
+const CACHE_NAME = 'tabia-caisse-v8';
 const FICHIERS_A_CACHER = [
     '/',
     '/caisse.html',
+    '/comptoir.html',      
+    '/admin-print.html',   
+    '/comptoir.js',
     '/logo.jpg',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css'
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
+    'https://cdn.socket.io/4.5.4/socket.io.min.js'
 ];
 
 // 1. À l'installation, on télécharge les fichiers vitaux

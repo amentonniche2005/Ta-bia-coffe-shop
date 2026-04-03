@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Codes Tables | TA'BIA</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="/manifest-admin.json">
+    <meta name="theme-color" content="#143621">
+    <link rel="apple-touch-icon" href="/logo.jpg">
     <style>
         /* ========== VARIABLES & RESET ========== */
         :root {
@@ -306,6 +309,14 @@
                 }
             });
         }
+        // 🔥 INSCRIPTION DU SERVICE WORKER (Pour l'installation de l'application)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker activé sur cette application !'))
+                .catch(err => console.log('Erreur Service Worker', err));
+        });
+    }
 
         document.addEventListener('DOMContentLoaded', () => {
             populateSelect();
