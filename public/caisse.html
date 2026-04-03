@@ -21,14 +21,84 @@
         .nav-right { display: flex; gap: 1rem; align-items: center; }        
         .caisse-badge { background: #27ae60; color: white; padding: 6px 14px; border-radius: 30px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; }
         
-        /* ========== BOUTONS DE NAVIGATION ========== */
-        .btn-nav { padding: 8px 18px; border-radius: 30px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.3s ease; text-decoration: none; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
-        .btn-nav:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.25); }
-        .btn-nav:active { transform: translateY(0); }
-        .btn-stock { background: #34495e; color: white; }
-        .btn-stock:hover { background: #2c3e50; }
-        .btn-lock { background: #e74c3c; color: white; }
-        .btn-lock:hover { background: #c0392b; }
+/* ========== BOUTONS DE NAVIGATION (STYLE PREMIUM) ========== */
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .nav-right { 
+            display: flex; 
+            gap: 0.6rem; 
+            align-items: center; 
+            background: rgba(255, 255, 255, 0.05); /* Fond translucide (Glassmorphism) */
+            padding: 6px 12px;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+        }
+        
+        .caisse-badge { 
+            background: rgba(39, 174, 96, 0.15); 
+            color: #2ecc71; 
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            padding: 8px 16px; 
+            border-radius: 30px; 
+            font-size: 0.8rem; 
+            font-weight: 700; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-nav { 
+            padding: 9px 18px; 
+            border-radius: 30px; 
+            font-size: 0.85rem; 
+            font-weight: 600; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            cursor: pointer; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            border: 1px solid transparent; 
+            color: white;
+            text-decoration: none;
+        }
+        
+        .btn-nav:hover { transform: translateY(-2px); }
+        .btn-nav:active { transform: translateY(1px); }
+
+        /* Style Stock (Neutre & Élégant) */
+        .btn-stock { 
+            background: rgba(255, 255, 255, 0.1); 
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        .btn-stock:hover { 
+            background: rgba(255, 255, 255, 0.2); 
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 15px rgba(255,255,255,0.1);
+        }
+
+        /* Style Danger (Tiroir & Caisse fermée) - Effet Néon Rouge */
+        .btn-danger { 
+            background: rgba(231, 76, 60, 0.1); 
+            color: #ff7675;
+            border-color: rgba(231, 76, 60, 0.3);
+        }
+        .btn-danger:hover { 
+            background: #e74c3c; 
+            color: white;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        /* Style Primaire (Verrouiller/Quitter) - Dégradé Orange TA'BIA */
+        .btn-primary-action {
+            background: linear-gradient(135deg, #e67e22, #d35400);
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.3);
+        }
+        .btn-primary-action:hover {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            box-shadow: 0 6px 20px rgba(230, 126, 34, 0.5);
+        }
 
         /* ========== LAYOUT PRINCIPAL ========== */
         .dashboard { max-width: 1600px; margin: 1.5rem auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 450px; gap: 1.5rem; align-items: start; }
@@ -201,15 +271,26 @@
             <img src="logo.jpg" class="logo-img" alt="Logo Ta'Bia" onerror="this.src='https://via.placeholder.com/70/143621/e3c496?text=TB'">
             <h1>TA'BIA <span class="logo-subtext">Caisse</span></h1>
         </div>
-        <div class="nav-right">
-            <button onclick="ouvrirTiroirManuel()" class="btn-nav" style="background: #e74c3c; color: white;"><i class="fas fa-lock-open"></i> Ouvrir Tiroir</button>
-            <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
-            <button id="btn-tiroir" class="btn-nav" style="background: #e74c3c; color: white;"><i class="fas fa-lock"></i> Caisse Fermée</button>
-            <button id="btn-aller-stock" class="btn-nav btn-stock"><i class="fas fa-boxes"></i> Stock</button>  
-            <button id="btn-verrouiller" class="btn-nav btn-lock"><i class="fas fa-lock"></i> Verrouiller</button>
-            <button id="btn-connect-tiroir" onclick="connecterTiroirUSB()" class="btn-nav" style="background: #8e44ad; color: white;">
-    <i class="fab fa-usb"></i> Connecter Tiroir
-</button>    
+<div class="nav-right">
+            <div class="caisse-badge">
+                <i class="fas fa-circle" style="font-size: 8px; animation: pulse 2s infinite;"></i> Mode caisse
+            </div>
+            
+            <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 6px;"></div>
+
+            <button onclick="ouvrirTiroirManuel()" class="btn-nav btn-danger">
+                <i class="fas fa-lock-open"></i> Tiroir
+            </button>
+            <button id="btn-tiroir" class="btn-nav btn-danger">
+                <i class="fas fa-lock"></i> Caisse Fermée
+            </button>
+            <button id="btn-aller-stock" class="btn-nav btn-stock">
+                <i class="fas fa-boxes"></i> Stock
+            </button>  
+            
+            <button id="btn-verrouiller" class="btn-nav btn-primary-action">
+                <i class="fas fa-sign-out-alt"></i> Verrouiller
+            </button>    
         </div>
     </div>
 </header>
