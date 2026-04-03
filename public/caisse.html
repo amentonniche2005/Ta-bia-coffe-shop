@@ -413,13 +413,61 @@
         } catch(e) {}
     }
 
-    async function chargerCatalogue() {
+async function chargerCatalogue() {
         try {
+            // On essaie d'aller chercher sur MongoDB (si on a internet)
             const res = await fetchSecurise('/api/stock');
             produits = await res.json();
-            renderCategories();
-            renderProducts();
-        } catch(e) { showNotification("❌ Erreur de chargement du menu", "#e74c3c"); }
+            
+            // On sauvegarde le menu dans le navigateur pour plus tard !
+            localStorage.setItem('tabia_menu_cache', JSON.stringify(produits));
+            
+            renderCategories(); renderProducts();
+        } catch(e) { 
+            // SI INTERNET EST COUPÉ : On charge le menu depuis la mémoire du navigateur !
+            showNotification("⚠️ Mode Hors-Ligne : Menu chargé depuis la mémoire locale", "#f39c12");
+            
+            const menuSauvegarde = localStorage.getItem('tabia_menu_cache');
+            if (menuSauvegarde) {
+                produits = JSON.parse(menuSauvegarde);
+                renderCategories(); renderProducts();
+            } else {
+                showNotification("❌ Erreur : Aucun menu en mémoire", "#e74c3c"); 
+            }
+        }
+    }
+
+    // 🔥 3. SYNCHRONISATION AUTOMATIQUE AU RETOUR D'INTERNET
+    window.addEventListener('online', syncVentesHorsLigne);
+
+    async function syncVentesHorsLigne() {
+        // On regarde s'il y a des ventes bloquées dans le navigateur
+        const ventesEnAttente = JSON.parse(localStorage.getItem('tabia_ventes_offline') || '[]');
+        if (ventesEnAttente.length === 0) return;
+
+        showNotification(`🔄 Synchronisation de ${ventesEnAttente.length} ventes hors-ligne...`, "#3498db");
+
+        let ventesRestantes = [];
+        for (let vente of ventesEnAttente) {
+            try {
+                // On envoie la vente au serveur MongoDB
+                const res = await fetchSecurise('/api/ventes', {
+                    method: 'POST', body: JSON.stringify(vente)
+                });
+                // Si le serveur refuse pour une raison X, on la garde en mémoire
+                if (!res.ok) ventesRestantes.push(vente); 
+            } catch (e) {
+                // Si ça recoupe pendant l'envoi, on la garde
+                ventesRestantes.push(vente); 
+            }
+        }
+
+        // On met à jour la mémoire du navigateur
+        localStorage.setItem('tabia_ventes_offline', JSON.stringify(ventesRestantes));
+        
+        if (ventesRestantes.length === 0) {
+            showNotification("✅ Toutes les ventes hors-ligne sont synchronisées !", "#27ae60");
+        }
     }
 
     function ajouterAuTicket(tableNum, produit, updateUI = true) {
@@ -593,12 +641,23 @@
 
         const vente = { id: Date.now(), numero: "V" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, articles: ticket.articles.map(a => ({ nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), table: nomOrigine, methodePaiement: methodePaiement };
         
-        try {
-            await fetchSecurise('/api/ventes', {
-                method: 'POST',
-                body: JSON.stringify({ id: vente.id.toString(), numero: vente.numero, total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: vente.articles, methodePaiement: methodePaiement })
-            });
-        } catch(e) { console.error("Erreur synchro vente", e); }
+const venteBody = { id: vente.id.toString(), numero: vente.numero, total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: vente.articles, methodePaiement: methodePaiement };
+
+        // 🔥 LOGIQUE HORS-LIGNE INTELLIGENTE
+        if (navigator.onLine) {
+            // Internet fonctionne, on envoie à MongoDB
+            try {
+                await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) });
+            } catch(e) { console.error("Erreur serveur", e); }
+        } else {
+            // ⚠️ COUPURE INTERNET ! On sauvegarde dans le navigateur.
+            let ventesOffline = JSON.parse(localStorage.getItem('tabia_ventes_offline') || '[]');
+            ventesOffline.push(venteBody);
+            localStorage.setItem('tabia_ventes_offline', JSON.stringify(ventesOffline));
+            
+            // On affiche un badge d'alerte pour le caissier
+            showNotification("⚠️ VENTE SAUVEGARDÉE HORS-LIGNE. Elle sera envoyée dès le retour d'internet.", "#f39c12");
+        }
         
         if (currentTable.startsWith('Fidele_')) { delete tickets[currentTable]; currentTable = 'Emporter'; } 
         else { tickets[currentTable] = { articles: [], total: 0 }; }
@@ -1062,6 +1121,13 @@ function ouvrirTiroirManuel() {
             ticketElem.style.display = 'none'; 
             ticketElem.innerHTML = oldHtml; // On restaure le design
         }, 300);
+    }
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker activé !'))
+                .catch(err => console.log('Erreur Service Worker', err));
+        });
     }
 
     // ========== INITIALISATION ==========

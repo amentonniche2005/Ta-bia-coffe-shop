@@ -1,0 +1,21 @@
+{
+  "name": "TA'BIA Caisse Pro",
+  "short_name": "TA'BIA",
+  "description": "Système de caisse hors-ligne",
+  "start_url": "/caisse.html",
+  "display": "standalone",
+  "background_color": "#143621",
+  "theme_color": "#143621",
+  "icons": [
+    {
+      "src": "logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
