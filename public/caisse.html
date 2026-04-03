@@ -639,7 +639,6 @@ let ventesRestantes = [];
         if (methodePaiement === 'especes' && portTiroirUSB) {
             ouvrirTiroirManuel();
         }
-        decrementerStock(ticket.articles);
         
         let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) {
@@ -716,8 +715,10 @@ const venteBody = { id: vente.id.toString(), numero: vente.numero, total: totalP
     async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer, methodePaiement = 'especes') {
         const ticket = tickets[currentTable];
         if (!ticket || !ticket.articles.length) return;
+        if (methodePaiement === 'especes' && portTiroirUSB) {
+            ouvrirTiroirManuel();
+        }
         
-        decrementerStock(articlesAPayer);
         
         let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle : ${ticket.label}`;

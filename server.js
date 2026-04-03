@@ -407,22 +407,54 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
         let vraiTotalReel = 0;
         const articlesVendus = req.body.articles;
 
+        // 1. BUCLE SÉCURISÉE : Calcul du total ET déduction du stock
         for (let art of articlesVendus) {
+            // On cherche le produit dans la base de données
             const produitDb = await Product.findOne({ $or: [{ id: art.id }, { nom: art.nom }] });
-            if (produitDb) vraiTotalReel += (produitDb.prix * art.quantite);
-            else vraiTotalReel += (art.prix * art.quantite); 
+            
+            if (produitDb) {
+                vraiTotalReel += (produitDb.prix * art.quantite);
+                
+                // 🔥 LA MAGIE EST ICI : On baisse le stock directement
+                if (produitDb.stock !== undefined) {
+                    const ancienStock = produitDb.stock;
+                    produitDb.stock -= art.quantite;
+                    await produitDb.save();
+
+                    // On crée une trace dans l'historique des mouvements pour le gérant
+                    await new Movement({ 
+                        type: 'vente', 
+                        produit: produitDb.nom, 
+                        produitId: produitDb.id, 
+                        quantite: art.quantite, 
+                        ancienStock: ancienStock,
+                        nouveauStock: produitDb.stock, 
+                        raison: `Vente ${req.body.numero}` 
+                    }).save();
+                }
+            } else {
+                // Cas de secours si le produit a été supprimé entre-temps
+                vraiTotalReel += (art.prix * art.quantite); 
+            }
         }
 
+        // 2. Application de la remise globale
         if (req.body.remise && req.body.remise > 0) {
             vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));
         }
 
+        // 3. Sauvegarde finale de la vente
         const venteData = { ...req.body, total: vraiTotalReel };
         const vente = new Sale(venteData);
         await vente.save();
         
+        // 4. On prévient toutes les caisses et écrans que le stock a changé !
+        io.emit('update_stock');
+        
         res.json({ success: true, totalSecurise: vraiTotalReel });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // ========== 6. INITIALISATION DU MENU (SEED) ==========
