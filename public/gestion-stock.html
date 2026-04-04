@@ -101,41 +101,98 @@
         .inv-physique { width: 90px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; text-align: center; font-weight: bold; }
         .inv-raison { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; }
         .ecart-cell { font-weight: 800; text-align: center; font-size: 1.1rem;}
-        
-        /* ========== RESPONSIVE DESIGN ========== */
-        @media (max-width: 768px) {
-            .dashboard { grid-template-columns: 1fr; padding: 1rem; }
-            .logo-img { height: 50px; width: 50px; }
-            .logo h1 { font-size: 1.3rem; }
-            .toolbar { flex-direction: column; align-items: stretch; }
-            .filters { flex-direction: column; }
-            .filter-group { width: 100%; }
-            .btn-action { width: 100%; justify-content: center; }
+        /* ========== RESPONSIVE DESIGN STOCK ========== */
+@media (max-width: 768px) {
+    /* Dashboard : On passe de 3 colonnes à 1 seule */
+    .dashboard {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+    }
 
-            table, thead, tbody, th, td, tr { display: block; }
-            thead tr { position: absolute; top: -9999px; left: -9999px; }
-            tr { border: 1px solid var(--border-color); margin-bottom: 1rem; border-radius: 12px; background: white; }
-            td { border: none; border-bottom: 1px solid #eee; position: relative; padding-left: 50% !important; text-align: right !important; }
-            td:before { position: absolute; top: 12px; left: 15px; width: 45%; padding-right: 10px; white-space: nowrap; content: attr(data-label); font-weight: bold; text-align: left; color: var(--text-muted); }
-            td:last-child { border-bottom: none; display: flex; justify-content: center; gap: 10px; padding: 1rem !important; }
-            
-            #panel-ventes > div[style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
-            #panel-ventes > div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
-        }
+    /* En-tête : On réduit la taille du logo */
+    .logo-img { height: 50px; width: 50px; }
+    .logo h1 { font-size: 1.3rem; }
+    
+    /* Toolbar : On empile les filtres et les boutons */
+    .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filters {
+        flex-direction: column;
+    }
+    .filter-group {
+        width: 100%;
+    }
+    .btn-action {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Transformation du tableau en "Cartes" pour mobile */
+    table, thead, tbody, th, td, tr { 
+        display: block; 
+    }
+    thead tr { 
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+    tr { 
+        border: 1px solid var(--border-color);
+        margin-bottom: 1rem;
+        border-radius: 12px;
+        background: white;
+    }
+    td { 
+        border: none;
+        border-bottom: 1px solid #eee; 
+        position: relative;
+        padding-left: 50% !important; 
+        text-align: right !important;
+    }
+    td:before { 
+        position: absolute;
+        top: 12px;
+        left: 15px;
+        width: 45%; 
+        padding-right: 10px; 
+        white-space: nowrap;
+        content: attr(data-label); /* Utilise l'attribut label */
+        font-weight: bold;
+        text-align: left;
+        color: var(--text-muted);
+    }
+    td:last-child {
+        border-bottom: none;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        padding: 1rem !important;
+    }
+    
+    /* Onglet Ventes : On passe les statistiques sur 1 colonne */
+    #panel-ventes > div[style*="grid-template-columns: repeat(3, 1fr)"] {
+        grid-template-columns: 1fr !important;
+    }
+    #panel-ventes > div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
     </style>
 </head>
 <body>
-    <header>
-        <div class="header-container">
-            <div class="logo">
-                <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img" onerror="this.src='https://via.placeholder.com/70/143621/e3c496?text=TB'">
-                <h1>TA'BIA <span class="logo-subtext">Tableau de Bord</span></h1>
-            </div>
-            <div class="nav-right">
-                <a href="/caisse.html" class="btn-retour"><i class="fas fa-arrow-left"></i> Retour Caisse</a>
-            </div>
+<header>
+    <div class="header-container">
+        <div class="logo">
+            <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img" onerror="this.src='https://via.placeholder.com/70/143621/e3c496?text=TB'">
+            <h1>TA'BIA <span class="logo-subtext">Tableau de Bord</span></h1>
         </div>
-    </header>
+        <div class="nav-right">
+            <a href="/caisse.html" class="btn-retour"><i class="fas fa-arrow-left"></i> Retour Caisse</a>
+        </div>
+    </div>
+</header>
 
     <div class="dashboard">
         <div class="card" onclick="ouvrirOnglet('stock')">
@@ -193,7 +250,7 @@
                         <input type="text" id="searchFilter" placeholder="Rechercher un produit..." style="width:100%">
                     </div>
                 </div>
-                <div style="display:flex; gap:0.5rem; flex-wrap: wrap;">
+                <div style="display:flex; gap:0.5rem;">
                     <button class="btn-action" style="background:var(--primary);" onclick="ouvrirModalNouveauProduit()"><i class="fas fa-box-open"></i> Nouveau Produit</button>
                     <button class="btn-action btn-success" onclick="ouvrirModalAjoutStockGlobal()"><i class="fas fa-truck-loading"></i> Réception</button>
                     <button class="btn-action" onclick="exporterStockCSV()"><i class="fas fa-download"></i> CSV</button>
@@ -225,17 +282,6 @@
                 </div>
                 <div class="filters">
                     <div class="filter-group">
-                        <label>Mode Paiement</label>
-                        <select id="filtreMethodeVente" onchange="chargerRapportVentes()" style="font-weight: bold; color: var(--info);">
-                            <option value="all">Tous les modes</option>
-                            <option value="especes">💰 Espèces</option>
-                            <option value="en_ligne">📱 En ligne (Web)</option>
-                            <option value="carte">💳 Carte Bancaire</option>
-                            <option value="ticket_resto">🎫 Ticket Resto</option>
-                            <option value="cheque">📄 Chèque</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
                         <label>Type de Journal</label>
                         <select id="typeRapport" onchange="chargerRapportVentes()" style="font-weight: bold; color: var(--primary);">
                             <option value="detail">🧾 Détail des Tickets</option>
@@ -244,8 +290,8 @@
                             <option value="annee">📈 Journal par Année</option>
                         </select>
                     </div>
-                    <div class="filter-group"><label>Du</label><input type="date" id="rapportDateDebut" onchange="chargerRapportVentes()"></div>
-                    <div class="filter-group"><label>Au</label><input type="date" id="rapportDateFin" onchange="chargerRapportVentes()"></div>
+                    <div class="filter-group"><label>Du</label><input type="date" id="rapportDateDebut"></div>
+                    <div class="filter-group"><label>Au</label><input type="date" id="rapportDateFin"></div>
                     <button class="btn-action btn-success" onclick="chargerRapportVentes()"><i class="fas fa-search"></i> Analyser</button>
                     <button class="btn-action" style="background:var(--info);" onclick="exporterVentesCSV()"><i class="fas fa-file-excel"></i> Exporter CSV</button>
                 </div>
@@ -286,24 +332,20 @@
 
         <div class="panel" id="panel-mouvements">
             <div class="toolbar">
-                <div>
-                    <h3 style="font-size:1.1rem; color:var(--text-main);">Historique des Mouvements de Stock</h3>
-                    <p style="font-size:0.8rem; color:var(--text-muted);">Traçabilité complète des entrées et sorties de marchandises.</p>
-                </div>
                 <div class="filters">
                     <div class="filter-group">
                         <label>Type</label>
-                        <select id="mouvementType" onchange="chargerHistorique()">
-                            <option value="all">Tous</option>
+                        <select id="mouvementType">
+                            <option value="all">Tous les flux</option>
                             <option value="vente">Sorties (Ventes)</option>
-                            <option value="ajout">Entrées (Réceptions)</option>
-                            <option value="vente_web">Sorties (Web)</option>
+                            <option value="ajout">Entrées (Ajouts)</option>
+                            <option value="inventaire">Régularisations</option>
                         </select>
                     </div>
-                    <div class="filter-group"><label>Du</label><input type="date" id="dateDebut" onchange="chargerHistorique()"></div>
-                    <div class="filter-group"><label>Au</label><input type="date" id="dateFin" onchange="chargerHistorique()"></div>
-                    <button class="btn-action btn-success" onclick="chargerHistorique()"><i class="fas fa-sync"></i> Filtrer</button>
+                    <div class="filter-group"><label>Du</label><input type="date" id="dateDebut"></div>
+                    <div class="filter-group"><label>Au</label><input type="date" id="dateFin"></div>
                 </div>
+                <button class="btn-action" onclick="chargerHistorique()"><i class="fas fa-filter"></i> Filtrer</button>
             </div>
             <div class="table-container">
                 <table>
@@ -387,7 +429,7 @@
             </div>
         </div>
 
-        <div class="panel" id="panel-depenses">
+<div class="panel" id="panel-depenses">
             <div class="toolbar" style="background: linear-gradient(135deg, #2c3e50, #34495e); color: white;">
                 <div>
                     <h3 style="font-size:1.4rem; color: #f1c40f;"><i class="fas fa-file-invoice-dollar"></i> Gestion des Dépenses & RH</h3>
@@ -396,7 +438,7 @@
                 <button class="btn-action" style="background: #f1c40f; color: #2c3e50; font-weight: 800; font-size: 1rem; padding: 0.8rem 1.5rem;" onclick="ouvrirModalDepensePro()"><i class="fas fa-plus-circle"></i> Ajouter une Dépense</button>
             </div>
 
-            <div class="toolbar" style="margin-top: -10px; border-top-left-radius: 0; border-top-right-radius: 0; background: #f8fafc;">
+<div class="toolbar" style="margin-top: -10px; border-top-left-radius: 0; border-top-right-radius: 0; background: #f8fafc;">
                 <div class="filters" style="align-items: flex-end;">
                     <div class="filter-group">
                         <label style="color:var(--danger);"><i class="fas fa-calendar-alt"></i> Historique</label>
@@ -467,19 +509,1099 @@
     </div>
 
     <div id="modalContainer"></div>
-
     <script src="/socket.io/socket.io.js"></script>
-    <script src="gestion-stock.js"></script> <script>
-        // Activation du Service Worker pour l'installation PWA
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then(registration => {
-                    console.log('Service Worker enregistré avec succès:', registration.scope);
-                }).catch(error => {
-                    console.log('Échec de l\'enregistrement du Service Worker:', error);
-                });
-            });
+    
+    <script>
+        // ========== 0. SÉCURITÉ : VÉRIFICATION DU TOKEN ==========
+        const monToken = localStorage.getItem('tabia_caisse_token');
+
+        if (!monToken) {
+            window.location.href = '/caisse-login.html'; 
         }
+
+        async function fetchSecurise(url, options = {}) {
+            if (!options.headers) options.headers = {};
+            options.headers['authorization'] = monToken; 
+            
+            if (options.method && options.method !== 'GET' && !options.headers['Content-Type']) {
+                options.headers['Content-Type'] = 'application/json';
+            }
+            
+            const reponse = await fetch(url, options);
+            if (reponse.status === 403 || reponse.status === 401) {
+                alert("Votre Token a expiré ou a été révoqué.");
+                localStorage.removeItem('tabia_caisse_token');
+                window.location.href = '/caisse-login.html';
+            }
+            return reponse;
+        }
+
+        // ========== 1. UTILITAIRES & VARIABLES GLOBALES ==========
+        let stockProduits = [];
+        let stockTri = { colonne: 'nom', asc: true };
+        let toutesLesVentes = [];
+        let ventesAffichees = []; // Pour l'export CSV
+
+        const escapeHtml = (text) => {
+            if (!text) return text;
+            return String(text).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+        };
+
+        const showNotification = (msg, bg = "var(--info)", icon = "fa-info-circle") => {
+            const notif = document.createElement("div");
+            notif.className = "notification"; notif.style.background = bg;
+            notif.innerHTML = `<i class="fas ${icon}"></i> ${msg}`;
+            document.body.appendChild(notif);
+            setTimeout(() => { notif.style.transform = "translateX(120%)"; notif.style.opacity = "0"; setTimeout(() => notif.remove(), 300); }, 3000);
+        };
+
+        const formatMoney = (amount) => parseFloat(amount || 0).toFixed(3) + " DT";
+        const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches', 'pd': '🥐 Pâtisseries', 'plat': '🍝 Plats', 'chicha': '💨 Chichas' }; return dict[cat] || cat; };        
+        
+        function fermerModal() { document.getElementById('modalContainer').innerHTML = ''; }
+
+        function parseDateFR(dateStr) {
+            if (!dateStr) return 0;
+            const match = String(dateStr).match(/(\d{2})\/(\d{2})\/(\d{4})(?:.*?(\d{2}):(\d{2}):(\d{2}))?/);
+            if (!match) return new Date(dateStr).getTime() || 0;
+            return new Date(match[3], match[2] - 1, match[1], match[4]||0, match[5]||0, match[6]||0).getTime();
+        }
+
+        // 🔥 Générateur d'icônes pour le mode de paiement
+        function getIconPaiement(methode) {
+            if(methode === 'en_ligne') return '<span class="badge" style="background:#e8f5e9; color:#27ae60;"><i class="fas fa-globe"></i> En Ligne</span>';
+            if(methode === 'carte') return '<span class="badge" style="background:#f4e8f9; color:#8e44ad;"><i class="fas fa-credit-card"></i> Carte</span>';
+            if(methode === 'ticket_resto') return '<span class="badge" style="background:#fef5e6; color:#e67e22;"><i class="fas fa-ticket-alt"></i> Ticket Resto</span>';
+            if(methode === 'cheque') return '<span class="badge" style="background:#f1f5f9; color:#7f8c8d;"><i class="fas fa-money-check"></i> Chèque</span>';
+            return '<span class="badge" style="background:#eef2f6; color:#34495e;"><i class="fas fa-money-bill-wave"></i> Espèces</span>';
+        }
+
+        // ========== NAVIGATION ONGLETS ==========
+        function ouvrirOnglet(tabId) {
+            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`panel-${tabId}`).classList.add('active');
+            
+            if (tabId === 'fidelite') chargerClients();
+            if (tabId === 'stock') chargerStock();
+            if (tabId === 'mouvements') chargerHistorique();
+            if (tabId === 'alertes') chargerAlertes();
+            if (tabId === 'depenses') chargerDepenses();
+            
+            if (tabId === 'ventes') {
+                if (!document.getElementById('rapportDateDebut').value) {
+                    const today = new Date();
+                    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                    document.getElementById('rapportDateDebut').valueAsDate = firstDay;
+                    document.getElementById('rapportDateFin').valueAsDate = today;
+                }
+                chargerRapportVentes();
+            }
+        }
+
+        // ========== DASHBOARD (CORRIGÉ POUR LES ALERTES) ==========
+        async function chargerDashboard() {
+            try {
+                const stockResp = await fetchSecurise('/api/stock');
+                let stock = await stockResp.json();
+                stockProduits = Array.isArray(stock) ? stock : (stock.produits || []); 
+
+                let valeurTotaleAchat = 0;
+                let alertes = 0;
+                
+                // On calcule les alertes localement (fini les erreurs d'API manquante)
+                stockProduits.forEach(p => { 
+                    if (p.stock !== undefined) {
+                        valeurTotaleAchat += (p.stock * p.prix * 0.6); 
+                        if (p.stock <= (p.seuilAlerte || 10)) alertes++;
+                    }
+                });
+
+                document.getElementById('totalProduits').innerText = stockProduits.length;
+                document.getElementById('valeurStock').innerText = formatMoney(valeurTotaleAchat);
+                document.getElementById('totalAlertes').innerText = alertes;
+
+                const badge = document.getElementById('badgeAlertes');
+                if(alertes > 0) { badge.className = 'badge badge-critical'; badge.innerText = 'Action Requise'; }
+                else { badge.className = 'badge badge-normal'; badge.innerText = 'Stock Sain'; }
+            } catch (e) { console.error(e); }
+        }
+
+        // ========== 2. MODULE STOCK ==========
+        async function chargerStock() {
+            try {
+                const res = await fetchSecurise('/api/stock');
+                let data = await res.json();
+                stockProduits = Array.isArray(data) ? data : (data.produits || []); 
+                appliquerFiltresEtTriStock();
+            } catch (e) { showNotification("Erreur de chargement du stock", "var(--danger)", "fa-times"); }
+        }
+
+        function appliquerFiltresEtTriStock() {
+            const cat = document.getElementById('categorieFilter').value;
+            const etat = document.getElementById('etatFilter').value;
+            const search = document.getElementById('searchFilter').value.toLowerCase();
+            
+            let filtered = stockProduits.filter(p => {
+                const matchCat = cat === 'all' || p.categorie === cat;
+                const matchSearch = p.nom.toLowerCase().includes(search);
+                let matchEtat = true;
+                if(etat === 'rupture') matchEtat = p.stock <= 0;
+                if(etat === 'alerte') matchEtat = p.stock > 0 && p.stock <= (p.seuilAlerte || 10);
+                if(etat === 'normal') matchEtat = p.stock > (p.seuilAlerte || 10);
+                return matchCat && matchSearch && matchEtat;
+            });
+
+            filtered.sort((a, b) => {
+                let valA, valB;
+                if(stockTri.colonne === 'nom') { valA = a.nom.toLowerCase(); valB = b.nom.toLowerCase(); }
+                if(stockTri.colonne === 'stock') { valA = a.stock; valB = b.stock; }
+                if(stockTri.colonne === 'prix') { valA = a.prix; valB = b.prix; }
+                if(stockTri.colonne === 'valeur') { valA = a.stock * a.prix * 0.6; valB = b.stock * b.prix * 0.6; }
+                if (valA < valB) return stockTri.asc ? -1 : 1;
+                if (valA > valB) return stockTri.asc ? 1 : -1;
+                return 0;
+            });
+            afficherStockDOM(filtered);
+        }
+
+        function trierStock(colonne) {
+            if(stockTri.colonne === colonne) stockTri.asc = !stockTri.asc;
+            else { stockTri.colonne = colonne; stockTri.asc = true; }
+            appliquerFiltresEtTriStock();
+        }
+
+        function afficherStockDOM(produits) {
+            const tbody = document.getElementById('stockTableBody');
+            if(!produits.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-box-open fa-2x" style="display:block; margin-bottom:10px;"></i>Aucun produit</td></tr>'; return; }
+            
+            tbody.innerHTML = produits.map(p => {
+                const valAchat = p.stock * p.prix * 0.6;
+                const seuil = p.seuilAlerte || 10;
+                let percent = (p.stock / (seuil * 4)) * 100;
+                if(percent > 100) percent = 100;
+                
+                let colorClass = '#27ae60'; let badgeClass = 'badge-normal';
+                if(p.stock <= 0) { colorClass = '#e74c3c'; badgeClass = 'badge-critical'; percent = 100; }
+                else if (p.stock <= seuil) { colorClass = '#f39c12'; badgeClass = 'badge-low'; }
+
+                return `
+                <tr>
+                    <td><strong>${escapeHtml(p.nom)}</strong></td>
+                    <td><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
+                    <td>
+                        <div class="stock-level-container">
+                            <span class="badge ${badgeClass}" style="min-width:45px; text-align:center;">${p.stock}</span>
+                            <div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${percent}%; background:${colorClass}"></div></div>
+                        </div>
+                    </td>
+                    <td><span style="color:var(--text-muted); font-size:0.8rem;">${p.unite || 'unité'}</span></td>
+                    <td>${formatMoney(p.prix)}</td>
+                    <td style="font-weight:700; color:var(--primary);">${formatMoney(valAchat)}</td>
+                    <td style="text-align:center; min-width: 140px;">
+                        <button class="btn-action btn-success" style="padding:0.4rem 0.6rem;" title="Réception Stock" onclick="ouvrirModalAjoutStock(${p.id}, '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
+                        <button class="btn-action" style="padding:0.4rem 0.6rem; background: #3498db;" title="Modifier le produit" onclick="ouvrirModalEdition(${p.id})"><i class="fas fa-pen"></i></button>
+                        <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem;" title="Supprimer" onclick="supprimerProduit(${p.id})"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function chargerCategories() {
+            try {
+                const res = await fetchSecurise('/api/stock');
+                let data = await res.json();
+                let prods = Array.isArray(data) ? data : (data.produits || []);
+                let cats = [...new Set(prods.map(p => p.categorie).filter(Boolean))];
+                
+                const sel = document.getElementById('categorieFilter');
+                sel.innerHTML = '<option value="all">Toutes</option>';
+                cats.forEach(c => sel.innerHTML += `<option value="${c}">${getCatName(c)}</option>`);
+            } catch(e){}
+        }
+
+        function ouvrirModalNouveauProduit() {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active">
+                    <div class="modal-content">
+                        <div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                        <div class="form-group"><label>Nom du produit :</label><input type="text" id="newProdName" placeholder="Ex: Espresso"></div>
+                        
+                        <div class="form-group">
+                            <label>Type de choix pour le client :</label>
+                            <select id="newProdTypeChoix" onchange="document.getElementById('divNewVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
+                                <option value="aucun" selected>🚫 Aucun choix (Produit simple)</option>
+                                <option value="unique">🔘 Un seul choix (Ex: Normal, Serré)</option>
+                                <option value="multiple">☑️ Plusieurs choix (Ex: Ingrédients Sandwich)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="divNewVariantes" style="display: none;">
+                            <label>Choix / Variantes (séparés par des virgules) :</label>
+                            <input type="text" id="newProdVariantes" placeholder="Ex: Vanille, Chocolat, Fraise">
+                        </div>
+
+                        <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="newProdImage" placeholder="Collez le lien .jpg ici"></div>
+                        <div class="form-group"><label>Catégorie :</label><select id="newProdCat">
+                            <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="chicha">💨 Chicha</option>
+                        </select></div>
+                        <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="newProdPrice" step="0.1" placeholder="2.5"></div>
+                            <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" step="1" placeholder="100"></div>
+                        </div>
+                        <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10" step="1"></div>
+                        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()">Enregistrer</button></div>
+                    </div>
+                </div>`;
+        }
+
+        async function sauvegarderNouveauProduit() {
+            const typeC = document.getElementById('newProdTypeChoix').value;
+            const produitData = {
+                nom: document.getElementById('newProdName').value,
+                variantes: typeC === 'aucun' ? "" : document.getElementById('newProdVariantes').value,
+                typeChoix: typeC,
+                image: document.getElementById('newProdImage').value, 
+                categorie: document.getElementById('newProdCat').value,
+                prix: parseFloat(document.getElementById('newProdPrice').value),
+                stock: parseInt(document.getElementById('newProdStock').value),
+                seuilAlerte: parseInt(document.getElementById('newProdAlerte').value),
+                unite: "unité"
+            };
+
+            if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Saisie invalide", "var(--danger)");
+
+            try {
+                const response = await fetchSecurise('/api/stock', { method: 'POST', body: JSON.stringify(produitData) });
+                if (response.ok) { showNotification("✅ Produit ajouté !"); fermerModal(); chargerStock(); chargerDashboard(); }
+            } catch (error) { showNotification("❌ Erreur serveur", "var(--danger)"); }
+        }
+
+        function ouvrirModalEdition(id) {
+            const p = stockProduits.find(x => x.id === id);
+            if(!p) return;
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active">
+                    <div class="modal-content">
+                        <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                        <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
+                        
+                        <div class="form-group">
+                            <label>Type de choix pour le client :</label>
+                            <select id="editProdTypeChoix" onchange="document.getElementById('divEditVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
+                                <option value="aucun" ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'selected' : ''}>🚫 Aucun choix (Produit simple)</option>
+                                <option value="unique" ${p.typeChoix === 'unique' ? 'selected' : ''}>🔘 Un seul choix</option>
+                                <option value="multiple" ${p.typeChoix === 'multiple' ? 'selected' : ''}>☑️ Plusieurs choix</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="divEditVariantes" style="display: ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'none' : 'block'};">
+                            <label>Choix / Variantes (séparés par des virgules) :</label>
+                            <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Petit, Moyen, Grand">
+                        </div>
+
+                        <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="Collez le lien .jpg ici"></div>
+                        <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
+                            <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
+                            <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
+                            <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
+                            <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
+                            <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
+                            <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option>
+                        </select></div>
+                        <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
+                            <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
+                        </div>
+                        <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}" step="1"></div>
+                        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
+                    </div>
+                </div>`;
+        }
+
+        async function sauvegarderEditionProduit(id) {
+            const typeC = document.getElementById('editProdTypeChoix').value;
+            const produitData = {
+                nom: document.getElementById('editProdName').value,
+                variantes: typeC === 'aucun' ? "" : document.getElementById('editProdVariantes').value,
+                typeChoix: typeC,
+                image: document.getElementById('editProdImage').value,
+                categorie: document.getElementById('editProdCat').value,
+                prix: parseFloat(document.getElementById('editProdPrice').value),
+                stock: parseInt(document.getElementById('editProdStock').value),
+                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
+            };
+            try {
+                const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
+                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); }
+            } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
+        }
+
+        async function supprimerProduit(id) {
+            if (!confirm("⚠️ Voulez-vous vraiment supprimer ce produit ? Cette action est définitive.")) return;
+            try {
+                const response = await fetchSecurise(`/api/stock/${id}`, { method: 'DELETE' });
+                if (response.ok) { showNotification("🗑️ Produit supprimé."); chargerStock(); chargerDashboard(); chargerCategories(); }
+            } catch (error) { showNotification("❌ Erreur de suppression.", "var(--danger)"); }
+        }
+
+        function ouvrirModalAjoutStock(id, nom) {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-truck"></i> Réception - ${nom}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                <div class="form-group"><label>Quantité reçue :</label><input type="number" id="qteStock" min="1" step="1"></div>
+                <div class="form-group"><label>Numéro de lot / BL :</label><input type="text" id="raisonStock" placeholder="Ex: BL-2026"></div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerAjoutStock(${id})">Valider l'entrée</button></div></div></div>
+            `;
+        }
+
+        function ouvrirModalAjoutStockGlobal() {
+            const options = stockProduits.map(p => `<option value="${p.id}">${escapeHtml(p.nom)} (Stock: ${p.stock})</option>`).join('');
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-boxes"></i> Nouvelle Réception</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                <div class="form-group"><label>Sélectionner le produit :</label><select id="produitSelect">${options}</select></div>
+                <div class="form-group"><label>Quantité reçue :</label><input type="number" id="qteGlobal" min="1" step="1"></div>
+                <div class="form-group"><label>Numéro de lot / BL :</label><input type="text" id="raisonGlobal"></div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerAjoutStockGlobal()">Enregistrer</button></div></div></div>
+            `;
+        }
+
+        async function validerAjoutStock(id) { await callAddStockApi(id, parseInt(document.getElementById('qteStock').value), document.getElementById('raisonStock').value); }
+        async function validerAjoutStockGlobal() { await callAddStockApi(document.getElementById('produitSelect').value, parseInt(document.getElementById('qteGlobal').value), document.getElementById('raisonGlobal').value); }
+
+        async function callAddStockApi(id, qte, raison) {
+            if(!id || !qte || qte <= 0) return showNotification("Saisie invalide", "var(--danger)");
+            try {
+                const res = await fetchSecurise(`/api/stock/${id}/add`, { method: 'POST', body: JSON.stringify({ quantite: qte, raison: raison||'Livraison' }) });
+                if(res.ok) { 
+                    showNotification(`Stock mis à jour (+${qte})`, "var(--success)"); 
+                    fermerModal(); chargerStock(); chargerDashboard(); chargerHistorique(); chargerAlertes(); 
+                } else {
+                    const p = stockProduits.find(x => String(x.id) === String(id));
+                    if(p) {
+                        p.stock += qte;
+                        await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(p) });
+                        showNotification(`Stock mis à jour (+${qte})`, "var(--success)"); 
+                        fermerModal(); chargerStock(); chargerDashboard(); chargerAlertes();
+                    }
+                }
+            } catch(e) { showNotification("Erreur réseau", "var(--danger)"); }
+        }
+
+        function exporterStockCSV() {
+            let csv = "Produit,Catégorie,Stock_Actuel,Seuil_Alerte,Unité,Prix_Vente,Valeur_Achat_Estimee\n";
+            stockProduits.forEach(p => csv += `"${p.nom}","${getCatName(p.categorie)}",${p.stock},${p.seuilAlerte || 10},"${p.unite || ''}",${p.prix},${(p.stock*p.prix*0.6).toFixed(2)}\n`);
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Stock_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(a.href);
+        }
+
+        // ========== 3. MODULE MOUVEMENTS ==========
+        async function chargerHistorique() {
+            const tbody = document.getElementById('historiqueBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
+            
+            const type = document.getElementById('mouvementType').value;
+            const debutStr = document.getElementById('dateDebut').value;
+            const finStr = document.getElementById('dateFin').value;
+            
+            try {
+                const res = await fetchSecurise(`/api/stock/historique?limit=500`);
+                let data = await res.json();
+                data = Array.isArray(data) ? data : []; 
+
+                if(type !== 'all') data = data.filter(m => m.type === type);
+                
+                if(debutStr || finStr) {
+                    const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
+                    const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
+                    
+                    data = data.filter(m => {
+                        const tsMouv = parseDateFR(m.date);
+                        return tsMouv >= tsDebut && tsMouv <= tsFin;
+                    });
+                }
+
+                if(!data || !data.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Aucun mouvement sur cette période</td></tr>'; return; }
+
+                tbody.innerHTML = data.map(m => {
+                    let icon, color, txt;
+                    if(m.type === 'vente') { icon = 'fa-shopping-cart'; color = 'var(--info)'; txt = 'Sortie'; }
+                    else if(m.type === 'ajout') { icon = 'fa-truck-loading'; color = 'var(--success)'; txt = 'Entrée'; }
+                    else { icon = 'fa-clipboard-check'; color = 'var(--warning)'; txt = 'Audit'; }
+
+                    const prefix = m.type === 'vente' ? '-' : (m.nouveauStock > m.ancienStock ? '+' : '');
+
+                    return `
+                    <tr>
+                        <td>
+                            <div style="font-weight:600;">${m.date.split(' ')[0]}</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">${m.date.split(' ').slice(1).join(' ') || ''}</div>
+                        </td>
+                        <td><span class="badge" style="background:${color}22; color:${color};"><i class="fas ${icon}"></i> ${txt}</span></td>
+                        <td><strong>${escapeHtml(m.produit)}</strong></td>
+                        <td style="text-align:center; font-weight:800; color:${color};">${prefix}${m.quantite}</td>
+                        <td style="text-align:center; color:var(--text-muted);">${m.ancienStock !== undefined ? m.ancienStock : '-'}</td>
+                        <td style="text-align:center; font-weight:700;">${m.nouveauStock !== undefined ? m.nouveauStock : '-'}</td>
+                        <td><span style="font-size:0.85rem;">${escapeHtml(m.raison) || (m.commandeId ? 'Cmd #'+m.commandeId : '-')}</span></td>
+                    </tr>`;
+                }).join('');
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message error">Pas d\'historique disponible</td></tr>'; }
+        }
+
+        // ========== 4. MODULE ALERTES (CORRIGÉ & SIMPLIFIÉ) ==========
+        async function chargerAlertes() {
+            const tbody = document.getElementById('alertesContainerBody');
+            try {
+                if(stockProduits.length === 0) {
+                    const res = await fetchSecurise('/api/stock');
+                    let data = await res.json();
+                    stockProduits = Array.isArray(data) ? data : (data.produits || []); 
+                }
+
+                // Filtrer les produits dont le stock est <= à leur propre seuil (ou 10 par défaut)
+                const alertes = stockProduits.filter(p => p.stock !== undefined && p.stock <= (p.seuilAlerte || 10));
+
+                if(!alertes.length) { 
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-check-circle fa-2x" style="color:var(--success); display:block; margin-bottom:10px;"></i>Aucune alerte à traiter. Tout va bien !</td></tr>'; 
+                    return; 
+                }
+
+                tbody.innerHTML = alertes.map(p => {
+                    const isRupture = p.stock <= 0;
+                    return `
+                    <tr style="background: ${isRupture ? '#fff5f5' : '#fffbeb'}">
+                        <td>
+                            <div style="font-weight:600;">${new Date().toLocaleDateString('fr-FR')}</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">${isRupture ? 'Rupture' : 'Stock critique'}</div>
+                        </td>
+                        <td><strong style="color:var(--danger);">${escapeHtml(p.nom)}</strong></td>
+                        <td><span class="badge ${isRupture ? 'badge-critical' : 'badge-low'}" style="font-size:1rem;">${p.stock}</span></td>
+                        <td><span style="color:var(--text-muted);">Seuil: ${p.seuilAlerte || 10}</span></td>
+                        <td style="text-align:right;">
+                            <button class="btn-action btn-success" style="padding:0.4rem 0.8rem;" onclick="ouvrirModalAjoutStock(${p.id},'${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i> Commander</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch(e) { 
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Erreur de chargement des alertes.</td></tr>';
+            }
+        }
+
+
+        // ========== 5. MODULE INVENTAIRE ==========
+        function demarrerInventaire() {
+            document.getElementById('inventaireForm').style.display = 'block';
+            const tbody = document.getElementById('inventaireTableBody');
+            
+            if(!stockProduits.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Aucun produit en base</td></tr>'; return; }
+
+            tbody.innerHTML = stockProduits.map(p => `
+                <tr data-id="${p.id}" data-theorique="${p.stock}" data-prixachat="${p.prix * 0.6}">
+                    <td><strong>${escapeHtml(p.nom)}</strong><div style="font-size:0.7rem; color:var(--text-muted);">${p.unite || 'unité'}</div></td>
+                    <td style="text-align:center; font-size:1.1rem; color:var(--text-muted); font-weight:600;">${p.stock}</td>
+                    <td style="text-align:center;"><input type="number" class="inv-physique" value="${p.stock}" oninput="calculerEcartInventaire()"></td>
+                    <td class="ecart-cell">0</td>
+                    <td class="impact-cell" style="text-align:right; font-weight:600; color:var(--text-muted);">0.00 DT</td>
+                    <td><input type="text" class="inv-raison" placeholder="Ex: Produit périmé, Oubli..."></td>
+                </tr>
+            `).join('');
+            calculerEcartInventaire();
+        }
+
+        function calculerEcartInventaire() {
+            let totalImpact = 0;
+            document.querySelectorAll('#inventaireTableBody tr').forEach(tr => {
+                if(!tr.dataset.id) return;
+                const theorique = parseInt(tr.dataset.theorique);
+                const physique = parseInt(tr.querySelector('.inv-physique').value) || 0;
+                const prixAchat = parseFloat(tr.dataset.prixachat);
+                
+                const ecart = physique - theorique;
+                const impact = ecart * prixAchat;
+                totalImpact += impact;
+
+                const ecartCell = tr.querySelector('.ecart-cell');
+                const impactCell = tr.querySelector('.impact-cell');
+
+                ecartCell.textContent = ecart > 0 ? `+${ecart}` : ecart;
+                if(ecart === 0) { ecartCell.style.color = 'var(--text-muted)'; impactCell.style.color = 'var(--text-muted)'; }
+                else if(ecart > 0) { ecartCell.style.color = 'var(--success)'; impactCell.style.color = 'var(--success)'; }
+                else { ecartCell.style.color = 'var(--danger)'; impactCell.style.color = 'var(--danger)'; }
+                
+                impactCell.textContent = formatMoney(impact);
+            });
+
+            const totalEl = document.getElementById('impactTotalInventaire');
+            totalEl.textContent = formatMoney(totalImpact);
+            totalEl.style.color = totalImpact === 0 ? 'var(--text-main)' : (totalImpact > 0 ? 'var(--success)' : 'var(--danger)');
+        }
+
+        function annulerInventaire() { document.getElementById('inventaireForm').style.display = 'none'; }
+
+        async function validerInventaire() {
+            const produits = [];
+            document.querySelectorAll('#inventaireTableBody tr').forEach(tr => {
+                if(!tr.dataset.id) return;
+                const id = parseInt(tr.dataset.id);
+                const physique = parseInt(tr.querySelector('.inv-physique').value) || 0;
+                const theorique = parseInt(tr.dataset.theorique);
+                const raison = tr.querySelector('.inv-raison').value;
+                
+                if(physique !== theorique) {
+                    produits.push({ id: id, stockPhysique: physique, raison: raison || 'Régularisation', corriger: true });
+                }
+            });
+
+            if(!produits.length) return showNotification("L'inventaire est parfait, aucun ajustement nécessaire.", "var(--info)");
+            if(!confirm(`Vous allez ajuster le stock de ${produits.length} produit(s). Continuer ?`)) return;
+            
+            try {
+                const res = await fetchSecurise('/api/stock/inventaire', { method: 'POST', body: JSON.stringify({ produits }) });
+                if(res.ok) {
+                    showNotification(`Inventaire enregistré avec succès`, "var(--success)");
+                    annulerInventaire(); chargerStock(); chargerHistorique(); chargerDashboard(); chargerAlertes();
+                } else {
+                    for (let p of produits) {
+                        const target = stockProduits.find(x => String(x.id) === String(p.id));
+                        if(target) {
+                            target.stock = p.stockPhysique;
+                            await fetchSecurise(`/api/stock/${p.id}`, { method: 'PUT', body: JSON.stringify(target) });
+                        }
+                    }
+                    showNotification(`Inventaire enregistré`, "var(--success)");
+                    annulerInventaire(); chargerStock(); chargerDashboard(); chargerAlertes();
+                }
+            } catch(e) { showNotification("Erreur de sauvegarde", "var(--danger)"); }
+        }
+
+        async function voirHistoriqueInventaires() {
+            try {
+                const res = await fetchSecurise('/api/stock/inventaires');
+                let data = await res.json();
+                data = Array.isArray(data) ? data : [];
+                
+                if(!data || !data.length) return showNotification("Aucun audit précédent", "var(--info)");
+                
+                let html = data.map(inv => `
+                    <div style="border:1px solid var(--border-color); border-radius:12px; margin-bottom:1rem; padding:1rem;">
+                        <div style="font-weight:700; color:var(--primary); margin-bottom:0.5rem;"><i class="fas fa-calendar-check"></i> Audit du ${inv.date}</div>
+                        ${(!inv.ecarts || !inv.ecarts.length) ? '<div style="color:var(--success); font-size:0.85rem;">✅ Stock parfait, aucun écart.</div>' : 
+                        `<table style="width:100%; font-size:0.8rem; margin-top:0.5rem;">
+                            <tr style="color:var(--text-muted); border-bottom:1px solid var(--border-color);"><th>Produit</th><th>Écart</th><th>Motif</th></tr>
+                            ${inv.ecarts.map(e => `
+                                <tr>
+                                    <td><strong>${escapeHtml(e.produit)}</strong></td>
+                                    <td style="color:${e.ecart>0?'var(--success)':'var(--danger)'}; font-weight:bold;">${e.ecart>0?'+':''}${e.ecart}</td>
+                                    <td>${escapeHtml(e.raison)}</td>
+                                </tr>`).join('')}
+                        </table>`
+                        }
+                    </div>`).join('');
+
+                document.getElementById('modalContainer').innerHTML = `
+                    <div class="modal active"><div class="modal-content" style="max-width:600px;">
+                        <div class="modal-header"><h3>Historique des Audits</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                        <div style="max-height:60vh; overflow-y:auto; padding-right:5px;">${html}</div>
+                    </div></div>`;
+            } catch(e) { showNotification("Aucun audit trouvé", "var(--warning)"); }
+        }
+
+
+        // ========== 6. MODULE DÉPENSES ==========
+        let depensesGlobales = [];
+
+        async function chargerDepenses() {
+            const vue = document.getElementById('vueDepenses').value;
+            const catFiltre = document.getElementById('filtreCatDepense').value;
+            const debutStr = document.getElementById('depenseDateDebut').value;
+            const finStr = document.getElementById('depenseDateFin').value;
+
+            try {
+                const res = await fetchSecurise('/api/depenses');
+                let data = await res.json();
+                data = Array.isArray(data) ? data : [];
+                depensesGlobales = data;
+
+                if (debutStr || finStr) {
+                    const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
+                    const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
+                    data = data.filter(d => {
+                        const ts = parseDateFR(d.date);
+                        return ts >= tsDebut && ts <= tsFin;
+                    });
+                }
+
+                if (catFiltre !== 'all') {
+                    data = data.filter(d => (d.categoriePrincipale || d.categorie) === catFiltre);
+                }
+
+                let totGlobal = 0, totRH = 0, totStock = 0, totDettes = 0;
+                data.forEach(d => {
+                    const montantSorti = d.montantPaye || d.montant || 0;
+                    totGlobal += montantSorti;
+                    
+                    const cat = d.categoriePrincipale || d.categorie;
+                    if (cat === 'rh') totRH += montantSorti;
+                    if (cat === 'fournisseur' || cat === 'achat_stock') totStock += montantSorti;
+                    if (d.resteAPayer > 0) totDettes += d.resteAPayer;
+                });
+
+                document.getElementById('kpiDepenseTotal').textContent = formatMoney(totGlobal);
+                document.getElementById('kpiDepenseRH').textContent = formatMoney(totRH);
+                document.getElementById('kpiDepenseStock').textContent = formatMoney(totStock);
+                document.getElementById('kpiDepenseDettes').textContent = formatMoney(totDettes);
+
+                const thead = document.getElementById('depensesThead');
+                const tbody = document.getElementById('depensesTableBody');
+
+                if (data.length === 0) {
+                    thead.innerHTML = ''; tbody.innerHTML = `<tr><td class="empty-message">Aucune dépense trouvée pour cette période.</td></tr>`;
+                    return;
+                }
+
+                if (vue === 'detail') {
+                    thead.innerHTML = `<tr><th>Date & Heure</th><th>Catégorie</th><th>Bénéficiaire / Motif</th><th>Mode</th><th style="text-align:right;">Montant Payé</th><th style="text-align:right;">Dette (Reste)</th><th style="text-align:center;">Actions</th></tr>`;
+                    tbody.innerHTML = data.map(d => {
+                        const cat = d.categoriePrincipale || d.categorie || 'Autre';
+                        const detteHTML = (d.resteAPayer > 0) ? `<span style="color:var(--danger); font-weight:bold;">${formatMoney(d.resteAPayer)}</span>` : `<span style="color:var(--text-muted);">Réglé</span>`;
+                        
+                        return `
+                        <tr>
+                            <td><div style="font-weight:600;">${d.date.split(' ')[0]}</div><div style="font-size:0.75rem; color:var(--text-muted);">${d.date.split(' ').slice(1).join(' ')}</div></td>
+                            <td><span class="badge badge-neutral" style="text-transform:uppercase;">${cat}</span><br><small>${d.sousCategorie || ''}</small></td>
+                            <td><strong>${escapeHtml(d.beneficiaire || '-')}</strong><br><small>${escapeHtml(d.description || '')}</small></td>
+                            <td><i class="fas fa-wallet"></i> ${d.modePaiement || d.mode || 'especes'}</td>
+                            <td style="text-align:right; font-weight:900; color:var(--danger);">${formatMoney(d.montantPaye || d.montant)}</td>
+                            <td style="text-align:right;">${detteHTML}</td>
+                            <td style="text-align:center;">
+                                <button class="btn-action" style="padding:0.4rem 0.6rem; border-radius: 8px; background: #3498db; margin-right: 5px;" onclick="ouvrirModalEditionDepense('${d._id}')" title="Modifier l'opération">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem; border-radius: 8px;" onclick="supprimerDepense('${d._id}')" title="Annuler cette opération">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                } else {
+                    const groupes = {};
+                    data.forEach(d => {
+                        const parts = d.date.split(' ')[0].split('/'); 
+                        let cleDate = '';
+                        if (vue === 'jour') cleDate = `${parts[0]}/${parts[1]}/${parts[2]}`;
+                        if (vue === 'mois') cleDate = `${parts[1]}/${parts[2]}`;
+                        if (vue === 'annee') cleDate = `${parts[2]}`;
+
+                        if (!groupes[cleDate]) groupes[cleDate] = { total: 0, rh: 0, stock: 0, fixes: 0, dettes: 0 };
+                        
+                        const montant = d.montantPaye || d.montant || 0;
+                        const cat = d.categoriePrincipale || d.categorie;
+
+                        groupes[cleDate].total += montant;
+                        if (cat === 'rh') groupes[cleDate].rh += montant;
+                        if (cat === 'fournisseur' || cat === 'achat_stock') groupes[cleDate].stock += montant;
+                        if (cat === 'fixes' || cat === 'energie' || cat === 'loyer') groupes[cleDate].fixes += montant;
+                        if (d.resteAPayer > 0) groupes[cleDate].dettes += d.resteAPayer;
+                    });
+
+                    thead.innerHTML = `<tr><th>Période</th><th style="text-align:right;">Staff (RH)</th><th style="text-align:right;">Fournisseurs</th><th style="text-align:right;">Charges Fixes</th><th style="text-align:right; font-size:1.1rem; color:var(--danger);">Total Dépensé</th></tr>`;
+                    tbody.innerHTML = Object.keys(groupes).map(cle => `
+                        <tr>
+                            <td><strong>${vue === 'mois' ? 'Mois de ' : ''}${cle}</strong>
+                                ${groupes[cle].dettes > 0 ? `<br><small style="color:var(--danger);"><i class="fas fa-exclamation-triangle"></i> Dettes créées: ${formatMoney(groupes[cle].dettes)}</small>` : ''}
+                            </td>
+                            <td style="text-align:right; color:#3498db; font-weight:bold;">${formatMoney(groupes[cle].rh)}</td>
+                            <td style="text-align:right; color:#27ae60; font-weight:bold;">${formatMoney(groupes[cle].stock)}</td>
+                            <td style="text-align:right; color:var(--text-muted); font-weight:bold;">${formatMoney(groupes[cle].fixes)}</td>
+                            <td style="text-align:right; font-weight:900; color:var(--danger); font-size:1.2rem;">${formatMoney(groupes[cle].total)}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function changerFormulaireDepense() {
+            const cat = document.getElementById('depCatMain').value;
+            const container = document.getElementById('dynamicDepenseForm');
+
+            if (cat === 'rh') {
+                container.innerHTML = `
+                    <div class="form-group"><label>Nom de l'employé (Serveur) :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Ahmed, Sarah..."></div>
+                    <div class="form-group"><label>Nature :</label>
+                        <select id="depSousCat"><option value="avance">⚠️ Avance sur salaire (Sلفة)</option><option value="salaire">💰 Salaire Mensuel</option><option value="prime">🎁 Prime</option></select>
+                    </div>
+                    <div class="form-group"><label>Montant donné (DT) :</label><input type="number" id="depMontantTotal" step="1" placeholder="0.00" style="font-size:1.2rem; font-weight:bold; color:#3498db;"></div>
+                    <div class="form-group"><label>Période / Note :</label><input type="text" id="depDesc" placeholder="Ex: Semaine 1, ou Avance urgence..."></div>
+                `;
+            } 
+            else if (cat === 'fournisseur') {
+                container.innerHTML = `
+                    <div class="form-group"><label>Fournisseur :</label><input type="text" id="depBeneficiaire" placeholder="Ex: Grossiste Boissons..."></div>
+                    <div class="form-group"><label>Détail (N° Facture/BL) :</label><input type="text" id="depDesc" placeholder="Ex: BL-405..."></div>
+                    <div style="display:flex; gap:10px;">
+                        <div class="form-group" style="flex:1;"><label>Coût Total Facture:</label><input type="number" id="depMontantTotal" step="0.5" oninput="calcReste()" style="font-weight:bold;"></div>
+                        <div class="form-group" style="flex:1;"><label>Montant Payé:</label><input type="number" id="depMontantPaye" step="0.5" oninput="calcReste()" style="font-weight:bold; color:var(--success);"></div>
+                    </div>
+                    <div class="form-group" style="background:#fff5f5; padding:10px; border-radius:8px; border:1px dashed var(--danger);">
+                        <label style="color:var(--danger);">Reste à payer (Kridi) :</label>
+                        <input type="number" id="depReste" readonly style="background:transparent; border:none; font-size:1.2rem; font-weight:900; color:var(--danger);" value="0.00">
+                    </div>
+                `;
+            } 
+            else {
+                container.innerHTML = `
+                    <div class="form-group"><label>Facture / Service :</label>
+                        <select id="depSousCat"><option value="steg">⚡ Électricité & Gaz</option><option value="sonede">💧 Eau</option><option value="loyer">🏠 Loyer</option><option value="autre">📝 Autre</option></select>
+                    </div>
+                    <div class="form-group"><label>Description :</label><input type="text" id="depDesc" placeholder="Ex: Facture Mars..."></div>
+                    <div class="form-group"><label>Montant Sorti (DT) :</label><input type="number" id="depMontantTotal" step="0.5" style="font-size:1.2rem; font-weight:bold;"></div>
+                `;
+            }
+        }
+
+        function calcReste() {
+            const total = parseFloat(document.getElementById('depMontantTotal').value) || 0;
+            const paye = parseFloat(document.getElementById('depMontantPaye').value) || 0;
+            const reste = total - paye;
+            document.getElementById('depReste').value = reste > 0 ? reste.toFixed(2) : "0.00";
+        }
+
+        function ouvrirModalDepensePro() {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header"><h3><i class="fas fa-plus-circle"></i> Ajouter une Dépense</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                <div class="form-group">
+                    <label>Famille d'opération :</label>
+                    <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid var(--danger); font-weight:bold; color:var(--danger);">
+                        <option value="fournisseur">📦 Achat Fournisseur / Stock</option><option value="rh">👤 Employé (Salaire/Avance)</option><option value="fixes">🏠 Charges Fixes (STEG, Loyer)</option>
+                    </select>
+                </div>
+                <div id="dynamicDepenseForm"></div>
+                <div class="form-group" style="margin-top:15px;"><label>Mode de Paiement :</label>
+                    <select id="depMode"><option value="especes">💵 Espèces (Sortie Tiroir)</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
+                </div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" style="background:var(--danger);" onclick="validerDepensePro()"><i class="fas fa-save"></i> Valider</button></div>
+                </div></div>`;
+            changerFormulaireDepense();
+        }
+
+        async function validerDepensePro() {
+            const catMain = document.getElementById('depCatMain').value;
+            const total = parseFloat(document.getElementById('depMontantTotal').value) || 0;
+            let paye = total; let reste = 0; let statut = 'paye';
+
+            if (catMain === 'fournisseur') {
+                paye = parseFloat(document.getElementById('depMontantPaye').value) || 0;
+                reste = total - paye;
+                if (reste > 0) statut = 'credit';
+            }
+
+            const body = {
+                categoriePrincipale: catMain,
+                sousCategorie: document.getElementById('depSousCat') ? document.getElementById('depSousCat').value : '',
+                beneficiaire: document.getElementById('depBeneficiaire') ? document.getElementById('depBeneficiaire').value : '',
+                description: document.getElementById('depDesc') ? document.getElementById('depDesc').value : '',
+                montantTotal: total, montantPaye: paye, resteAPayer: reste > 0 ? reste : 0, statut: statut,
+                modePaiement: document.getElementById('depMode').value
+            };
+
+            try {
+                const res = await fetchSecurise('/api/depenses', { method: 'POST', body: JSON.stringify(body) });
+                if (res.ok) { showNotification("✅ Enregistré", "var(--success)"); fermerModal(); chargerDepenses(); }
+            } catch (e) { console.error(e); }
+        }
+
+        function ouvrirModalEditionDepense(id) {
+            const d = depensesGlobales.find(x => x._id === id);
+            if (!d) return;
+
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier la Dépense</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                <div class="form-group">
+                    <label>Famille d'opération :</label>
+                    <select id="depCatMain" onchange="changerFormulaireDepense()" style="background:#f8fafc; border:2px solid #3498db; font-weight:bold; color:#3498db;">
+                        <option value="fournisseur">📦 Achat Fournisseur / Stock</option><option value="rh">👤 Employé (Salaire/Avance)</option><option value="fixes">🏠 Charges Fixes (STEG, Loyer)</option>
+                    </select>
+                </div>
+                <div id="dynamicDepenseForm"></div>
+                <div class="form-group" style="margin-top:15px;"><label>Mode de Paiement :</label>
+                    <select id="depMode"><option value="especes">💵 Espèces</option><option value="virement">🏦 Virement</option><option value="cheque">📄 Chèque</option></select>
+                </div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" style="background:#3498db;" onclick="validerEditionDepense('${d._id}')"><i class="fas fa-save"></i> Mettre à jour</button></div>
+                </div></div>`;
+
+            document.getElementById('depCatMain').value = d.categoriePrincipale || 'fixes';
+            changerFormulaireDepense();
+
+            setTimeout(() => {
+                if(document.getElementById('depSousCat')) document.getElementById('depSousCat').value = d.sousCategorie || '';
+                if(document.getElementById('depBeneficiaire')) document.getElementById('depBeneficiaire').value = d.beneficiaire || '';
+                if(document.getElementById('depDesc')) document.getElementById('depDesc').value = d.description || '';
+                if(document.getElementById('depMontantTotal')) document.getElementById('depMontantTotal').value = d.montantTotal || d.montant || 0;
+                if(document.getElementById('depMontantPaye')) document.getElementById('depMontantPaye').value = d.montantPaye || d.montant || 0;
+                if(document.getElementById('depMode')) document.getElementById('depMode').value = d.modePaiement || d.mode || 'especes';
+                if(typeof calcReste === 'function') calcReste();
+            }, 50);
+        }
+
+        async function validerEditionDepense(id) {
+            const catMain = document.getElementById('depCatMain').value;
+            const total = parseFloat(document.getElementById('depMontantTotal').value) || 0;
+            let paye = total; let reste = 0; let statut = 'paye';
+
+            if (catMain === 'fournisseur') {
+                paye = parseFloat(document.getElementById('depMontantPaye').value) || 0;
+                reste = total - paye;
+                if (reste > 0) statut = 'credit';
+            }
+
+            const body = {
+                categoriePrincipale: catMain,
+                sousCategorie: document.getElementById('depSousCat') ? document.getElementById('depSousCat').value : '',
+                beneficiaire: document.getElementById('depBeneficiaire') ? document.getElementById('depBeneficiaire').value : '',
+                description: document.getElementById('depDesc') ? document.getElementById('depDesc').value : '',
+                montantTotal: total, montantPaye: paye, resteAPayer: reste > 0 ? reste : 0, statut: statut,
+                modePaiement: document.getElementById('depMode').value
+            };
+
+            try {
+                const res = await fetchSecurise(`/api/depenses/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+                if (res.ok) { showNotification("✅ Mis à jour", "var(--success)"); fermerModal(); chargerDepenses(); }
+            } catch (e) { console.error(e); }
+        }
+
+        async function supprimerDepense(id) {
+            if (!confirm("⚠️ Êtes-vous sûr de vouloir annuler cette opération ?")) return;
+            try {
+                const response = await fetchSecurise(`/api/depenses/${id}`, { method: 'DELETE' });
+                if (response.ok) { showNotification("🗑️ Annulé", "var(--success)"); chargerDepenses(); }
+            } catch (e) { console.error(e); }
+        }
+        
+        // ========== 7. MODULE FIDELITÉ ==========
+        async function chargerClients() {
+            const tbody = document.getElementById('fideliteTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
+            try {
+                const res = await fetchSecurise('/api/customers'); const clients = await res.json();
+                if(clients.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun client fidèle enregistré</td></tr>'; return; }
+                tbody.innerHTML = clients.map(c => `<tr><td>${c.dateInscription}</td><td><strong>${escapeHtml(c.nom)} ${escapeHtml(c.prenom)}</strong></td><td>${escapeHtml(c.telephone)}</td><td style="text-align:center;"><span class="badge badge-normal" style="font-size:1rem; letter-spacing:2px;">${c.codeFidelite}</span></td><td style="text-align:right;"><button class="btn-action btn-danger" onclick="supprimerClient('${c._id}')"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur</td></tr>'; }
+        }
+
+        function ouvrirModalClient() {
+            document.getElementById('modalContainer').innerHTML = `<div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-star"></i> Inscrire un habitué</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div><div class="form-group"><label>Nom :</label><input type="text" id="custNom"></div><div class="form-group"><label>Prénom :</label><input type="text" id="custPrenom"></div><div class="form-group"><label>Téléphone :</label><input type="text" id="custTel"></div><div class="form-group"><label>Code Secret :</label><input type="text" id="custCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;"></div><div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerClient()">Enregistrer</button></div></div></div>`;
+        }
+
+        async function validerClient() {
+            const data = { nom: document.getElementById('custNom').value, prenom: document.getElementById('custPrenom').value, telephone: document.getElementById('custTel').value, codeFidelite: document.getElementById('custCode').value };
+            if(!data.nom || !data.codeFidelite) return showNotification("Nom et Code obligatoires", "var(--danger)");
+            try { const res = await fetchSecurise('/api/customers', { method: 'POST', body: JSON.stringify(data) }); if(res.ok) { fermerModal(); chargerClients(); showNotification("Client enregistré !"); } else showNotification("Ce code existe déjà", "var(--danger)"); } catch(e) { showNotification("Erreur", "var(--danger)"); }
+        }
+
+        async function supprimerClient(id) {
+            if(confirm("Supprimer ce client ?")) { await fetchSecurise(`/api/customers/${id}`, { method: 'DELETE' }); chargerClients(); }
+        }
+
+        // ========== 8. MODULE VENTES ET ARCHIVES (CORRIGÉ AVEC FILTRES MODE PAIEMENT) ==========
+        async function chargerRapportVentes() {
+            try {
+                const res = await fetchSecurise('/api/ventes');
+                toutesLesVentes = await res.json();
+                
+                const typeRapport = document.getElementById('typeRapport').value;
+                const methodeFiltre = document.getElementById('filtreMethodeVente').value; // 🔥 Le filtre de mode de paiement
+                const debutStr = document.getElementById('rapportDateDebut').value;
+                const finStr = document.getElementById('rapportDateFin').value;
+                
+                // Gestion stricte des dates
+                const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
+                let tsFin = Infinity;
+                if (finStr) {
+                    const dateFinObj = new Date(finStr + "T23:59:59");
+                    tsFin = dateFinObj.getTime();
+                }
+
+                // 🔥 Filtrage par Date ET Mode de Paiement
+                const ventesFiltrees = toutesLesVentes.filter(v => {
+                    const matchDate = v.timestamp >= tsDebut && v.timestamp <= tsFin;
+                    const methodeTicket = v.methodePaiement || 'especes'; // Sécurité rétrocompatibilité
+                    const matchMethode = methodeFiltre === 'all' || methodeTicket === methodeFiltre;
+                    return matchDate && matchMethode;
+                });
+
+                // On stocke pour l'exportation CSV
+                ventesAffichees = ventesFiltrees;
+
+                const totalCA = ventesFiltrees.reduce((sum, v) => sum + (parseFloat(v.total) || 0), 0);
+                const nbTickets = ventesFiltrees.length;
+                const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
+
+                document.getElementById('kpiCA').textContent = formatMoney(totalCA);
+                document.getElementById('kpiTickets').textContent = nbTickets;
+                document.getElementById('kpiMoyen').textContent = formatMoney(panierMoyen);
+
+                const statsProds = {};
+                ventesFiltrees.forEach(ticket => {
+                    if(!ticket.articles) return;
+                    ticket.articles.forEach(art => {
+                        const nomComplet = art.nom + (art.variante ? ` (${art.variante})` : '');
+                        if (!statsProds[nomComplet]) statsProds[nomComplet] = { qte: 0, ca: 0 };
+                        statsProds[nomComplet].qte += parseInt(art.quantite || 1);
+                        statsProds[nomComplet].ca += (parseFloat(art.prix || 0) * parseInt(art.quantite || 1));
+                    });
+                });
+
+                const topProduits = Object.keys(statsProds).map(nom => ({
+                    nom, qte: statsProds[nom].qte, ca: statsProds[nom].ca
+                })).sort((a, b) => b.qte - a.qte);
+
+                const tBodyProds = document.getElementById('rapportProduitsBody');
+                if (topProduits.length === 0) {
+                    tBodyProds.innerHTML = '<tr><td colspan="3" class="empty-message">Aucune vente pour ce filtre</td></tr>';
+                } else {
+                    tBodyProds.innerHTML = topProduits.map(p => `
+                        <tr>
+                            <td><strong>${escapeHtml(p.nom)}</strong></td>
+                            <td style="text-align:center;"><span class="badge badge-neutral">${p.qte}</span></td>
+                            <td style="text-align:right; font-weight:bold; color:var(--success);">${formatMoney(p.ca)}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                const tBodyTickets = document.getElementById('rapportTicketsBody');
+                const enTete = document.getElementById('enTeteTableauDroite');
+                const titreDroite = document.getElementById('titreTableauDroite');
+
+                if (ventesFiltrees.length === 0) {
+                    enTete.innerHTML = '<tr><th>Données</th></tr>';
+                    tBodyTickets.innerHTML = '<tr><td class="empty-message">Aucun enregistrement</td></tr>';
+                    return;
+                }
+
+                if (typeRapport === 'detail') {
+                    titreDroite.innerHTML = "🧾 Journal des Tickets";
+                    enTete.innerHTML = '<tr><th>Heure</th><th>Ticket & Mode</th><th>Total</th><th style="text-align:center;">Détails</th></tr>';
+                    
+                    tBodyTickets.innerHTML = ventesFiltrees.map(v => `
+                        <tr>
+                            <td><div style="font-size:0.8rem; color:var(--text-muted);">${v.date}</div></td>
+                            <td>
+                                <strong>#${v.numero}</strong><div style="font-size:0.7rem;">${escapeHtml(v.tableOrigine)}</div>
+                                <div style="margin-top:4px;">${getIconPaiement(v.methodePaiement || 'especes')}</div>
+                            </td>
+                            <td style="font-weight:bold; color:var(--success);">${formatMoney(v.total)}</td>
+                            <td style="text-align:center;"><button class="btn-action" style="padding:0.4rem; background:var(--info);" onclick="voirDetailTicket('${v.id}')"><i class="fas fa-eye"></i></button></td>
+                        </tr>
+                    `).join('');
+                } 
+                else {
+                    const groupes = {};
+                    ventesFiltrees.forEach(v => {
+                        const businessDate = new Date(v.timestamp - 7200000); // Décalage pour fin de service la nuit
+                        const jour = String(businessDate.getDate()).padStart(2, '0');
+                        const mois = String(businessDate.getMonth() + 1).padStart(2, '0');
+                        const annee = businessDate.getFullYear();
+                        
+                        let cle = '';
+                        if (typeRapport === 'jour') { cle = `${jour}/${mois}/${annee}`; titreDroite.innerHTML = "📅 Journal Quotidien (Clôtures)"; }
+                        if (typeRapport === 'mois') { cle = `${mois}/${annee}`; titreDroite.innerHTML = "📆 Journal Mensuel"; }
+                        if (typeRapport === 'annee') { cle = `${annee}`; titreDroite.innerHTML = "📈 Journal Annuel"; }
+
+                        if (!groupes[cle]) groupes[cle] = { ca: 0, tickets: 0 };
+                        groupes[cle].ca += parseFloat(v.total);
+                        groupes[cle].tickets += 1;
+                    });
+
+                    enTete.innerHTML = '<tr><th>Période</th><th style="text-align:center;">Nb Tickets</th><th style="text-align:right;">Chiffre d\'Affaires</th></tr>';
+                    
+                    tBodyTickets.innerHTML = Object.keys(groupes).map(cle => `
+                        <tr>
+                            <td><strong>${cle}</strong></td>
+                            <td style="text-align:center;"><span class="badge badge-neutral">${groupes[cle].tickets}</span></td>
+                            <td style="text-align:right; font-weight:bold; color:var(--success); font-size:1.1rem;">${formatMoney(groupes[cle].ca)}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch(e) { console.error("Erreur rapports", e); }
+        }
+
+        function voirDetailTicket(idTicket) {
+            const ticket = toutesLesVentes.find(v => v.id === idTicket);
+            if (!ticket) return;
+
+            const itemsHtml = ticket.articles.map(a => `
+                <div style="display:flex; justify-content:space-between; padding: 8px 0; border-bottom: 1px dashed var(--border-color);">
+                    <span><strong>${a.quantite}x</strong> ${escapeHtml(a.nom)} ${a.variante ? `<i>(${escapeHtml(a.variante)})</i>` : ''}</span>
+                    <span style="font-weight:bold;">${formatMoney(a.quantite * a.prix)}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content" style="max-width:400px; background:#fdfbf7;">
+                    <div style="text-align:center; border-bottom:2px solid var(--primary); padding-bottom:1rem; margin-bottom:1rem;">
+                        <h2 style="font-family:'Cinzel', serif; color:var(--primary); margin-bottom:5px;">TA'BIA Coffee</h2>
+                        <div style="font-size:0.8rem; color:var(--text-muted);">Copie du Ticket #${ticket.numero}</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted);">${ticket.date} - ${escapeHtml(ticket.tableOrigine)}</div>
+                        <div style="margin-top:10px;">${getIconPaiement(ticket.methodePaiement || 'especes')}</div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">${itemsHtml}</div>
+                    
+                    ${ticket.remise > 0 ? `<div style="display:flex; justify-content:space-between; color:var(--warning); font-weight:bold;"><span>Remise accordée :</span><span>${ticket.remise}%</span></div>` : ''}
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:1.4rem; font-weight:900; color:var(--primary); border-top:2px solid var(--primary); padding-top:1rem;">
+                        <span>TOTAL TTC</span>
+                        <span>${formatMoney(ticket.total)}</span>
+                    </div>
+                    <div class="modal-buttons"><button class="btn-secondary" style="width:100%;" onclick="fermerModal()">Fermer</button></div>
+                </div></div>
+            `;
+        }
+
+        function exporterVentesCSV() {
+            if(!ventesAffichees.length) return showNotification("Aucune vente à exporter", "var(--warning)");
+            // 🔥 Ajout de la colonne "Mode de Paiement" dans l'export Excel
+            let csv = "Date,Ticket_Numero,Table,Total_DT,Mode_Paiement,Nb_Articles\n";
+            ventesAffichees.forEach(v => {
+                const total = parseFloat(v.total) || 0;
+                const methode = v.methodePaiement || 'especes';
+                const nbArticles = v.articles ? v.articles.reduce((s, a) => s + parseInt(a.quantite||1), 0) : 0;
+                csv += `"${v.date}","${v.numero}","${escapeHtml(v.tableOrigine)}",${total.toFixed(3)},"${methode}",${nbArticles}\n`;
+            });
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Rapport_Ventes_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(a.href);
+        }
+
+        // ========== INIT DOM ==========
+        document.addEventListener("DOMContentLoaded", () => {
+            chargerDashboard(); chargerStock(); chargerCategories(); chargerHistorique(); chargerAlertes(); chargerDepenses();
+            
+            // Events Stock
+            document.getElementById('categorieFilter').addEventListener('change', appliquerFiltresEtTriStock);
+            document.getElementById('etatFilter').addEventListener('change', appliquerFiltresEtTriStock);
+            document.getElementById('searchFilter').addEventListener('input', appliquerFiltresEtTriStock);
+            
+            // 🔥 Event Ventes (Pour le filtre "Mode Paiement")
+            document.getElementById('filtreMethodeVente').addEventListener('change', chargerRapportVentes);
+
+            // ========== SYNCHRONISATION EN TEMPS RÉEL ==========
+            const socket = io({ 
+                auth: { token: monToken }, 
+                transports: ['websocket', 'polling'], 
+                reconnection: true 
+            });
+
+            socket.on('update_stock', () => {
+                chargerStock();
+                chargerDashboard();
+                chargerAlertes();
+                console.log("🔄 Stock mis à jour en direct !");
+            });
+        });
     </script>
 </body>
 </html>
