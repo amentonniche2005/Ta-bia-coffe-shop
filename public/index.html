@@ -75,7 +75,18 @@
                 <button class="close-cart" id="closeCart">&times;</button>
             </div>
             <div id="cartItems" class="cart-items"></div>
-            <div class="cart-total" id="cartTotal">Total: 0.00 DT</div>
+           <div class="cart-total" id="cartTotal">Total: 0.00 DT</div>
+            
+            <div style="margin-bottom: 15px; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <label style="font-weight: bold; display: block; margin-bottom: 8px; color: #1e293b;">
+                    <i class="fas fa-credit-card"></i> Comment voulez-vous payer ?
+                </label>
+                <select id="methodePaiementClient" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 1rem; outline: none; font-weight: bold; color: #db800a; background: white;">
+                    <option value="especes">💵 Payer en espèces (à la caisse)</option>
+                    <option value="en_ligne">📱 Payer en ligne (D17 / Flouci / Carte)</option>
+                </select>
+            </div>
+
             <button class="checkout-btn" id="checkoutBtn" style="background: #db800a; color: white; width: 100%; padding: 1rem; border: none; border-radius: 15px; font-size: 1.1rem; font-weight: 700; cursor: pointer; display: flex; justify-content: center; gap: 10px;">
                 Valider la commande <i class="fas fa-arrow-right"></i>
             </button>

@@ -462,18 +462,22 @@ async function validerCommande(numTable, clientData, codeSaisi) {
     try {
         let nomFidele = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
         let idFidele = clientData ? codeSaisi : clientId;
-        
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
         const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
         
+        // 🔥 NOUVEAU : On récupère le choix de paiement du client
+        const methodeElement = document.getElementById('methodePaiementClient');
+        const methode = methodeElement ? methodeElement.value : 'especes';
+
         const response = await fetch('/api/commandes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
                 numeroTable: tableFinale,
                 clientId: idFidele,
-                clientName: nomFidele, // 🔥 LA VIRGULE MANQUANTE ÉTAIT ICI !
-                total: totalCommande   // 🔥 ET ON ENVOIE LE TOTAL
+                clientName: nomFidele, 
+                total: totalCommande,
+                methodePaiementRequete: methode // 🔥 On envoie le choix au serveur !
             })
         });
 
@@ -482,14 +486,21 @@ async function validerCommande(numTable, clientData, codeSaisi) {
             if(typeof sauvegarderCommandeClient === 'function') sauvegarderCommandeClient(commande);
             
             panier = []; sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier();
-            
-            if (nomFidele) {
-                afficherNotification(`🎉 Merci ${nomFidele} ! Commande envoyée.`);
-            } else {
-                afficherNotification("🎉 Commande envoyée avec succès !");
-            }
-            
             if(typeof chargerCatalogue === 'function') await chargerCatalogue(); 
+            
+            // 🔥 NOUVEAU : Si en ligne, on redirige vers l'écran de paiement Flouci !
+            if (methode === 'en_ligne' && commande.lienPaiement) {
+                afficherNotification("⏳ Redirection vers le paiement sécurisé...", "info");
+                setTimeout(() => {
+                    window.location.href = commande.lienPaiement; // Redirection !
+                }, 1500);
+            } else {
+                if (nomFidele) {
+                    afficherNotification(`🎉 Merci ${nomFidele} ! Commande envoyée.`);
+                } else {
+                    afficherNotification("🎉 Commande envoyée avec succès !");
+                }
+            }
         } else { 
             afficherNotification("❌ Erreur serveur", "error"); 
         }

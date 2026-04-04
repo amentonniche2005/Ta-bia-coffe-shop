@@ -5,6 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
+const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
@@ -141,16 +142,92 @@ app.get('/api/stock', async (req, res) => {
 
 app.post('/api/commandes', async (req, res) => {
     try {
+        const isEnLigne = req.body.methodePaiementRequete === 'en_ligne';
+        // Si paiement en ligne, on met en attente_paiement. La cuisine ne la verra pas encore !
+        const statutInit = isEnLigne ? 'attente_paiement' : 'en_attente';
+        const numCmd = 'CMD' + Math.floor(Math.random() * 10000);
+
         const cmd = new Order({ 
-            ...req.body, id: Date.now(), 
-            numero: 'CMD'+Math.floor(Math.random()*10000), 
+            ...req.body, 
+            id: Date.now(), 
+            numero: numCmd, 
             date: new Date().toLocaleString('fr-FR'), 
-            timestamp: Date.now() 
+            timestamp: Date.now(),
+            statut: statutInit
         });
         await cmd.save();
-        io.emit('nouvelle_commande', cmd);
-        res.status(201).json(cmd);
+
+        if (isEnLigne) {
+            // 🔥 APPEL À L'API FLOUCI
+            // Ces clés sont pour les tests. Remplace-les par tes clés de production.
+            const FLOUCI_APP_TOKEN = process.env.FLOUCI_TOKEN || "TON_APP_TOKEN_FLOUCI";
+            const FLOUCI_APP_SECRET = process.env.FLOUCI_SECRET || "TON_APP_SECRET_FLOUCI";
+            const montantMillimes = parseInt(cmd.total * 1000); // Flouci calcule en millimes
+
+            try {
+                const apiResponse = await axios.post('https://developers.flouci.com/api/generate_payment', {
+                    app_token: FLOUCI_APP_TOKEN,
+                    app_secret: FLOUCI_APP_SECRET,
+                    amount: montantMillimes,
+                    accept_url: "http://localhost:3000/index.html", // Le client revient ici après avoir payé
+                    cancel_url: "http://localhost:3000/index.html",
+                    session_timeout_secs: 1200,
+                    success_link: true,
+                    developer_tracking_id: numCmd // Essentiel pour retrouver la commande
+                });
+
+                // On renvoie le lien de paiement à l'application cliente !
+                return res.status(201).json({ ...cmd._doc, lienPaiement: apiResponse.data.result.link });
+
+            } catch (apiErr) {
+                console.error("Erreur API Flouci:", apiErr.message);
+                // Si Flouci est en panne, on annule et on passe en mode Espèces
+                cmd.statut = 'en_attente';
+                await cmd.save();
+                io.emit('nouvelle_commande', cmd);
+                return res.status(201).json(cmd); 
+            }
+        } else {
+            // Paiement espèces normal
+            io.emit('nouvelle_commande', cmd);
+            res.status(201).json(cmd);
+        }
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 🔥 NOUVEAU : LE WEBHOOK (Comment le serveur sait que le client a vraiment payé)
+app.post('/api/webhook/paiement', async (req, res) => {
+    try {
+        const payment_id = req.body.payment_id; 
+
+        // On vérifie auprès de Flouci que ce paiement n'est pas un piratage
+        const FLOUCI_APP_TOKEN = process.env.FLOUCI_TOKEN || "TON_APP_TOKEN_FLOUCI";
+        const FLOUCI_APP_SECRET = process.env.FLOUCI_SECRET || "TON_APP_SECRET_FLOUCI";
+
+        const verifyResponse = await axios.get(`https://developers.flouci.com/api/verify_payment/${payment_id}`, {
+            headers: { 'apppublic': FLOUCI_APP_TOKEN, 'appsecret': FLOUCI_APP_SECRET }
+        });
+
+        // Si le paiement est réussi
+        if (verifyResponse.data.result.status === 'SUCCESS') {
+            const numCmd = verifyResponse.data.result.developer_tracking_id;
+            
+            // On débloque la commande
+            const commande = await Order.findOne({ numero: numCmd });
+            if (commande && commande.statut === 'attente_paiement') {
+                commande.statut = 'en_attente';
+                commande.methodePaiement = 'en_ligne'; // On indique qu'elle est déjà payée
+                await commande.save();
+
+                // 🔔 ON FAIT SONNER LA CUISINE ET LA CAISSE SEULEMENT MAINTENANT !
+                io.emit('nouvelle_commande', commande);
+            }
+        }
+        res.status(200).send("Webhook reçu");
+    } catch(e) {
+        console.error("Erreur Webhook Flouci:", e.message);
+        res.status(500).send("Erreur Serveur Webhook");
+    }
 });
 
 app.get('/api/numbers', async (req, res) => {
