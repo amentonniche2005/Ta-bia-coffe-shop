@@ -79,11 +79,12 @@
             
             <div style="margin-bottom: 15px; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0;">
                 <label style="font-weight: bold; display: block; margin-bottom: 8px; color: #1e293b;">
-                    <i class="fas fa-credit-card"></i> Comment voulez-vous payer ?
+                    <i class="fas fa-wallet" style="color: #db800a;"></i> Mode de paiement
                 </label>
-                <select id="methodePaiementClient" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 1rem; outline: none; font-weight: bold; color: #db800a; background: white;">
-                    <option value="especes">💵 Payer en espèces (à la caisse)</option>
-                    <option value="en_ligne">📱 Payer en ligne (D17 / Flouci / Carte)</option>
+                <select id="methodePaiementClient" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 1rem; outline: none; font-weight: bold; color: #2c3e50; background: white; cursor: pointer;">
+                    <option value="especes">💵 Espèces (au comptoir)</option>
+                    <option value="carte">💳 Carte Bancaire (au comptoir)</option>
+                    <option value="en_ligne">📱 En ligne (Konnect / D17 / Carte)</option>
                 </select>
             </div>
 
@@ -94,6 +95,5 @@
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script-client.js"></script>
-    <script src="script-client.js?v=2"></script>
 </body>
 </html>

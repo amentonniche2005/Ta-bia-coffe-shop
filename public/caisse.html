@@ -444,6 +444,22 @@
     <div style="text-align:center; font-size:10px; margin-top:2px;">À très bientôt</div>
     <div style="text-align:center; margin-top:5px;">- - - - - - - - - - - - - - - </div>
 </div>
+<div>
+        <div id="sectionCommandesWeb" style="display:none; background: white; border-radius: 20px; box-shadow: 0 4px 15px rgba(52,152,219,0.15); margin-bottom: 1.5rem; overflow: hidden; border: 2px solid #3498db;">
+            <div class="tables-header" style="background: #3498db;">
+                <span><i class="fas fa-globe"></i> Commandes Web (Déjà Payées)</span>
+                <span id="countCommandesWeb" style="background:white; color:#3498db; padding:2px 10px; border-radius:12px; font-weight:900;">0</span>
+            </div>
+            <div id="listeCommandesWeb" style="display: flex; gap: 12px; padding: 1.2rem; overflow-x: auto; background: #f0f8ff;"></div>
+        </div>
+
+        <div class="tables-list">
+            <div class="tables-header">
+                <span><i class="fas fa-chair"></i> Tables & Emporter</span>
+                <span id="tablesCount">0 actifs</span>
+            </div>
+            <div class="tables-grid" id="tablesGrid"></div>
+        </div>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
     // 🛡️ SÉCURITÉ : Vérification du Token
@@ -1295,6 +1311,42 @@ const venteBody = { id: vente.id.toString(), numero: vente.numero, total: totalP
             showNotification("❌ Erreur : Impossible d'ouvrir le tiroir. Vérifiez le câble.", "#e74c3c");
         }
     }
+    // ========== GESTION DES COMMANDES WEB (DÉJÀ PAYÉES) ==========
+    function afficherCommandesWeb() {
+        const webCmds = commandesRecues.filter(c => c.numeroTable && String(c.numeroTable).startsWith('WEB -') && c.statut !== 'paye');
+        const container = document.getElementById('sectionCommandesWeb');
+        const liste = document.getElementById('listeCommandesWeb');
+        
+        if(webCmds.length === 0) { container.style.display = 'none'; return; }
+        
+        container.style.display = 'block';
+        document.getElementById('countCommandesWeb').innerText = webCmds.length;
+        
+        liste.innerHTML = webCmds.map(cmd => `
+            <div style="min-width: 240px; background: white; border-left: 5px solid #27ae60; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <strong style="color:#2c3e50; font-size:1.1rem;">#${cmd.numero}</strong>
+                    <span style="color:#27ae60; font-weight:bold; font-size:0.85rem; background:#e8f5e9; padding:3px 8px; border-radius:8px;"><i class="fas fa-check-circle"></i> Payé</span>
+                </div>
+                <div style="font-size:0.85rem; color:#64748b; margin-bottom:12px;"><i class="fas fa-map-marker-alt"></i> Dest. : <strong>${cmd.numeroTable.replace('WEB - ', '')}</strong></div>
+                <div style="font-weight:900; color:#e67e22; margin-bottom:12px; font-size:1.2rem;">${cmd.total.toFixed(2)} DT</div>
+                <button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:#3498db; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; transition: 0.2s;">
+                    <i class="fas fa-hand-holding"></i> Marquer Servie
+                </button>
+            </div>
+        `).join('');
+    }
+    
+    window.marquerWebServie = async function(id) {
+        try {
+            await fetchSecurise(`/api/commandes/${id}/statut`, { method: 'PUT', body: JSON.stringify({statut: 'paye'}) });
+            await chargerCommandesCuisineInitiales();
+            afficherCommandesWeb();
+        } catch(e) {}
+    }
+
+    // Assure-toi d'appeler `afficherCommandesWeb();` à la fin de la fonction `synchroniserTicketsAvecServeur()`
+    // et à l'intérieur du socket `socket.on('mise_a_jour_commande')`.
     // ========== INITIALISATION ==========
     document.addEventListener("DOMContentLoaded", async () => {
         chargerTickets();
