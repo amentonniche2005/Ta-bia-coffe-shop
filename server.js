@@ -239,7 +239,30 @@ app.get('/api/numbers', async (req, res) => {
     try { res.json(await TableCode.find({}).sort({ numero: 1 })); } 
     catch (err) { res.status(500).json(err); }
 });
+// 🛠️ ROUTE DE TEST TEMPORAIRE (À supprimer avant la mise en ligne officielle !)
+app.get('/api/test-paiement/:numCmd', async (req, res) => {
+    try {
+        const numCmd = req.params.numCmd; // On récupère le numéro tapé dans l'URL
+        
+        // On cherche la commande dans la base de données
+        const commande = await Order.findOne({ numero: numCmd });
+        
+        if (commande && commande.statut === 'attente_paiement') {
+            commande.statut = 'en_attente'; // On la débloque
+            commande.methodePaiement = 'test_simulation';
+            await commande.save();
 
+            // 🔔 On prévient la cuisine en temps réel !
+            io.emit('nouvelle_commande', commande);
+            
+            res.send(`<h1>✅ BINGO !</h1><p>La commande ${numCmd} a été débloquée. Regarde ton écran de cuisine !</p>`);
+        } else {
+            res.send(`<h1>❌ Oups</h1><p>Commande introuvable ou déjà payée.</p>`);
+        }
+    } catch(e) {
+        res.status(500).send("Erreur du serveur de test");
+    }
+});
 // =========================================================
 // ========== 5. ROUTES API SÉCURISÉES =================
 // =========================================================
