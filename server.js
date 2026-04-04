@@ -207,9 +207,9 @@ app.post('/api/webhook/paiement', async (req, res) => {
         if (!payment_id) return res.status(400).send("ID de paiement manquant");
 
         // On vérifie le statut directement chez Konnect
-        const verifyResponse = await axios.get(`https://tabia-coffe-shop.onrender.com/api/v2/webhook/paiement${payment_id}`, {
-            headers: { 'x-api-key': process.env.KONNECT_API_KEY.trim() }
-        });
+const verifyResponse = await axios.get(`https://api.sandbox.konnect.network/api/v2/payments/${payment_id}`, {
+    headers: { 'x-api-key': process.env.KONNECT_API_KEY.trim() }
+});
 
         // Si le paiement est marqué comme "completed" (réussi)
         if (verifyResponse.data.payment.status === 'completed') {
