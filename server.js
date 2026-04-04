@@ -156,35 +156,44 @@ app.post('/api/commandes', async (req, res) => {
         await cmd.save();
 
         if (isEnLigne) {
-            // 🔥 APPEL À L'API KONNECT (SANDBOX)
+            // 🔥 VÉRIFICATION DES CLÉS
+            if (!process.env.KONNECT_API_KEY || !process.env.KONNECT_WALLET_ID) {
+                throw new Error("Clés Konnect manquantes sur le serveur Render !");
+            }
+
             try {
+                // .trim() permet de supprimer les espaces accidentels
+                const apiKey = process.env.KONNECT_API_KEY.trim();
+                const walletId = process.env.KONNECT_WALLET_ID.trim();
+
                 const response = await axios.post('https://api.sandbox.konnect.network/api/v2/payments/init-payment', {
-                    receiverWalletId: process.env.KONNECT_WALLET_ID,
-                    amount: Math.round(req.body.total * 1000), // 🔥 CORRECTION : Entier millimes
+                    receiverWalletId: walletId,
+                    amount: Math.round(req.body.total * 1000), // Entier obligatoire
                     token: "TND",
                     firstName: req.body.clientName || "Client",
                     lastName: "TA'BIA",
-                    description: `Commande ${numCmd}`, // 🔥 AJOUT : Description requise
+                    description: `Commande ${numCmd}`,
                     orderId: numCmd,
                     silentWebhook: true,
-                    successUrl: "https://tabia-coffe-shop.onrender.com", // 🔥 Mets ta VRAIE URL Render ici
+                    // Utilise ton vrai lien Render
+                    successUrl: "https://tabia-coffe-shop.onrender.com", 
                     failUrl: "https://tabia-coffe-shop.onrender.com"
                 }, { 
-                    headers: { 'x-api-key': process.env.KONNECT_API_KEY } 
+                    headers: { 'x-api-key': apiKey } 
                 });
 
                 res.status(201).json({ ...cmd._doc, payUrl: response.data.payUrl });
             } catch (konnectErr) {
-                // Si Konnect répond une erreur (ex: clé invalide), on log l'erreur pour la voir sur Render
-                console.error("❌ Erreur Konnect API:", konnectErr.response ? konnectErr.response.data : konnectErr.message);
-                throw new Error("Erreur lors de la création du lien de paiement");
+                console.error("❌ Erreur API Konnect :", konnectErr.response ? konnectErr.response.data : konnectErr.message);
+                res.status(400).json({ error: "Konnect a refusé le paiement. Vérifiez vos clés." });
+                return;
             }
         } else {
             io.emit('nouvelle_commande', cmd);
             res.status(201).json(cmd);
         }
     } catch (err) { 
-        console.error("❌ Erreur Serveur Commande:", err.message);
+        console.error("❌ Erreur Serveur Commande :", err.message);
         res.status(500).json({ error: err.message }); 
     }
 });
