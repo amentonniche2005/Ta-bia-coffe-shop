@@ -201,35 +201,37 @@ app.post('/api/commandes', async (req, res) => {
 // 🔥 NOUVEAU : LE WEBHOOK (Comment le serveur sait que le client a vraiment payé)
 app.post('/api/webhook/paiement', async (req, res) => {
     try {
-        const payment_id = req.body.payment_id; 
+        // Konnect envoie l'ID du paiement dans l'URL (query) ou le corps
+        const payment_id = req.query.payment_id || req.body.payment_id; 
 
-        // On vérifie auprès de Flouci que ce paiement n'est pas un piratage
-        const FLOUCI_APP_TOKEN = process.env.FLOUCI_TOKEN || "TON_APP_TOKEN_FLOUCI";
-        const FLOUCI_APP_SECRET = process.env.FLOUCI_SECRET || "TON_APP_SECRET_FLOUCI";
+        if (!payment_id) return res.status(400).send("ID de paiement manquant");
 
-        const verifyResponse = await axios.get(`https://developers.flouci.com/api/verify_payment/${payment_id}`, {
-            headers: { 'apppublic': FLOUCI_APP_TOKEN, 'appsecret': FLOUCI_APP_SECRET }
+        // On vérifie le statut directement chez Konnect
+        const verifyResponse = await axios.get(`https://tabia-coffe-shop.onrender.com/api/webhook/paiement${payment_id}`, {
+            headers: { 'x-api-key': process.env.KONNECT_API_KEY.trim() }
         });
 
-        // Si le paiement est réussi
-        if (verifyResponse.data.result.status === 'SUCCESS') {
-            const numCmd = verifyResponse.data.result.developer_tracking_id;
+        // Si le paiement est marqué comme "completed" (réussi)
+        if (verifyResponse.data.payment.status === 'completed') {
+            const numCmd = verifyResponse.data.payment.orderId;
             
-            // On débloque la commande
+            // On cherche la commande dans MongoDB
             const commande = await Order.findOne({ numero: numCmd });
+            
             if (commande && commande.statut === 'attente_paiement') {
-                commande.statut = 'en_attente';
-                commande.methodePaiement = 'en_ligne'; // On indique qu'elle est déjà payée
+                commande.statut = 'en_attente'; // On la débloque pour la cuisine
+                commande.methodePaiement = 'en_ligne';
                 await commande.save();
 
-                // 🔔 ON FAIT SONNER LA CUISINE ET LA CAISSE SEULEMENT MAINTENANT !
+                // 🔔 On prévient la cuisine et la caisse en temps réel !
                 io.emit('nouvelle_commande', commande);
+                console.log(`✅ Commande ${numCmd} payée et débloquée !`);
             }
         }
-        res.status(200).send("Webhook reçu");
+        res.status(200).send("OK");
     } catch(e) {
-        console.error("Erreur Webhook Flouci:", e.message);
-        res.status(500).send("Erreur Serveur Webhook");
+        console.error("❌ Erreur Webhook Konnect:", e.message);
+        res.status(500).send("Erreur");
     }
 });
 
