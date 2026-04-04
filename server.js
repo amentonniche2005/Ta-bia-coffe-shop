@@ -143,8 +143,6 @@ app.get('/api/stock', async (req, res) => {
 app.post('/api/commandes', async (req, res) => {
     try {
         const isEnLigne = req.body.methodePaiementRequete === 'en_ligne';
-        // Si paiement en ligne, on met en attente_paiement. La cuisine ne la verra pas encore !
-        const statutInit = isEnLigne ? 'attente_paiement' : 'en_attente';
         const numCmd = 'CMD' + Math.floor(Math.random() * 10000);
 
         const cmd = new Order({ 
@@ -153,46 +151,37 @@ app.post('/api/commandes', async (req, res) => {
             numero: numCmd, 
             date: new Date().toLocaleString('fr-FR'), 
             timestamp: Date.now(),
-            statut: statutInit
+            // Bloqué en cuisine si paiement en ligne attendu
+            statut: isEnLigne ? 'attente_paiement' : 'en_attente' 
         });
         await cmd.save();
 
         if (isEnLigne) {
-            // 🔥 APPEL À L'API FLOUCI
-            // Ces clés sont pour les tests. Remplace-les par tes clés de production.
-            const FLOUCI_APP_TOKEN = process.env.FLOUCI_TOKEN || "TON_APP_TOKEN_FLOUCI";
-            const FLOUCI_APP_SECRET = process.env.FLOUCI_SECRET || "TON_APP_SECRET_FLOUCI";
-            const montantMillimes = parseInt(cmd.total * 1000); // Flouci calcule en millimes
+            // 🔥 APPEL À L'API KONNECT (SANDBOX)
+            const response = await axios.post('https://api.sandbox.konnect.network/api/v2/payments/init-payment', {
+                receiverWalletId: process.env.KONNECT_WALLET_ID,
+                amount: req.body.total * 1000, // Conversion DT en Millimes
+                token: "TND",
+                firstName: req.body.clientName || "Client",
+                lastName: "TA'BIA",
+                orderId: numCmd,
+                silentWebhook: true,
+                successUrl: "https://ton-app.onrender.com/index.html", 
+                failUrl: "https://ton-app.onrender.com/index.html"
+            }, { 
+                headers: { 'x-api-key': process.env.KONNECT_API_KEY } 
+            });
 
-            try {
-                const apiResponse = await axios.post('https://developers.flouci.com/api/generate_payment', {
-                    app_token: FLOUCI_APP_TOKEN,
-                    app_secret: FLOUCI_APP_SECRET,
-                    amount: montantMillimes,
-                    accept_url: "http://localhost:3000/index.html", // Le client revient ici après avoir payé
-                    cancel_url: "http://localhost:3000/index.html",
-                    session_timeout_secs: 1200,
-                    success_link: true,
-                    developer_tracking_id: numCmd // Essentiel pour retrouver la commande
-                });
-
-                // On renvoie le lien de paiement à l'application cliente !
-                return res.status(201).json({ ...cmd._doc, lienPaiement: apiResponse.data.result.link });
-
-            } catch (apiErr) {
-                console.error("Erreur API Flouci:", apiErr.message);
-                // Si Flouci est en panne, on annule et on passe en mode Espèces
-                cmd.statut = 'en_attente';
-                await cmd.save();
-                io.emit('nouvelle_commande', cmd);
-                return res.status(201).json(cmd); 
-            }
+            // On renvoie le payUrl généré par Konnect
+            res.status(201).json({ ...cmd._doc, payUrl: response.data.payUrl });
         } else {
-            // Paiement espèces normal
+            // Paiement espèces : on prévient la cuisine immédiatement
             io.emit('nouvelle_commande', cmd);
             res.status(201).json(cmd);
         }
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // 🔥 NOUVEAU : LE WEBHOOK (Comment le serveur sait que le client a vraiment payé)

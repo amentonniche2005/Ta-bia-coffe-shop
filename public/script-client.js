@@ -457,57 +457,62 @@ function afficherModalCode(numTable) {
 
 async function validerCommande(numTable, clientData, codeSaisi) {
     const checkoutBtn = document.getElementById("checkoutBtn");
-    if (checkoutBtn) { checkoutBtn.disabled = true; checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; }
+    if (checkoutBtn) { 
+        checkoutBtn.disabled = true; 
+        checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; 
+    }
 
     try {
         let nomFidele = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
-        let idFidele = clientData ? codeSaisi : clientId;
+        let idFidele = clientData ? codeSaisi : clientId; // clientId provient du localStorage
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
         const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
         
-        // 🔥 NOUVEAU : On récupère le choix de paiement du client
+        // 1. Récupération du choix de paiement
         const methodeElement = document.getElementById('methodePaiementClient');
         const methode = methodeElement ? methodeElement.value : 'especes';
 
+        // 2. Envoi de la commande au serveur
         const response = await fetch('/api/commandes', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
                 numeroTable: tableFinale,
                 clientId: idFidele,
                 clientName: nomFidele, 
                 total: totalCommande,
-                methodePaiementRequete: methode // 🔥 On envoie le choix au serveur !
+                methodePaiementRequete: methode // Indique au serveur s'il doit appeler Konnect
             })
         });
 
-        if (response.ok) {
+if (response.ok) {
             const commande = await response.json();
             if(typeof sauvegarderCommandeClient === 'function') sauvegarderCommandeClient(commande);
             
             panier = []; sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier();
             if(typeof chargerCatalogue === 'function') await chargerCatalogue(); 
             
-            // 🔥 NOUVEAU : Si en ligne, on redirige vers l'écran de paiement Flouci !
-            if (methode === 'en_ligne' && commande.lienPaiement) {
-                afficherNotification("⏳ Redirection vers le paiement sécurisé...", "info");
+            // ✅ CORRECTION ICI : On utilise payUrl (Konnect) et non lienPaiement
+            if (methode === 'en_ligne' && commande.payUrl) {
+                afficherNotification("⏳ Redirection vers Konnect (D17/Carte)...", "info");
                 setTimeout(() => {
-                    window.location.href = commande.lienPaiement; // Redirection !
+                    window.location.href = commande.payUrl; 
                 }, 1500);
             } else {
-                if (nomFidele) {
-                    afficherNotification(`🎉 Merci ${nomFidele} ! Commande envoyée.`);
-                } else {
-                    afficherNotification("🎉 Commande envoyée avec succès !");
-                }
+                const msg = nomFidele ? `🎉 Merci ${nomFidele} ! Commande envoyée.` : "🎉 Commande envoyée avec succès !";
+                afficherNotification(msg);
             }
         } else { 
-            afficherNotification("❌ Erreur serveur", "error"); 
+            afficherNotification("❌ Erreur serveur lors de la commande", "error"); 
         }
     } catch (e) { 
-        afficherNotification("❌ Erreur de connexion", "error"); 
+        afficherNotification("❌ Erreur de connexion au serveur", "error"); 
     } finally {
-        if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; }
+        if (checkoutBtn) { 
+            checkoutBtn.disabled = false; 
+            checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; 
+        }
     }
 }
 
