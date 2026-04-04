@@ -151,35 +151,40 @@ app.post('/api/commandes', async (req, res) => {
             numero: numCmd, 
             date: new Date().toLocaleString('fr-FR'), 
             timestamp: Date.now(),
-            // Bloqué en cuisine si paiement en ligne attendu
             statut: isEnLigne ? 'attente_paiement' : 'en_attente' 
         });
         await cmd.save();
 
         if (isEnLigne) {
             // 🔥 APPEL À L'API KONNECT (SANDBOX)
-            const response = await axios.post('https://api.sandbox.konnect.network/api/v2/payments/init-payment', {
-                receiverWalletId: process.env.KONNECT_WALLET_ID,
-                amount: req.body.total * 1000, // Conversion DT en Millimes
-                token: "TND",
-                firstName: req.body.clientName || "Client",
-                lastName: "TA'BIA",
-                orderId: numCmd,
-                silentWebhook: true,
-                successUrl: "https://ton-app.onrender.com/index.html", 
-                failUrl: "https://ton-app.onrender.com/index.html"
-            }, { 
-                headers: { 'x-api-key': process.env.KONNECT_API_KEY } 
-            });
+            try {
+                const response = await axios.post('https://api.sandbox.konnect.network/api/v2/payments/init-payment', {
+                    receiverWalletId: process.env.KONNECT_WALLET_ID,
+                    amount: Math.round(req.body.total * 1000), // 🔥 CORRECTION : Entier millimes
+                    token: "TND",
+                    firstName: req.body.clientName || "Client",
+                    lastName: "TA'BIA",
+                    description: `Commande ${numCmd}`, // 🔥 AJOUT : Description requise
+                    orderId: numCmd,
+                    silentWebhook: true,
+                    successUrl: "https://tabia-coffe-shop.onrender.com", // 🔥 Mets ta VRAIE URL Render ici
+                    failUrl: "https://tabia-coffe-shop.onrender.com"
+                }, { 
+                    headers: { 'x-api-key': process.env.KONNECT_API_KEY } 
+                });
 
-            // On renvoie le payUrl généré par Konnect
-            res.status(201).json({ ...cmd._doc, payUrl: response.data.payUrl });
+                res.status(201).json({ ...cmd._doc, payUrl: response.data.payUrl });
+            } catch (konnectErr) {
+                // Si Konnect répond une erreur (ex: clé invalide), on log l'erreur pour la voir sur Render
+                console.error("❌ Erreur Konnect API:", konnectErr.response ? konnectErr.response.data : konnectErr.message);
+                throw new Error("Erreur lors de la création du lien de paiement");
+            }
         } else {
-            // Paiement espèces : on prévient la cuisine immédiatement
             io.emit('nouvelle_commande', cmd);
             res.status(201).json(cmd);
         }
     } catch (err) { 
+        console.error("❌ Erreur Serveur Commande:", err.message);
         res.status(500).json({ error: err.message }); 
     }
 });
