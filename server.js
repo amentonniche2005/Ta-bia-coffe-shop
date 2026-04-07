@@ -70,10 +70,17 @@ const Expense = mongoose.model('Expense', new mongoose.Schema({
 }));
 
 const Order = mongoose.model('Order', new mongoose.Schema({
-    id: String, // 🔥 SÉCURITÉ: Passé en String pour compatibilité Konnect
-    numero: String, date: String, timestamp: Number, articles: Array,
-    numeroTable: String, statut: { type: String, default: 'en_attente' }, 
-    total: Number, clientId: String, clientName: String,
+    id: String,
+    numero: String, 
+    date: String, 
+    timestamp: Number, 
+    articles: Array,
+    numeroTable: String, 
+    statut: { type: String, default: 'en_attente' }, 
+    paye: { type: Boolean, default: false }, // 🔥 AJOUT : État du paiement
+    total: Number, 
+    clientId: String, 
+    clientName: String,
     methodePaiement: { type: String, default: 'sur_place' }
 }));
 
@@ -144,11 +151,10 @@ app.get('/api/stock', async (req, res) => {
 // 🔥 ROUTE COMMANDE (SÉCURISÉE)
 app.post('/api/commandes', async (req, res) => {
     try {
-        const cmdId = Date.now().toString(); // ID en String pour Konnect
+        const cmdId = Date.now().toString();
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
         const isEnLigne = req.body.methodePaiement === 'en_ligne';
 
-        // 🔥 SÉCURITÉ : Recalcul du total côté serveur
         let totalSecurise = 0;
         let articlesSecurises = [];
 
@@ -156,9 +162,9 @@ app.post('/api/commandes', async (req, res) => {
             const produitDb = await Product.findOne({ id: art.id });
             if (produitDb) {
                 totalSecurise += (produitDb.prix * art.quantite);
-                articlesSecurises.push({ ...art, prix: produitDb.prix }); // On force le vrai prix de la DB
+                articlesSecurises.push({ ...art, prix: produitDb.prix });
             } else {
-                totalSecurise += (art.prix * art.quantite); // Fallback si article custom
+                totalSecurise += (art.prix * art.quantite);
                 articlesSecurises.push(art);
             }
         }
@@ -170,8 +176,9 @@ app.post('/api/commandes', async (req, res) => {
             numero: numeroCmd, 
             date: new Date().toLocaleString('fr-FR'), 
             timestamp: Date.now(),
-            total: totalSecurise, // On utilise le total calculé par le serveur
-            statut: isEnLigne ? 'attente_paiement' : 'en_attente' 
+            total: totalSecurise,
+            statut: isEnLigne ? 'attente_paiement' : 'en_attente',
+            paye: false // Par défaut non payé
         });
         await cmd.save();
 
@@ -182,8 +189,55 @@ app.post('/api/commandes', async (req, res) => {
 
         io.emit('nouvelle_commande', cmd);
         res.status(201).json(cmd);
-
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 🚀 SIMULATEUR & WEBHOOK (LOGIQUE DE VALIDATION)
+// Cette fonction centralise la validation pour éviter les répétitions
+async function validerPaiementCommande(orderId) {
+    const commande = await Order.findOne({ id: orderId });
+    if (!commande || (commande.statut !== 'attente_paiement' && commande.paye)) return null;
+
+    commande.statut = 'en_attente';
+    commande.paye = true; // ✅ On marque comme payé
+    await commande.save();
+
+    for (let art of commande.articles) {
+        await Product.findOneAndUpdate(
+            { id: art.id, stock: { $exists: true } }, 
+            { $inc: { stock: -art.quantite } }
+        );
+    }
+
+    const vente = new Sale({
+        id: Date.now().toString(),
+        numero: commande.numero,
+        total: commande.total,
+        remise: 0,
+        typePaiement: 'complet',
+        methodePaiement: 'en_ligne',
+        tableOrigine: commande.clientName ? `Fidèle: ${commande.clientName}` : `WEB - ${commande.numeroTable}`,
+        articles: commande.articles
+    });
+    await vente.save();
+
+    // On prévient le client ET la caisse
+    io.emit('mise_a_jour_commande', commande); 
+    io.emit('update_stock');
+    return commande;
+}
+
+app.get('/api/simulateur-paiement/:orderId', async (req, res) => {
+    const cmd = await validerPaiementCommande(req.params.orderId);
+    if (!cmd) return res.send("Erreur ou déjà payé.");
+    
+    res.send(`
+        <div style="text-align:center; padding: 50px; font-family: sans-serif;">
+            <h1 style="color: #27ae60;">Paiement Réussi !</h1>
+            <p>Votre commande <b>#${cmd.numero}</b> est en cuisine.</p>
+            <a href="/" style="background:#db800a; color:white; padding:15px; text-decoration:none; border-radius:10px;">Retour au Menu</a>
+        </div>
+    `);
 });
 
 // =========================================================
