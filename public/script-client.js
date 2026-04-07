@@ -523,31 +523,43 @@ function chargerMesCommandes() {
     const valides = hist.filter(c => c.expiration > Date.now());
     
     if(!valides.length) { 
-        conteneur.innerHTML = "<p style='text-align:center; color:#7f8c8d;'>Aucune commande en cours</p>"; 
+        conteneur.innerHTML = "<div style='padding: 2rem; text-align: center; color: #7f8c8d; background: white; border-radius: 16px; border: 1px dashed #cbd5e1;'><p>Aucune commande en cours</p></div>"; 
         return; 
     }
 
     conteneur.innerHTML = valides.map(cmd => {
-        let badgeHtml = '';
+        let statusClass = 'status-attente';
+        let statusText = 'En attente';
         
-        // Logique de badge intelligente
-        if(cmd.paye) {
-            badgeHtml = '<span style="background:#27ae60; padding:4px 10px; border-radius:20px; color:white; font-size:0.7rem;">Payé 💳</span>';
-        } else {
-            badgeHtml = '<span style="background:#f39c12; padding:4px 10px; border-radius:20px; color:white; font-size:0.7rem;">À payer sur place</span>';
+        // --- LOGIQUE DES BADGES MODIFIÉE ICI ---
+        if(cmd.statut === 'paye') { 
+            statusClass = 'status-paye'; // Assure-toi que cette classe est bien dans ton CSS (ex: même vert que status-termine)
+            statusText = 'Payé 💳'; 
+        }
+        else if(cmd.statut === 'en_preparation') { 
+            statusClass = 'status-preparation'; 
+            statusText = 'Préparation'; 
+        }
+        else if(cmd.statut === 'terminee') { 
+            statusClass = 'status-termine'; 
+            statusText = 'Prête !'; 
         }
 
-        let statusText = 'En attente';
-        if(cmd.statut === 'en_preparation') statusText = 'Préparation';
-        if(cmd.statut === 'terminee') statusText = 'Prête ! 🍽️';
+        const numCmd = cmd.numero ? `#${cmd.numero}` : 'en cours...';
 
         return `
-            <div style="background:white; border-radius:16px; padding:1rem; margin-bottom:1rem; border:1px solid #e2e8f0;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <span style="font-weight:bold;">Commande #${cmd.numero}</span>
-                    <div style="display:flex; gap:5px;">${badgeHtml} <span style="font-weight:bold; color:#db800a;">${statusText}</span></div>
+            <div class="historique-commande-card">
+                <div class="historique-commande-header">
+                    <span class="commande-numero">Commande ${numCmd}</span>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
                 </div>
+                <div style="margin-bottom: 10px;">
+                    ${cmd.articles.map(a => `<div class="article-detail"><span><span style="font-weight:bold;">${a.quantite}x</span> ${a.nom}</span> <span>${(a.prix*a.quantite).toFixed(2)} DT</span></div>`).join('')}
                 </div>
+                <div style="font-weight:bold; text-align:right; border-top:1px solid #f1f5f9; padding-top:8px; margin-top:8px; color:#db800a; font-size:1.1rem;">
+                    Total: ${(cmd.total || 0).toFixed(2)} DT
+                </div>
+            </div>
         `;
     }).join('');
 }
@@ -561,18 +573,20 @@ function initClientSocket() {
         reconnection: true 
     });
     
-socket.on('mise_a_jour_commande', (commande) => {
-    // On met à jour l'historique local pour que le badge change
-    const key = `tabia_mes_commandes_${clientId}`;
-    let hist = JSON.parse(localStorage.getItem(key) || "[]");
-    const idx = hist.findIndex(c => c.id === commande.id);
-    if(idx !== -1) {
-        hist[idx].statut = commande.statut;
-        hist[idx].paye = commande.paye; // On récupère l'info de paiement
-        localStorage.setItem(key, JSON.stringify(hist));
-        chargerMesCommandes(); // Rafraîchit l'affichage
-    }
-});
+    socket.on('mise_a_jour_commande', (commande) => {
+        const key = `tabia_mes_commandes_${clientId}`;
+        let hist = JSON.parse(localStorage.getItem(key) || "[]");
+        const idx = hist.findIndex(c => c.id === commande.id);
+        if(idx !== -1) {
+            hist[idx].statut = commande.statut;
+            localStorage.setItem(key, JSON.stringify(hist));
+            chargerMesCommandes();
+            if(commande.statut === 'terminee') {
+                afficherNotification("Votre commande est prête ! 🍽️");
+                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            }
+        }
+    });
 }
 
 function afficherNotification(msg, type = "success") {
