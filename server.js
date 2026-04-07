@@ -143,13 +143,13 @@ app.get('/api/stock', async (req, res) => {
 
 // 🔥 ROUTE COMMANDE (SÉCURISÉE)
 // 🔥 ROUTE COMMANDE (MISE À JOUR POUR KONNECT RÉEL)
+// 🔥 ROUTE COMMANDE (CORRIGÉE POUR KONNECT)
 app.post('/api/commandes', async (req, res) => {
     try {
         const cmdId = Date.now().toString();
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
         const isEnLigne = req.body.methodePaiement === 'en_ligne';
 
-        // Recalcul sécurisé du total pour éviter les fraudes
         let totalSecurise = 0;
         let articlesSecurises = [];
         for (let art of req.body.articles) {
@@ -180,16 +180,14 @@ app.post('/api/commandes', async (req, res) => {
             // 🚀 APPEL RÉEL À L'API KONNECT (SANDBOX)
             const konnectPayload = {
                 receiverWalletId: process.env.KONNECT_WALLET_ID,
-                amount: cmd.total, // Montant en DT
+                // 🔥 CORRECTION CRITIQUE : Konnect attend des millimes (TND * 1000)
+                amount: Math.round(cmd.total * 1000), 
                 token: "TND",
                 firstName: req.body.clientName || "Client",
                 lastName: "Ta'Bia",
                 orderId: cmdId,
-                addPaymentFees: true, // Frais à la charge du client
-                lifespan: 60, // Lien valide 60 minutes
-                // URLs de retour après paiement
-                successUrl: `http://${req.headers.host}/paiement-succes?id=${cmdId}`,
-                failUrl: `http://${req.headers.host}/paiement-echec?id=${cmdId}`,
+                successUrl: `http://${req.headers.host}/paiement-succes`,
+                failUrl: `http://${req.headers.host}/paiement-echec`
             };
 
             const konnectRes = await axios.post(
@@ -205,11 +203,39 @@ app.post('/api/commandes', async (req, res) => {
         io.emit('nouvelle_commande', cmd);
         res.status(201).json(cmd);
     } catch (err) { 
-        console.error("Erreur Konnect:", err.response ? err.response.data : err.message);
+        // Si Konnect refuse, on affiche exactement pourquoi dans la console
+        console.error("❌ Erreur Konnect:", err.response ? err.response.data : err.message);
         res.status(500).json({ error: "Échec de l'initialisation du paiement Konnect" }); 
     }
 });
+// =========================================================
+// 🎯 ROUTES DE RETOUR KONNECT (SUCCÈS / ÉCHEC)
+// =========================================================
+app.get('/paiement-succes', (req, res) => {
+    res.send(`
+        <div style="text-align:center; padding: 50px; font-family: 'Inter', sans-serif;">
+            <div style="font-size: 80px; color: #27ae60; margin-bottom: 20px;">✅</div>
+            <h1 style="color: #2c3e50;">Paiement Réussi !</h1>
+            <p style="color: #7f8c8d; font-size: 1.2rem;">Votre paiement a été validé et la commande est en cuisine.</p>
+            <a href="/" style="display:inline-block; margin-top: 30px; padding: 15px 30px; background: #db800a; color: white; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem;">
+                Retour au Menu
+            </a>
+        </div>
+    `);
+});
 
+app.get('/paiement-echec', (req, res) => {
+    res.send(`
+        <div style="text-align:center; padding: 50px; font-family: 'Inter', sans-serif;">
+            <div style="font-size: 80px; color: #e74c3c; margin-bottom: 20px;">❌</div>
+            <h1 style="color: #c0392b;">Paiement Annulé ou Échoué</h1>
+            <p style="color: #7f8c8d; font-size: 1.2rem;">Votre commande n'a pas été validée.</p>
+            <a href="/" style="display:inline-block; margin-top: 30px; padding: 15px 30px; background: #2c3e50; color: white; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem;">
+                Réessayer
+            </a>
+        </div>
+    `);
+});
 // =========================================================
 // 🚀 SIMULATEUR LOCAL DE PAIEMENT (SÉCURISÉ)
 // =========================================================
