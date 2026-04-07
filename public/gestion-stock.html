@@ -749,7 +749,7 @@ function afficherStockDOM(produits) {
             } catch (error) { showNotification("❌ Erreur serveur", "var(--danger)"); }
         }
 
-        function ouvrirModalEdition(id) {
+function ouvrirModalEdition(id) {
             const p = stockProduits.find(x => x.id === id);
             if(!p) return;
             document.getElementById('modalContainer').innerHTML = `
@@ -781,17 +781,20 @@ function afficherStockDOM(produits) {
                             <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
                             <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option>
                         </select></div>
+                        
                         <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Prix Achat (DT):</label><input type="number" id="editProdPrixAchat" step="0.01" value="${p.prixAchat || 0}"></div>
                             <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
                             <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
                         </div>
+                        
                         <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}" step="1"></div>
                         <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
                     </div>
                 </div>`;
         }
 
-        async function sauvegarderEditionProduit(id) {
+async function sauvegarderEditionProduit(id) {
             const typeC = document.getElementById('editProdTypeChoix').value;
             const produitData = {
                 nom: document.getElementById('editProdName').value,
@@ -799,6 +802,8 @@ function afficherStockDOM(produits) {
                 typeChoix: typeC,
                 image: document.getElementById('editProdImage').value,
                 categorie: document.getElementById('editProdCat').value,
+                // 🔥 CORRECTION ICI : On capture la valeur de la nouvelle case
+                prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
                 prix: parseFloat(document.getElementById('editProdPrice').value),
                 stock: parseInt(document.getElementById('editProdStock').value),
                 seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
