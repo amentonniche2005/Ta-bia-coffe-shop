@@ -74,17 +74,15 @@
                 <h2><i class="fas fa-shopping-basket"></i> Mon Panier</h2>
                 <button class="close-cart" id="closeCart">&times;</button>
             </div>
-            <div id="cartItems" class="cart-items"></div>
-           <div class="cart-total" id="cartTotal">Total: 0.00 DT</div>
+<div class="cart-total" id="cartTotal" style="margin-bottom: 10px;">Total: 0.00 DT</div>
             
-            <div style="margin-bottom: 15px; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                <label style="font-weight: bold; display: block; margin-bottom: 8px; color: #1e293b;">
-                    <i class="fas fa-wallet" style="color: #db800a;"></i> Mode de paiement
+            <div style="margin-bottom: 15px;">
+                <label style="font-weight: bold; color: #143621; font-size: 0.95rem; display: block; margin-bottom: 8px;">
+                    <i class="fas fa-wallet"></i> Mode de paiement :
                 </label>
-                <select id="methodePaiementClient" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 1rem; outline: none; font-weight: bold; color: #2c3e50; background: white; cursor: pointer;">
-                    <option value="especes">💵 Espèces (au comptoir)</option>
-                    <option value="carte">💳 Carte Bancaire (au comptoir)</option>
-                    <option value="en_ligne">📱 En ligne (Konnect / D17 / Carte)</option>
+                <select id="methodePaiementClient" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e2e8f0; font-size: 1rem; font-weight: bold; outline: none; color: #2c3e50; background: #f8fafc; cursor: pointer;">
+                    <option value="especes">💵 Payer sur place </option>
+                    <option value="en_ligne">📱 Payer en Ligne </option>
                 </select>
             </div>
 
@@ -95,5 +93,6 @@
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script-client.js"></script>
+    <script src="script-client.js?v=2"></script>
 </body>
 </html>

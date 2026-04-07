@@ -101,98 +101,41 @@
         .inv-physique { width: 90px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; text-align: center; font-weight: bold; }
         .inv-raison { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; }
         .ecart-cell { font-weight: 800; text-align: center; font-size: 1.1rem;}
+        
         /* ========== RESPONSIVE DESIGN STOCK ========== */
-@media (max-width: 768px) {
-    /* Dashboard : On passe de 3 colonnes à 1 seule */
-    .dashboard {
-        grid-template-columns: 1fr;
-        padding: 1rem;
-    }
+        @media (max-width: 768px) {
+            .dashboard { grid-template-columns: 1fr; padding: 1rem; }
+            .logo-img { height: 50px; width: 50px; }
+            .logo h1 { font-size: 1.3rem; }
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .filters { flex-direction: column; }
+            .filter-group { width: 100%; }
+            .btn-action { width: 100%; justify-content: center; }
 
-    /* En-tête : On réduit la taille du logo */
-    .logo-img { height: 50px; width: 50px; }
-    .logo h1 { font-size: 1.3rem; }
-    
-    /* Toolbar : On empile les filtres et les boutons */
-    .toolbar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .filters {
-        flex-direction: column;
-    }
-    .filter-group {
-        width: 100%;
-    }
-    .btn-action {
-        width: 100%;
-        justify-content: center;
-    }
-
-    /* Transformation du tableau en "Cartes" pour mobile */
-    table, thead, tbody, th, td, tr { 
-        display: block; 
-    }
-    thead tr { 
-        position: absolute;
-        top: -9999px;
-        left: -9999px;
-    }
-    tr { 
-        border: 1px solid var(--border-color);
-        margin-bottom: 1rem;
-        border-radius: 12px;
-        background: white;
-    }
-    td { 
-        border: none;
-        border-bottom: 1px solid #eee; 
-        position: relative;
-        padding-left: 50% !important; 
-        text-align: right !important;
-    }
-    td:before { 
-        position: absolute;
-        top: 12px;
-        left: 15px;
-        width: 45%; 
-        padding-right: 10px; 
-        white-space: nowrap;
-        content: attr(data-label); /* Utilise l'attribut label */
-        font-weight: bold;
-        text-align: left;
-        color: var(--text-muted);
-    }
-    td:last-child {
-        border-bottom: none;
-        display: flex;
-        justify-content: center;
-        gap: 10px;
-        padding: 1rem !important;
-    }
-    
-    /* Onglet Ventes : On passe les statistiques sur 1 colonne */
-    #panel-ventes > div[style*="grid-template-columns: repeat(3, 1fr)"] {
-        grid-template-columns: 1fr !important;
-    }
-    #panel-ventes > div[style*="grid-template-columns: 1fr 1fr"] {
-        grid-template-columns: 1fr !important;
-    }
-}
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+            tr { border: 1px solid var(--border-color); margin-bottom: 1rem; border-radius: 12px; background: white; }
+            td { border: none; border-bottom: 1px solid #eee; position: relative; padding-left: 50% !important; text-align: right !important; }
+            td:before { position: absolute; top: 12px; left: 15px; width: 45%; padding-right: 10px; white-space: nowrap; content: attr(data-label); font-weight: bold; text-align: left; color: var(--text-muted); }
+            td:last-child { border-bottom: none; display: flex; justify-content: center; gap: 10px; padding: 1rem !important; }
+            
+            #panel-ventes > div[style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
+            #panel-ventes > div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+        }
     </style>
 </head>
 <body>
-<header>
-    <div class="header-container">
-        <div class="logo">
-            <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img" onerror="this.src='https://via.placeholder.com/70/143621/e3c496?text=TB'">
-            <h1>TA'BIA <span class="logo-subtext">Tableau de Bord</span></h1>
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img" onerror="this.src='https://via.placeholder.com/70/143621/e3c496?text=TB'">
+                <h1>TA'BIA <span class="logo-subtext">Tableau de Bord</span></h1>
+            </div>
+            <div class="nav-right">
+                <a href="/caisse.html" class="btn-retour"><i class="fas fa-arrow-left"></i> Retour Caisse</a>
+            </div>
         </div>
-        <div class="nav-right">
-            <a href="/caisse.html" class="btn-retour"><i class="fas fa-arrow-left"></i> Retour Caisse</a>
-        </div>
-    </div>
-</header>
+    </header>
 
     <div class="dashboard">
         <div class="card" onclick="ouvrirOnglet('stock')">
@@ -281,6 +224,17 @@
                     <p style="font-size:0.8rem; color:var(--text-muted);">Archives automatiques de vos journaux de caisse (Synchronisé avec la base).</p>
                 </div>
                 <div class="filters">
+                    <div class="filter-group">
+                        <label>Mode de Paiement</label>
+                        <select id="filtreMethodeVente" style="font-weight: bold; color: var(--info);">
+                            <option value="all">Tous les modes</option>
+                            <option value="especes">💰 Espèces</option>
+                            <option value="en_ligne">📱 En ligne (Web)</option>
+                            <option value="carte">💳 Carte Bancaire</option>
+                            <option value="ticket_resto">🎫 Ticket Resto</option>
+                            <option value="cheque">📄 Chèque</option>
+                        </select>
+                    </div>
                     <div class="filter-group">
                         <label>Type de Journal</label>
                         <select id="typeRapport" onchange="chargerRapportVentes()" style="font-weight: bold; color: var(--primary);">
@@ -429,7 +383,7 @@
             </div>
         </div>
 
-<div class="panel" id="panel-depenses">
+        <div class="panel" id="panel-depenses">
             <div class="toolbar" style="background: linear-gradient(135deg, #2c3e50, #34495e); color: white;">
                 <div>
                     <h3 style="font-size:1.4rem; color: #f1c40f;"><i class="fas fa-file-invoice-dollar"></i> Gestion des Dépenses & RH</h3>
@@ -438,7 +392,7 @@
                 <button class="btn-action" style="background: #f1c40f; color: #2c3e50; font-weight: 800; font-size: 1rem; padding: 0.8rem 1.5rem;" onclick="ouvrirModalDepensePro()"><i class="fas fa-plus-circle"></i> Ajouter une Dépense</button>
             </div>
 
-<div class="toolbar" style="margin-top: -10px; border-top-left-radius: 0; border-top-right-radius: 0; background: #f8fafc;">
+            <div class="toolbar" style="margin-top: -10px; border-top-left-radius: 0; border-top-right-radius: 0; background: #f8fafc;">
                 <div class="filters" style="align-items: flex-end;">
                     <div class="filter-group">
                         <label style="color:var(--danger);"><i class="fas fa-calendar-alt"></i> Historique</label>
@@ -512,6 +466,10 @@
     <script src="/socket.io/socket.io.js"></script>
     
     <script>
+        // ============================================================================
+        // 🔥 LOGIQUE GLOBALE (GESTION DE STOCK & ERP) 🔥
+        // ============================================================================
+
         // ========== 0. SÉCURITÉ : VÉRIFICATION DU TOKEN ==========
         const monToken = localStorage.getItem('tabia_caisse_token');
 
@@ -540,7 +498,7 @@
         let stockProduits = [];
         let stockTri = { colonne: 'nom', asc: true };
         let toutesLesVentes = [];
-        let ventesAffichees = []; // Pour l'export CSV
+        let ventesAffichees = [];
 
         const escapeHtml = (text) => {
             if (!text) return text;
@@ -567,7 +525,6 @@
             return new Date(match[3], match[2] - 1, match[1], match[4]||0, match[5]||0, match[6]||0).getTime();
         }
 
-        // 🔥 Générateur d'icônes pour le mode de paiement
         function getIconPaiement(methode) {
             if(methode === 'en_ligne') return '<span class="badge" style="background:#e8f5e9; color:#27ae60;"><i class="fas fa-globe"></i> En Ligne</span>';
             if(methode === 'carte') return '<span class="badge" style="background:#f4e8f9; color:#8e44ad;"><i class="fas fa-credit-card"></i> Carte</span>';
@@ -600,7 +557,7 @@
             }
         }
 
-        // ========== DASHBOARD (CORRIGÉ POUR LES ALERTES) ==========
+        // ========== DASHBOARD ==========
         async function chargerDashboard() {
             try {
                 const stockResp = await fetchSecurise('/api/stock');
@@ -610,7 +567,6 @@
                 let valeurTotaleAchat = 0;
                 let alertes = 0;
                 
-                // On calcule les alertes localement (fini les erreurs d'API manquante)
                 stockProduits.forEach(p => { 
                     if (p.stock !== undefined) {
                         valeurTotaleAchat += (p.stock * p.prix * 0.6); 
@@ -721,6 +677,7 @@
             } catch(e){}
         }
 
+        // --- NOUVEAUX BOUTONS CRUD ---
         function ouvrirModalNouveauProduit() {
             document.getElementById('modalContainer').innerHTML = `
                 <div class="modal active">
@@ -834,7 +791,7 @@
             };
             try {
                 const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
-                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); }
+                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); chargerDashboard(); chargerAlertes();}
             } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
         }
 
@@ -842,7 +799,7 @@
             if (!confirm("⚠️ Voulez-vous vraiment supprimer ce produit ? Cette action est définitive.")) return;
             try {
                 const response = await fetchSecurise(`/api/stock/${id}`, { method: 'DELETE' });
-                if (response.ok) { showNotification("🗑️ Produit supprimé."); chargerStock(); chargerDashboard(); chargerCategories(); }
+                if (response.ok) { showNotification("🗑️ Produit supprimé."); chargerStock(); chargerDashboard(); chargerCategories(); chargerAlertes();}
             } catch (error) { showNotification("❌ Erreur de suppression.", "var(--danger)"); }
         }
 
@@ -926,11 +883,11 @@
 
                 tbody.innerHTML = data.map(m => {
                     let icon, color, txt;
-                    if(m.type === 'vente') { icon = 'fa-shopping-cart'; color = 'var(--info)'; txt = 'Sortie'; }
+                    if(m.type === 'vente' || m.type === 'vente_web') { icon = 'fa-shopping-cart'; color = 'var(--info)'; txt = 'Sortie'; }
                     else if(m.type === 'ajout') { icon = 'fa-truck-loading'; color = 'var(--success)'; txt = 'Entrée'; }
                     else { icon = 'fa-clipboard-check'; color = 'var(--warning)'; txt = 'Audit'; }
 
-                    const prefix = m.type === 'vente' ? '-' : (m.nouveauStock > m.ancienStock ? '+' : '');
+                    const prefix = (m.type === 'vente' || m.type === 'vente_web') ? '-' : (m.nouveauStock > m.ancienStock ? '+' : '');
 
                     return `
                     <tr>
@@ -949,7 +906,7 @@
             } catch(e) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message error">Pas d\'historique disponible</td></tr>'; }
         }
 
-        // ========== 4. MODULE ALERTES (CORRIGÉ & SIMPLIFIÉ) ==========
+        // ========== 4. MODULE ALERTES ==========
         async function chargerAlertes() {
             const tbody = document.getElementById('alertesContainerBody');
             try {
@@ -1144,6 +1101,7 @@
                     const cat = d.categoriePrincipale || d.categorie;
                     if (cat === 'rh') totRH += montantSorti;
                     if (cat === 'fournisseur' || cat === 'achat_stock') totStock += montantSorti;
+                    if (cat === 'fixes' || cat === 'energie' || cat === 'loyer') totStock += montantSorti;
                     if (d.resteAPayer > 0) totDettes += d.resteAPayer;
                 });
 
@@ -1602,6 +1560,19 @@
                 console.log("🔄 Stock mis à jour en direct !");
             });
         });
+    </script>
+    
+    <script>
+        // Activation du Service Worker pour l'installation PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('Service Worker enregistré avec succès:', registration.scope);
+                }).catch(error => {
+                    console.log('Échec de l\'enregistrement du Service Worker:', error);
+                });
+            });
+        }
     </script>
 </body>
 </html>
