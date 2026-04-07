@@ -37,11 +37,17 @@ mongoose.connect(mongoURI)
 // ========== 2. MODÈLES DE DONNÉES (SCHÉMAS) ==========
 
 const Product = mongoose.model('Product', new mongoose.Schema({
-    id: Number, nom: String, prix: Number, stock: Number, categorie: String, 
+    id: Number, 
+    nom: String, 
+    prix: Number, 
+    prixAchat: { type: Number, default: 0 }, 
+    stock: Number, 
+    categorie: String, 
     image: { type: String, default: 'https://via.placeholder.com/150' },
     variantes: { type: String, default: "" }, 
     typeChoix: { type: String, default: "unique" },
-    seuilAlerte: { type: Number, default: 10 }, unite: String,
+    seuilAlerte: { type: Number, default: 10 }, 
+    unite: String,
     actif: { type: Boolean, default: true }
 }));
 
@@ -686,7 +692,7 @@ async function seedDatabase() {
         const count = await Product.countDocuments();
         if (count === 0) {
             await Product.insertMany([
-                { id: 1, nom: "Espresso", stock: 200, prix: 2.5, unite: "tasse", categorie: "cafe", seuilAlerte: 20 }
+                { id: 1, nom: "Espresso", stock: 200, prixAchat: 0.8, prix: 2.5, unite: "tasse", categorie: "cafe", seuilAlerte: 20 }
             ]);
             console.log("✅ Menu initial injecté dans MongoDB !");
         }

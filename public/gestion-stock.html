@@ -558,7 +558,7 @@
         }
 
         // ========== DASHBOARD ==========
-        async function chargerDashboard() {
+async function chargerDashboard() {
             try {
                 const stockResp = await fetchSecurise('/api/stock');
                 let stock = await stockResp.json();
@@ -568,10 +568,13 @@
                 let alertes = 0;
                 
                 stockProduits.forEach(p => { 
-                    if (p.stock !== undefined) {
-                        valeurTotaleAchat += (p.stock * p.prix * 0.6); 
-                        if (p.stock <= (p.seuilAlerte || 10)) alertes++;
-                    }
+                    // 🔥 CORRECTION : On utilise le vrai prixAchat et on sécurise le stock
+                    const stockReel = Math.max(0, parseInt(p.stock) || 0);
+                    const prixAchatReel = parseFloat(p.prixAchat) || 0;
+                    
+                    valeurTotaleAchat += (stockReel * prixAchatReel); 
+                    
+                    if ((p.stock || 0) <= (p.seuilAlerte || 10)) alertes++;
                 });
 
                 document.getElementById('totalProduits').innerText = stockProduits.length;
@@ -594,7 +597,7 @@
             } catch (e) { showNotification("Erreur de chargement du stock", "var(--danger)", "fa-times"); }
         }
 
-        function appliquerFiltresEtTriStock() {
+function appliquerFiltresEtTriStock() {
             const cat = document.getElementById('categorieFilter').value;
             const etat = document.getElementById('etatFilter').value;
             const search = document.getElementById('searchFilter').value.toLowerCase();
@@ -614,7 +617,12 @@
                 if(stockTri.colonne === 'nom') { valA = a.nom.toLowerCase(); valB = b.nom.toLowerCase(); }
                 if(stockTri.colonne === 'stock') { valA = a.stock; valB = b.stock; }
                 if(stockTri.colonne === 'prix') { valA = a.prix; valB = b.prix; }
-                if(stockTri.colonne === 'valeur') { valA = a.stock * a.prix * 0.6; valB = b.stock * b.prix * 0.6; }
+                // 🔥 CORRECTION : Tri basé sur le vrai prix d'achat
+                if(stockTri.colonne === 'valeur') { 
+                    valA = Math.max(0, parseInt(a.stock) || 0) * (parseFloat(a.prixAchat) || 0); 
+                    valB = Math.max(0, parseInt(b.stock) || 0) * (parseFloat(b.prixAchat) || 0); 
+                }
+                
                 if (valA < valB) return stockTri.asc ? -1 : 1;
                 if (valA > valB) return stockTri.asc ? 1 : -1;
                 return 0;
@@ -628,12 +636,16 @@
             appliquerFiltresEtTriStock();
         }
 
-        function afficherStockDOM(produits) {
+function afficherStockDOM(produits) {
             const tbody = document.getElementById('stockTableBody');
             if(!produits.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-box-open fa-2x" style="display:block; margin-bottom:10px;"></i>Aucun produit</td></tr>'; return; }
             
             tbody.innerHTML = produits.map(p => {
-                const valAchat = p.stock * p.prix * 0.6;
+                // 🔥 CORRECTION : Calcul propre de la valeur
+                const stockReel = Math.max(0, parseInt(p.stock) || 0);
+                const prixAchatReel = parseFloat(p.prixAchat) || 0;
+                const valAchat = stockReel * prixAchatReel;
+                
                 const seuil = p.seuilAlerte || 10;
                 let percent = (p.stock / (seuil * 4)) * 100;
                 if(percent > 100) percent = 100;
@@ -704,6 +716,7 @@
                             <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="chicha">💨 Chicha</option>
                         </select></div>
                         <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Prix Achat (DT):</label><input type="number" id="newProdPrixAchat" step="0.01" placeholder="1.0"></div>
                             <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="newProdPrice" step="0.1" placeholder="2.5"></div>
                             <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" step="1" placeholder="100"></div>
                         </div>
@@ -721,6 +734,7 @@
                 typeChoix: typeC,
                 image: document.getElementById('newProdImage').value, 
                 categorie: document.getElementById('newProdCat').value,
+                prixAchat: parseFloat(document.getElementById('newProdPrixAchat').value) || 0, 
                 prix: parseFloat(document.getElementById('newProdPrice').value),
                 stock: parseInt(document.getElementById('newProdStock').value),
                 seuilAlerte: parseInt(document.getElementById('newProdAlerte').value),
@@ -845,9 +859,15 @@
             } catch(e) { showNotification("Erreur réseau", "var(--danger)"); }
         }
 
-        function exporterStockCSV() {
-            let csv = "Produit,Catégorie,Stock_Actuel,Seuil_Alerte,Unité,Prix_Vente,Valeur_Achat_Estimee\n";
-            stockProduits.forEach(p => csv += `"${p.nom}","${getCatName(p.categorie)}",${p.stock},${p.seuilAlerte || 10},"${p.unite || ''}",${p.prix},${(p.stock*p.prix*0.6).toFixed(2)}\n`);
+function exporterStockCSV() {
+            let csv = "Produit,Catégorie,Stock_Actuel,Seuil_Alerte,Unité,Prix_Achat,Prix_Vente,Valeur_Stock_Totale\n";
+            stockProduits.forEach(p => {
+                // 🔥 CORRECTION : Ajout de pAchat
+                const pAchat = parseFloat(p.prixAchat) || 0;
+                const valStock = Math.max(0, parseInt(p.stock) || 0) * pAchat;
+                
+                csv += `"${p.nom}","${getCatName(p.categorie)}",${p.stock},${p.seuilAlerte || 10},"${p.unite || ''}",${pAchat},${p.prix},${valStock.toFixed(3)}\n`;
+            });
             const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Stock_${new Date().toISOString().slice(0,10)}.csv`;
             a.click(); URL.revokeObjectURL(a.href);
@@ -947,22 +967,27 @@
 
 
         // ========== 5. MODULE INVENTAIRE ==========
-        function demarrerInventaire() {
+function demarrerInventaire() {
             document.getElementById('inventaireForm').style.display = 'block';
             const tbody = document.getElementById('inventaireTableBody');
             
             if(!stockProduits.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Aucun produit en base</td></tr>'; return; }
 
-            tbody.innerHTML = stockProduits.map(p => `
-                <tr data-id="${p.id}" data-theorique="${p.stock}" data-prixachat="${p.prix * 0.6}">
+            tbody.innerHTML = stockProduits.map(p => {
+                // 🔥 CORRECTION : Utilisation du prix d'achat
+                const stockReel = parseInt(p.stock) || 0;
+                const prixAchatCalc = parseFloat(p.prixAchat) || 0;
+
+                return `
+                <tr data-id="${p.id}" data-theorique="${stockReel}" data-prixachat="${prixAchatCalc}">
                     <td><strong>${escapeHtml(p.nom)}</strong><div style="font-size:0.7rem; color:var(--text-muted);">${p.unite || 'unité'}</div></td>
-                    <td style="text-align:center; font-size:1.1rem; color:var(--text-muted); font-weight:600;">${p.stock}</td>
-                    <td style="text-align:center;"><input type="number" class="inv-physique" value="${p.stock}" oninput="calculerEcartInventaire()"></td>
+                    <td style="text-align:center; font-size:1.1rem; color:var(--text-muted); font-weight:600;">${stockReel}</td>
+                    <td style="text-align:center;"><input type="number" class="inv-physique" value="${stockReel}" oninput="calculerEcartInventaire()"></td>
                     <td class="ecart-cell">0</td>
                     <td class="impact-cell" style="text-align:right; font-weight:600; color:var(--text-muted);">0.00 DT</td>
                     <td><input type="text" class="inv-raison" placeholder="Ex: Produit périmé, Oubli..."></td>
                 </tr>
-            `).join('');
+            `}).join('');
             calculerEcartInventaire();
         }
 
