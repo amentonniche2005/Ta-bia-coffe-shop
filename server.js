@@ -55,26 +55,26 @@ const Inventory = mongoose.model('Inventory', new mongoose.Schema({
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') }, ecarts: Array
 }));
 
-// 🔥 MODÈLE DÉPENSES "PRO" (Avec gestion RH et Dettes Fournisseurs)
 const Expense = mongoose.model('Expense', new mongoose.Schema({
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     timestamp: { type: Number, default: () => Date.now() },
-    categoriePrincipale: String, // 'rh', 'fournisseur', 'fixes', 'autre'
-    sousCategorie: String,       // 'avance', 'salaire', 'steg', 'boissons'...
-    beneficiaire: String,        // Nom de l'employé ou du fournisseur
-    description: String,         // Motif (ex: Facture #123)
-    montantTotal: Number,        // Montant total de la facture ou du salaire
-    montantPaye: Number,         // Combien on a sorti de la caisse aujourd'hui
-    resteAPayer: { type: Number, default: 0 }, // La dette (Le fameux "Kridi")
-    statut: { type: String, default: 'paye' }, // 'paye' ou 'credit'
+    categoriePrincipale: String, 
+    sousCategorie: String,       
+    beneficiaire: String,        
+    description: String,         
+    montantTotal: Number,        
+    montantPaye: Number,         
+    resteAPayer: { type: Number, default: 0 }, 
+    statut: { type: String, default: 'paye' }, 
     modePaiement: String
 }));
 
 const Order = mongoose.model('Order', new mongoose.Schema({
-    id: Number, numero: String, date: String, timestamp: Number, articles: Array,
+    id: String, // 🔥 SÉCURITÉ: Passé en String pour compatibilité Konnect
+    numero: String, date: String, timestamp: Number, articles: Array,
     numeroTable: String, statut: { type: String, default: 'en_attente' }, 
     total: Number, clientId: String, clientName: String,
-    methodePaiement: { type: String, default: 'sur_place' } // 🔥 NOUVEAU CHAMP
+    methodePaiement: { type: String, default: 'sur_place' }
 }));
 
 const TableCode = mongoose.model('TableCode', new mongoose.Schema({
@@ -141,89 +141,89 @@ app.get('/api/stock', async (req, res) => {
     try { res.json(await Product.find({ actif: { $ne: false } }).sort({ id: 1 })); } catch (err) { res.status(500).json(err); }
 });
 
-// 🔥 ROUTE COMMANDE MODIFIÉE (AVEC KONNECT)
+// 🔥 ROUTE COMMANDE (SÉCURISÉE)
 app.post('/api/commandes', async (req, res) => {
     try {
-        const cmdId = Date.now();
+        const cmdId = Date.now().toString(); // ID en String pour Konnect
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
         const isEnLigne = req.body.methodePaiement === 'en_ligne';
 
+        // 🔥 SÉCURITÉ : Recalcul du total côté serveur
+        let totalSecurise = 0;
+        let articlesSecurises = [];
+
+        for (let art of req.body.articles) {
+            const produitDb = await Product.findOne({ id: art.id });
+            if (produitDb) {
+                totalSecurise += (produitDb.prix * art.quantite);
+                articlesSecurises.push({ ...art, prix: produitDb.prix }); // On force le vrai prix de la DB
+            } else {
+                totalSecurise += (art.prix * art.quantite); // Fallback si article custom
+                articlesSecurises.push(art);
+            }
+        }
+
         const cmd = new Order({ 
             ...req.body, 
+            articles: articlesSecurises,
             id: cmdId, 
             numero: numeroCmd, 
             date: new Date().toLocaleString('fr-FR'), 
             timestamp: Date.now(),
-            // 🔥 Si c'est en ligne, la commande reste bloquée en "attente_paiement" pour la cuisine
+            total: totalSecurise, // On utilise le total calculé par le serveur
             statut: isEnLigne ? 'attente_paiement' : 'en_attente' 
         });
         await cmd.save();
 
-        // ==========================================
-        // 💳 INITIALISATION DU PAIEMENT EN LIGNE
-        // ==========================================
-if (isEnLigne) {
-            /* On commente temporairement la vraie connexion Konnect :
-               const konnectPayload = { ... };
-               const konnectRes = await axios.post(...);
-            */
-            
-            // On redirige vers notre fausse route de paiement locale
+        if (isEnLigne) {
             const simulateurUrl = `/api/simulateur-paiement/${cmdId}`;
             return res.status(201).json({ ...cmd._doc, payUrl: simulateurUrl });
         }
 
-        // ==========================================
-        // 💵 SI PAIEMENT ESPÈCES : ENVOI DIRECT EN CUISINE
-        // ==========================================
         io.emit('nouvelle_commande', cmd);
         res.status(201).json(cmd);
 
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
 // =========================================================
-// 🚀 SIMULATEUR LOCAL DE PAIEMENT (POUR TESTER SANS KONNECT)
+// 🚀 SIMULATEUR LOCAL DE PAIEMENT (SÉCURISÉ)
 // =========================================================
 app.get('/api/simulateur-paiement/:orderId', async (req, res) => {
     try {
         const orderId = req.params.orderId;
+        const commande = await Order.findOne({ id: orderId });
         
-        // 1. On retrouve la commande bloquée
-        const commande = await Order.findOne({ id: Number(orderId) });
         if (!commande || commande.statut !== 'attente_paiement') {
             return res.send("<h2 style='text-align:center; font-family:sans-serif; margin-top:50px;'>Commande introuvable ou déjà payée. <br><a href='/'>Retour</a></h2>");
         }
 
-        // 2. On la débloque pour la cuisine
         commande.statut = 'en_attente';
         await commande.save();
 
-        // 3. ON FAIT LE TRAVAIL (Stock + Chiffre d'Affaires)
-        let vraiTotalReel = 0;
+        // 🔥 SÉCURITÉ : Gestion atomique du stock avec $inc
         for (let art of commande.articles) {
-            const produitDb = await Product.findOne({ $or: [{ id: art.id }, { nom: art.nom }] });
-            if (produitDb) {
-                vraiTotalReel += (produitDb.prix * art.quantite);
-                if (produitDb.stock !== undefined) {
-                    const ancienStock = produitDb.stock;
-                    produitDb.stock -= art.quantite; // Baisse le stock
-                    await produitDb.save();
+            const produitMisAJour = await Product.findOneAndUpdate(
+                { id: art.id, stock: { $exists: true } }, 
+                { $inc: { stock: -art.quantite } },
+                { new: true } // Renvoie la valeur APRÈS déduction
+            );
 
-                    // Mouvement
-                    await new Movement({ 
-                        type: 'vente_web', produit: produitDb.nom, produitId: produitDb.id, 
-                        quantite: art.quantite, ancienStock: ancienStock, nouveauStock: produitDb.stock, 
-                        raison: `Commande WEB #${commande.numero}` 
-                    }).save();
-                }
-            } else { vraiTotalReel += (art.prix * art.quantite); }
+            if (produitMisAJour) {
+                await new Movement({ 
+                    type: 'vente_web', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
+                    quantite: art.quantite, 
+                    ancienStock: produitMisAJour.stock + art.quantite, // Reconstitution mathématique
+                    nouveauStock: produitMisAJour.stock, 
+                    raison: `Commande WEB #${commande.numero}` 
+                }).save();
+            }
         }
 
-        // 4. On crée le reçu de la vente
         const vente = new Sale({
             id: Date.now().toString(),
             numero: commande.numero,
-            total: vraiTotalReel,
+            total: commande.total, // Utilise le total déjà sécurisé de la commande
             remise: 0,
             typePaiement: 'complet',
             methodePaiement: 'en_ligne',
@@ -232,11 +232,9 @@ app.get('/api/simulateur-paiement/:orderId', async (req, res) => {
         });
         await vente.save();
 
-        // 5. 🔥 ON RÉVEILLE LA CUISINE ET LA CAISSE
         io.emit('nouvelle_commande', commande);
         io.emit('update_stock');
 
-        // 6. On affiche un bel écran de succès au client
         res.send(`
             <div style="text-align:center; padding: 50px; font-family: 'Inter', sans-serif;">
                 <i class="fas fa-check-circle" style="font-size: 80px; color: #27ae60; margin-bottom: 20px;"></i>
@@ -249,20 +247,17 @@ app.get('/api/simulateur-paiement/:orderId', async (req, res) => {
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         `);
 
-    } catch (err) {
-        res.status(500).send("Erreur de simulation : " + err.message);
-    }
+    } catch (err) { res.status(500).send("Erreur de simulation : " + err.message); }
 });
+
 // =========================================================
-// 🔥 WEBHOOK KONNECT (VALIDATION DU PAIEMENT EN ARRIÈRE-PLAN)
+// 🔥 WEBHOOK KONNECT (SÉCURISÉ)
 // =========================================================
 app.post('/api/webhook/paiement', async (req, res) => {
-    // Konnect envoie l'ID du paiement dans l'URL (query)
     const paymentId = req.query.payment_ref;
     if (!paymentId) return res.status(400).send("Payment_ref manquant");
 
     try {
-        // 1. On va vérifier nous-mêmes auprès de Konnect si ce paiement est VRAIMENT payé (Sécurité)
         const checkRes = await axios.get(`https://api.preprod.konnect.network/api/v2/payments/${paymentId}`, {
             headers: { 'x-api-key': process.env.KONNECT_API_KEY }
         });
@@ -270,59 +265,47 @@ app.post('/api/webhook/paiement', async (req, res) => {
         const paymentData = checkRes.data.payment;
 
         if (paymentData.status === 'completed') {
-            const orderId = paymentData.orderId;
+            const orderId = paymentData.orderId.toString(); // S'assure que c'est une string
             
-            // 2. On retrouve la commande bloquée en "attente_paiement"
-            const commande = await Order.findOne({ id: Number(orderId) });
+            const commande = await Order.findOne({ id: orderId });
             if (!commande || commande.statut !== 'attente_paiement') {
                 return res.status(200).send("Commande déjà traitée");
             }
 
-            // 3. On débloque la commande pour la cuisine !
             commande.statut = 'en_attente';
             await commande.save();
 
-            // 4. ON FAIT LE TRAVAIL DE LA CAISSE (Stock + Chiffre d'Affaires)
-            let vraiTotalReel = 0;
+            // 🔥 SÉCURITÉ : Gestion atomique du stock avec $inc
             for (let art of commande.articles) {
-                const produitDb = await Product.findOne({ $or: [{ id: art.id }, { nom: art.nom }] });
-                if (produitDb) {
-                    vraiTotalReel += (produitDb.prix * art.quantite);
-                    if (produitDb.stock !== undefined) {
-                        const ancienStock = produitDb.stock;
-                        produitDb.stock -= art.quantite; // 📉 Déduction du stock
-                        await produitDb.save();
+                const produitMisAJour = await Product.findOneAndUpdate(
+                    { id: art.id, stock: { $exists: true } }, 
+                    { $inc: { stock: -art.quantite } },
+                    { new: true } 
+                );
 
-                        // Trace dans les mouvements
-                        await new Movement({ 
-                            type: 'vente_web', 
-                            produit: produitDb.nom, 
-                            produitId: produitDb.id, 
-                            quantite: art.quantite, 
-                            ancienStock: ancienStock,
-                            nouveauStock: produitDb.stock, 
-                            raison: `Commande WEB #${commande.numero}` 
-                        }).save();
-                    }
-                } else { vraiTotalReel += (art.prix * art.quantite); }
+                if (produitMisAJour) {
+                    await new Movement({ 
+                        type: 'vente_web', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
+                        quantite: art.quantite, ancienStock: produitMisAJour.stock + art.quantite,
+                        nouveauStock: produitMisAJour.stock, raison: `Commande WEB #${commande.numero}` 
+                    }).save();
+                }
             }
 
-            // 5. On génère la trace comptable de la vente en ligne
             const vente = new Sale({
                 id: Date.now().toString(),
                 numero: commande.numero,
-                total: vraiTotalReel,
+                total: commande.total, // Utilise le total sécurisé
                 remise: 0,
                 typePaiement: 'complet',
-                methodePaiement: 'en_ligne', // 🌐 Classé automatiquement "En Ligne"
+                methodePaiement: 'en_ligne', 
                 tableOrigine: commande.clientName ? `Fidèle: ${commande.clientName}` : `WEB - ${commande.numeroTable}`,
                 articles: commande.articles
             });
             await vente.save();
 
-            // 6. 🔥 NOTIFICATIONS TEMPS RÉEL (Socket.io)
-            io.emit('nouvelle_commande', commande); // La tablette cuisine sonne !
-            io.emit('update_stock'); // Les caisses mettent à jour leurs stocks
+            io.emit('nouvelle_commande', commande); 
+            io.emit('update_stock'); 
 
             return res.status(200).send("Webhook traité avec succès");
         } else {
@@ -493,12 +476,21 @@ app.post('/api/stock/:id/add', verifierToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// 🔥 DÉCRÉMENTATION STOCK DEPUIS LA CAISSE (SÉCURISÉE AVEC $INC)
 app.post('/api/stock/decrementer', verifierToken, async (req, res) => {
     try {
         for (let art of req.body.articles) {
-            const p = await Product.findOneAndUpdate({ id: art.id }, { $inc: { stock: -art.quantite } }, { new: true });
+            const p = await Product.findOneAndUpdate(
+                { id: art.id, stock: { $exists: true } }, 
+                { $inc: { stock: -art.quantite } }, 
+                { new: true }
+            );
             if (p) {
-                await new Movement({ type: 'vente', produit: p.nom, produitId: art.id, quantite: art.quantite, nouveauStock: p.stock, raison: "Vente" }).save();
+                await new Movement({ 
+                    type: 'vente', produit: p.nom, produitId: art.id, 
+                    quantite: art.quantite, nouveauStock: p.stock, 
+                    ancienStock: p.stock + art.quantite, raison: "Vente" 
+                }).save();
             }
         }
         io.emit('update_stock');
@@ -576,21 +568,18 @@ app.post('/api/numbers/refresh/:numero', async (req, res) => {
     }
 });
 
-// 🔥 LA ROUTE MANQUANTE POUR AFFICHER LES VENTES DANS LES RAPPORTS !
 app.get('/api/ventes', verifierToken, async (req, res) => {
     try {
         res.json(await Sale.find({}).sort({ timestamp: -1 }));
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// 🔥 VENTES CAISSE (SÉCURISÉES)
 app.post('/api/ventes', verifierToken, async (req, res) => {
     try {
-        // 🔥 NOUVEAU : SYSTÈME ANTI-DOUBLON (Idempotence)
         if (req.body.id) {
             const venteExistante = await Sale.findOne({ id: req.body.id.toString() });
             if (venteExistante) {
-                // Si la vente est déjà dans la base de données, on ne fait rien !
-                // On dit juste à la caisse que c'est bon pour qu'elle l'efface de sa mémoire.
                 return res.json({ success: true, message: "Vente déjà synchronisée (Ignoré)" });
             }
         }
@@ -598,53 +587,45 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
         let vraiTotalReel = 0;
         const articlesVendus = req.body.articles;
 
-        // 1. BOUCLE SÉCURISÉE : Calcul du total ET déduction du stock
         for (let art of articlesVendus) {
-            // On cherche le produit dans la base de données
             const produitDb = await Product.findOne({ $or: [{ id: art.id }, { nom: art.nom }] });
             
             if (produitDb) {
-                vraiTotalReel += (produitDb.prix * art.quantite);
+                vraiTotalReel += (produitDb.prix * art.quantite); // Utilise le vrai prix DB
                 
-                // 🔥 LA MAGIE EST ICI : On baisse le stock directement
+                // 🔥 SÉCURITÉ : Gestion atomique du stock avec $inc
                 if (produitDb.stock !== undefined) {
-                    const ancienStock = produitDb.stock;
-                    produitDb.stock -= art.quantite;
-                    await produitDb.save();
+                    const produitMisAJour = await Product.findOneAndUpdate(
+                        { id: produitDb.id },
+                        { $inc: { stock: -art.quantite } },
+                        { new: true }
+                    );
 
-                    // On crée une trace dans l'historique des mouvements pour le gérant
                     await new Movement({ 
-                        type: 'vente', 
-                        produit: produitDb.nom, 
-                        produitId: produitDb.id, 
+                        type: 'vente', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
                         quantite: art.quantite, 
-                        ancienStock: ancienStock,
-                        nouveauStock: produitDb.stock, 
+                        ancienStock: produitMisAJour.stock + art.quantite,
+                        nouveauStock: produitMisAJour.stock, 
                         raison: `Vente ${req.body.numero}` 
                     }).save();
                 }
             } else {
-                // Cas de secours si le produit a été supprimé entre-temps
                 vraiTotalReel += (art.prix * art.quantite); 
             }
         }
 
-        // 2. Application de la remise globale
         if (req.body.remise && req.body.remise > 0) {
             vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));
         }
 
-        // 3. Sauvegarde finale de la vente
         const venteData = { ...req.body, total: vraiTotalReel };
         const vente = new Sale(venteData);
         await vente.save();
         
-        // 4. On prévient toutes les caisses et écrans que le stock a changé !
         io.emit('update_stock');
         
         res.json({ success: true, totalSecurise: vraiTotalReel });
     } catch (err) { 
-        // 5. On attrape n'importe quelle erreur qui se produit dans tout le bloc au-dessus
         res.status(500).json({ error: err.message }); 
     }
 });

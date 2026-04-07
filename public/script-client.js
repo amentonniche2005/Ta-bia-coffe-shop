@@ -470,23 +470,32 @@ async function validerCommande(numTable, clientData, codeSaisi) {
         if (response.ok) {
             const commande = await response.json();
             
+            // 1. ON SAUVEGARDE ET ON VIDE LE PANIER IMMÉDIATEMENT (Peu importe le mode de paiement)
+            sauvegarderCommandeClient(commande);
+            panier = []; 
+            sauvegarderPanier(); 
+            mettreAJourUIPanier(); 
+            afficherContenuPanier();
+            await chargerCatalogue();
+            
+            // 2. GESTION DU PAIEMENT EN LIGNE
             if (methodeChoisie === 'en_ligne' && commande.payUrl) {
                 afficherNotification("Redirection vers le paiement sécurisé...", "success");
-                window.location.href = commande.payUrl;
+                // On met un tout petit délai (1.5s) pour que l'interface ait le temps de se mettre à jour
+                // et que le client voit que son panier a bien été validé avant de changer de page.
+                setTimeout(() => {
+                    window.location.href = commande.payUrl;
+                }, 1500);
                 return; 
             }
             
-            sauvegarderCommandeClient(commande);
-            
-            panier = []; sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier();
-            
+            // 3. GESTION DU PAIEMENT SUR PLACE
             if (nomFidele) {
                 afficherNotification(`🎉 Merci ${nomFidele} ! Commande envoyée.`);
             } else {
                 afficherNotification("🎉 Commande envoyée avec succès !");
             }
             
-            await chargerCatalogue(); 
         } else { 
             afficherNotification("❌ Erreur serveur", "error"); 
         }
@@ -522,8 +531,19 @@ function chargerMesCommandes() {
         let statusClass = 'status-attente';
         let statusText = 'En attente';
         
-        if(cmd.statut === 'en_preparation') { statusClass = 'status-preparation'; statusText = 'Préparation'; }
-        if(cmd.statut === 'terminee' || cmd.statut === 'paye') { statusClass = 'status-termine'; statusText = 'Prête !'; }
+        // --- LOGIQUE DES BADGES MODIFIÉE ICI ---
+        if(cmd.statut === 'paye') { 
+            statusClass = 'status-paye'; // Assure-toi que cette classe est bien dans ton CSS (ex: même vert que status-termine)
+            statusText = 'Payé 💳'; 
+        }
+        else if(cmd.statut === 'en_preparation') { 
+            statusClass = 'status-preparation'; 
+            statusText = 'Préparation'; 
+        }
+        else if(cmd.statut === 'terminee') { 
+            statusClass = 'status-termine'; 
+            statusText = 'Prête !'; 
+        }
 
         const numCmd = cmd.numero ? `#${cmd.numero}` : 'en cours...';
 
