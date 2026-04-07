@@ -1,27 +1,25 @@
-const socket = io(); // On se connecte au "Live"
+const socket = io(); 
 
 // 1. Si le stock change
 socket.on('update_stock', () => {
-    console.log("🔄 Le stock a bougé, je recharge la liste...");
-    chargerStock(); // Remplace par le nom de TA fonction qui affiche le stock
+    chargerCatalogue(); 
 });
 
-// 2. Si une nouvelle commande arrive (pour le Comptoir)
+// 2. Si une nouvelle commande arrive
 socket.on('nouvelle_commande', (data) => {
-    console.log("🔔 Nouveau ticket !");
-    chargerCommandes(); // Remplace par ta fonction qui affiche les tickets
+    chargerMesCommandes(); 
 });
 
-// 3. Si un statut change (ex: La cuisine a fini)
+// 3. Si un statut change 
 socket.on('mise_a_jour_commande', () => {
-    chargerCommandes(); 
+    chargerMesCommandes(); 
 });
+
 // ========== VARIABLES GLOBALES ==========
 let panier = [];
 let produits = []; 
 let categorieActuelle = "all";
 let clientId = null;
-let socketClient = null;
 const HISTORIQUE_EXPIRATION = 24 * 60 * 60 * 1000;
 
 // Configurations des Variantes par mots-clés
@@ -43,6 +41,7 @@ const defaultImages = {
     'dessert': 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=400&q=80',
     'sale': 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
 };
+
 const categoryLabels = {
     'cafe': '☕ Cafés',
     'the': '🫖 Thés & Infusions',
@@ -73,7 +72,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     configurerEvenements();
 });
 
-// ========== FETCH API STOCK (SÉCURISÉ & DYNAMIQUE) ==========
+// ========== FETCH API STOCK ==========
 async function chargerCatalogue() {
     try {
         const response = await fetch('/api/stock');
@@ -87,7 +86,7 @@ async function chargerCatalogue() {
             return;
         }
 
-        genererCategoriesDynamiques(); // Création automatique des boutons !
+        genererCategoriesDynamiques(); 
         afficherProduits();
     } catch (error) {
         const grille = document.getElementById("menuGrid");
@@ -99,12 +98,11 @@ function genererCategoriesDynamiques() {
     const container = document.getElementById('categoryTabs');
     if (!container) return;
     
-    // Extrait les catégories existantes depuis les produits du serveur
     const categoriesUniques = [...new Set(produits.map(p => p.categorie).filter(Boolean))];
     
     let html = `<button class="category-btn active" data-category="all">🍽️ Tout</button>`;
     categoriesUniques.forEach(cat => {
-        const label = categoryLabels[cat] || cat; // Utilise le texte avec icône, ou le nom brut
+        const label = categoryLabels[cat] || cat; 
         html += `<button class="category-btn" data-category="${cat}">${label}</button>`;
     });
     
@@ -121,11 +119,8 @@ function afficherProduits() {
         produitsAffiches = produits.filter(p => p.categorie === categorieActuelle);
     }
 
-    // Séparer en stock et rupture
     const enStock = produitsAffiches.filter(p => p.stock > 0 || p.stock === undefined);
     const enRupture = produitsAffiches.filter(p => p.stock <= 0 && p.stock !== undefined);
-    
-    // Concaténer (Ruptures à la fin)
     const produitsTries = [...enStock, ...enRupture];
 
     if (produitsTries.length === 0) {
@@ -137,7 +132,7 @@ function afficherProduits() {
         const rupture = p.stock <= 0 && p.stock !== undefined;
         const classeRupture = rupture ? 'sold-out' : '';
         const bouton = rupture 
-            ? `<button class="add-to-cart disabled" disabled style="background:#e2e8f0; color:#94a3b8; border-color:#cbd5e1; cursor:not-allowed;">Épuisé</button>`
+            ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
             : `<button class="add-to-cart" onclick="gererClicAjout(${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;
             
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
@@ -145,13 +140,12 @@ function afficherProduits() {
 
         return `
             <div class="menu-item ${classeRupture}">
-                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center; height:140px; position:relative;">
-                    ${rupture ? `<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.7); color:white; padding:5px 10px; border-radius:5px; font-weight:bold;">ÉPUISÉ</div>` : ''}
+                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center;">
                 </div>
-                <div class="item-info" style="padding:1rem; display:flex; flex-direction:column; flex:1; justify-content:space-between;">
+                <div class="item-info">
                     <div>
-                        <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.3rem;">${p.nom}</h3>
-                        <div class="price" style="color:#db800a; font-weight:800; font-size:1.1rem; margin-bottom:0.8rem;">${prixFormatte} DT</div>
+                        <h3>${p.nom}</h3>
+                        <div class="price">${prixFormatte} DT</div>
                     </div>
                     ${bouton}
                 </div>
@@ -161,24 +155,20 @@ function afficherProduits() {
 }
 
 // ========== GESTION DES VARIANTES (OPTIONS) ==========
-// ========== GESTION DES VARIANTES (OPTIONS) ==========
 function gererClicAjout(id) {
     const produit = produits.find(p => p.id === id);
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
     let optionsTrouvees = null;
 
-    // 🔥 NOUVEAU: Si on a explicitement forcé "aucun choix" dans le tableau de bord
     if (produit.typeChoix === 'aucun') {
         executerAjoutPanier(produit, null);
-        return; // On s'arrête là, le produit va direct au panier !
+        return; 
     }
 
-    // Sinon, on cherche s'il y a des variantes spécifiques écrites (ex: "Grand, Petit")
     if (produit.variantes && produit.variantes.trim() !== "") {
         optionsTrouvees = produit.variantes.split(',').map(v => v.trim());
     } 
-    // Sinon, on applique la règle automatique par mots-clés (si ça n'a pas été forcé sur 'aucun')
     else {
         const nomLower = (produit.nom || "").toLowerCase();
         for (let config of variantesConfig) {
@@ -201,14 +191,16 @@ function ouvrirModalOptions(produit, options) {
     document.getElementById("optionsTitle").textContent = produit.nom;
     document.getElementById("optionPriceDisplay").textContent = `(${parseFloat(produit.prix).toFixed(2)} DT)`;
     
-    // 🔥 NOUVELLE GESTION DE L'AFFICHAGE (UNIQUE OU MULTIPLE) 🔥
     let isMultiple = produit.typeChoix === 'multiple';
     let typeInput = isMultiple ? 'checkbox' : 'radio';
     
     const listHtml = options.map((opt, index) => `
-        <label style="display:flex; align-items:center; gap:15px; padding:12px; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:8px; cursor:pointer;">
-            <input type="${typeInput}" name="varianteOption" value="${opt}" style="width:22px; height:22px; accent-color:#db800a;" ${(!isMultiple && index === 0) ? 'checked' : ''}>
-            <span style="font-weight:600; font-size:1.1rem; color:#1e293b;">${opt}</span>
+        <label class="option-label">
+            <input type="${typeInput}" name="varianteOption" value="${opt}" class="option-input" ${(!isMultiple && index === 0) ? 'checked' : ''}>
+            <div class="option-box">
+                <span>${opt}</span>
+                <i class="fas fa-check-circle check-icon"></i>
+            </div>
         </label>
     `).join('');
     
@@ -312,7 +304,7 @@ function afficherContenuPanier() {
     const totalElement = document.getElementById("cartTotal");
 
     if (panier.length === 0) {
-        conteneur.innerHTML = "<p class='empty-message' style='margin-top:2rem; text-align:center;'>Votre panier est vide 😢</p>";
+        conteneur.innerHTML = "<div style='padding: 2rem; text-align: center; color: #7f8c8d;'><i class='fas fa-shopping-basket fa-3x' style='opacity:0.2; margin-bottom:1rem;'></i><p>Votre panier est vide 😢</p></div>";
         totalElement.textContent = "Total: 0.00 DT";
         document.getElementById("checkoutBtn").disabled = true;
         return;
@@ -324,18 +316,18 @@ function afficherContenuPanier() {
     conteneur.innerHTML = panier.map(article => {
         total += article.prix * article.quantite;
         const nomPropre = article.nom.split(' (')[0];
-        const varianteHTML = article.variante ? `<span class="cart-item-variant" style="font-size:0.8rem; color:#7f8c8d; display:block;">${article.variante}</span>` : '';
+        const varianteHTML = article.variante ? `<span class="cart-item-variant">${article.variante}</span>` : '';
         return `
-            <div class="cart-item" style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0; border-bottom:1px solid #f1f5f9;">
+            <div class="cart-item">
                 <div class="cart-item-info">
-                    <h4 style="margin-bottom:0;">${nomPropre}</h4>
+                    <h4>${nomPropre}</h4>
                     ${varianteHTML}
-                    <div style="color:#db800a; font-weight:600;">${article.prix.toFixed(2)} DT</div>
+                    <div class="cart-item-price">${article.prix.toFixed(2)} DT</div>
                 </div>
-                <div style="display:flex; align-items:center; gap:10px; background:#f8fafc; padding:5px; border-radius:20px;">
-                    <button style="background:white; border:none; width:30px; height:30px; border-radius:50%; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.05); cursor:pointer;" onclick="changerQuantite('${article.cartId}', -1)">-</button>
-                    <span style="font-weight:700; min-width:20px; text-align:center;">${article.quantite}</span>
-                    <button style="background:white; border:none; width:30px; height:30px; border-radius:50%; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.05); cursor:pointer;" onclick="changerQuantite('${article.cartId}', 1)">+</button>
+                <div class="cart-item-actions">
+                    <button class="quantity-btn" onclick="changerQuantite('${article.cartId}', -1)">-</button>
+                    <span class="item-quantity">${article.quantite}</span>
+                    <button class="quantity-btn" onclick="changerQuantite('${article.cartId}', 1)">+</button>
                 </div>
             </div>
         `;
@@ -352,12 +344,12 @@ function passerCommande() {
 }
 
 function afficherModalTable() {
-    const btns = Array.from({length: 20}, (_, i) => `<button class="table-btn" style="background:#f8fafc; border:1px solid #cbd5e1; padding:1rem; border-radius:12px; font-weight:bold; cursor:pointer;" data-table="${i+1}">${i+1}</button>`).join('');
+    const btns = Array.from({length: 20}, (_, i) => `<button class="table-btn" data-table="${i+1}">${i+1}</button>`).join('');
     const modalHtml = `
-        <div id="tableModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:2000;">
-            <div style="background:white; border-radius:20px; padding:2rem; text-align:center; width:90%; max-width:400px;">
+        <div id="tableModal" class="table-modal">
+            <div class="table-modal-content">
                 <h3 style="margin-bottom:1rem; font-size:1.3rem;">Où êtes-vous installé ?</h3>
-                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; margin:1.5rem 0; max-height:250px; overflow-y:auto;">${btns}</div>
+                <div class="table-buttons">${btns}</div>
                 <button style="width:100%; background:#2c3e50; color:white; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer; margin-bottom:10px;" data-table="Emporter">🛍️ À Emporter</button>
                 <button id="cancelTableBtn" style="width:100%; background:#e2e8f0; color:#333; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer;">Annuler</button>
             </div>
@@ -372,8 +364,6 @@ function afficherModalTable() {
         btn.onclick = () => {
             const numTable = btn.getAttribute('data-table');
             modal.remove();
-            
-            // 🔥 On affiche TOUJOURS la demande de code, même pour "Emporter"
             afficherModalCode(numTable); 
         };
     });
@@ -382,13 +372,12 @@ function afficherModalTable() {
 function afficherModalCode(numTable) {
     const titre = numTable === 'Emporter' ? '🛍️ À Emporter' : `Table ${numTable}`;
     
-    // Le champ devient "text" pour accepter les lettres et les chiffres
     const modalHtml = `
-        <div id="codeModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:2000;">
-            <div style="background:white; border-radius:20px; padding:2rem; text-align:center; width:90%; max-width:400px;">
+        <div id="codeModal" class="table-modal">
+            <div class="table-modal-content">
                 <h3 style="margin-bottom:0.5rem; color: #143621;">${titre}</h3>
                 <p style="font-size:0.9rem; color:#64748b;">Code de la table ou Code Fidélité</p>
-                <input type="text" id="codeConfirmation" style="width:100%; padding:1rem; font-size:1.5rem; font-weight:bold; text-align:center; text-transform:uppercase; letter-spacing:4px; border:2px solid #e2e8f0; border-radius:12px; margin:1rem 0; outline:none; color:#db800a;" placeholder="•••••">
+                <input type="text" id="codeConfirmation" class="code-input" placeholder="•••••">
                 <button id="validerCodeBtn" style="width:100%; background:#db800a; color:white; padding:1rem; border-radius:12px; font-size:1.1rem; font-weight:bold; border:none; cursor:pointer; margin-bottom:10px;">Confirmer la commande</button>
                 <button id="annulerCodeBtn" style="width:100%; background:#e2e8f0; color:#333; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer;">Retour</button>
             </div>
@@ -416,7 +405,6 @@ function afficherModalCode(numTable) {
         let authValid = false;
         let clientData = null;
 
-        // 1. ON VÉRIFIE D'ABORD SI C'EST UN CLIENT FIDÈLE 
         try {
             const resFid = await fetch(`/api/customers/verify/${codeSaisi}`);
             if (resFid.ok) { 
@@ -428,7 +416,6 @@ function afficherModalCode(numTable) {
             }
         } catch(e) {}
 
-        // 2. SI CE N'EST PAS UN FIDÈLE ET QU'IL A CHOISI UNE TABLE, ON VÉRIFIE LE CODE TABLE
         if (!authValid && numTable !== 'Emporter') {
             try {
                 const resTables = await fetch('/api/numbers');
@@ -440,7 +427,6 @@ function afficherModalCode(numTable) {
             } catch(e) {}
         }
 
-        // 3. CODE MAÎTRE (00000 pour dépanner)
         if (codeSaisi === "00000") authValid = true;
 
         if (authValid) {
@@ -466,7 +452,6 @@ async function validerCommande(numTable, clientData, codeSaisi) {
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
         const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
         
-        // 🔥 1. ON RÉCUPÈRE LE CHOIX DU CLIENT DANS LE HTML
         const methodeChoisie = document.getElementById('methodePaiementClient').value;
         
         const response = await fetch('/api/commandes', {
@@ -478,26 +463,20 @@ async function validerCommande(numTable, clientData, codeSaisi) {
                 clientId: idFidele,
                 clientName: nomFidele,
                 total: totalCommande,
-                methodePaiement: methodeChoisie // 🔥 2. ON ENVOIE CE CHOIX AU SERVEUR
+                methodePaiement: methodeChoisie 
             })
         });
 
         if (response.ok) {
             const commande = await response.json();
             
-            // ========================================================
-            // 🔥 3. LA MAGIE KONNECT : REDIRECTION DU TÉLÉPHONE
-            // ========================================================
             if (methodeChoisie === 'en_ligne' && commande.payUrl) {
                 afficherNotification("Redirection vers le paiement sécurisé...", "success");
-                // On redirige immédiatement le téléphone du client vers la page de paiement
                 window.location.href = commande.payUrl;
-                return; // On arrête l'exécution ici, le webhook fera le reste !
+                return; 
             }
-            // ========================================================
             
-            // Si c'est un paiement en "espèces" classique, on vide le panier et on valide
-            if(typeof sauvegarderCommandeClient === 'function') sauvegarderCommandeClient(commande);
+            sauvegarderCommandeClient(commande);
             
             panier = []; sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier();
             
@@ -507,14 +486,13 @@ async function validerCommande(numTable, clientData, codeSaisi) {
                 afficherNotification("🎉 Commande envoyée avec succès !");
             }
             
-            if(typeof chargerCatalogue === 'function') await chargerCatalogue(); 
+            await chargerCatalogue(); 
         } else { 
             afficherNotification("❌ Erreur serveur", "error"); 
         }
     } catch (e) { 
         afficherNotification("❌ Erreur de connexion", "error"); 
     } finally {
-        // On remet le bouton à son état normal si on n'a pas redirigé le client
         if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; }
     }
 }
@@ -535,24 +513,30 @@ function chargerMesCommandes() {
     const hist = JSON.parse(localStorage.getItem(`tabia_mes_commandes_${clientId}`) || "[]");
     const valides = hist.filter(c => c.expiration > Date.now());
     
-    if(!valides.length) { conteneur.innerHTML = "<p class='empty-message' style='text-align:center; color:#7f8c8d;'>Aucune commande en cours</p>"; return; }
+    if(!valides.length) { 
+        conteneur.innerHTML = "<div style='padding: 2rem; text-align: center; color: #7f8c8d; background: white; border-radius: 16px; border: 1px dashed #cbd5e1;'><p>Aucune commande en cours</p></div>"; 
+        return; 
+    }
 
     conteneur.innerHTML = valides.map(cmd => {
-        let statusBadge = '';
-        if(cmd.statut === 'en_attente') statusBadge = '<span style="padding:4px 10px; border-radius:20px; font-size:0.75rem; color:white; font-weight:bold; background:#f39c12;">En attente</span>';
-        if(cmd.statut === 'en_preparation') statusBadge = '<span style="padding:4px 10px; border-radius:20px; font-size:0.75rem; color:white; font-weight:bold; background:#3498db;">Préparation</span>';
-        if(cmd.statut === 'terminee' || cmd.statut === 'paye') statusBadge = '<span style="padding:4px 10px; border-radius:20px; font-size:0.75rem; color:white; font-weight:bold; background:#27ae60;">Prête !</span>';
+        let statusClass = 'status-attente';
+        let statusText = 'En attente';
+        
+        if(cmd.statut === 'en_preparation') { statusClass = 'status-preparation'; statusText = 'Préparation'; }
+        if(cmd.statut === 'terminee' || cmd.statut === 'paye') { statusClass = 'status-termine'; statusText = 'Prête !'; }
+
+        const numCmd = cmd.numero ? `#${cmd.numero}` : 'en cours...';
 
         return `
-            <div style="background:white; border-radius:16px; padding:1rem; margin-bottom:1rem; box-shadow:0 2px 8px rgba(0,0,0,0.05); border:1px solid #e2e8f0;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem;">
-                    <span style="font-weight:800; color:#db800a;">Commande #${cmd.numero}</span>
-                    ${statusBadge}
+            <div class="historique-commande-card">
+                <div class="historique-commande-header">
+                    <span class="commande-numero">Commande ${numCmd}</span>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
                 </div>
                 <div style="margin-bottom: 10px;">
-                    ${cmd.articles.map(a => `<div style="font-size:0.9rem; color:#7f8c8d; display:flex; justify-content:space-between; padding:3px 0;"><span>${a.quantite}x ${a.nom}</span> <span>${(a.prix*a.quantite).toFixed(2)} DT</span></div>`).join('')}
+                    ${cmd.articles.map(a => `<div class="article-detail"><span><span style="font-weight:bold;">${a.quantite}x</span> ${a.nom}</span> <span>${(a.prix*a.quantite).toFixed(2)} DT</span></div>`).join('')}
                 </div>
-                <div style="font-weight:bold; text-align:right; border-top:1px solid #f1f5f9; padding-top:5px; color:#db800a;">
+                <div style="font-weight:bold; text-align:right; border-top:1px solid #f1f5f9; padding-top:8px; margin-top:8px; color:#db800a; font-size:1.1rem;">
                     Total: ${(cmd.total || 0).toFixed(2)} DT
                 </div>
             </div>
@@ -564,10 +548,11 @@ function nettoyerCommandesExpirees() { chargerMesCommandes(); }
 
 function initClientSocket() {
     const socket = io({ 
-    query: { clientType: 'customer' }, 
-    transports: ['websocket', 'polling'], 
-    reconnection: true 
-});
+        query: { clientType: 'customer' }, 
+        transports: ['websocket', 'polling'], 
+        reconnection: true 
+    });
+    
     socket.on('mise_a_jour_commande', (commande) => {
         const key = `tabia_mes_commandes_${clientId}`;
         let hist = JSON.parse(localStorage.getItem(key) || "[]");
@@ -587,34 +572,25 @@ function initClientSocket() {
 function afficherNotification(msg, type = "success") {
     const notif = document.createElement("div");
     notif.className = `notification ${type === "error" ? "notification-error" : ""}`;
-    notif.style.cssText = `position:fixed; top:20px; left:50%; transform:translateX(-50%); background:${type === "error" ? "#e74c3c" : "#2c3e50"}; color:white; padding:1rem 2rem; border-radius:30px; font-weight:600; z-index:3000; animation:slideDown 0.3s ease; box-shadow:0 4px 15px rgba(0,0,0,0.2);`;
     notif.textContent = msg;
     document.body.appendChild(notif);
     setTimeout(() => { notif.style.transform = "translate(-50%, -100px)"; notif.style.opacity = "0"; setTimeout(() => notif.remove(), 300); }, 3000);
 }
 
-const styleNotif = document.createElement('style');
-styleNotif.innerHTML = `@keyframes slideDown { from { top: -50px; } to { top: 20px; } }`;
-document.head.appendChild(styleNotif);
-
 function configurerEvenements() {
     document.getElementById("closeCart").onclick = fermerPanier;
     document.getElementById("checkoutBtn").onclick = passerCommande;
     
-    // 🔥 NOUVELLE GESTION DE LA VALIDATION DES OPTIONS (UNIQUE ET MULTIPLE)
     document.getElementById("confirmOptionBtn")?.addEventListener("click", () => {
-        // On cherche toutes les cases qui ont été cochées par le client
         const checkedBoxes = document.querySelectorAll('input[name="varianteOption"]:checked');
         
         if (produitEnAttenteOption) {
             let valeursChoisies = "";
             
             if (checkedBoxes.length > 0) {
-                // S'il a coché des choses, on colle tout avec des virgules (ex: "Harissa, Fromage")
                 valeursChoisies = Array.from(checkedBoxes).map(cb => cb.value).join(', ');
             }
             
-            // On ajoute au panier avec les valeurs collées
             executerAjoutPanier(produitEnAttenteOption, valeursChoisies);
             document.getElementById("optionsModal").style.display = "none";
             produitEnAttenteOption = null;
@@ -630,7 +606,7 @@ function configurerEvenements() {
             document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
             e.target.classList.add("active");
             categorieActuelle = e.target.dataset.category;
-            if(typeof afficherProduits === 'function') afficherProduits();
+            afficherProduits();
         }
     });
     

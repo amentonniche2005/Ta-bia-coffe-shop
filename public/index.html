@@ -4,12 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <title>TA'BIA COFFEE SHOP</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-<header>
+    <header>
         <div class="header-container">
             <div class="logo">
                 <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img">
@@ -29,9 +33,8 @@
         </div>
     </div>
 
-<div class="categories-wrapper">
-        <div class="categories" id="categoryTabs">
-            </div>
+    <div class="categories-wrapper">
+        <div class="categories" id="categoryTabs"></div>
     </div>
 
     <div class="menu-section">
@@ -60,8 +63,7 @@
                 <button class="close-options" id="closeOptions">&times;</button>
             </div>
             <p style="color: #64748b; margin-bottom: 15px; font-size: 0.9rem;">Choisissez votre préférence :</p>
-            <div id="optionsList" class="options-list">
-                </div>
+            <div id="optionsList" class="options-list"></div>
             <button class="checkout-btn add-option-btn" id="confirmOptionBtn" style="margin-top: 15px; background: #db800a; color: white; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer;">
                 Ajouter <span id="optionPriceDisplay"></span>
             </button>
@@ -74,7 +76,10 @@
                 <h2><i class="fas fa-shopping-basket"></i> Mon Panier</h2>
                 <button class="close-cart" id="closeCart">&times;</button>
             </div>
-<div class="cart-total" id="cartTotal" style="margin-bottom: 10px;">Total: 0.00 DT</div>
+            
+            <div id="cartItems" class="cart-items"></div>
+            
+            <div class="cart-total" id="cartTotal" style="margin-bottom: 10px;">Total: 0.00 DT</div>
             
             <div style="margin-bottom: 15px;">
                 <label style="font-weight: bold; color: #143621; font-size: 0.95rem; display: block; margin-bottom: 8px;">
@@ -91,8 +96,8 @@
             </button>
         </div>
     </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="script-client.js"></script>
-    <script src="script-client.js?v=2"></script>
 </body>
 </html>
