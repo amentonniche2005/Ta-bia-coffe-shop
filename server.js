@@ -142,23 +142,23 @@ app.get('/api/stock', async (req, res) => {
 });
 
 // 🔥 ROUTE COMMANDE (SÉCURISÉE)
+// 🔥 ROUTE COMMANDE (MISE À JOUR POUR KONNECT RÉEL)
 app.post('/api/commandes', async (req, res) => {
     try {
-        const cmdId = Date.now().toString(); // ID en String pour Konnect
+        const cmdId = Date.now().toString();
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
         const isEnLigne = req.body.methodePaiement === 'en_ligne';
 
-        // 🔥 SÉCURITÉ : Recalcul du total côté serveur
+        // Recalcul sécurisé du total pour éviter les fraudes
         let totalSecurise = 0;
         let articlesSecurises = [];
-
         for (let art of req.body.articles) {
             const produitDb = await Product.findOne({ id: art.id });
             if (produitDb) {
                 totalSecurise += (produitDb.prix * art.quantite);
-                articlesSecurises.push({ ...art, prix: produitDb.prix }); // On force le vrai prix de la DB
+                articlesSecurises.push({ ...art, prix: produitDb.prix });
             } else {
-                totalSecurise += (art.prix * art.quantite); // Fallback si article custom
+                totalSecurise += (art.prix * art.quantite);
                 articlesSecurises.push(art);
             }
         }
@@ -170,20 +170,44 @@ app.post('/api/commandes', async (req, res) => {
             numero: numeroCmd, 
             date: new Date().toLocaleString('fr-FR'), 
             timestamp: Date.now(),
-            total: totalSecurise, // On utilise le total calculé par le serveur
-            statut: isEnLigne ? 'attente_paiement' : 'en_attente' 
+            total: totalSecurise,
+            statut: isEnLigne ? 'attente_paiement' : 'en_attente',
+            paye: false 
         });
         await cmd.save();
 
         if (isEnLigne) {
-            const simulateurUrl = `/api/simulateur-paiement/${cmdId}`;
-            return res.status(201).json({ ...cmd._doc, payUrl: simulateurUrl });
+            // 🚀 APPEL RÉEL À L'API KONNECT (SANDBOX)
+            const konnectPayload = {
+                receiverWalletId: process.env.KONNECT_WALLET_ID,
+                amount: cmd.total, // Montant en DT
+                token: "TND",
+                firstName: req.body.clientName || "Client",
+                lastName: "Ta'Bia",
+                orderId: cmdId,
+                addPaymentFees: true, // Frais à la charge du client
+                lifespan: 60, // Lien valide 60 minutes
+                // URLs de retour après paiement
+                successUrl: `http://${req.headers.host}/paiement-succes?id=${cmdId}`,
+                failUrl: `http://${req.headers.host}/paiement-echec?id=${cmdId}`,
+            };
+
+            const konnectRes = await axios.post(
+                'https://api.preprod.konnect.network/api/v2/payments/init-payment', 
+                konnectPayload, 
+                { headers: { 'x-api-key': process.env.KONNECT_API_KEY } }
+            );
+
+            // On renvoie l'URL payUrl générée par Konnect
+            return res.status(201).json({ ...cmd.toObject(), payUrl: konnectRes.data.payUrl });
         }
 
         io.emit('nouvelle_commande', cmd);
         res.status(201).json(cmd);
-
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error("Erreur Konnect:", err.response ? err.response.data : err.message);
+        res.status(500).json({ error: "Échec de l'initialisation du paiement Konnect" }); 
+    }
 });
 
 // =========================================================
