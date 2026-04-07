@@ -344,7 +344,7 @@ function passerCommande() {
 }
 
 function afficherModalTable() {
-    const btns = Array.from({length: 20}, (_, i) => `<button class="table-btn" data-table="${i+1}">${i+1}</button>`).join('');/////////////////////////////////////////////////nombre de table///////////////////////
+    const btns = Array.from({length: 20}, (_, i) => `<button class="table-btn" data-table="${i+1}">${i+1}</button>`).join('');
     const modalHtml = `
         <div id="tableModal" class="table-modal">
             <div class="table-modal-content">
@@ -446,17 +446,22 @@ async function validerCommande(numTable, clientData, codeSaisi) {
     if (checkoutBtn) { checkoutBtn.disabled = true; checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; }
 
     try {
-        const methodeChoisie = document.getElementById('methodePaiementClient').value;
+        let nomFidele = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
+        let idFidele = clientData ? codeSaisi : clientId;
+        
+        let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
         const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
+        
+        const methodeChoisie = document.getElementById('methodePaiementClient').value;
         
         const response = await fetch('/api/commandes', {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
-                numeroTable: (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable),
-                clientId: clientData ? codeSaisi : clientId,
-                clientName: clientData ? `${clientData.prenom} ${clientData.nom}` : null,
+                numeroTable: tableFinale,
+                clientId: idFidele,
+                clientName: nomFidele,
                 total: totalCommande,
                 methodePaiement: methodeChoisie 
             })
@@ -465,28 +470,34 @@ async function validerCommande(numTable, clientData, codeSaisi) {
         if (response.ok) {
             const commande = await response.json();
             
-            // 1. Sauvegarde et nettoyage du panier avant de quitter la page
+            // 1. ON SAUVEGARDE ET ON VIDE LE PANIER IMMÉDIATEMENT (Peu importe le mode de paiement)
             sauvegarderCommandeClient(commande);
             panier = []; 
             sauvegarderPanier(); 
             mettreAJourUIPanier(); 
             afficherContenuPanier();
-
-            // 2. Redirection vers Konnect si paiement en ligne
+            await chargerCatalogue();
+            
+            // 2. GESTION DU PAIEMENT EN LIGNE
             if (methodeChoisie === 'en_ligne' && commande.payUrl) {
-                afficherNotification("Redirection vers Konnect Sandbox...", "success");
-                // Délai court pour laisser l'UI se mettre à jour
+                afficherNotification("Redirection vers le paiement sécurisé...", "success");
+                // On met un tout petit délai (1.5s) pour que l'interface ait le temps de se mettre à jour
+                // et que le client voit que son panier a bien été validé avant de changer de page.
                 setTimeout(() => {
                     window.location.href = commande.payUrl;
-                }, 800);
+                }, 1500);
                 return; 
             }
             
-            afficherNotification("🎉 Commande envoyée avec succès !");
-            fermerPanier();
+            // 3. GESTION DU PAIEMENT SUR PLACE
+            if (nomFidele) {
+                afficherNotification(`🎉 Merci ${nomFidele} ! Commande envoyée.`);
+            } else {
+                afficherNotification("🎉 Commande envoyée avec succès !");
+            }
             
         } else { 
-            afficherNotification("❌ Erreur lors de la commande", "error"); 
+            afficherNotification("❌ Erreur serveur", "error"); 
         }
     } catch (e) { 
         afficherNotification("❌ Erreur de connexion", "error"); 

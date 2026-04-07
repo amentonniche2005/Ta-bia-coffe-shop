@@ -39,8 +39,8 @@ mongoose.connect(mongoURI)
 const Product = mongoose.model('Product', new mongoose.Schema({
     id: Number, 
     nom: String, 
-    prix: Number, 
-    prixAchat: { type: Number, default: 0 }, 
+    prix: Number, // Prix de vente
+    prixAchat: { type: Number, default: 0 }, // 🔴 NOUVEAU : Le prix que tu paies
     stock: Number, 
     categorie: String, 
     image: { type: String, default: 'https://via.placeholder.com/150' },
@@ -148,23 +148,23 @@ app.get('/api/stock', async (req, res) => {
 });
 
 // 🔥 ROUTE COMMANDE (SÉCURISÉE)
-// 🔥 ROUTE COMMANDE (MISE À JOUR POUR KONNECT RÉEL)
-// 🔥 ROUTE COMMANDE (CORRIGÉE POUR KONNECT)
 app.post('/api/commandes', async (req, res) => {
     try {
-        const cmdId = Date.now().toString();
+        const cmdId = Date.now().toString(); // ID en String pour Konnect
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
         const isEnLigne = req.body.methodePaiement === 'en_ligne';
 
+        // 🔥 SÉCURITÉ : Recalcul du total côté serveur
         let totalSecurise = 0;
         let articlesSecurises = [];
+
         for (let art of req.body.articles) {
             const produitDb = await Product.findOne({ id: art.id });
             if (produitDb) {
                 totalSecurise += (produitDb.prix * art.quantite);
-                articlesSecurises.push({ ...art, prix: produitDb.prix });
+                articlesSecurises.push({ ...art, prix: produitDb.prix }); // On force le vrai prix de la DB
             } else {
-                totalSecurise += (art.prix * art.quantite);
+                totalSecurise += (art.prix * art.quantite); // Fallback si article custom
                 articlesSecurises.push(art);
             }
         }
@@ -176,72 +176,22 @@ app.post('/api/commandes', async (req, res) => {
             numero: numeroCmd, 
             date: new Date().toLocaleString('fr-FR'), 
             timestamp: Date.now(),
-            total: totalSecurise,
-            statut: isEnLigne ? 'attente_paiement' : 'en_attente',
-            paye: false 
+            total: totalSecurise, // On utilise le total calculé par le serveur
+            statut: isEnLigne ? 'attente_paiement' : 'en_attente' 
         });
         await cmd.save();
 
         if (isEnLigne) {
-            // 🚀 APPEL RÉEL À L'API KONNECT (SANDBOX)
-            const konnectPayload = {
-                receiverWalletId: process.env.KONNECT_WALLET_ID,
-                // 🔥 CORRECTION CRITIQUE : Konnect attend des millimes (TND * 1000)
-                amount: Math.round(cmd.total * 1000), 
-                token: "TND",
-                firstName: req.body.clientName || "Client",
-                lastName: "Ta'Bia",
-                orderId: cmdId,
-                successUrl: `http://${req.headers.host}/paiement-succes`,
-                failUrl: `http://${req.headers.host}/paiement-echec`
-            };
-
-            const konnectRes = await axios.post(
-                'https://api.preprod.konnect.network/api/v2/payments/init-payment', 
-                konnectPayload, 
-                { headers: { 'x-api-key': process.env.KONNECT_API_KEY } }
-            );
-
-            // On renvoie l'URL payUrl générée par Konnect
-            return res.status(201).json({ ...cmd.toObject(), payUrl: konnectRes.data.payUrl });
+            const simulateurUrl = `/api/simulateur-paiement/${cmdId}`;
+            return res.status(201).json({ ...cmd._doc, payUrl: simulateurUrl });
         }
 
         io.emit('nouvelle_commande', cmd);
         res.status(201).json(cmd);
-    } catch (err) { 
-        // Si Konnect refuse, on affiche exactement pourquoi dans la console
-        console.error("❌ Erreur Konnect:", err.response ? err.response.data : err.message);
-        res.status(500).json({ error: "Échec de l'initialisation du paiement Konnect" }); 
-    }
-});
-// =========================================================
-// 🎯 ROUTES DE RETOUR KONNECT (SUCCÈS / ÉCHEC)
-// =========================================================
-app.get('/paiement-succes', (req, res) => {
-    res.send(`
-        <div style="text-align:center; padding: 50px; font-family: 'Inter', sans-serif;">
-            <div style="font-size: 80px; color: #27ae60; margin-bottom: 20px;">✅</div>
-            <h1 style="color: #2c3e50;">Paiement Réussi !</h1>
-            <p style="color: #7f8c8d; font-size: 1.2rem;">Votre paiement a été validé et la commande est en cuisine.</p>
-            <a href="/" style="display:inline-block; margin-top: 30px; padding: 15px 30px; background: #db800a; color: white; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem;">
-                Retour au Menu
-            </a>
-        </div>
-    `);
+
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/paiement-echec', (req, res) => {
-    res.send(`
-        <div style="text-align:center; padding: 50px; font-family: 'Inter', sans-serif;">
-            <div style="font-size: 80px; color: #e74c3c; margin-bottom: 20px;">❌</div>
-            <h1 style="color: #c0392b;">Paiement Annulé ou Échoué</h1>
-            <p style="color: #7f8c8d; font-size: 1.2rem;">Votre commande n'a pas été validée.</p>
-            <a href="/" style="display:inline-block; margin-top: 30px; padding: 15px 30px; background: #2c3e50; color: white; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem;">
-                Réessayer
-            </a>
-        </div>
-    `);
-});
 // =========================================================
 // 🚀 SIMULATEUR LOCAL DE PAIEMENT (SÉCURISÉ)
 // =========================================================
