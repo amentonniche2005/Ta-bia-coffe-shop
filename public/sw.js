@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tabia-caisse-v43';
+const CACHE_NAME = 'tabia-caisse-v44';
 const FICHIERS_A_CACHER = [
     '/',
     '/caisse.html',

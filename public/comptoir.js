@@ -128,7 +128,7 @@ function afficherColonne(containerId, commandes, type) {
     
     let commandesFiltrees = commandes;
     
-    // 🔥 NOUVEAUX FILTRES AVEC CLIENT FIDÈLE 🔥
+    // Filtres actuels
     if (filtreActuel !== "all") {
         commandesFiltrees = commandes.filter(cmd => {
             if (filtreActuel === "fidele") return cmd.clientName != null;
@@ -145,25 +145,27 @@ function afficherColonne(containerId, commandes, type) {
     
     container.innerHTML = commandesFiltrees.map(cmd => {
         const timeStr = cmd.date ? cmd.date.split(' ')[1] : new Date(cmd.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        
         const nomAffiche = cmd.clientName ? `<i class="fas fa-star"></i> ${cmd.clientName}` : `#${cmd.numero}`;
         const colorTitre = cmd.clientName ? 'color:#ea580c; font-size:1.2rem;' : ''; 
-        
-        // On récupère s'il est sur une table ou "À Emporter"
         const textTable = (cmd.numeroTable === 'Emporter' || !cmd.numeroTable) ? 'À Emporter' : `Table ${cmd.numeroTable}`;
         
-        // 🔥 BADGE MIS À JOUR AVEC LE NUMÉRO DE TABLE POUR LES FIDÈLES
         const badgeTable = cmd.clientName 
             ? `<span class="badge" style="background:#fef5e6; color:#e67e22; border:1px solid #fed7aa;"><i class="fas fa-star"></i> Fidèle - ${textTable}</span>` 
             : `<span class="badge badge-table"><i class="fas fa-chair"></i> ${textTable}</span>`;
         
-const badgeOrigine = cmd.clientId && !cmd.clientName 
+        const badgeOrigine = cmd.clientId && !cmd.clientName 
             ? `<span class="badge badge-client"><i class="fas fa-mobile-alt"></i> Web</span>` : ``;
 
-        // 🔥 NOUVEAU : LE BADGE DE PAIEMENT POUR LA CUISINE / SERVEURS
         const badgePaiement = cmd.methodePaiement === 'en_ligne'
-            ? `<span class="badge" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0;"><i class="fas fa-check-circle"></i> Payé (Web)</span>`
+            ? `<span class="badge" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0;"><i class="fas fa-check-circle"></i> Payé</span>`
             : `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;"><i class="fas fa-hand-holding-usd"></i> À encaisser</span>`;
+
+        // 🔥 NOUVEAUTÉ : GÉNÉRATION DU BADGE CHRONOMÈTRE (SLA)
+        let slaHtml = '';
+        if (cmd.statut !== 'terminee') {
+            const sla = getSLAInfo(cmd.timestamp);
+            slaHtml = `<div class="sla-badge ${sla.class}"><i class="fas ${sla.icon}"></i> ${sla.text}</div>`;
+        }
 
         const itemsHtml = cmd.articles.map(a => `
             <li class="item-row">
@@ -176,12 +178,13 @@ const badgeOrigine = cmd.clientId && !cmd.clientName
             <div class="ticket" data-id="${cmd.id}" onclick="voirDetails(${cmd.id})">
                 <div class="ticket-header">
                     <span class="ticket-id" style="${colorTitre}">${nomAffiche}</span>
-                    <span class="ticket-time"><i class="far fa-clock"></i> ${timeStr}</span>
+                    <div class="ticket-time-container">
+                        <span class="ticket-time"><i class="far fa-clock"></i> ${timeStr}</span>
+                        ${slaHtml} </div>
                 </div>
-<div class="badges-row">
-                    ${badgeTable}
-                    ${badgeOrigine}
-                    ${badgePaiement} </div>
+                <div class="badges-row">
+                    ${badgeTable} ${badgeOrigine} ${badgePaiement} 
+                </div>
                 <ul class="items-list">
                     ${itemsHtml}
                 </ul>
@@ -302,6 +305,20 @@ function jouerSonAction() {
         gain.gain.setValueAtTime(0.2, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
         osc.start(); osc.stop(ctx.currentTime + 0.1);
     } catch(e) {}
+}
+// ========== CALCUL DU TEMPS D'ATTENTE (SLA) ==========
+function getSLAInfo(timestamp) {
+    const now = Date.now();
+    const diffMs = now - (timestamp || now);
+    const diffMins = Math.floor(diffMs / 60000); // Convertir en minutes
+
+    if (diffMins < 5) {
+        return { class: 'sla-good', text: `${diffMins} min`, icon: 'fa-check-circle' };
+    } else if (diffMins < 10) {
+        return { class: 'sla-warning', text: `${diffMins} min`, icon: 'fa-exclamation-triangle' };
+    } else {
+        return { class: 'sla-danger', text: `${diffMins} min`, icon: 'fa-fire' };
+    }
 }
 
 // ========== ANIMATION CSS DYNAMIQUE ==========
