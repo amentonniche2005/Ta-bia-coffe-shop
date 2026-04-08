@@ -417,7 +417,6 @@ async function chargerCatalogue() {
 async function syncVentesHorsLigne() {
         if (isSyncingOffline) return; 
         
-        // 🔥 Lecture IndexedDB
         const ventesEnAttente = await localforage.getItem('tabia_ventes_offline') || [];
         if (ventesEnAttente.length === 0) return;
         
@@ -427,12 +426,26 @@ async function syncVentesHorsLigne() {
         
         for (let vente of ventesEnAttente) {
             try {
+                // On pousse la vente vers la base de données
                 const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(vente) });
-                if (!res.ok) ventesRestantes.push(vente); 
+                
+                if (res.ok) {
+                    // 🔥 NOUVEAUTÉ : Si la vente réussit, on ordonne au serveur de nettoyer la cuisine !
+                    if (vente.isPartiel && vente.offlineOrderIds) {
+                        await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: vente.offlineOrderIds, articlesRestants: vente.articlesRestantsOffline }) });
+                    } else if (!vente.isPartiel) {
+                        if (vente.offlineTable && vente.offlineTable.startsWith('Fidele_') && vente.offlineOrderIds) {
+                            for (let oid of vente.offlineOrderIds) { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); }
+                        } else if (vente.offlineTable && vente.offlineTable !== 'Emporter') {
+                            await fetchSecurise(`/api/commandes/table/${vente.offlineTable}/paye`, { method: 'PUT' });
+                        }
+                    }
+                } else {
+                    ventesRestantes.push(vente); 
+                }
             } catch (e) { ventesRestantes.push(vente); }
         }
         
-        // 🔥 Mise à jour IndexedDB
         await localforage.setItem('tabia_ventes_offline', ventesRestantes);
         isSyncingOffline = false;
         if (ventesRestantes.length === 0) showNotification("✅ Ventes synchronisées", "#10b981");
@@ -615,27 +628,43 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
         let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
-        if (currentTable.startsWith('Fidele_')) {
-            nomOrigine = `Fidèle: ${ticket.label}`;
-            if (ticket.orderIds && ticket.orderIds.length > 0) {
-                for (let oid of ticket.orderIds) { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); }
-            }
-        } else { await nettoyerCommandesCuisine(currentTable); }
+        if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
 
         const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
-        
-        // 🔥 GESTION HORS-LIGNE AVEC INDEXEDDB
-        if (navigator.onLine) { 
-            try { await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) }); } catch(e) {} 
-        } else { 
-            let ventesOffline = await localforage.getItem('tabia_ventes_offline') || []; 
-            ventesOffline.push(venteBody); 
-            await localforage.setItem('tabia_ventes_offline', ventesOffline); 
-            showNotification("⚠️ Vente hors-ligne sauvegardée.", "#f39c12"); 
+
+        // 🔥 BLOQUER LES DOUBLONS : On dit à la caisse de ne plus jamais afficher ces commandes
+        if (ticket.orderIds && ticket.orderIds.length > 0) {
+            ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
+        }
+
+        // Tenter d'envoyer au serveur
+        let requeteReussie = false;
+        try {
+            if (navigator.onLine) {
+                const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) });
+                if (res.ok) requeteReussie = true;
+            }
+        } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
+
+        if (!requeteReussie) {
+            // 🚨 HORS LIGNE : Sauvegarde ultra-robuste avec mémorisation de la table pour nettoyage futur
+            let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
+            venteBody.offlineTable = currentTable; 
+            venteBody.offlineOrderIds = ticket.orderIds || [];
+            ventesOffline.push(venteBody);
+            await localforage.setItem('tabia_ventes_offline', ventesOffline);
+            showNotification("⚠️ Serveur injoignable, Vente hors-ligne.", "#f39c12");
+        } else {
+            // ✅ EN LIGNE : On nettoie la cuisine tout de suite
+            if (currentTable.startsWith('Fidele_')) {
+                if (ticket.orderIds) { for (let oid of ticket.orderIds) { try { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); } catch(e){} } }
+            } else {
+                try { await nettoyerCommandesCuisine(currentTable); } catch(e){}
+            }
         }
         
         if (currentTable.startsWith('Fidele_')) { delete tickets[currentTable]; currentTable = 'Emporter'; } 
-        else { tickets[currentTable] = { articles: [], total: 0 }; }
+        else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; }
         
         sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
         showNotification(`✅ Payé : ${totalPaye.toFixed(2)} DT`, "#10b981");
@@ -702,18 +731,8 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle : ${ticket.label}`;
 
         const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
-        
-        // 🔥 GESTION HORS-LIGNE AVEC INDEXEDDB (Ajouté pour le paiement partiel)
-        if (navigator.onLine) {
-            try { await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) }); } catch(e) {}
-        } else {
-            let ventesOffline = await localforage.getItem('tabia_ventes_offline') || []; 
-            ventesOffline.push(venteBody); 
-            await localforage.setItem('tabia_ventes_offline', ventesOffline); 
-            showNotification("⚠️ Vente partielle hors-ligne sauvegardée.", "#f39c12"); 
-        }
-        
-        // 1. Calcul des articles qui restent à payer
+
+        // 1. Calcul des articles restants
         const articlesRestants = [];
         ticket.articles.forEach((article, articleIndex) => {
             for (let i = 0; i < article.quantite; i++) {
@@ -724,25 +743,37 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
                 }
             }
         });
-        
-        // 2. Envoi des articles restants à la cuisine pour mettre à jour l'écran
-        if (ticket.orderIds && ticket.orderIds.length > 0) {
-            try {
-                await fetchSecurise('/api/commandes/partiel-ids', {
-                    method: 'PUT',
-                    body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants })
-                });
-            } catch(e) { console.error("Erreur mise à jour cuisine", e); }
+
+        // Tenter d'envoyer au serveur
+        let requeteReussie = false;
+        try {
+            if (navigator.onLine) {
+                const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) });
+                if (res.ok) requeteReussie = true;
+            }
+        } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
+
+        if (!requeteReussie) {
+            // 🚨 HORS LIGNE : Sauvegarde avec les données pour mettre à jour la cuisine au retour d'internet
+            let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
+            venteBody.isPartiel = true;
+            venteBody.offlineOrderIds = ticket.orderIds || [];
+            venteBody.articlesRestantsOffline = articlesRestants; 
+            ventesOffline.push(venteBody);
+            await localforage.setItem('tabia_ventes_offline', ventesOffline);
+            showNotification("⚠️ Paiement partiel hors-ligne.", "#f39c12");
+        } else {
+            // ✅ EN LIGNE : Envoi des articles restants à la cuisine
+            if (ticket.orderIds && ticket.orderIds.length > 0) {
+                try { await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants }) }); } catch(e) {}
+            }
         }
         
         // 3. Mise à jour de la caisse locale
         tickets[currentTable].articles = articlesRestants; 
         tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
         
-        sauvegarderTousLesTickets(); 
-        afficherTicket(); 
-        afficherListeTables();
-        
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
         showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
         imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
     }
