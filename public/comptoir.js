@@ -160,11 +160,14 @@ function afficherColonne(containerId, commandes, type) {
             ? `<span class="badge" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0;"><i class="fas fa-check-circle"></i> Payé</span>`
             : `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;"><i class="fas fa-hand-holding-usd"></i> À encaisser</span>`;
 
-        // 🔥 NOUVEAUTÉ : GÉNÉRATION DU BADGE CHRONOMÈTRE (SLA)
+// 🔥 NOUVEAUTÉ : GÉNÉRATION DU BADGE CHRONOMÈTRE (SLA) AVEC DATA-TIMESTAMP
         let slaHtml = '';
         if (cmd.statut !== 'terminee') {
             const sla = getSLAInfo(cmd.timestamp);
-            slaHtml = `<div class="sla-badge ${sla.class}"><i class="fas ${sla.icon}"></i> ${sla.text}</div>`;
+            // On ajoute l'ID de la commande et le timestamp pour le chronomètre en direct
+            slaHtml = `<div id="sla-${cmd.id}" class="sla-badge ${sla.class}" data-timestamp="${cmd.timestamp}">
+                         <i class="fas ${sla.icon}"></i> <span>${sla.text}</span>
+                       </div>`;
         }
 
         const itemsHtml = cmd.articles.map(a => `
@@ -307,18 +310,56 @@ function jouerSonAction() {
     } catch(e) {}
 }
 // ========== CALCUL DU TEMPS D'ATTENTE (SLA) ==========
+// ========== CALCUL DU TEMPS D'ATTENTE (SLA) ==========
 function getSLAInfo(timestamp) {
     const now = Date.now();
     const diffMs = now - (timestamp || now);
     const diffMins = Math.floor(diffMs / 60000); // Convertir en minutes
 
-    if (diffMins < 5) {
-        return { class: 'sla-good', text: `${diffMins} min`, icon: 'fa-check-circle' };
-    } else if (diffMins < 10) {
-        return { class: 'sla-warning', text: `${diffMins} min`, icon: 'fa-exclamation-triangle' };
-    } else {
-        return { class: 'sla-danger', text: `${diffMins} min`, icon: 'fa-fire' };
+    let slaClass = 'sla-good';
+    let icon = 'fa-check-circle';
+
+    if (diffMins >= 10) {
+        slaClass = 'sla-danger';
+        icon = 'fa-fire';
+    } else if (diffMins >= 5) {
+        slaClass = 'sla-warning';
+        icon = 'fa-exclamation-triangle';
     }
+
+    return { class: slaClass, text: `${diffMins} min`, icon: icon, minutes: diffMins };
+}
+// ========== CHRONOMÈTRE FLUIDE EN TEMPS RÉEL ==========
+function demarrerChronoFluid() {
+    setInterval(() => {
+        // On sélectionne tous les badges SLA actuellement affichés à l'écran
+        const slaBadges = document.querySelectorAll('.sla-badge');
+        
+        slaBadges.forEach(badge => {
+            const timestamp = parseInt(badge.getAttribute('data-timestamp'));
+            if (!timestamp) return;
+
+            const sla = getSLAInfo(timestamp);
+            
+            // 1. On met à jour le texte du temps (Ex: "4 min")
+            const textSpan = badge.querySelector('span');
+            if (textSpan && textSpan.innerText !== sla.text) {
+                textSpan.innerText = sla.text;
+            }
+
+            // 2. On met à jour l'icône si elle a changé
+            const icon = badge.querySelector('i');
+            if (icon && !icon.classList.contains(sla.icon)) {
+                icon.className = `fas ${sla.icon}`;
+            }
+
+            // 3. On met à jour la couleur (Classe CSS) si le palier (5 ou 10 min) est franchi
+            if (!badge.classList.contains(sla.class)) {
+                badge.classList.remove('sla-good', 'sla-warning', 'sla-danger');
+                badge.classList.add(sla.class);
+            }
+        });
+    }, 1000); // Tourne toutes les secondes (1000 ms)
 }
 
 // ========== ANIMATION CSS DYNAMIQUE ==========
@@ -339,16 +380,13 @@ document.head.appendChild(style);
 
 // ========== INIT ==========
 // ========== INIT ==========
+// ========== INIT ==========
 document.addEventListener("DOMContentLoaded", () => {
     initSocket();
     chargerCommandes();
     
-    // 🔥 NOUVEAUTÉ : Rafraîchir l'interface toutes les 30 secondes pour mettre à jour les chronomètres SLA
-    setInterval(() => {
-        if (commandesComptoirCache.length > 0) {
-            afficherCommandes();
-        }
-    }, 30000); // 30000 ms = 30 secondes
+    // 🔥 Lancement du chronomètre invisible
+    demarrerChronoFluid();
 });
 
 window.demarrerPreparation = demarrerPreparation;
