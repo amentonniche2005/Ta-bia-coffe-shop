@@ -451,12 +451,38 @@
         } catch (error) {}
     }
 
-    async function viderTicket(tableNum, confirmDialogue = true) {
+async function viderTicket(tableNum, confirmDialogue = true) {
         if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
-            if (confirmDialogue) { try { await nettoyerCommandesCuisine(tableNum); } catch(e) {} }
-            if (String(tableNum).startsWith('Fidele_')) { delete tickets[tableNum]; currentTable = 'Emporter'; } 
-            else { tickets[tableNum] = { articles: [], total: 0 }; }
-            sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+            if (confirmDialogue) { 
+                try { 
+                    // 🔥 CORRECTION : Gestion spécifique pour les clients fidèles
+                    if (String(tableNum).startsWith('Fidele_')) {
+                        const ticket = tickets[tableNum];
+                        if (ticket && ticket.orderIds && ticket.orderIds.length > 0) {
+                            // On annule chaque commande de ce client une par une
+                            for (let oid of ticket.orderIds) { 
+                                await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); 
+                            }
+                        }
+                    } else {
+                        // Si c'est une table normale, on utilise la méthode classique
+                        await nettoyerCommandesCuisine(tableNum); 
+                    }
+                } catch(e) { console.error("Erreur lors du vidage", e); } 
+            }
+            
+            // Suppression locale du ticket
+            if (String(tableNum).startsWith('Fidele_')) { 
+                delete tickets[tableNum]; 
+                if (currentTable === tableNum) currentTable = 'Emporter'; 
+            } else { 
+                tickets[tableNum] = { articles: [], total: 0 }; 
+            }
+            
+            sauvegarderTousLesTickets(); 
+            afficherTicket(); 
+            afficherListeTables();
+            
             if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3b82f6");
         }
     }
@@ -575,7 +601,7 @@
             if (ticket.orderIds && ticket.orderIds.length > 0) {
                 for (let oid of ticket.orderIds) { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); }
             }
-        } else { nettoyerCommandesCuisine(currentTable); }
+        } else { await nettoyerCommandesCuisine(currentTable); }
 
         const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
         
@@ -610,18 +636,38 @@
     function deselectionnerTousArticles() { selectedUnits = selectedUnits.map(() => false); document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.remove('selected'); document.getElementById(`check_unit_${idx}`).checked = false; }); mettreAJourTotalUnites(); }
     function mettreAJourTotalUnites() { let total = 0; articlesDecomposes.forEach((unit, index) => { if (selectedUnits[index]) { total += unit.prix; } }); document.getElementById('selectionTotal').innerText = `${total.toFixed(2)} DT`; }
 
-    function validerSelectionPaiement() {
+function validerSelectionPaiement() {
         const selectedUnitsList = articlesDecomposes.filter((_, index) => selectedUnits[index]);
+        
         if (selectedUnitsList.length === 0) return showNotification("❌ Aucun article", "#ef4444");
+
+        // 🔥 CORRECTION : Si TOUS les articles sont sélectionnés, on bascule sur un paiement COMPLET
+        if (selectedUnitsList.length === articlesDecomposes.length) {
+            fermerModalSelection();
+            // On utilise les articles originaux du ticket et on met isPartial à 'false'
+            afficherModalPaiement(tickets[currentTable].articles, tickets[currentTable].total, false);
+            return; // On arrête la fonction ici
+        }
+
+        // Si ce n'est qu'une partie des articles (Paiement Partiel normal) :
         const unitsParProduit = {};
-        selectedUnitsList.forEach(unit => { const key = `${unit.id}_${unit.variante}`; if (!unitsParProduit[key]) unitsParProduit[key] = { id: unit.id, nom: unit.nom, variante: unit.variante, prix: unit.prix, quantite: 0 }; unitsParProduit[key].quantite++; });
-        const articlesAPayer = Object.values(unitsParProduit); const total = articlesAPayer.reduce((s, a) => s + a.prix * a.quantite, 0); const unitIdsASupprimer = selectedUnitsList.map(u => u.unitId);
-        fermerModalSelection(); afficherModalPaiement(articlesAPayer, total, true, unitIdsASupprimer);
+        selectedUnitsList.forEach(unit => { 
+            const key = `${unit.id}_${unit.variante}`; 
+            if (!unitsParProduit[key]) unitsParProduit[key] = { id: unit.id, nom: unit.nom, variante: unit.variante, prix: unit.prix, quantite: 0 }; 
+            unitsParProduit[key].quantite++; 
+        });
+        
+        const articlesAPayer = Object.values(unitsParProduit); 
+        const total = articlesAPayer.reduce((s, a) => s + a.prix * a.quantite, 0); 
+        const unitIdsASupprimer = selectedUnitsList.map(u => u.unitId);
+        
+        fermerModalSelection(); 
+        afficherModalPaiement(articlesAPayer, total, true, unitIdsASupprimer);
     }
 
     function fermerModalSelection() { document.getElementById('modalSelectionArticles').classList.remove('active'); currentTableSelection = null; }
 
-    async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer, methodePaiement = 'especes') {
+async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer, methodePaiement = 'especes') {
         const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
@@ -631,6 +677,7 @@
         const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
         try { await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) }); } catch(e) {}
         
+        // 1. Calcul des articles qui restent à payer
         const articlesRestants = [];
         ticket.articles.forEach((article, articleIndex) => {
             for (let i = 0; i < article.quantite; i++) {
@@ -642,8 +689,24 @@
             }
         });
         
-        tickets[currentTable].articles = articlesRestants; tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
-        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+        // 🔥 2. NOUVEAUTÉ : Envoi des articles restants à la cuisine pour mettre à jour l'écran
+        if (ticket.orderIds && ticket.orderIds.length > 0) {
+            try {
+                await fetchSecurise('/api/commandes/partiel-ids', {
+                    method: 'PUT',
+                    body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants })
+                });
+            } catch(e) { console.error("Erreur mise à jour cuisine", e); }
+        }
+        
+        // 3. Mise à jour de la caisse locale
+        tickets[currentTable].articles = articlesRestants; 
+        tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
+        
+        sauvegarderTousLesTickets(); 
+        afficherTicket(); 
+        afficherListeTables();
+        
         showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
         imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
     }

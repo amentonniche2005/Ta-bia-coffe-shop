@@ -635,6 +635,42 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
         res.status(500).json({ error: err.message }); 
     }
 });
+app.put('/api/commandes/partiel-ids', verifierToken, async (req, res) => {
+    try {
+        const { orderIds, articlesRestants } = req.body;
+        if (!orderIds || orderIds.length === 0) return res.json({ success: true });
+
+        // On cherche toutes les commandes actives liées à ce ticket
+        const commandes = await Order.find({ id: { $in: orderIds }, statut: { $ne: 'paye' } });
+        if (commandes.length === 0) return res.json({ success: true });
+
+        if (articlesRestants.length === 0) {
+            // S'il ne reste plus d'articles, on clôture tout en cuisine
+            for (let cmd of commandes) {
+                cmd.statut = 'paye';
+                await cmd.save();
+                io.emit('mise_a_jour_commande', cmd);
+            }
+        } else {
+            // S'il reste des articles, on met à jour la première commande avec le reste
+            const cmdPrincipale = commandes[0];
+            cmdPrincipale.articles = articlesRestants;
+            cmdPrincipale.total = articlesRestants.reduce((s, a) => s + (a.prix * a.quantite), 0);
+            await cmdPrincipale.save();
+            io.emit('mise_a_jour_commande', cmdPrincipale);
+
+            // On clôture les autres commandes fusionnées pour nettoyer l'écran de la cuisine
+            for (let i = 1; i < commandes.length; i++) {
+                commandes[i].statut = 'paye';
+                await commandes[i].save();
+                io.emit('mise_a_jour_commande', commandes[i]);
+            }
+        }
+        res.json({ success: true });
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
 
 // ========== 6. INITIALISATION DU MENU (SEED) ==========
 async function seedDatabase() {
