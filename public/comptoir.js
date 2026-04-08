@@ -338,9 +338,17 @@ document.head.appendChild(style);
     }
 
 // ========== INIT ==========
+// ========== INIT ==========
 document.addEventListener("DOMContentLoaded", () => {
     initSocket();
     chargerCommandes();
+    
+    // 🔥 NOUVEAUTÉ : Rafraîchir l'interface toutes les 30 secondes pour mettre à jour les chronomètres SLA
+    setInterval(() => {
+        if (commandesComptoirCache.length > 0) {
+            afficherCommandes();
+        }
+    }, 30000); // 30000 ms = 30 secondes
 });
 
 window.demarrerPreparation = demarrerPreparation;
