@@ -892,7 +892,7 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         
         document.getElementById('printArticles').innerHTML = panierArticles.map(a => `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="width:15%; font-weight:bold;">${a.quantite}x</span><span style="width:55%;">${a.nom} ${a.variante?`(${a.variante})`:''}</span><span style="width:30%; text-align:right; font-weight:bold;">${(a.prix * a.quantite).toFixed(3)}</span></div>`).join('') + `<div style="border-top:1px dashed black; margin:6px 0;"></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px;"><span>HT</span><span>${ht.toFixed(3)}</span></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:2px;"><span>TVA (19%)</span><span>${tva.toFixed(3)}</span></div>`;
         document.getElementById('printTotal').textContent = `${ttc.toFixed(3)} DT`;
-        document.getElementById('printPaiement').textContent = methodePaiement === 'especes' ? 'ESPECES' : (methodePaiement === 'carte' ? 'CARTE' : 'PROFORMA');
+        document.getElementById('printPaiement').textContent = methodePaiement === 'especes' ? 'ESPECES' : (methodePaiement === 'carte' ? 'CARTE' : 'Ticket Resto');
         
         const ticketElem = document.getElementById('ticketCaisse'); ticketElem.style.display = 'block';
         setTimeout(() => { window.print(); ticketElem.style.display = 'none'; }, 300);
