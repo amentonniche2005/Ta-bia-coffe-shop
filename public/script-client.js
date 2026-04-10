@@ -477,22 +477,24 @@ document.getElementById('btnVerifierFidelite')?.addEventListener('click', async 
         }
     } catch(e) { btn.innerHTML = 'OK'; }
 });
+
+
 function passerCommande() {
     if (panier.length === 0) return;
 
-    // On vérifie ce qu'on a en mémoire (sessionStorage)
     const tableEnMemoire = sessionStorage.getItem('tabia_table_qr');
     const authEnMemoire = sessionStorage.getItem('tabia_auth_qr');
 
-    // CAS 1 : SESSION ACTIVE (Le client a scanné un QR Code)
-    // On passe directement à la validation (Zéro-Clic)
+    // CAS 1 : SESSION ACTIVE VIA QR CODE (Table ou VIP scanné = Zéro Clic)
     if (tableEnMemoire && authEnMemoire) {
         fermerPanier();
         validerCommande(tableEnMemoire, null, authEnMemoire);
     } 
-    
-    // CAS 2 : NAVIGATION NORMALE (Entrée directe sur le site)
-    // On suit le processus classique : Choix table -> Saisie Code
+    else if (!tableEnMemoire && authEnMemoire) {
+        fermerPanier();
+        validerCommande("Emporter", null, authEnMemoire);
+    }
+    // CAS 2 : NAVIGATION NORMALE (Pas de QR scanné)
     else {
         fermerPanier();
         afficherModalTable(); 
@@ -520,6 +522,7 @@ function afficherModalTable() {
         btn.onclick = () => {
             const numTable = btn.getAttribute('data-table');
             modal.remove();
+            // FONCTIONNEMENT NORMAL : On ouvre la fenêtre du code
             afficherModalCode(numTable); 
         };
     });
