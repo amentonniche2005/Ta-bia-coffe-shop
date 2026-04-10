@@ -670,29 +670,39 @@ function chargerMesCommandes() {
     if(!conteneur) return;
     
     const hist = JSON.parse(localStorage.getItem(`tabia_mes_commandes_${clientId}`) || "[]");
-    const valides = hist.filter(c => c.expiration > Date.now());
+    
+    // 🔥 MODIFICATION 1 : On ne garde que les commandes non expirées ET qui ne sont PAS payées
+    const valides = hist.filter(c => c.expiration > Date.now() && c.statut !== 'paye');
     
     if(!valides.length) { 
-        conteneur.innerHTML = "<div style='padding: 2rem; text-align: center; color: #7f8c8d; background: white; border-radius: 16px; border: 1px dashed #cbd5e1;'><p>Aucune commande en cours</p></div>"; 
+        conteneur.innerHTML = `
+            <div style='padding: 2.5rem 1rem; text-align: center; color: #94a3b8; background: white; border-radius: 20px; border: 1px dashed #cbd5e1; box-shadow: 0 4px 6px rgba(0,0,0,0.02);'>
+                <i class="fas fa-receipt fa-2x" style="opacity: 0.4; margin-bottom: 10px;"></i>
+                <p style="margin: 0; font-weight: 600;">Aucune commande en cours</p>
+            </div>`; 
         return; 
     }
 
     conteneur.innerHTML = valides.map(cmd => {
         let statusClass = 'status-attente';
         let statusText = 'En attente';
+        let statusIcon = '<i class="fas fa-clock"></i>';
         
-        // --- LOGIQUE DES BADGES MODIFIÉE ICI ---
-        if(cmd.statut === 'paye') { 
-            statusClass = 'status-paye'; // Assure-toi que cette classe est bien dans ton CSS (ex: même vert que status-termine)
-            statusText = 'Payé 💳'; 
+        // 🔥 MODIFICATION 2 : Logique des badges avec icônes animées FontAwesome
+        if(cmd.statut === 'en_attente') { 
+            statusClass = 'status-attente'; 
+            statusText = 'En attente'; 
+            statusIcon = '<i class="fas fa-clock"></i>';
         }
         else if(cmd.statut === 'en_preparation') { 
             statusClass = 'status-preparation'; 
             statusText = 'Préparation'; 
+            statusIcon = '<i class="fas fa-fire fa-beat" style="--fa-animation-duration: 1.5s;"></i>';
         }
         else if(cmd.statut === 'terminee') { 
             statusClass = 'status-termine'; 
-            statusText = 'Prête !'; 
+            statusText = 'C\'est Prêt !'; 
+            statusIcon = '<i class="fas fa-check-circle fa-bounce" style="--fa-animation-duration: 2s;"></i>';
         }
 
         const numCmd = cmd.numero ? `#${cmd.numero}` : 'en cours...';
@@ -700,13 +710,20 @@ function chargerMesCommandes() {
         return `
             <div class="historique-commande-card">
                 <div class="historique-commande-header">
-                    <span class="commande-numero">Commande ${numCmd}</span>
-                    <span class="status-badge ${statusClass}">${statusText}</span>
+                    <span class="commande-numero" style="font-size: 1.1rem;">Commande ${numCmd}</span>
+                    <span class="status-badge ${statusClass}" style="display:flex; align-items:center; gap:6px; padding: 6px 12px; font-size: 0.8rem;">
+                        ${statusIcon} ${statusText}
+                    </span>
                 </div>
-                <div style="margin-bottom: 10px;">
-                    ${cmd.articles.map(a => `<div class="article-detail"><span><span style="font-weight:bold;">${a.quantite}x</span> ${a.nom}</span> <span>${(a.prix*a.quantite).toFixed(2)} DT</span></div>`).join('')}
+                <div style="margin-bottom: 15px;">
+                    ${cmd.articles.map(a => `
+                        <div class="article-detail" style="padding: 5px 0;">
+                            <span><span style="font-weight:900; color:#1e293b;">${a.quantite}x</span> ${a.nom}</span> 
+                            <span style="font-weight:600; color:#475569;">${(a.prix*a.quantite).toFixed(2)} DT</span>
+                        </div>
+                    `).join('')}
                 </div>
-                <div style="font-weight:bold; text-align:right; border-top:1px solid #f1f5f9; padding-top:8px; margin-top:8px; color:#db800a; font-size:1.1rem;">
+                <div style="font-weight:900; text-align:right; border-top:2px dashed #e2e8f0; padding-top:12px; margin-top:8px; color:#143621; font-size:1.3rem;">
                     Total: ${(cmd.total || 0).toFixed(2)} DT
                 </div>
             </div>
@@ -745,6 +762,43 @@ function afficherNotification(msg, type = "success") {
     notif.textContent = msg;
     document.body.appendChild(notif);
     setTimeout(() => { notif.style.transform = "translate(-50%, -100px)"; notif.style.opacity = "0"; setTimeout(() => notif.remove(), 300); }, 3000);
+}
+// 🔥 NOUVEAU : SYNCHRONISATION DES COMMANDES AU DÉMARRAGE
+async function synchroniserMesCommandesAvecServeur() {
+    const key = `tabia_mes_commandes_${clientId}`;
+    let hist = JSON.parse(localStorage.getItem(key) || "[]");
+    
+    // On ne garde que les commandes récentes (moins de 24h) qui ne sont pas encore payées
+    let commandesActives = hist.filter(c => c.expiration > Date.now() && c.statut !== 'paye');
+    
+    if (commandesActives.length === 0) {
+        chargerMesCommandes(); // Affiche juste "Panier vide"
+        return;
+    }
+
+    try {
+        // On demande au serveur le statut de nos commandes actives
+        const response = await fetch(`/api/mes-commandes/${clientId}`);
+        if (response.ok) {
+            const vraiesCommandes = await response.json();
+            
+            // On met à jour notre historique local avec la vérité du serveur
+            hist = hist.map(cmdLocal => {
+                const cmdServeur = vraiesCommandes.find(c => c.id === cmdLocal.id);
+                if (cmdServeur) {
+                    return { ...cmdLocal, statut: cmdServeur.statut };
+                }
+                return cmdLocal;
+            });
+            
+            // On sauvegarde et on rafraîchit l'écran
+            localStorage.setItem(key, JSON.stringify(hist));
+            chargerMesCommandes();
+        }
+    } catch (e) {
+        console.error("Impossible de synchroniser les commandes", e);
+        chargerMesCommandes(); // Fallback sur les données locales
+    }
 }
 
 function configurerEvenements() {

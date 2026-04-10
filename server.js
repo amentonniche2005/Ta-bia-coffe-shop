@@ -218,7 +218,23 @@ app.post('/api/commandes', async (req, res) => {
 
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
+// 🔥 API : RÉCUPÉRER LES COMMANDES EN COURS D'UN CLIENT PRÉCIS
+app.get('/api/mes-commandes/:clientId', async (req, res) => {
+    try {
+        const clientId = req.params.clientId;
+        // On cherche les commandes de ce client qui ne sont pas encore payées
+        const commandes = await Order.find({ 
+            clientId: clientId, 
+            statut: { $ne: 'paye' } 
+        });
+        
+        // On ne renvoie que l'essentiel (id et statut) pour des raisons de performance et sécurité
+        const statuts = commandes.map(c => ({ id: c.id, statut: c.statut }));
+        res.json(statuts);
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
 // =========================================================
 // 🚀 SIMULATEUR LOCAL DE PAIEMENT (SÉCURISÉ)
 // =========================================================
