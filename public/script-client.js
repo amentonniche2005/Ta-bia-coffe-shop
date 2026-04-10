@@ -568,13 +568,14 @@ async function validerCommande(numTable, clientData, codeSaisi) {
         
         const methodeChoisie = document.getElementById('methodePaiementClient').value;
         
-        const response = await fetch('/api/commandes', {
+const response = await fetch('/api/commandes', {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
                 numeroTable: tableFinale,
-                clientId: idFidele,
+                clientId: clientId,           // 🔥 On garde l'ID de l'appareil (pour l'historique local)
+                codeAuth: codeSaisi,          // 🔥 NOUVEAU : On ajoute le vrai code secret de la table ou de fidélité !
                 clientName: nomFidele,
                 total: totalCommande,
                 methodePaiement: methodeChoisie 

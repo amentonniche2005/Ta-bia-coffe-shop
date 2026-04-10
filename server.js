@@ -156,8 +156,7 @@ app.post('/api/commandes', async (req, res) => {
         // =================================================================
         if (req.body.numeroTable && req.body.numeroTable !== 'Emporter') {
             let authValid = false;
-            const codeEnvoye = String(req.body.clientId); // Le code QR ou Fidélité envoyé par le client
-
+           const codeEnvoye = String(req.body.codeAuth); 
             // 1. Vérifier si c'est un client fidèle
             const fidele = await LoyalCustomer.findOne({ codeFidelite: codeEnvoye });
             if (fidele) authValid = true;
