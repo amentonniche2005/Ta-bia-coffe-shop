@@ -62,57 +62,80 @@ function getClientId() {
 
 // ========== CHARGEMENT ==========
 document.addEventListener("DOMContentLoaded", async () => {
-    // 1. Lecture du QR Code dans l'URL (si le client vient de scanner)
     const urlParams = new URLSearchParams(window.location.search);
     const tableUrl = urlParams.get('table');
-    const authUrl = urlParams.get('auth');
+    const authUrl = urlParams.get('auth'); // Peut être le code Table OU le code Fidélité
 
-    if (tableUrl && authUrl) {
-        // On sauvegarde la session silencieusement
-        sessionStorage.setItem('tabia_table_qr', tableUrl);
+    // 1. GESTION DU SCAN (TABLE OU CARTE FIDÉLITÉ)
+    if (authUrl) {
+        // On stocke le code d'authentification immédiatement (Zéro-Clic)
         sessionStorage.setItem('tabia_auth_qr', authUrl);
         
-        // On nettoie l'URL pour faire plus propre
-        window.history.replaceState({}, document.title, "/");
-        
-        // Petite notification de bienvenue
-        setTimeout(() => { afficherNotification(`📍 Connecté à la Table ${tableUrl}`); }, 1000);
+        // On vérifie si c'est un client fidèle pour récupérer son nom
+        try {
+            const resFid = await fetch(`/api/fidelite/identifier/${authUrl}`);
+            if (resFid.ok) {
+                const data = await resFid.json();
+                if (data.success) {
+                    sessionStorage.setItem('client_nom_premium', data.nomComplet);
+                    setTimeout(() => { 
+                        afficherNotification(`✨ Bienvenue ${data.nomComplet} !`, "success"); 
+                    }, 1000);
+                }
+            }
+        } catch(e) { 
+            console.log("Code table simple détecté ou erreur identification."); 
+        }
     }
 
-    // =====================================================================
-    // 🔥 NOUVEAUTÉ : VÉRIFICATION DE LA MÉMOIRE (GHOST SESSION) AU DÉMARRAGE
-    // =====================================================================
+    if (tableUrl) {
+        sessionStorage.setItem('tabia_table_qr', tableUrl);
+        setTimeout(() => { 
+            afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
+        }, 1500);
+    }
+
+    // On nettoie l'URL pour la discrétion
+    if (tableUrl || authUrl) {
+        window.history.replaceState({}, document.title, "/");
+    }
+
+    // 2. VÉRIFICATION DE SÉCURITÉ (GHOST SESSION)
     const storedTable = sessionStorage.getItem('tabia_table_qr');
     const storedAuth = sessionStorage.getItem('tabia_auth_qr');
 
-    if (storedTable && storedAuth) {
+    if (storedTable && storedAuth && storedTable !== 'Emporter') {
         try {
-            // On demande silencieusement les codes actuels au serveur
             const resTables = await fetch('/api/numbers');
             if (resTables.ok) {
                 const tables = await resTables.json();
                 const tableData = tables.find(t => parseInt(t.numero) === parseInt(storedTable));
                 
-                // Si la table n'a plus le même code aujourd'hui, on efface le téléphone du client en silence !
-                if (!tableData || tableData.code !== String(storedAuth)) {
+                // Si c'est un code table (pas un client fidèle) et qu'il a changé
+                // On vérifie d'abord si ce n'est pas un client fidèle enregistré
+                const isFidele = sessionStorage.getItem('client_nom_premium');
+                
+                if (!isFidele && tableData && tableData.code !== String(storedAuth)) {
                     sessionStorage.removeItem('tabia_table_qr');
                     sessionStorage.removeItem('tabia_auth_qr');
-                    console.log("Ancienne session expirée effacée avec succès.");
+                    console.log("Ancienne session table expirée.");
                 }
             }
-        } catch(e) {
-            console.error("Impossible de vérifier la session", e);
-        }
+        } catch(e) { console.error("Erreur check session", e); }
     }
-    // =====================================================================
 
-    // 2. Initialisation normale de l'application
+    // 3. Initialisation normale
     clientId = getClientId();
     await chargerCatalogue();
     chargerPanier();
     mettreAJourUIPanier();
     nettoyerCommandesExpirees();
-    chargerMesCommandes();
+    // On synchronise les commandes avec le serveur au lieu de juste charger
+    if (typeof synchroniserMesCommandesAvecServeur === "function") {
+        await synchroniserMesCommandesAvecServeur();
+    } else {
+        chargerMesCommandes();
+    }
     initClientSocket();
     configurerEvenements();
 });
