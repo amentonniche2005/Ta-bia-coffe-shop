@@ -314,41 +314,58 @@ function ouvrirFermerPanier() {
 
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
 
+// ========== AFFICHAGE DU PANIER MODERNE ==========
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
+    const checkoutBtn = document.getElementById("checkoutBtn");
 
     if (panier.length === 0) {
-        conteneur.innerHTML = "<div style='padding: 2rem; text-align: center; color: #7f8c8d;'><i class='fas fa-shopping-basket fa-3x' style='opacity:0.2; margin-bottom:1rem;'></i><p>Votre panier est vide 😢</p></div>";
-        totalElement.textContent = "Total: 0.00 DT";
-        document.getElementById("checkoutBtn").disabled = true;
+        conteneur.innerHTML = `
+            <div style='padding: 3rem 1rem; text-align: center; color: #94a3b8;'>
+                <div style="background: #f1f5f9; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                    <i class='fas fa-shopping-bag fa-2x' style='color: #cbd5e1;'></i>
+                </div>
+                <h3 style="color: #475569; margin-bottom: 5px;">Votre panier est vide</h3>
+                <p style="font-size: 0.9rem;">Il est temps de vous faire plaisir ! ☕</p>
+            </div>`;
+        totalElement.textContent = "0.00 DT";
+        checkoutBtn.disabled = true;
+        checkoutBtn.style.opacity = "0.5";
         return;
     }
     
-    document.getElementById("checkoutBtn").disabled = false;
+    checkoutBtn.disabled = false;
+    checkoutBtn.style.opacity = "1";
 
     let total = 0;
     conteneur.innerHTML = panier.map(article => {
         total += article.prix * article.quantite;
         const nomPropre = article.nom.split(' (')[0];
-        const varianteHTML = article.variante ? `<span class="cart-item-variant">${article.variante}</span>` : '';
+        const varianteHTML = article.variante ? `<div class="modern-cart-item-variant">${article.variante}</div>` : '';
+        
         return `
-            <div class="cart-item">
-                <div class="cart-item-info">
+            <div class="modern-cart-item">
+                <div class="modern-cart-item-info">
                     <h4>${nomPropre}</h4>
                     ${varianteHTML}
-                    <div class="cart-item-price">${article.prix.toFixed(2)} DT</div>
+                    <div class="modern-cart-item-price">${article.prix.toFixed(2)} DT</div>
                 </div>
-                <div class="cart-item-actions">
-                    <button class="quantity-btn" onclick="changerQuantite('${article.cartId}', -1)">-</button>
-                    <span class="item-quantity">${article.quantite}</span>
-                    <button class="quantity-btn" onclick="changerQuantite('${article.cartId}', 1)">+</button>
+                <div class="modern-qty-control">
+                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', -1)">
+                        <i class="fas ${article.quantite === 1 ? 'fa-trash-alt' : 'fa-minus'}" style="color: ${article.quantite === 1 ? '#ef4444' : '#1e293b'}; font-size: ${article.quantite === 1 ? '0.9rem' : '1rem'}"></i>
+                    </button>
+                    <span class="modern-qty-val">${article.quantite}</span>
+                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', 1)">
+                        <i class="fas fa-plus"></i>
+                    </button>
                 </div>
             </div>
         `;
     }).join('');
 
-    totalElement.textContent = `Total: ${total.toFixed(2)} DT`;
+    // Met à jour le grand total en bas
+    totalElement.textContent = `${total.toFixed(2)} DT`;
 }
 
 // ========== ENVOI COMMANDE ==========
