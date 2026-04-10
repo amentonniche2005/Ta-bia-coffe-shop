@@ -345,11 +345,25 @@ function ouvrirFermerPanier() {
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
 
 // ========== AFFICHAGE DU PANIER MODERNE ==========
-// ========== AFFICHAGE DU PANIER MODERNE (AVEC IMAGES) ==========
+
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
     const checkoutBtn = document.getElementById("checkoutBtn");
+    
+    // 🔥 NOUVEAU : GESTION DE L'AFFICHAGE DE LA ZONE FIDÉLITÉ
+    const zoneFidelite = document.getElementById("zoneFidelitePanier");
+    const tableQr = sessionStorage.getItem('tabia_table_qr');
+    const authQr = sessionStorage.getItem('tabia_auth_qr');
+    
+    if (zoneFidelite) {
+        // On affiche la zone "Client fidèle" UNIQUEMENT si le client a scanné un QR Code
+        if (tableQr && authQr) {
+            zoneFidelite.style.display = "block";
+        } else {
+            zoneFidelite.style.display = "none";
+        }
+    }
 
     if (panier.length === 0) {
         // Design Premium pour le panier vide
@@ -365,6 +379,9 @@ function afficherContenuPanier() {
         checkoutBtn.disabled = true;
         checkoutBtn.style.opacity = "0.5";
         checkoutBtn.style.cursor = "not-allowed";
+        
+        // On cache aussi la zone fidélité si le panier est vide pour que ce soit plus propre
+        if (zoneFidelite) zoneFidelite.style.display = "none";
         return;
     }
     
@@ -378,7 +395,7 @@ function afficherContenuPanier() {
         const nomPropre = article.nom.split(' (')[0];
         const varianteHTML = article.variante ? `<div class="modern-cart-item-variant">${article.variante}</div>` : '';
         
-        // 🔥 RÉCUPÉRATION DE L'IMAGE DU PRODUIT
+        // RÉCUPÉRATION DE L'IMAGE DU PRODUIT
         const produitBase = produits.find(p => p.id === article.baseId);
         const imgSrc = (produitBase && produitBase.image) ? produitBase.image : (produitBase ? defaultImages[produitBase.categorie] : defaultImages['cafe']);
 
