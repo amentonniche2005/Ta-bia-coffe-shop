@@ -78,7 +78,7 @@
             position: absolute; 
             top: -9999px; 
             left: -9999px; 
-            opacity: 0; 
+            opacity: 1; 
             pointer-events: none; 
         }
         @media print {
@@ -298,7 +298,7 @@ function imprimerTicket() {
 
             // 🔥 NOUVEAU : GÉNÉRATION DU QR CODE DYNAMIQUE
             // ⚠️ IMPORTANT: Si tu testes en réseau local, remplace l'URL par ton IP (ex: http://192.168.1.15:3000)
-            const urlClient = `https://tabia-coffe-shop.onrender.com//?table=${currentData.numero}&auth=${currentData.code}`;
+            const urlClient = `https://tabia-coffe-shop.onrender.com/?table=${currentData.numero}&auth=${currentData.code}`;
             const qrImage = document.querySelector('.print-qr-img');
 
             // On lance l'impression SEULEMENT quand l'image a fini de charger !
