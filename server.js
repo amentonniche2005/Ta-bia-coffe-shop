@@ -148,8 +148,36 @@ app.get('/api/stock', async (req, res) => {
 });
 
 // 🔥 ROUTE COMMANDE (SÉCURISÉE)
+// 🔥 ROUTE COMMANDE (SÉCURISÉE AVEC VÉRIFICATION DU CODE TABLE)
 app.post('/api/commandes', async (req, res) => {
     try {
+        // =================================================================
+        // 🚨 NOUVEAUTÉ : VÉRIFICATION STRICTE DU CODE DE TABLE EN TEMPS RÉEL
+        // =================================================================
+        if (req.body.numeroTable && req.body.numeroTable !== 'Emporter') {
+            let authValid = false;
+            const codeEnvoye = String(req.body.clientId); // Le code QR ou Fidélité envoyé par le client
+
+            // 1. Vérifier si c'est un client fidèle
+            const fidele = await LoyalCustomer.findOne({ codeFidelite: codeEnvoye });
+            if (fidele) authValid = true;
+
+            // 2. Sinon, vérifier si le code correspond au code ACTUEL de la table
+            if (!authValid) {
+                const tableDb = await TableCode.findOne({ numero: parseInt(req.body.numeroTable) });
+                if (tableDb && tableDb.code === codeEnvoye) authValid = true;
+            }
+
+            // 3. Code Master (Sécurité optionnelle)
+            if (codeEnvoye === "00000") authValid = true;
+
+            // Si le code a expiré (la table a été encaissée et le code a changé) -> ON BLOQUE !
+            if (!authValid) {
+                return res.status(403).json({ error: "Ce QR Code a expiré. La table a été renouvelée. Veuillez rescanner le QR Code actuel sur la table." });
+            }
+        }
+        // =================================================================
+
         const cmdId = Date.now().toString(); // ID en String pour Konnect
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
         const isEnLigne = req.body.methodePaiement === 'en_ligne';

@@ -62,6 +62,7 @@ function getClientId() {
 
 // ========== CHARGEMENT ==========
 document.addEventListener("DOMContentLoaded", async () => {
+    // 1. Lecture du QR Code dans l'URL (si le client vient de scanner)
     const urlParams = new URLSearchParams(window.location.search);
     const tableUrl = urlParams.get('table');
     const authUrl = urlParams.get('auth');
@@ -71,12 +72,41 @@ document.addEventListener("DOMContentLoaded", async () => {
         sessionStorage.setItem('tabia_table_qr', tableUrl);
         sessionStorage.setItem('tabia_auth_qr', authUrl);
         
-        // On nettoie l'URL pour faire plus propre (Optionnel)
+        // On nettoie l'URL pour faire plus propre
         window.history.replaceState({}, document.title, "/");
         
         // Petite notification de bienvenue
         setTimeout(() => { afficherNotification(`📍 Connecté à la Table ${tableUrl}`); }, 1000);
     }
+
+    // =====================================================================
+    // 🔥 NOUVEAUTÉ : VÉRIFICATION DE LA MÉMOIRE (GHOST SESSION) AU DÉMARRAGE
+    // =====================================================================
+    const storedTable = sessionStorage.getItem('tabia_table_qr');
+    const storedAuth = sessionStorage.getItem('tabia_auth_qr');
+
+    if (storedTable && storedAuth) {
+        try {
+            // On demande silencieusement les codes actuels au serveur
+            const resTables = await fetch('/api/numbers');
+            if (resTables.ok) {
+                const tables = await resTables.json();
+                const tableData = tables.find(t => parseInt(t.numero) === parseInt(storedTable));
+                
+                // Si la table n'a plus le même code aujourd'hui, on efface le téléphone du client en silence !
+                if (!tableData || tableData.code !== String(storedAuth)) {
+                    sessionStorage.removeItem('tabia_table_qr');
+                    sessionStorage.removeItem('tabia_auth_qr');
+                    console.log("Ancienne session expirée effacée avec succès.");
+                }
+            }
+        } catch(e) {
+            console.error("Impossible de vérifier la session", e);
+        }
+    }
+    // =====================================================================
+
+    // 2. Initialisation normale de l'application
     clientId = getClientId();
     await chargerCatalogue();
     chargerPanier();
@@ -566,7 +596,6 @@ async function validerCommande(numTable, clientData, codeSaisi) {
             if (methodeChoisie === 'en_ligne' && commande.payUrl) {
                 afficherNotification("Redirection vers le paiement sécurisé...", "success");
                 // On met un tout petit délai (1.5s) pour que l'interface ait le temps de se mettre à jour
-                // et que le client voit que son panier a bien été validé avant de changer de page.
                 setTimeout(() => {
                     window.location.href = commande.payUrl;
                 }, 1500);
@@ -581,7 +610,26 @@ async function validerCommande(numTable, clientData, codeSaisi) {
             }
             
         } else { 
-            afficherNotification("❌ Erreur serveur", "error"); 
+            // =========================================================
+            // 🔥 NOUVEAUTÉ : GESTION DE LA SESSION EXPIRÉE (ERREUR 403)
+            // =========================================================
+            const erreurData = await response.json();
+            
+            if (response.status === 403) {
+                // On affiche le message d'erreur venu du serveur
+                afficherNotification("❌ " + erreurData.error, "error");
+                
+                // On détruit l'ancienne session corrompue en mémoire !
+                sessionStorage.removeItem('tabia_table_qr');
+                sessionStorage.removeItem('tabia_auth_qr');
+                
+                // On recharge la page après 2.5 secondes pour forcer le client à recommencer proprement
+                setTimeout(() => { window.location.reload(); }, 2500);
+            } else {
+                // Erreur classique (500, 400, etc.)
+                afficherNotification("❌ Erreur serveur", "error"); 
+            }
+            // =========================================================
         }
     } catch (e) { 
         afficherNotification("❌ Erreur de connexion", "error"); 
