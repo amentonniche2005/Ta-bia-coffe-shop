@@ -479,21 +479,23 @@ document.getElementById('btnVerifierFidelite')?.addEventListener('click', async 
 });
 function passerCommande() {
     if (panier.length === 0) return;
-    fermerPanier();
 
-    // 🔥 VÉRIFICATION : Le client a-t-il scanné un QR Code ?
-    const tableQr = sessionStorage.getItem('tabia_table_qr');
-    const authQr = sessionStorage.getItem('tabia_auth_qr');
+    // On vérifie ce qu'on a en mémoire (sessionStorage)
+    const tableEnMemoire = sessionStorage.getItem('tabia_table_qr');
+    const authEnMemoire = sessionStorage.getItem('tabia_auth_qr');
 
-    if (tableQr && authQr) {
-        // ZÉRO CLIC : On a déjà la table ! On envoie directement la commande.
-        // Si le client s'est identifié dans le panier, clientFideleVerifie contiendra son nom,
-        // sinon, ça passera juste pour la Table (Anonyme).
-        validerCommande(tableQr, clientFideleVerifie, clientFideleVerifie ? clientFideleVerifie.codeFidelite : authQr);
-    } else {
-        // S'il n'a pas scanné de QR code (il a juste tapé l'adresse du site web), 
-        // on lui ouvre la fenêtre classique pour qu'il choisisse sa table manuellement.
-        afficherModalTable();
+    // CAS 1 : SESSION ACTIVE (Le client a scanné un QR Code)
+    // On passe directement à la validation (Zéro-Clic)
+    if (tableEnMemoire && authEnMemoire) {
+        fermerPanier();
+        validerCommande(tableEnMemoire, null, authEnMemoire);
+    } 
+    
+    // CAS 2 : NAVIGATION NORMALE (Entrée directe sur le site)
+    // On suit le processus classique : Choix table -> Saisie Code
+    else {
+        fermerPanier();
+        afficherModalTable(); 
     }
 }
 
