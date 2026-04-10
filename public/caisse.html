@@ -512,6 +512,10 @@ async function viderTicket(tableNum, confirmDialogue = true) {
             }
             
             sauvegarderTousLesTickets(); 
+            // 🔥 RENOUVELLEMENT AUTO DU CODE SI LA TABLE EST VIDÉE / ANNULÉE
+        if (!tableNum.startsWith('Fidele_') && tableNum !== 'Emporter') {
+            try { await fetchSecurise(`/api/numbers/refresh/${tableNum}`, { method: 'POST' }); } catch(e) {}
+        }
             afficherTicket(); 
             afficherListeTables();
             
@@ -667,6 +671,10 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
         else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; }
         
         sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+        // 🔥 RENOUVELLEMENT AUTO DU CODE DE LA TABLE APRÈS PAIEMENT
+        if (!currentTable.startsWith('Fidele_') && currentTable !== 'Emporter') {
+            try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {}
+        }
         showNotification(`✅ Payé : ${totalPaye.toFixed(2)} DT`, "#10b981");
         imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
     }
