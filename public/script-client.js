@@ -485,23 +485,25 @@ function passerCommande() {
     const tableEnMemoire = sessionStorage.getItem('tabia_table_qr');
     const authEnMemoire = sessionStorage.getItem('tabia_auth_qr');
 
-    // CAS 1 : SESSION ACTIVE VIA QR CODE (Table ou VIP scanné = Zéro Clic)
+    fermerPanier();
+
+    // CAS 1 : TABLE SCANNÉE (Zéro-Clic Total)
     if (tableEnMemoire && authEnMemoire) {
-        fermerPanier();
         validerCommande(tableEnMemoire, null, authEnMemoire);
     } 
+    // CAS 2 : CLIENT FIDÈLE SCANNÉ (On demande juste la table)
     else if (!tableEnMemoire && authEnMemoire) {
-        fermerPanier();
-        validerCommande("Emporter", null, authEnMemoire);
+        // On lance la fenêtre des tables en mode "VIP" (true)
+        afficherModalTable(true, authEnMemoire); 
     }
-    // CAS 2 : NAVIGATION NORMALE (Pas de QR scanné)
+    // CAS 3 : NAVIGATION NORMALE (On demande table + code)
     else {
-        fermerPanier();
-        afficherModalTable(); 
+        // On lance la fenêtre des tables en mode "Normal" (false)
+        afficherModalTable(false, null); 
     }
 }
 
-function afficherModalTable() {
+function afficherModalTable(isVip = false, authFidele = null) {
     const btns = Array.from({length: 20}, (_, i) => `<button class="table-btn" data-table="${i+1}">${i+1}</button>`).join('');
     const modalHtml = `
         <div id="tableModal" class="table-modal">
@@ -518,12 +520,20 @@ function afficherModalTable() {
     const modal = document.getElementById("tableModal");
 
     modal.querySelector('#cancelTableBtn').onclick = () => modal.remove();
+    
     modal.querySelectorAll('button[data-table]').forEach(btn => {
         btn.onclick = () => {
             const numTable = btn.getAttribute('data-table');
-            modal.remove();
-            // FONCTIONNEMENT NORMAL : On ouvre la fenêtre du code
-            afficherModalCode(numTable); 
+            modal.remove(); // On ferme la fenêtre des tables
+            
+            // 🔥 LA MAGIE OPÈRE ICI
+            if (isVip) {
+                // Si c'est un VIP, on envoie la commande DIRECTEMENT avec son code fidélité
+                validerCommande(numTable, clientFideleVerifie, authFidele);
+            } else {
+                // Si c'est un visiteur normal, on le fait passer par l'étape du code
+                afficherModalCode(numTable); 
+            }
         };
     });
 }
