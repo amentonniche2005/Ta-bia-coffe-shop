@@ -74,7 +74,13 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         /* ========== PRINT FORMAT (TICKET 80mm) ========== */
-        #printArea { display: none; }
+        #printArea { 
+            position: absolute; 
+            top: -9999px; 
+            left: -9999px; 
+            opacity: 0; 
+            pointer-events: none; 
+        }
         @media print {
             @page { size: 80mm auto; margin: 0; }
             body * { visibility: hidden; }
@@ -277,21 +283,41 @@
             }
         }
 
-        function imprimerTicket() {
+function imprimerTicket() {
             if (!currentData.code) return showNotif('Aucun code à imprimer', true);
 
             document.getElementById('printTableNum').textContent = currentData.numero;
             document.getElementById('printCodeVal').textContent = currentData.code; 
             document.getElementById('printDateNow').textContent = new Date().toLocaleDateString('fr-FR') + ' ' + new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
 
-            // 🔥 NOUVEAU : GÉNÉRATION DU QR CODE DYNAMIQUE
-            // Remplace 'https://ton-site.com' par l'adresse web de ton menu client
-            const urlClient = `https://ton-site.com/?table=${currentData.numero}&auth=${currentData.code}`;
-            const qrImage = document.querySelector('.print-qr-img');
-            qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlClient)}`;
+            // On met le bouton en mode chargement pour que l'utilisateur patiente
+            const btnPrint = document.getElementById('printTicketBtn');
+            const originalText = btnPrint.innerHTML;
+            btnPrint.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération QR...';
+            btnPrint.disabled = true;
 
-            // On attend une demi-seconde que l'image du QR code charge avant d'imprimer
-            setTimeout(() => { window.print(); }, 500);
+            // 🔥 NOUVEAU : GÉNÉRATION DU QR CODE DYNAMIQUE
+            // ⚠️ IMPORTANT: Si tu testes en réseau local, remplace l'URL par ton IP (ex: http://192.168.1.15:3000)
+            const urlClient = `https://tabia-coffe-shop.onrender.com//?table=${currentData.numero}&auth=${currentData.code}`;
+            const qrImage = document.querySelector('.print-qr-img');
+
+            // On lance l'impression SEULEMENT quand l'image a fini de charger !
+            qrImage.onload = function() {
+                btnPrint.innerHTML = originalText;
+                btnPrint.disabled = false;
+                window.print();
+            };
+
+            // Sécurité : Si l'API ne répond pas (pas d'internet), on imprime quand même le ticket
+            qrImage.onerror = function() {
+                showNotif("Erreur de chargement du QR Code", true);
+                btnPrint.innerHTML = originalText;
+                btnPrint.disabled = false;
+                window.print(); 
+            };
+
+            // On déclenche le téléchargement de l'image
+            qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlClient)}`;
         }
 
         function setupListeners() {
