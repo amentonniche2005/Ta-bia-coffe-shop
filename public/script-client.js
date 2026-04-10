@@ -62,6 +62,21 @@ function getClientId() {
 
 // ========== CHARGEMENT ==========
 document.addEventListener("DOMContentLoaded", async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableUrl = urlParams.get('table');
+    const authUrl = urlParams.get('auth');
+
+    if (tableUrl && authUrl) {
+        // On sauvegarde la session silencieusement
+        sessionStorage.setItem('tabia_table_qr', tableUrl);
+        sessionStorage.setItem('tabia_auth_qr', authUrl);
+        
+        // On nettoie l'URL pour faire plus propre (Optionnel)
+        window.history.replaceState({}, document.title, "/");
+        
+        // Petite notification de bienvenue
+        setTimeout(() => { afficherNotification(`📍 Connecté à la Table ${tableUrl}`); }, 1000);
+    }
     clientId = getClientId();
     await chargerCatalogue();
     chargerPanier();
@@ -337,10 +352,54 @@ function afficherContenuPanier() {
 }
 
 // ========== ENVOI COMMANDE ==========
+let clientFideleVerifie = null;
+
+// Vérification du code fidélité dans le panier
+document.getElementById('btnVerifierFidelite')?.addEventListener('click', async () => {
+    const code = document.getElementById('inputFidelitePanier').value.trim();
+    const btn = document.getElementById('btnVerifierFidelite');
+    const msg = document.getElementById('msgFidelite');
+    
+    if (!code) return;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    try {
+        const res = await fetch(`/api/customers/verify/${code}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+                clientFideleVerifie = data.customer;
+                msg.innerHTML = `👋 Bienvenue ${clientFideleVerifie.prenom} !`;
+                msg.style.display = 'block';
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.style.background = '#10b981';
+            }
+        } else {
+            msg.innerHTML = "❌ Code invalide";
+            msg.style.color = '#ef4444';
+            msg.style.display = 'block';
+            btn.innerHTML = 'OK';
+        }
+    } catch(e) { btn.innerHTML = 'OK'; }
+});
 function passerCommande() {
     if (panier.length === 0) return;
     fermerPanier();
-    afficherModalTable();
+
+    // 🔥 VÉRIFICATION : Le client a-t-il scanné un QR Code ?
+    const tableQr = sessionStorage.getItem('tabia_table_qr');
+    const authQr = sessionStorage.getItem('tabia_auth_qr');
+
+    if (tableQr && authQr) {
+        // ZÉRO CLIC : On a déjà la table ! On envoie directement la commande.
+        // Si le client s'est identifié dans le panier, clientFideleVerifie contiendra son nom,
+        // sinon, ça passera juste pour la Table (Anonyme).
+        validerCommande(tableQr, clientFideleVerifie, clientFideleVerifie ? clientFideleVerifie.codeFidelite : authQr);
+    } else {
+        // S'il n'a pas scanné de QR code (il a juste tapé l'adresse du site web), 
+        // on lui ouvre la fenêtre classique pour qu'il choisisse sa table manuellement.
+        afficherModalTable();
+    }
 }
 
 function afficherModalTable() {

@@ -78,6 +78,16 @@
             </div>
             
             <div id="cartItems" class="cart-items"></div>
+            <div style="margin-bottom: 15px; background: #fffbeb; padding: 10px; border-radius: 12px; border: 1px dashed #f59e0b;">
+                <label style="font-weight: bold; color: #d97706; font-size: 0.9rem; display: block; margin-bottom: 5px;">
+                    <i class="fas fa-star"></i> Client fidèle ?
+                </label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="inputFidelitePanier" placeholder="Entrez votre code..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #fcd34d; outline: none; font-weight: bold;">
+                    <button type="button" id="btnVerifierFidelite" style="background: #f59e0b; color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer;">OK</button>
+                </div>
+                <div id="msgFidelite" style="font-size: 0.8rem; color: #10b981; font-weight: bold; margin-top: 5px; display: none;"></div>
+            </div>
             
             <div class="cart-total" id="cartTotal" style="margin-bottom: 10px;">Total: 0.00 DT</div>
             
