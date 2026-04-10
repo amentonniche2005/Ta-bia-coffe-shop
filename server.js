@@ -235,6 +235,19 @@ app.get('/api/mes-commandes/:clientId', async (req, res) => {
         res.status(500).json({ error: err.message }); 
     }
 });
+// 🔥 ROUTE : IDENTIFIER UN CLIENT VIA SON CODE QR (Public)
+app.get('/api/fidelite/identifier/:code', async (req, res) => {
+    try {
+        const client = await LoyalCustomer.findOne({ codeFidelite: req.params.code });
+        if (client) {
+            res.json({ success: true, nomComplet: `${client.prenom} ${client.nom}` });
+        } else {
+            res.status(404).json({ success: false, message: "Client non reconnu" });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 // =========================================================
 // 🚀 SIMULATEUR LOCAL DE PAIEMENT (SÉCURISÉ)
 // =========================================================

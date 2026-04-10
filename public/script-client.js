@@ -574,26 +574,32 @@ function afficherModalCode(numTable) {
 
 async function validerCommande(numTable, clientData, codeSaisi) {
     const checkoutBtn = document.getElementById("checkoutBtn");
-    if (checkoutBtn) { checkoutBtn.disabled = true; checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; }
+    if (checkoutBtn) { 
+        checkoutBtn.disabled = true; 
+        checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; 
+    }
 
     try {
-        let nomFidele = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
-        let idFidele = clientData ? codeSaisi : clientId;
+        // PRIORITÉ : 1. Nom premium (depuis QR carte) > 2. Nom clientData (depuis vérif panier) > 3. Null
+        const nomPremium = sessionStorage.getItem('client_nom_premium');
+        let nomFidele = nomPremium || (clientData ? `${clientData.prenom} ${clientData.nom}` : null);
+        
+        // PRIORITÉ : Si client fidèle identifié, on utilise son codeAuth, sinon notre clientId d'appareil
+        let idFidele = (codeSaisi || sessionStorage.getItem('tabia_auth_qr')) || clientId;
         
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
         const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
-        
         const methodeChoisie = document.getElementById('methodePaiementClient').value;
         
-const response = await fetch('/api/commandes', {
+        const response = await fetch('/api/commandes', {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
                 numeroTable: tableFinale,
-                clientId: clientId,           // 🔥 On garde l'ID de l'appareil (pour l'historique local)
-                codeAuth: codeSaisi,          // 🔥 NOUVEAU : On ajoute le vrai code secret de la table ou de fidélité !
-                clientName: nomFidele,
+                clientId: idFidele, 
+                codeAuth: idFidele, // On envoie le code secret pour la vérification serveur (Session Fantôme)
+                clientName: nomFidele, 
                 total: totalCommande,
                 methodePaiement: methodeChoisie 
             })
@@ -602,7 +608,7 @@ const response = await fetch('/api/commandes', {
         if (response.ok) {
             const commande = await response.json();
             
-            // 1. ON SAUVEGARDE ET ON VIDE LE PANIER IMMÉDIATEMENT (Peu importe le mode de paiement)
+            // 1. Sauvegarde et nettoyage
             sauvegarderCommandeClient(commande);
             panier = []; 
             sauvegarderPanier(); 
@@ -610,49 +616,41 @@ const response = await fetch('/api/commandes', {
             afficherContenuPanier();
             await chargerCatalogue();
             
-            // 2. GESTION DU PAIEMENT EN LIGNE
+            // 2. Gestion du Paiement en Ligne
             if (methodeChoisie === 'en_ligne' && commande.payUrl) {
-                afficherNotification("Redirection vers le paiement sécurisé...", "success");
-                // On met un tout petit délai (1.5s) pour que l'interface ait le temps de se mettre à jour
-                setTimeout(() => {
-                    window.location.href = commande.payUrl;
-                }, 1500);
+                afficherNotification("Redirection paiement sécurisé...", "success");
+                setTimeout(() => { window.location.href = commande.payUrl; }, 1500);
                 return; 
             }
             
-            // 3. GESTION DU PAIEMENT SUR PLACE
-            if (nomFidele) {
-                afficherNotification(`🎉 Merci ${nomFidele} ! Commande envoyée.`);
-            } else {
-                afficherNotification("🎉 Commande envoyée avec succès !");
-            }
+            // 3. Notification de succès personnalisée
+            const messageSucces = nomFidele ? `🎉 Merci ${nomFidele} ! Commande envoyée.` : "🎉 Commande envoyée avec succès !";
+            afficherNotification(messageSucces);
             
         } else { 
-            // =========================================================
-            // 🔥 NOUVEAUTÉ : GESTION DE LA SESSION EXPIRÉE (ERREUR 403)
-            // =========================================================
+            // GESTION DE LA SESSION EXPIRÉE (ERREUR 403)
             const erreurData = await response.json();
             
             if (response.status === 403) {
-                // On affiche le message d'erreur venu du serveur
                 afficherNotification("❌ " + erreurData.error, "error");
                 
-                // On détruit l'ancienne session corrompue en mémoire !
+                // On nettoie tout pour forcer le nouveau scan
                 sessionStorage.removeItem('tabia_table_qr');
                 sessionStorage.removeItem('tabia_auth_qr');
+                sessionStorage.removeItem('client_nom_premium'); 
                 
-                // On recharge la page après 2.5 secondes pour forcer le client à recommencer proprement
                 setTimeout(() => { window.location.reload(); }, 2500);
             } else {
-                // Erreur classique (500, 400, etc.)
                 afficherNotification("❌ Erreur serveur", "error"); 
             }
-            // =========================================================
         }
     } catch (e) { 
         afficherNotification("❌ Erreur de connexion", "error"); 
     } finally {
-        if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; }
+        if (checkoutBtn) { 
+            checkoutBtn.disabled = false; 
+            checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; 
+        }
     }
 }
 
