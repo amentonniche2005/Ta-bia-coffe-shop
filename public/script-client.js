@@ -315,28 +315,32 @@ function ouvrirFermerPanier() {
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
 
 // ========== AFFICHAGE DU PANIER MODERNE ==========
+// ========== AFFICHAGE DU PANIER MODERNE (AVEC IMAGES) ==========
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
     const checkoutBtn = document.getElementById("checkoutBtn");
 
     if (panier.length === 0) {
+        // Design Premium pour le panier vide
         conteneur.innerHTML = `
-            <div style='padding: 3rem 1rem; text-align: center; color: #94a3b8;'>
-                <div style="background: #f1f5f9; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
-                    <i class='fas fa-shopping-bag fa-2x' style='color: #cbd5e1;'></i>
+            <div style='padding: 4rem 1rem; text-align: center; color: #94a3b8; display: flex; flex-direction: column; align-items: center;'>
+                <div style="background: linear-gradient(135deg, #f8fafc, #e2e8f0); width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: inset 0 4px 10px rgba(255,255,255,0.5);">
+                    <i class='fas fa-shopping-bag fa-3x' style='color: #cbd5e1; transform: translateY(2px);'></i>
                 </div>
-                <h3 style="color: #475569; margin-bottom: 5px;">Votre panier est vide</h3>
-                <p style="font-size: 0.9rem;">Il est temps de vous faire plaisir ! ☕</p>
+                <h3 style="color: #334155; font-size: 1.3rem; font-weight: 800; margin-bottom: 8px;">Votre panier est vide</h3>
+                <p style="font-size: 0.95rem;">Laissez-vous tenter par nos délices... ☕🍰</p>
             </div>`;
         totalElement.textContent = "0.00 DT";
         checkoutBtn.disabled = true;
         checkoutBtn.style.opacity = "0.5";
+        checkoutBtn.style.cursor = "not-allowed";
         return;
     }
     
     checkoutBtn.disabled = false;
     checkoutBtn.style.opacity = "1";
+    checkoutBtn.style.cursor = "pointer";
 
     let total = 0;
     conteneur.innerHTML = panier.map(article => {
@@ -344,8 +348,13 @@ function afficherContenuPanier() {
         const nomPropre = article.nom.split(' (')[0];
         const varianteHTML = article.variante ? `<div class="modern-cart-item-variant">${article.variante}</div>` : '';
         
+        // 🔥 RÉCUPÉRATION DE L'IMAGE DU PRODUIT
+        const produitBase = produits.find(p => p.id === article.baseId);
+        const imgSrc = (produitBase && produitBase.image) ? produitBase.image : (produitBase ? defaultImages[produitBase.categorie] : defaultImages['cafe']);
+
         return `
             <div class="modern-cart-item">
+                <div class="modern-cart-item-img" style="background-image: url('${imgSrc}');"></div>
                 <div class="modern-cart-item-info">
                     <h4>${nomPropre}</h4>
                     ${varianteHTML}
@@ -353,7 +362,7 @@ function afficherContenuPanier() {
                 </div>
                 <div class="modern-qty-control">
                     <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', -1)">
-                        <i class="fas ${article.quantite === 1 ? 'fa-trash-alt' : 'fa-minus'}" style="color: ${article.quantite === 1 ? '#ef4444' : '#1e293b'}; font-size: ${article.quantite === 1 ? '0.9rem' : '1rem'}"></i>
+                        <i class="fas ${article.quantite === 1 ? 'fa-trash-alt' : 'fa-minus'}" style="color: ${article.quantite === 1 ? '#ef4444' : '#1e293b'}; font-size: ${article.quantite === 1 ? '0.85rem' : '1rem'}"></i>
                     </button>
                     <span class="modern-qty-val">${article.quantite}</span>
                     <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', 1)">
@@ -364,7 +373,6 @@ function afficherContenuPanier() {
         `;
     }).join('');
 
-    // Met à jour le grand total en bas
     totalElement.textContent = `${total.toFixed(2)} DT`;
 }
 
