@@ -379,19 +379,34 @@ function afficherContenuPanier() {
     const tableQr = sessionStorage.getItem('tabia_table_qr');
     const authQr = sessionStorage.getItem('tabia_auth_qr');
     
-if (zoneFidelite) {
+    if (zoneFidelite) {
         // On affiche la zone "Client fidèle" UNIQUEMENT si le client a scanné un QR Code
         if (tableQr && authQr) {
             zoneFidelite.style.display = "block";
-            // 🔥 NOUVEAU : On pré-remplit son code secret s'il l'a scanné à l'entrée
+            
+            // On pré-remplit son code secret s'il l'a scanné à l'entrée
             const inputFidelite = document.getElementById("inputFidelitePanier");
             if (inputFidelite && !inputFidelite.value) {
                 inputFidelite.value = authQr;
             }
+            
+            // 🔥 LA CORRECTION MAGIQUE (AUTO-VÉRIFICATION)
+            // Si le code est rempli, on vérifie la carte tout seul sans que le client ne clique sur OK
+            if (inputFidelite && inputFidelite.value && !clientFideleVerifie) {
+                setTimeout(() => {
+                    const btnOk = document.getElementById('btnVerifierFidelite');
+                    if (btnOk) btnOk.click(); // Le système clique à la place du client !
+                }, 300); // On attend 0.3s que le panier s'ouvre bien
+            }
+            
         } else {
             zoneFidelite.style.display = "none";
         }
     }
+
+    // 🔥 SÉCURITÉ : On réaffiche la zone de paiement normale par défaut au chargement du panier
+    const zonePaiement = document.getElementById('methodePaiementClient')?.parentElement;
+    if (zonePaiement) zonePaiement.style.display = 'block';
 
     if (panier.length === 0) {
         // Design Premium pour le panier vide
@@ -459,6 +474,7 @@ document.getElementById('btnVerifierFidelite')?.addEventListener('click', async 
     const code = document.getElementById('inputFidelitePanier').value.trim();
     const btn = document.getElementById('btnVerifierFidelite');
     const msg = document.getElementById('msgFidelite');
+    const selectPaiement = document.getElementById('methodePaiementClient'); // 🔥 On récupère le menu
     
     if (!code) return;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -477,15 +493,22 @@ document.getElementById('btnVerifierFidelite')?.addEventListener('click', async 
                 btn.innerHTML = '<i class="fas fa-check"></i>';
                 btn.style.background = '#10b981';
 
-                // 🔥 On AJOUTE la 3ème option à la liste existante, le client garde le choix !
-                const selectPaiement = document.getElementById('methodePaiementClient');
-                if (selectPaiement && !document.getElementById('optionFidelite')) {
-                    const option = document.createElement('option');
-                    option.id = 'optionFidelite';
-                    option.value = 'carte_fidelite';
-                    option.textContent = `💳 Payer avec mon Solde VIP (${solde} DT)`;
-                    selectPaiement.appendChild(option);
-                    // On ne force plus la sélection, il choisit ce qu'il veut dans les 3 options
+                // 🔥 CORRECTION DU CHOIX DE PAIEMENT
+                if (selectPaiement) {
+                    let optionFidelite = document.getElementById('optionFidelite');
+                    // On crée l'option si elle n'existe pas encore
+                    if (!optionFidelite) {
+                        optionFidelite = document.createElement('option');
+                        optionFidelite.id = 'optionFidelite';
+                        optionFidelite.value = 'carte_fidelite';
+                        selectPaiement.appendChild(optionFidelite);
+                    }
+                    // On met à jour le texte avec le solde exact
+                    optionFidelite.textContent = `💳 Payer avec mon Solde VIP (${solde} DT)`;
+                    
+                    // 🔥 ON FORCE LA SÉLECTION ! 
+                    // Le menu va afficher l'option VIP par défaut pour que le client la voie directement.
+                    selectPaiement.value = 'carte_fidelite'; 
                 }
             }
         } else {
