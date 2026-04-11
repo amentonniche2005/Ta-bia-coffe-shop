@@ -225,12 +225,13 @@
                 </div>
                 <div class="filters">
                     <div class="filter-group">
-                        <label>Mode de Paiement</label>
+                    <label>Mode de Paiement</label>
                         <select id="filtreMethodeVente" style="font-weight: bold; color: var(--info);">
                             <option value="all">Tous les modes</option>
                             <option value="especes">💰 Espèces</option>
                             <option value="en_ligne">📱 En ligne (Web)</option>
                             <option value="carte">💳 Carte Bancaire</option>
+                            <option value="carte_fidelite">⭐ Wallet VIP (Fidélité)</option> 
                             <option value="ticket_resto">🎫 Ticket Resto</option>
                             <option value="cheque">📄 Chèque</option>
                         </select>
@@ -453,9 +454,19 @@
                 <div><h3 style="font-size:1.1rem; color:var(--text-main);">Clients Fidèles</h3><p style="font-size:0.8rem; color:var(--text-muted);">Gérez les codes secrets de vos habitués.</p></div>
                 <button class="btn-action btn-warning" onclick="ouvrirModalClient()"><i class="fas fa-user-plus"></i> Inscrire un Client</button>
             </div>
-            <div class="table-container">
+<div class="table-container">
                 <table>
-                    <thead><tr><th>Date</th><th>Nom & Prénom</th><th>Téléphone</th><th style="text-align:center;">Code Secret</th><th style="text-align:right;">Actions</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Nom & Prénom</th>
+                            <th>Contact</th>
+                            <th style="text-align:center;">Code VIP</th>
+                            <th style="text-align:right;">Solde Actuel</th>
+                            <th style="text-align:right;">Progression Bonus</th>
+                            <th style="text-align:center;">Actions</th>
+                        </tr>
+                    </thead>
                     <tbody id="fideliteTableBody"></tbody>
                 </table>
             </div>
@@ -525,9 +536,11 @@
             return new Date(match[3], match[2] - 1, match[1], match[4]||0, match[5]||0, match[6]||0).getTime();
         }
 
-        function getIconPaiement(methode) {
+function getIconPaiement(methode) {
             if(methode === 'en_ligne') return '<span class="badge" style="background:#e8f5e9; color:#27ae60;"><i class="fas fa-globe"></i> En Ligne</span>';
             if(methode === 'carte') return '<span class="badge" style="background:#f4e8f9; color:#8e44ad;"><i class="fas fa-credit-card"></i> Carte</span>';
+            // 🔥 NOUVEAU BADGE POUR LA CARTE FIDÉLITÉ
+            if(methode === 'carte_fidelite') return '<span class="badge" style="background:#fffbeb; color:#f39c12;"><i class="fas fa-id-card"></i> Wallet VIP</span>';
             if(methode === 'ticket_resto') return '<span class="badge" style="background:#fef5e6; color:#e67e22;"><i class="fas fa-ticket-alt"></i> Ticket Resto</span>';
             if(methode === 'cheque') return '<span class="badge" style="background:#f1f5f9; color:#7f8c8d;"><i class="fas fa-money-check"></i> Chèque</span>';
             return '<span class="badge" style="background:#eef2f6; color:#34495e;"><i class="fas fa-money-bill-wave"></i> Espèces</span>';
@@ -1371,14 +1384,93 @@ function demarrerInventaire() {
         // ========== 7. MODULE FIDELITÉ ==========
         async function chargerClients() {
             const tbody = document.getElementById('fideliteTableBody');
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
             try {
                 const res = await fetchSecurise('/api/customers'); const clients = await res.json();
-                if(clients.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun client fidèle enregistré</td></tr>'; return; }
-                tbody.innerHTML = clients.map(c => `<tr><td>${c.dateInscription}</td><td><strong>${escapeHtml(c.nom)} ${escapeHtml(c.prenom)}</strong></td><td>${escapeHtml(c.telephone)}</td><td style="text-align:center;"><span class="badge badge-normal" style="font-size:1rem; letter-spacing:2px;">${c.codeFidelite}</span></td><td style="text-align:right;"><button class="btn-action btn-danger" onclick="supprimerClient('${c._id}')"><i class="fas fa-trash"></i></button></td></tr>`).join('');
-            } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur</td></tr>'; }
+                if(clients.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Aucun client fidèle enregistré</td></tr>'; return; }
+                
+                tbody.innerHTML = clients.map(c => {
+                    const solde = (c.solde || 0).toFixed(2);
+                    const depense = (c.totalDepense || 0).toFixed(2);
+                    
+                    // 🔥 LA MERVEILLE : Calcul de la progression vers le prochain bonus de 50 DT
+                    const depenseDansPalierActuel = (c.totalDepense || 0) % 50;
+                    const pourcentageProgression = (depenseDansPalierActuel / 50) * 100;
+
+                    return `<tr>
+                        <td><span style="font-size:0.85rem; color:var(--text-muted);">${c.dateInscription}</span></td>
+                        <td><strong style="color:var(--primary); font-size:1.05rem;">${escapeHtml(c.nom)} ${escapeHtml(c.prenom)}</strong></td>
+                        <td><i class="fas fa-phone-alt" style="color:var(--text-muted); font-size:0.8rem;"></i> ${escapeHtml(c.telephone)}</td>
+                        <td style="text-align:center;"><span class="badge badge-neutral" style="font-size:1.1rem; letter-spacing:3px; background:#f8fafc; border:1px solid #e2e8f0; color:var(--text-main);">${c.codeFidelite}</span></td>
+                        
+                        <td style="text-align:right;">
+                            <div style="font-size:1.3rem; font-weight:900; color:var(--success);">${solde} DT</div>
+                        </td>
+                        
+                        <td style="text-align:right; width: 200px;">
+                            <div style="font-weight:700; color:var(--text-main); font-size:0.9rem;">${depense} DT <span style="color:var(--text-muted); font-weight:normal; font-size:0.75rem;">(Total)</span></div>
+                            <div style="width:100%; background:#e2e8f0; height:6px; border-radius:3px; margin-top:6px; overflow:hidden;" title="${depenseDansPalierActuel.toFixed(2)} / 50 DT pour le prochain bonus">
+                                <div style="width:${pourcentageProgression}%; background:var(--warning); height:100%; border-radius:3px; transition: width 0.5s;"></div>
+                            </div>
+                        </td>
+                        
+                        <td style="text-align:center;">
+                            <button class="btn-action" style="padding:0.5rem 0.8rem; margin-right:5px; background:var(--warning); color:white;" onclick="ouvrirModalRecharge('${c.codeFidelite}', '${escapeHtml(c.nom)} ${escapeHtml(c.prenom)}')" title="Recharger le compte">
+                                <i class="fas fa-wallet"></i> Recharger
+                            </button>
+                            <button class="btn-action btn-danger" style="padding:0.5rem 0.8rem;" onclick="supprimerClient('${c._id}')"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message error">Erreur</td></tr>'; }
+        }
+// 🔥 NOUVELLE FONCTION : Ouvrir la fenêtre de rechargement
+        function ouvrirModalRecharge(code, nom) {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content" style="max-width:400px; text-align:center;">
+                    <div class="modal-header" style="justify-content:center;">
+                        <h3 style="color:var(--success);"><i class="fas fa-wallet"></i> Recharger la Carte</h3>
+                        <span class="modal-close" style="position:absolute; right:20px;" onclick="fermerModal()">&times;</span>
+                    </div>
+                    <div style="margin-bottom:20px; color:var(--text-muted);">Client : <strong style="color:var(--text-main); font-size:1.1rem;">${nom}</strong></div>
+                    
+                    <div class="form-group" style="text-align:left;">
+                        <label>Montant reçu à la caisse (DT) :</label>
+                        <input type="number" id="rechargeMontant" step="0.5" min="0.5" placeholder="Ex: 20.00" style="font-size:2rem; font-weight:900; text-align:center; color:var(--success); border:2px solid var(--success);">
+                    </div>
+                    
+                    <div class="modal-buttons">
+                        <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+                        <button class="btn-primary" onclick="validerRecharge('${code}')"><i class="fas fa-check-circle"></i> Créditer le compte</button>
+                    </div>
+                </div></div>
+            `;
+            setTimeout(() => document.getElementById('rechargeMontant').focus(), 100);
         }
 
+        // 🔥 NOUVELLE FONCTION : Envoyer l'argent au serveur
+        async function validerRecharge(code) {
+            const montant = parseFloat(document.getElementById('rechargeMontant').value);
+            if(!montant || montant <= 0) return showNotification("Montant invalide", "var(--danger)");
+
+            try {
+                const res = await fetchSecurise('/api/customers/recharge', {
+                    method: 'POST',
+                    body: JSON.stringify({ codeFidelite: code, montant: montant })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showNotification(`✅ +${montant.toFixed(2)} DT crédités avec succès !`, "var(--success)");
+                    fermerModal();
+                    chargerClients(); // Rafraîchit le tableau instantanément pour voir le nouveau solde
+                } else {
+                    showNotification(data.error || "Erreur lors de la recharge", "var(--danger)");
+                }
+            } catch(e) {
+                showNotification("Erreur serveur", "var(--danger)");
+            }
+        }
         function ouvrirModalClient() {
             document.getElementById('modalContainer').innerHTML = `<div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-star"></i> Inscrire un habitué</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div><div class="form-group"><label>Nom :</label><input type="text" id="custNom"></div><div class="form-group"><label>Prénom :</label><input type="text" id="custPrenom"></div><div class="form-group"><label>Téléphone :</label><input type="text" id="custTel"></div><div class="form-group"><label>Code Secret :</label><input type="text" id="custCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;"></div><div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerClient()">Enregistrer</button></div></div></div>`;
         }

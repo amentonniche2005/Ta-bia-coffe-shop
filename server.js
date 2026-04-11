@@ -90,7 +90,9 @@ const TableCode = mongoose.model('TableCode', new mongoose.Schema({
 const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({
     nom: String, prenom: String, telephone: String,
     codeFidelite: { type: String, unique: true },
-    dateInscription: { type: String, default: () => new Date().toLocaleDateString('fr-FR') }
+    dateInscription: { type: String, default: () => new Date().toLocaleDateString('fr-FR') },
+    solde: { type: Number, default: 0 }, // L'argent disponible pour payer sur sa carte
+    totalDepense: { type: Number, default: 0 } // La somme de tous ses achats historiques pour le calcul du bonus
 }));
 
 const Sale = mongoose.model('Sale', new mongoose.Schema({
@@ -151,12 +153,14 @@ app.get('/api/stock', async (req, res) => {
 // 🔥 ROUTE COMMANDE (SÉCURISÉE AVEC VÉRIFICATION DU CODE TABLE)
 app.post('/api/commandes', async (req, res) => {
     try {
+        const codeEnvoye = String(req.body.codeAuth); // On le déclare ici pour l'utiliser partout
+        
         // =================================================================
-        // 🚨 NOUVEAUTÉ : VÉRIFICATION STRICTE DU CODE DE TABLE EN TEMPS RÉEL
+        // 🚨 VÉRIFICATION STRICTE DU CODE DE TABLE EN TEMPS RÉEL
         // =================================================================
         if (req.body.numeroTable && req.body.numeroTable !== 'Emporter') {
             let authValid = false;
-           const codeEnvoye = String(req.body.codeAuth); 
+            
             // 1. Vérifier si c'est un client fidèle
             const fidele = await LoyalCustomer.findOne({ codeFidelite: codeEnvoye });
             if (fidele) authValid = true;
@@ -196,6 +200,59 @@ app.post('/api/commandes', async (req, res) => {
             }
         }
 
+        // =================================================================
+        // 💳 🔥 NOUVEAU : GESTION DU PAIEMENT WALLET & CASHBACK
+        // =================================================================
+        let messageBonus = null; // Pour le renvoyer au client s'il gagne
+
+        if (req.body.methodePaiement === 'carte_fidelite') {
+            const clientVIP = await LoyalCustomer.findOne({ codeFidelite: codeEnvoye });
+            
+            if (!clientVIP) {
+                return res.status(403).json({ error: "Erreur : Carte de fidélité non reconnue pour le paiement." });
+            }
+            
+            if (clientVIP.solde < totalSecurise) {
+                return res.status(400).json({ error: `Solde insuffisant. Il vous reste ${clientVIP.solde.toFixed(2)} DT sur votre carte.` });
+            }
+
+            // 1. On déduit l'argent du portefeuille
+            clientVIP.solde -= totalSecurise;
+            
+            // 2. On augmente le compteur de dépenses historiques
+            const ancienneDepense = clientVIP.totalDepense || 0;
+            clientVIP.totalDepense = ancienneDepense + totalSecurise;
+
+            // 3. Logique du Bonus : +4 DT offerts tous les 50 DT dépensés
+            const paliersFranchis = Math.floor(clientVIP.totalDepense / 50);
+            const anciensPaliers = Math.floor(ancienneDepense / 50);
+
+            if (paliersFranchis > anciensPaliers) {
+                const montantCadeau = (paliersFranchis - anciensPaliers) * 4;
+                clientVIP.solde += montantCadeau; 
+                messageBonus = `Félicitations 🎉 ! Vous avez dépassé 50 DT d'achats. Un bonus de +${montantCadeau} DT a été crédité sur votre carte !`;
+            }
+
+            await clientVIP.save();
+
+// 4. Trace de la vente pour la caisse (Statistiques Admin)
+            const nouvelleVente = new Sale({
+                id: cmdId,
+                numero: numeroCmd,
+                total: totalSecurise, // CORRECTION : 'total' au lieu de 'montant'
+                remise: 0,
+                typePaiement: 'complet',
+                methodePaiement: 'Carte Fidélité',
+                tableOrigine: `Fidèle : ${clientVIP.prenom} ${clientVIP.nom}`, // Pour savoir qui a payé
+                articles: articlesSecurises,
+                date: new Date().toLocaleString('fr-FR'),
+                timestamp: Date.now()
+            });
+            await nouvelleVente.save();
+        }
+        // =================================================================
+
+        // Création de la commande finale
         const cmd = new Order({ 
             ...req.body, 
             articles: articlesSecurises,
@@ -210,13 +267,17 @@ app.post('/api/commandes', async (req, res) => {
 
         if (isEnLigne) {
             const simulateurUrl = `/api/simulateur-paiement/${cmdId}`;
-            return res.status(201).json({ ...cmd._doc, payUrl: simulateurUrl });
+            return res.status(201).json({ ...cmd._doc, payUrl: simulateurUrl, bonusInfo: messageBonus });
         }
 
         io.emit('nouvelle_commande', cmd);
-        res.status(201).json(cmd);
+        // On renvoie la commande ET l'éventuel message de bonus pour l'afficher au client
+        res.status(201).json({ ...cmd._doc, bonusInfo: messageBonus });
 
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error("Erreur commande :", err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 // 🔥 API : RÉCUPÉRER LES COMMANDES EN COURS D'UN CLIENT PRÉCIS
 app.get('/api/mes-commandes/:clientId', async (req, res) => {
@@ -723,6 +784,21 @@ app.put('/api/commandes/partiel-ids', verifierToken, async (req, res) => {
             }
         }
         res.json({ success: true });
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+// 🔥 API : RECHARGER LA CARTE FIDÉLITÉ (Caissier)
+app.post('/api/customers/recharge', verifierToken, async (req, res) => {
+    try {
+        const { codeFidelite, montant } = req.body;
+        const client = await LoyalCustomer.findOne({ codeFidelite });
+        if (!client) return res.status(404).json({ error: "Client introuvable" });
+
+        client.solde += parseFloat(montant); // On ajoute l'argent
+        await client.save();
+        
+        res.json({ success: true, solde: client.solde });
     } catch (err) { 
         res.status(500).json({ error: err.message }); 
     }

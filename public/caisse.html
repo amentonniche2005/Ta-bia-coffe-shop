@@ -794,8 +794,7 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         let aMiseAJour = false;
         if (!commandesRecues || !Array.isArray(commandesRecues)) return;
         commandesRecues.forEach(commande => {
-            if (commande.methodePaiement === 'en_ligne') return;
-            if (commande.statut === 'terminee') {
+if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            if (commande.statut === 'terminee') {
                 if (window.commandesTraiteesTickets && window.commandesTraiteesTickets.has(commande.id)) return;
                 let tableNum = String(commande.numeroTable || 'Emporter').trim(); let customLabel = null;
                 if (commande.clientName) { tableNum = 'Fidele_' + commande.clientName; customLabel = commande.clientName; }
@@ -837,12 +836,14 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         socket = io({ auth: { token: monToken }, transports: ['websocket', 'polling'] });
         socket.on('connect', async () => { await chargerCommandesCuisineInitiales(); synchroniserTicketsAvecServeur(); });
         socket.on('update_stock', async () => { await chargerCatalogue(); if (currentTable) afficherTicket(); renderProducts(); });
-        socket.on('nouvelle_commande', (commande) => { commandesRecues.push(commande); if (derniereTableModal) afficherCommandesTable(derniereTableModal); });
-        socket.on('mise_a_jour_commande', (commande) => {
+socket.on('nouvelle_commande', (commande) => { 
+    commandesRecues.push(commande); 
+    if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
+    afficherCommandesWeb(); // 🔥 On actualise le bloc du haut en temps réel
+});        socket.on('mise_a_jour_commande', (commande) => {
             const idx = commandesRecues.findIndex(c => c.id === commande.id); if (idx !== -1) commandesRecues[idx] = commande; else commandesRecues.push(commande);
             afficherCommandesWeb();
-            if (commande.methodePaiement === 'en_ligne') return;
-            if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
+if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
                 window.commandesTraiteesTickets.add(commande.id);
                 let tableNum = String(commande.numeroTable || 'Emporter').trim(); let customLabel = null;
                 if (commande.clientName) { tableNum = 'Fidele_' + commande.clientName; customLabel = commande.clientName; }
@@ -925,12 +926,41 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         try { const writer = portTiroirUSB.writable.getWriter(); await writer.write(new Uint8Array([0x1B, 0x70, 0x00, 0x19, 0xFA])); writer.releaseLock(); } catch (e) { }
     }
 
-    function afficherCommandesWeb() {
-        const webCmds = commandesRecues.filter(c => c.methodePaiement === 'en_ligne' && c.statut !== 'paye');
+function afficherCommandesWeb() {
+        // 🔥 NOUVEAU : On filtre les paiements En Ligne ET les paiements par Carte Fidélité
+        const webCmds = commandesRecues.filter(c => 
+            (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite') && 
+            c.statut !== 'paye'
+        );
+        
         const container = document.getElementById('sectionCommandesWeb');
         if(webCmds.length === 0) { container.style.display = 'none'; return; }
-        container.style.display = 'block'; document.getElementById('countCommandesWeb').innerText = webCmds.length;
-        document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => `<div style="background: white; border: 2px solid var(--info); padding: 15px; border-radius: 12px; box-shadow: var(--shadow-sm);"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><strong>#${cmd.numero}</strong><span style="color:var(--success);"><i class="fas fa-check-circle"></i> Payé en ligne</span></div><div style="font-weight:900; font-size:1.4rem; margin-bottom:10px;">${(cmd.total || 0).toFixed(2)} DT</div><button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:var(--info); color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold;">Servir Commande</button></div>`).join('');
+        
+        container.style.display = 'block'; 
+        document.getElementById('countCommandesWeb').innerText = webCmds.length;
+        
+        document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
+            // Design différent selon si c'est Konnect ou Wallet VIP
+            const isFidele = cmd.methodePaiement === 'carte_fidelite';
+            const badgeIcon = isFidele ? '<i class="fas fa-id-card"></i> Payé par Wallet' : '<i class="fas fa-globe"></i> Payé en ligne';
+            const badgeColor = isFidele ? 'var(--primary-orange)' : 'var(--info)';
+            
+            return `<div style="background: white; border: 2px solid ${badgeColor}; padding: 15px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <strong>#${cmd.numero}</strong>
+                    <span style="color:${badgeColor}; font-weight:bold;">${badgeIcon}</span>
+                </div>
+                <div style="font-weight:600; color:var(--text-dark); margin-bottom:5px;">
+                    ${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 Table ${cmd.numeroTable}`}
+                </div>
+                <div style="font-weight:900; font-size:1.4rem; margin-bottom:10px;">
+                    ${(cmd.total || 0).toFixed(2)} DT
+                </div>
+                <button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:${badgeColor}; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold;">
+                    Servir Commande <i class="fas fa-check"></i>
+                </button>
+            </div>`;
+        }).join('');
     }
     window.marquerWebServie = async function(id) { try { await fetchSecurise(`/api/commandes/${id}/statut`, { method: 'PUT', body: JSON.stringify({statut: 'paye'}) }); await chargerCommandesCuisineInitiales(); afficherCommandesWeb(); } catch(e) {} }
 

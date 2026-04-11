@@ -379,10 +379,15 @@ function afficherContenuPanier() {
     const tableQr = sessionStorage.getItem('tabia_table_qr');
     const authQr = sessionStorage.getItem('tabia_auth_qr');
     
-    if (zoneFidelite) {
+if (zoneFidelite) {
         // On affiche la zone "Client fidèle" UNIQUEMENT si le client a scanné un QR Code
         if (tableQr && authQr) {
             zoneFidelite.style.display = "block";
+            // 🔥 NOUVEAU : On pré-remplit son code secret s'il l'a scanné à l'entrée
+            const inputFidelite = document.getElementById("inputFidelitePanier");
+            if (inputFidelite && !inputFidelite.value) {
+                inputFidelite.value = authQr;
+            }
         } else {
             zoneFidelite.style.display = "none";
         }
@@ -464,16 +469,31 @@ document.getElementById('btnVerifierFidelite')?.addEventListener('click', async 
             const data = await res.json();
             if (data.success) {
                 clientFideleVerifie = data.customer;
-                msg.innerHTML = `👋 Bienvenue ${clientFideleVerifie.prenom} !`;
+                
+                // Affichage du solde disponible
+                const solde = (clientFideleVerifie.solde || 0).toFixed(2);
+                msg.innerHTML = `👋 Bienvenue ${clientFideleVerifie.prenom} !<br><span style="color:#10b981;">Solde disponible : ${solde} DT</span>`;
                 msg.style.display = 'block';
                 btn.innerHTML = '<i class="fas fa-check"></i>';
                 btn.style.background = '#10b981';
+
+                // 🔥 On AJOUTE la 3ème option à la liste existante, le client garde le choix !
+                const selectPaiement = document.getElementById('methodePaiementClient');
+                if (selectPaiement && !document.getElementById('optionFidelite')) {
+                    const option = document.createElement('option');
+                    option.id = 'optionFidelite';
+                    option.value = 'carte_fidelite';
+                    option.textContent = `💳 Payer avec mon Solde VIP (${solde} DT)`;
+                    selectPaiement.appendChild(option);
+                    // On ne force plus la sélection, il choisit ce qu'il veut dans les 3 options
+                }
             }
         } else {
             msg.innerHTML = "❌ Code invalide";
             msg.style.color = '#ef4444';
             msg.style.display = 'block';
             btn.innerHTML = 'OK';
+            btn.style.background = '#f59e0b';
         }
     } catch(e) { btn.innerHTML = 'OK'; }
 });
@@ -665,19 +685,29 @@ async function validerCommande(numTable, clientData, codeSaisi) {
             const messageSucces = nomFidele ? `🎉 Merci ${nomFidele} ! Commande envoyée.` : "🎉 Commande envoyée avec succès !";
             afficherNotification(messageSucces);
             
+            // 🔥 NOUVEAU : Affichage de la notification si un Bonus (Cashback) a été gagné !
+            if (commande.bonusInfo) {
+                setTimeout(() => {
+                    afficherNotification(commande.bonusInfo, "success");
+                    // Petite vibration de victoire pour marquer le coup 🎊
+                    if (navigator.vibrate) navigator.vibrate([200, 100, 200]); 
+                }, 3000); // 3 secondes de délai pour qu'il lise d'abord que sa commande est passée
+            }
+            
         } else { 
-            // GESTION DE LA SESSION EXPIRÉE (ERREUR 403)
+            // GESTION DES ERREURS
             const erreurData = await response.json();
             
             if (response.status === 403) {
+                // Erreur de sécurité (QR Code expiré ou Faux Code)
                 afficherNotification("❌ " + erreurData.error, "error");
-                
-                // On nettoie tout pour forcer le nouveau scan
                 sessionStorage.removeItem('tabia_table_qr');
                 sessionStorage.removeItem('tabia_auth_qr');
                 sessionStorage.removeItem('client_nom_premium'); 
-                
                 setTimeout(() => { window.location.reload(); }, 2500);
+            } else if (response.status === 400) {
+                // 🔥 NOUVEAU : Erreur de paiement (ex: Solde insuffisant sur la carte)
+                afficherNotification("⚠️ " + erreurData.error, "error"); 
             } else {
                 afficherNotification("❌ Erreur serveur", "error"); 
             }
