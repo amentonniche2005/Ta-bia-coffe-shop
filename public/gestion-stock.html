@@ -772,69 +772,141 @@ function afficherStockDOM(produits) {
         }
 
 function ouvrirModalEdition(id) {
-            const p = stockProduits.find(x => x.id === id);
-            if(!p) return;
-            document.getElementById('modalContainer').innerHTML = `
-                <div class="modal active">
-                    <div class="modal-content">
-                        <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-                        <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
-                        
-                        <div class="form-group">
-                            <label>Type de choix pour le client :</label>
-                            <select id="editProdTypeChoix" onchange="document.getElementById('divEditVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
-                                <option value="aucun" ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'selected' : ''}>🚫 Aucun choix (Produit simple)</option>
-                                <option value="unique" ${p.typeChoix === 'unique' ? 'selected' : ''}>🔘 Un seul choix</option>
-                                <option value="multiple" ${p.typeChoix === 'multiple' ? 'selected' : ''}>☑️ Plusieurs choix</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group" id="divEditVariantes" style="display: ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'none' : 'block'};">
-                            <label>Choix / Variantes (séparés par des virgules) :</label>
-                            <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Petit, Moyen, Grand">
-                        </div>
+    const p = stockProduits.find(x => x.id === id);
+    if(!p) return;
 
-                        <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="Collez le lien .jpg ici"></div>
-                        <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal active">
+            <div class="modal-content" style="max-width: 550px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3>
+                    <span class="modal-close" onclick="fermerModal()">&times;</span>
+                </div>
+
+                <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
+                
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Type de choix :</label>
+                        <select id="editProdTypeChoix" onchange="document.getElementById('divEditVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
+                            <option value="aucun" ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'selected' : ''}>🚫 Aucun</option>
+                            <option value="unique" ${p.typeChoix === 'unique' ? 'selected' : ''}>🔘 Unique</option>
+                            <option value="multiple" ${p.typeChoix === 'multiple' ? 'selected' : ''}>☑️ Multiple</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Catégorie :</label>
+                        <select id="editProdCat">
                             <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
                             <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
                             <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
                             <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
                             <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
-                            <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option>
-                        </select></div>
-                        
-                        <div style="display:flex; gap:10px;">
-                            <div class="form-group" style="flex:1;"><label>Prix Achat (DT):</label><input type="number" id="editProdPrixAchat" step="0.01" value="${p.prixAchat || 0}"></div>
-                            <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
-                            <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
-                        </div>
-                        
-                        <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}" step="1"></div>
-                        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
+                            <option value="matiere_premiere" ${p.categorie==='matiere_premiere'?'selected':''}>📦 Matière Première</option>
+                        </select>
                     </div>
-                </div>`;
-        }
+                </div>
+
+                <div class="form-group" id="divEditVariantes" style="display: ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'none' : 'block'};">
+                    <label>Variantes (virgules) :</label>
+                    <input type="text" id="editProdVariantes" value="${p.variantes || ''}">
+                </div>
+
+                <div style="margin: 15px 0; padding: 15px; background: #f8fafc; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <h4 style="font-size: 0.9rem; color: var(--primary); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <span><i class="fas fa-utensils"></i> Composition (Recette)</span>
+                        <button type="button" class="btn-action" style="padding: 4px 8px; font-size: 0.7rem;" onclick="ajouterLigneIngredient()">+ Ajouter</button>
+                    </h4>
+                    <div id="listeIngredientsRecette">
+                        </div>
+                    <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">* Si vide, le système déduit le produit lui-même du stock.</p>
+                </div>
+
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;"><label>Prix Achat (DT):</label><input type="number" id="editProdPrixAchat" step="0.01" value="${p.prixAchat || 0}"></div>
+                    <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
+                </div>
+                
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
+                    <div class="form-group" style="flex:1;"><label>Seuil Alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
+                </div>
+
+                <div class="modal-buttons">
+                    <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+                    <button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button>
+                </div>
+            </div>
+        </div>`;
+
+    // Charger la recette existante si elle existe
+    if (p.recette && p.recette.length > 0) {
+        p.recette.forEach(ing => ajouterLigneIngredient(ing.ingredientId, ing.quantiteConsommee));
+    }
+}
 
 async function sauvegarderEditionProduit(id) {
-            const typeC = document.getElementById('editProdTypeChoix').value;
-            const produitData = {
-                nom: document.getElementById('editProdName').value,
-                variantes: typeC === 'aucun' ? "" : document.getElementById('editProdVariantes').value,
-                typeChoix: typeC,
-                image: document.getElementById('editProdImage').value,
-                categorie: document.getElementById('editProdCat').value,
-                // 🔥 CORRECTION ICI : On capture la valeur de la nouvelle case
-                prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
-                prix: parseFloat(document.getElementById('editProdPrice').value),
-                stock: parseInt(document.getElementById('editProdStock').value),
-                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
-            };
-            try {
-                const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
-                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); chargerDashboard(); chargerAlertes();}
-            } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
+    const typeC = document.getElementById('editProdTypeChoix').value;
+    
+    // 🔥 RÉCUPÉRATION DES INGRÉDIENTS DE LA RECETTE
+    const recette = [];
+    document.querySelectorAll('.ingredient-row').forEach(row => {
+        const ingId = row.querySelector('.ing-id-input').value;
+        const qte = parseFloat(row.querySelector('.ing-qte-input').value);
+        if (ingId && qte > 0) {
+            recette.push({ ingredientId: parseInt(ingId), quantiteConsommee: qte });
         }
+    });
+
+    const produitData = {
+        nom: document.getElementById('editProdName').value,
+        variantes: typeC === 'aucun' ? "" : document.getElementById('editProdVariantes').value,
+        typeChoix: typeC,
+        categorie: document.getElementById('editProdCat').value,
+        prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
+        prix: parseFloat(document.getElementById('editProdPrice').value),
+        stock: parseInt(document.getElementById('editProdStock').value),
+        seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
+        recette: recette // 🔥 On envoie la recette ici
+    };
+
+    try {
+        const response = await fetchSecurise(`/api/stock/${id}`, { 
+            method: 'PUT', 
+            body: JSON.stringify(produitData) 
+        });
+        if (response.ok) { 
+            showNotification("✅ Produit et Recette mis à jour !"); 
+            fermerModal(); 
+            chargerStock(); 
+        }
+    } catch (error) { 
+        showNotification("❌ Erreur de mise à jour", "var(--danger)"); 
+    }
+}
+function ajouterLigneIngredient(idPreselectionne = "", qtePreselectionnee = "") {
+    const container = document.getElementById('listeIngredientsRecette');
+    
+    // On filtre pour ne pas se mettre soi-même dans sa recette
+    // Idéalement, on ne montre que les produits de catégorie 'matiere_premiere'
+    const options = stockProduits
+        .map(p => `<option value="${p.id}" ${p.id == idPreselectionne ? 'selected' : ''}>${p.nom} (${p.unite || 'u'})</option>`)
+        .join('');
+
+    const html = `
+        <div class="ingredient-row" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
+            <select class="ing-id-input" style="flex: 2; padding: 8px; border-radius: 8px; border: 1px solid #ddd;">
+                <option value="">-- Choisir --</option>
+                ${options}
+            </select>
+            <input type="number" class="ing-qte-input" value="${qtePreselectionnee}" placeholder="Qté" step="0.001" style="flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #ddd;">
+            <button type="button" onclick="this.parentElement.remove()" style="background: none; border: none; color: var(--danger); cursor: pointer;">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
 
         async function supprimerProduit(id) {
             if (!confirm("⚠️ Voulez-vous vraiment supprimer ce produit ? Cette action est définitive.")) return;
