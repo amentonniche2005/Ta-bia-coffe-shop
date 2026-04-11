@@ -539,8 +539,10 @@
 function getIconPaiement(methode) {
             if(methode === 'en_ligne') return '<span class="badge" style="background:#e8f5e9; color:#27ae60;"><i class="fas fa-globe"></i> En Ligne</span>';
             if(methode === 'carte') return '<span class="badge" style="background:#f4e8f9; color:#8e44ad;"><i class="fas fa-credit-card"></i> Carte</span>';
-            // 🔥 NOUVEAU BADGE POUR LA CARTE FIDÉLITÉ
-            if(methode === 'carte_fidelite') return '<span class="badge" style="background:#fffbeb; color:#f39c12;"><i class="fas fa-id-card"></i> Wallet VIP</span>';
+            
+            // 🔥 CORRECTION : On accepte "carte_fidelite" ET "Carte Fidélité" (venant de la base de données)
+            if(methode === 'carte_fidelite' || methode === 'Carte Fidélité') return '<span class="badge" style="background:#fffbeb; color:#f39c12;"><i class="fas fa-id-card"></i> Wallet VIP</span>';
+            
             if(methode === 'ticket_resto') return '<span class="badge" style="background:#fef5e6; color:#e67e22;"><i class="fas fa-ticket-alt"></i> Ticket Resto</span>';
             if(methode === 'cheque') return '<span class="badge" style="background:#f1f5f9; color:#7f8c8d;"><i class="fas fa-money-check"></i> Chèque</span>';
             return '<span class="badge" style="background:#eef2f6; color:#34495e;"><i class="fas fa-money-bill-wave"></i> Espèces</span>';
@@ -1505,10 +1507,17 @@ function demarrerInventaire() {
                 }
 
                 // 🔥 Filtrage par Date ET Mode de Paiement
+// 🔥 Filtrage par Date ET Mode de Paiement
                 const ventesFiltrees = toutesLesVentes.filter(v => {
                     const matchDate = v.timestamp >= tsDebut && v.timestamp <= tsFin;
                     const methodeTicket = v.methodePaiement || 'especes'; // Sécurité rétrocompatibilité
-                    const matchMethode = methodeFiltre === 'all' || methodeTicket === methodeFiltre;
+                    
+                    // 🔥 CORRECTION DU FILTRE : On relie l'option du menu à la valeur de la base de données
+                    let matchMethode = (methodeFiltre === 'all' || methodeTicket === methodeFiltre);
+                    if (methodeFiltre === 'carte_fidelite' && methodeTicket === 'Carte Fidélité') {
+                        matchMethode = true;
+                    }
+                    
                     return matchDate && matchMethode;
                 });
 
