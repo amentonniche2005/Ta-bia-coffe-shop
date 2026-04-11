@@ -374,14 +374,13 @@ function afficherContenuPanier() {
     const totalElement = document.getElementById("cartTotal");
     const checkoutBtn = document.getElementById("checkoutBtn");
     
-    // 🔥 NOUVEAU : GESTION DE L'AFFICHAGE DE LA ZONE FIDÉLITÉ
+    // 🔥 GESTION DE L'AFFICHAGE DE LA ZONE FIDÉLITÉ
     const zoneFidelite = document.getElementById("zoneFidelitePanier");
-    const tableQr = sessionStorage.getItem('tabia_table_qr');
-    const authQr = sessionStorage.getItem('tabia_auth_qr');
+    const authQr = sessionStorage.getItem('tabia_auth_qr'); // 👈 CORRECTION : On ne cherche plus la table ici
     
     if (zoneFidelite) {
-        // On affiche la zone "Client fidèle" UNIQUEMENT si le client a scanné un QR Code
-        if (tableQr && authQr) {
+        // On affiche la zone "Client fidèle" si le client a un code VIP (même sans table)
+        if (authQr) {
             zoneFidelite.style.display = "block";
             
             // On pré-remplit son code secret s'il l'a scanné à l'entrée
