@@ -158,111 +158,105 @@ app.get('/api/stock', async (req, res) => {
 // 🔥 ROUTE COMMANDE (SÉCURISÉE AVEC VÉRIFICATION DU CODE TABLE)
 app.post('/api/commandes', async (req, res) => {
     try {
-        const codeEnvoye = String(req.body.codeAuth); // On le déclare ici pour l'utiliser partout
+        const codeEnvoye = String(req.body.codeAuth);
         
-        // =================================================================
-        // 🚨 VÉRIFICATION STRICTE DU CODE DE TABLE EN TEMPS RÉEL
-        // =================================================================
+        // 1. VÉRIFICATION DU CODE TABLE OU FIDÉLITÉ
         if (req.body.numeroTable && req.body.numeroTable !== 'Emporter') {
             let authValid = false;
-            
-            // 1. Vérifier si c'est un client fidèle
             const fidele = await LoyalCustomer.findOne({ codeFidelite: codeEnvoye });
             if (fidele) authValid = true;
 
-            // 2. Sinon, vérifier si le code correspond au code ACTUEL de la table
             if (!authValid) {
                 const tableDb = await TableCode.findOne({ numero: parseInt(req.body.numeroTable) });
                 if (tableDb && tableDb.code === codeEnvoye) authValid = true;
             }
 
-            // 3. Code Master (Sécurité optionnelle)
             if (codeEnvoye === "00000") authValid = true;
 
-            // Si le code a expiré (la table a été encaissée et le code a changé) -> ON BLOQUE !
             if (!authValid) {
-                return res.status(403).json({ error: "Ce QR Code a expiré. La table a été renouvelée. Veuillez rescanner le QR Code actuel sur la table." });
+                return res.status(403).json({ error: "Ce QR Code a expiré ou est invalide." });
             }
         }
-        // =================================================================
 
-        const cmdId = Date.now().toString(); // ID en String pour Konnect
-        const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
-        const isEnLigne = req.body.methodePaiement === 'en_ligne';
-
-        // 🔥 SÉCURITÉ : Recalcul du total côté serveur
+        // 2. RECALCUL DU TOTAL SÉCURISÉ
         let totalSecurise = 0;
         let articlesSecurises = [];
-
         for (let art of req.body.articles) {
             const produitDb = await Product.findOne({ id: art.id });
             if (produitDb) {
                 totalSecurise += (produitDb.prix * art.quantite);
-                articlesSecurises.push({ ...art, prix: produitDb.prix }); // On force le vrai prix de la DB
+                articlesSecurises.push({ ...art, prix: produitDb.prix });
             } else {
-                totalSecurise += (art.prix * art.quantite); // Fallback si article custom
+                totalSecurise += (art.prix * art.quantite);
                 articlesSecurises.push(art);
             }
         }
+        totalSecurise = parseFloat(totalSecurise.toFixed(2)); // 🔥 Fix précision
 
-        // =================================================================
-        // 💳 🔥 NOUVEAU : GESTION DU PAIEMENT WALLET & CASHBACK DYNAMIQUE
-        // =================================================================
-        let messageBonus = null; // Pour le renvoyer au client s'il gagne
+        // 3. GESTION DU PAIEMENT WALLET & CASHBACK DYNAMIQUE
+        let messageBonus = null;
+        const cmdId = Date.now().toString();
+        const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
 
         if (req.body.methodePaiement === 'carte_fidelite') {
             const clientVIP = await LoyalCustomer.findOne({ codeFidelite: codeEnvoye });
             
             if (!clientVIP) {
-                return res.status(403).json({ error: "Erreur : Carte de fidélité non reconnue pour le paiement." });
+                return res.status(403).json({ error: "Carte de fidélité non reconnue." });
             }
             
             if (clientVIP.solde < totalSecurise) {
-                return res.status(400).json({ error: `Solde insuffisant. Il vous reste ${clientVIP.solde.toFixed(2)} DT sur votre carte.` });
+                return res.status(400).json({ error: `Solde insuffisant (${clientVIP.solde.toFixed(2)} DT).` });
             }
 
-            // 1. On déduit l'argent du portefeuille
-            clientVIP.solde -= totalSecurise;
-            
-            // 2. On augmente le compteur de dépenses historiques
+            // --- DÉBUT LOGIQUE BONUS CORRIGÉE ---
             const ancienneDepense = clientVIP.totalDepense || 0;
-            clientVIP.totalDepense = ancienneDepense + totalSecurise;
+            
+            // On récupère les réglages
+            const configFid = await StoreSettings.findOne({ type: 'fidelite' });
+            const lePalier = configFid ? configFid.palierDepense : 50;
+            const leBonus = configFid ? configFid.bonusOffert : 4;
 
-            // 🔥 RÉCUPÉRATION DE LA CONFIGURATION DYNAMIQUE DEPUIS LA BDD
-            let configFidelite = await StoreSettings.findOne({ type: 'fidelite' });
-            let lePalier = (configFidelite && configFidelite.palierDepense) ? configFidelite.palierDepense : 50; // 50 par défaut
-            let leBonus = (configFidelite && configFidelite.bonusOffert) ? configFidelite.bonusOffert : 4;     // 4 par défaut
+            // Déduction du solde
+            clientVIP.solde = parseFloat((clientVIP.solde - totalSecurise).toFixed(2));
+            
+            // Mise à jour de la dépense totale
+            clientVIP.totalDepense = parseFloat((ancienneDepense + totalSecurise).toFixed(2));
 
-            // 3. Logique du Bonus Dynamique
-            const paliersFranchis = Math.floor(clientVIP.totalDepense / lePalier);
-            const anciensPaliers = Math.floor(ancienneDepense / lePalier);
+            // Calcul des paliers (Avant vs Après)
+            const nbPaliersAvant = Math.floor(ancienneDepense / lePalier);
+            const nbPaliersApres = Math.floor(clientVIP.totalDepense / lePalier);
 
-            if (paliersFranchis > anciensPaliers) {
-                const montantCadeau = (paliersFranchis - anciensPaliers) * leBonus;
-                clientVIP.solde += montantCadeau; 
-                messageBonus = `Félicitations 🎉 ! Vous avez dépassé ${lePalier} DT d'achats. Un bonus de +${montantCadeau} DT a été crédité sur votre carte !`;
+            // Si on a franchi au moins un nouveau palier
+            if (nbPaliersApres > nbPaliersAvant) {
+                const nbNouveauxPaliers = nbPaliersApres - nbPaliersAvant;
+                const montantCadeau = nbNouveauxPaliers * leBonus;
+                
+                clientVIP.solde = parseFloat((clientVIP.solde + montantCadeau).toFixed(2));
+                messageBonus = `Félicitations 🎉 ! Vous avez franchi un palier de ${lePalier} DT. Bonus de +${montantCadeau.toFixed(2)} DT ajouté !`;
+                console.log(`🎁 Bonus : ${clientVIP.prenom} a gagné ${montantCadeau} DT`);
             }
+            // --- FIN LOGIQUE BONUS ---
 
             await clientVIP.save();
 
-            // 4. Trace de la vente pour la caisse (Statistiques Admin)
-            const nouvelleVente = new Sale({
+            // Trace de la vente
+            await new Sale({
                 id: cmdId,
                 numero: numeroCmd,
                 total: totalSecurise,
                 remise: 0,
                 typePaiement: 'complet',
                 methodePaiement: 'Carte Fidélité',
-                tableOrigine: `Fidèle : ${clientVIP.prenom} ${clientVIP.nom}`, // Pour savoir qui a payé
+                tableOrigine: `Fidèle : ${clientVIP.prenom} ${clientVIP.nom}`,
                 articles: articlesSecurises,
                 date: new Date().toLocaleString('fr-FR'),
                 timestamp: Date.now()
-            });
-            await nouvelleVente.save();
+            }).save();
         }
-        // =================================================================
 
-        // Création de la commande finale
+        // 4. CRÉATION DE LA COMMANDE
+        const isEnLigne = req.body.methodePaiement === 'en_ligne';
         const cmd = new Order({ 
             ...req.body, 
             articles: articlesSecurises,
@@ -270,18 +264,17 @@ app.post('/api/commandes', async (req, res) => {
             numero: numeroCmd, 
             date: new Date().toLocaleString('fr-FR'), 
             timestamp: Date.now(),
-            total: totalSecurise, // On utilise le total calculé par le serveur
+            total: totalSecurise,
             statut: isEnLigne ? 'attente_paiement' : 'en_attente' 
         });
         await cmd.save();
 
         if (isEnLigne) {
             const simulateurUrl = `/api/simulateur-paiement/${cmdId}`;
-            return res.status(201).json({ ...cmd._doc, payUrl: simulateurUrl, bonusInfo: messageBonus });
+            return res.status(201).json({ ...cmd._doc, payUrl: simulateurUrl });
         }
 
         io.emit('nouvelle_commande', cmd);
-        // On renvoie la commande ET l'éventuel message de bonus pour l'afficher au client
         res.status(201).json({ ...cmd._doc, bonusInfo: messageBonus });
 
     } catch (err) { 
