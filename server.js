@@ -94,6 +94,11 @@ const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({
     solde: { type: Number, default: 0 }, // L'argent disponible pour payer sur sa carte
     totalDepense: { type: Number, default: 0 } // La somme de tous ses achats historiques pour le calcul du bonus
 }));
+const StoreSettings = mongoose.model('StoreSettings', new mongoose.Schema({
+    type: { type: String, unique: true }, // Ex: 'fidelite'
+    palierDepense: { type: Number, default: 50 }, // Tous les 50 DT...
+    bonusOffert: { type: Number, default: 4 } // ...On offre 4 DT
+}));
 
 const Sale = mongoose.model('Sale', new mongoose.Schema({
     id: String, numero: String,
@@ -201,7 +206,7 @@ app.post('/api/commandes', async (req, res) => {
         }
 
         // =================================================================
-        // 💳 🔥 NOUVEAU : GESTION DU PAIEMENT WALLET & CASHBACK
+        // 💳 🔥 NOUVEAU : GESTION DU PAIEMENT WALLET & CASHBACK DYNAMIQUE
         // =================================================================
         let messageBonus = null; // Pour le renvoyer au client s'il gagne
 
@@ -223,23 +228,28 @@ app.post('/api/commandes', async (req, res) => {
             const ancienneDepense = clientVIP.totalDepense || 0;
             clientVIP.totalDepense = ancienneDepense + totalSecurise;
 
-            // 3. Logique du Bonus : +4 DT offerts tous les 50 DT dépensés
-            const paliersFranchis = Math.floor(clientVIP.totalDepense / 50);
-            const anciensPaliers = Math.floor(ancienneDepense / 50);
+            // 🔥 RÉCUPÉRATION DE LA CONFIGURATION DYNAMIQUE DEPUIS LA BDD
+            let configFidelite = await StoreSettings.findOne({ type: 'fidelite' });
+            let lePalier = (configFidelite && configFidelite.palierDepense) ? configFidelite.palierDepense : 50; // 50 par défaut
+            let leBonus = (configFidelite && configFidelite.bonusOffert) ? configFidelite.bonusOffert : 4;     // 4 par défaut
+
+            // 3. Logique du Bonus Dynamique
+            const paliersFranchis = Math.floor(clientVIP.totalDepense / lePalier);
+            const anciensPaliers = Math.floor(ancienneDepense / lePalier);
 
             if (paliersFranchis > anciensPaliers) {
-                const montantCadeau = (paliersFranchis - anciensPaliers) * 4;
+                const montantCadeau = (paliersFranchis - anciensPaliers) * leBonus;
                 clientVIP.solde += montantCadeau; 
-                messageBonus = `Félicitations 🎉 ! Vous avez dépassé 50 DT d'achats. Un bonus de +${montantCadeau} DT a été crédité sur votre carte !`;
+                messageBonus = `Félicitations 🎉 ! Vous avez dépassé ${lePalier} DT d'achats. Un bonus de +${montantCadeau} DT a été crédité sur votre carte !`;
             }
 
             await clientVIP.save();
 
-// 4. Trace de la vente pour la caisse (Statistiques Admin)
+            // 4. Trace de la vente pour la caisse (Statistiques Admin)
             const nouvelleVente = new Sale({
                 id: cmdId,
                 numero: numeroCmd,
-                total: totalSecurise, // CORRECTION : 'total' au lieu de 'montant'
+                total: totalSecurise,
                 remise: 0,
                 typePaiement: 'complet',
                 methodePaiement: 'Carte Fidélité',
@@ -676,6 +686,28 @@ app.put('/api/depenses/:id', verifierToken, async (req, res) => {
     } catch (err) { 
         res.status(500).json({ error: err.message }); 
     }
+});
+// 🔥 API : LIRE LES PARAMÈTRES DE FIDÉLITÉ
+app.get('/api/settings/fidelite', verifierToken, async (req, res) => {
+    try {
+        let config = await StoreSettings.findOne({ type: 'fidelite' });
+        // Si ça n'existe pas encore, on le crée avec les valeurs par défaut
+        if (!config) config = await new StoreSettings({ type: 'fidelite', palierDepense: 50, bonusOffert: 4 }).save();
+        res.json(config);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 🔥 API : SAUVEGARDER LES PARAMÈTRES DE FIDÉLITÉ
+app.post('/api/settings/fidelite', verifierToken, async (req, res) => {
+    try {
+        const { palierDepense, bonusOffert } = req.body;
+        const config = await StoreSettings.findOneAndUpdate(
+            { type: 'fidelite' },
+            { palierDepense, bonusOffert },
+            { new: true, upsert: true }
+        );
+        res.json({ success: true, config });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/numbers/refresh/:numero', async (req, res) => {

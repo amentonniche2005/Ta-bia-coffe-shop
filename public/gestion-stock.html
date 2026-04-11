@@ -450,9 +450,16 @@
         </div>
 
         <div class="panel" id="panel-fidelite">
-            <div class="toolbar">
+<div class="toolbar">
                 <div><h3 style="font-size:1.1rem; color:var(--text-main);">Clients Fidèles</h3><p style="font-size:0.8rem; color:var(--text-muted);">Gérez les codes secrets de vos habitués.</p></div>
-                <button class="btn-action btn-warning" onclick="ouvrirModalClient()"><i class="fas fa-user-plus"></i> Inscrire un Client</button>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn-action" style="background:var(--primary);" onclick="ouvrirModalConfigFidelite()">
+                        <i class="fas fa-cog"></i> Configurer Bonus
+                    </button>
+                    <button class="btn-action btn-warning" onclick="ouvrirModalClient()">
+                        <i class="fas fa-user-plus"></i> Inscrire un Client
+                    </button>
+                </div>
             </div>
 <div class="table-container">
                 <table>
@@ -1384,20 +1391,42 @@ function demarrerInventaire() {
         }
         
         // ========== 7. MODULE FIDELITÉ ==========
-        async function chargerClients() {
+async function chargerClients() {
             const tbody = document.getElementById('fideliteTableBody');
             tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
             try {
-                const res = await fetchSecurise('/api/customers'); const clients = await res.json();
-                if(clients.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Aucun client fidèle enregistré</td></tr>'; return; }
+                // 🔥 NOUVEAU : 1. On récupère d'abord les paramètres de fidélité (le Palier)
+                let palierActuel = 50; // Valeur par défaut si erreur
+                try {
+                    const resConfig = await fetchSecurise('/api/settings/fidelite');
+                    if (resConfig.ok) {
+                        const config = await resConfig.json();
+                        if (config && config.palierDepense) {
+                            palierActuel = config.palierDepense;
+                            
+                            // 👉 C'EST ICI QUE SE TROUVE LA LIGNE AJOUTÉE :
+                            // On la sauvegarde globalement pour que l'interface soit parfaite
+                            window.currentPalierFidelite = config.palierDepense; 
+                        }
+                    }
+                } catch(errConfig) { console.warn("Impossible de récupérer le palier, utilisation de 50 par défaut."); }
+
+                // 2. On récupère les clients
+                const res = await fetchSecurise('/api/customers'); 
+                const clients = await res.json();
+                
+                if(clients.length === 0) { 
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Aucun client fidèle enregistré</td></tr>'; 
+                    return; 
+                }
                 
                 tbody.innerHTML = clients.map(c => {
                     const solde = (c.solde || 0).toFixed(2);
                     const depense = (c.totalDepense || 0).toFixed(2);
                     
-                    // 🔥 LA MERVEILLE : Calcul de la progression vers le prochain bonus de 50 DT
-                    const depenseDansPalierActuel = (c.totalDepense || 0) % 50;
-                    const pourcentageProgression = (depenseDansPalierActuel / 50) * 100;
+                    // 🔥 LA MERVEILLE : Calcul basé sur le Palier Dynamique
+                    const depenseDansPalierActuel = (c.totalDepense || 0) % palierActuel;
+                    const pourcentageProgression = (depenseDansPalierActuel / palierActuel) * 100;
 
                     return `<tr>
                         <td><span style="font-size:0.85rem; color:var(--text-muted);">${c.dateInscription}</span></td>
@@ -1411,7 +1440,7 @@ function demarrerInventaire() {
                         
                         <td style="text-align:right; width: 200px;">
                             <div style="font-weight:700; color:var(--text-main); font-size:0.9rem;">${depense} DT <span style="color:var(--text-muted); font-weight:normal; font-size:0.75rem;">(Total)</span></div>
-                            <div style="width:100%; background:#e2e8f0; height:6px; border-radius:3px; margin-top:6px; overflow:hidden;" title="${depenseDansPalierActuel.toFixed(2)} / 50 DT pour le prochain bonus">
+                            <div style="width:100%; background:#e2e8f0; height:6px; border-radius:3px; margin-top:6px; overflow:hidden;" title="${depenseDansPalierActuel.toFixed(2)} / ${palierActuel} DT pour le prochain bonus">
                                 <div style="width:${pourcentageProgression}%; background:var(--warning); height:100%; border-radius:3px; transition: width 0.5s;"></div>
                             </div>
                         </td>
@@ -1424,7 +1453,7 @@ function demarrerInventaire() {
                         </td>
                     </tr>`;
                 }).join('');
-            } catch(e) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message error">Erreur</td></tr>'; }
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message error">Erreur de chargement</td></tr>'; }
         }
 // 🔥 NOUVELLE FONCTION : Ouvrir la fenêtre de rechargement
         function ouvrirModalRecharge(code, nom) {
@@ -1664,7 +1693,67 @@ function demarrerInventaire() {
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Rapport_Ventes_${new Date().toISOString().slice(0,10)}.csv`;
             a.click(); URL.revokeObjectURL(a.href);
         }
+// 🔥 NOUVELLE FONCTION : Ouvrir les paramètres de fidélité
+        async function ouvrirModalConfigFidelite() {
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active"><div class="modal-content" style="max-width:400px; text-align:center;">
+                    <div class="modal-header" style="justify-content:center;">
+                        <h3 style="color:var(--primary);"><i class="fas fa-cogs"></i> Paramètres Cashback</h3>
+                        <span class="modal-close" style="position:absolute; right:20px;" onclick="fermerModal()">&times;</span>
+                    </div>
+                    
+                    <div style="background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:20px; text-align:left;">
+                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Définissez les règles pour vos clients VIP.</p>
+                        
+                        <div class="form-group">
+                            <label>Palier de dépense (DT) :</label>
+                            <input type="number" id="configPalier" step="1" min="1" placeholder="Ex: 50" style="font-weight:bold; color:var(--text-main);">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Bonus offert au palier (DT) :</label>
+                            <input type="number" id="configBonus" step="0.5" min="0.5" placeholder="Ex: 4" style="font-weight:bold; color:var(--success);">
+                        </div>
+                    </div>
+                    
+                    <div class="modal-buttons">
+                        <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+                        <button class="btn-primary" onclick="sauvegarderConfigFidelite()"><i class="fas fa-save"></i> Enregistrer</button>
+                    </div>
+                </div></div>
+            `;
 
+            // Récupérer les valeurs actuelles depuis le serveur
+            try {
+                const res = await fetchSecurise('/api/settings/fidelite');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('configPalier').value = data.palierDepense || 50;
+                    document.getElementById('configBonus').value = data.bonusOffert || 4;
+                }
+            } catch(e) { showNotification("Erreur de chargement", "var(--danger)"); }
+        }
+
+        // 🔥 NOUVELLE FONCTION : Sauvegarder les paramètres
+        async function sauvegarderConfigFidelite() {
+            const palier = parseFloat(document.getElementById('configPalier').value);
+            const bonus = parseFloat(document.getElementById('configBonus').value);
+
+            if(!palier || palier <= 0 || !bonus || bonus < 0) return showNotification("Valeurs invalides", "var(--danger)");
+
+            try {
+                const res = await fetchSecurise('/api/settings/fidelite', {
+                    method: 'POST',
+                    body: JSON.stringify({ palierDepense: palier, bonusOffert: bonus })
+                });
+
+                if (res.ok) {
+                    showNotification("✅ Règles de fidélité mises à jour !", "var(--success)");
+                    fermerModal();
+                    chargerClients(); // On recharge le tableau car la barre de progression dépend du nouveau palier
+                }
+            } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
+        }
         // ========== INIT DOM ==========
         document.addEventListener("DOMContentLoaded", () => {
             chargerDashboard(); chargerStock(); chargerCategories(); chargerHistorique(); chargerAlertes(); chargerDepenses();
