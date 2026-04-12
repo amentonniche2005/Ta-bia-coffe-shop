@@ -138,6 +138,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     initClientSocket();
     configurerEvenements();
+    const btnEspace = document.getElementById('btnEspaceClient');
+    if (btnEspace) {
+        btnEspace.addEventListener('click', () => {
+            document.getElementById('clientModal').style.display = 'flex';
+            const savedCode = sessionStorage.getItem('tabia_auth_qr');
+            if (savedCode) {
+                document.getElementById('clientLoginCode').value = savedCode;
+                verifierCodeClient(true);
+            }
+        });
+        if (sessionStorage.getItem('client_nom_premium')) {
+            const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
+            btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
+        }
+    }
 });
 
 // ========== FETCH API STOCK ==========
@@ -860,32 +875,7 @@ function configurerEvenements() {
     }
     
 }
-// =================================================================
-// 🔥 LOGIQUE DU PROFIL VIP (À AJOUTER TOUT EN BAS DU FICHIER)
-// =================================================================
 
-// 1. Écouteur pour ouvrir la fenêtre Espace Client
-document.addEventListener("DOMContentLoaded", () => {
-    const btnEspace = document.getElementById('btnEspaceClient');
-    if (btnEspace) {
-        btnEspace.addEventListener('click', () => {
-            document.getElementById('clientModal').style.display = 'flex';
-            
-            // Si le client s'était déjà connecté, on remplit son code automatiquement
-            const savedCode = sessionStorage.getItem('tabia_auth_qr');
-            if (savedCode) {
-                document.getElementById('clientLoginCode').value = savedCode;
-                verifierCodeClient(true);
-            }
-        });
-
-        // Remet la petite couronne 👑 si le client rafraîchit la page
-        if (sessionStorage.getItem('client_nom_premium')) {
-            const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
-            btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
-        }
-    }
-});
 
 // 2. Fonction qui interroge la base de données et dessine la carte VIP
 window.verifierCodeClient = async function(silencieux = false) {
