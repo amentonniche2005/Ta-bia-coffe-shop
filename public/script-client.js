@@ -408,7 +408,7 @@ function afficherContenuPanier() {
             }
             // On récupère le solde affiché dans la carte VIP
             const soldeAffiche = document.getElementById('vipSolde')?.innerText || "0.00 DT";
-            optionVIP.textContent = `⭐ Payer avec mon Solde VIP (${soldeAffiche})`;
+            optionVIP.textContent = `⭐ Payer avec mon Solde VIP `;
             
             // On force la sélection sur VIP par défaut pour lui faire plaisir
             selectPaiement.value = 'carte_fidelite';
