@@ -1,12 +1,16 @@
-const socket = io(); 
-
-// 1. Si le stock change
-socket.on('update_stock', () => { chargerCatalogue(); });
-// 2. Si une nouvelle commande arrive
-socket.on('nouvelle_commande', (data) => { chargerMesCommandes(); });
-// 3. Si un statut change 
-socket.on('mise_a_jour_commande', () => { chargerMesCommandes(); });
-
+let socket = null;
+try {
+    if (typeof io !== 'undefined') {
+        socket = io({ query: { clientType: 'customer' }, transports: ['websocket', 'polling'], reconnection: true });
+        
+        socket.on('update_stock', () => { chargerCatalogue(); });
+        socket.on('nouvelle_commande', () => { chargerMesCommandes(); });
+    } else {
+        console.warn("⚠️ Mode hors-ligne ou serveur déconnecté. (Socket introuvable)");
+    }
+} catch (e) {
+    console.error("Erreur de connexion Socket :", e);
+}
 // ========== VARIABLES GLOBALES ==========
 let panier = [];
 let produits = []; 
@@ -16,23 +20,7 @@ let clientFideleVerifie = null; // 🔥 Variable globale pour stocker les infos 
 const HISTORIQUE_EXPIRATION = 24 * 60 * 60 * 1000;
 
 // Configurations des Variantes
-const variantesConfig = [
-    { mots: ['gazeuse', 'soda'], options: ['Coca-Cola', 'Coca Zéro', 'Boga Cidre', 'Fanta', 'Sprite'] },
-    { mots: ['cafe', 'café', 'espresso', 'capucin', 'direct'], options: ['Normal', 'Serré', 'Allongé', 'Sans Sucre'] },
-    { mots: ['jus', 'citronnade', 'mojito'], options: ['Bien frais', 'Glaçons à part', 'Sans sucre ajouté'] },
-    { mots: ['thé', 'the', 'infusion'], options: ['Normal', 'Léger en sucre', 'Sans sucre', 'Menthe extra'] },
-    { mots: ['crêpe', 'gaufre', 'crepe'], options: ['Chocolat au lait', 'Chocolat Noir', 'Beurre salé', 'Miel'] }
-];
 
-let produitEnAttenteOption = null;
-
-const defaultImages = {
-    'cafe': 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=400&q=80',
-    'the': 'https://images.unsplash.com/photo-1576092762791-dd9e2220afa1?auto=format&fit=crop&w=400&q=80',
-    'boissons': 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80',
-    'dessert': 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=400&q=80',
-    'sale': 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
-};
 
 const categoryLabels = { 'cafe': '☕ Cafés', 'the': '🫖 Thés & Infusions', 'boissons': '🍹 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé & Snack', 'chicha': '💨 Chichas' };
 
@@ -584,7 +572,8 @@ function chargerMesCommandes() {
 function nettoyerCommandesExpirees() { chargerMesCommandes(); }
 
 function initClientSocket() {
-    const socket = io({ query: { clientType: 'customer' }, transports: ['websocket', 'polling'], reconnection: true });
+    if (!socket) return; // Si le socket n'existe pas, on annule pour éviter un crash
+
     socket.on('mise_a_jour_commande', (commande) => {
         const key = `tabia_mes_commandes_${clientId}`;
         let hist = JSON.parse(localStorage.getItem(key) || "[]");
@@ -593,7 +582,10 @@ function initClientSocket() {
             hist[idx].statut = commande.statut;
             localStorage.setItem(key, JSON.stringify(hist));
             chargerMesCommandes();
-            if(commande.statut === 'terminee') { afficherNotification("Votre commande est prête ! 🍽️"); }
+            if(commande.statut === 'terminee') {
+                afficherNotification("Votre commande est prête ! 🍽️");
+                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            }
         }
     });
 }
