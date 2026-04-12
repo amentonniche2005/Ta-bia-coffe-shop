@@ -97,8 +97,8 @@ const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({
 }));
 const StoreSettings = mongoose.model('StoreSettings', new mongoose.Schema({
     type: { type: String, unique: true }, // Ex: 'fidelite'
-    pointsRequis: { type: Number, default: 100 }, // Tous les 50 DT...
-    bonusOffert: { type: Number, default: 5 } // ...On offre 4 DT
+    pointsRequis: { type: Number, default: 100 }, // 🔥 CORRIGÉ
+    valeurCredit: { type: Number, default: 5 }    // 🔥 CORRIGÉ
 }));
 
 const Sale = mongoose.model('Sale', new mongoose.Schema({
@@ -278,29 +278,38 @@ app.post('/api/commandes', async (req, res) => {
     }
 });
 // 🔥 API : CONVERTIR LES POINTS EN SOLDE VIP
+// 🔥 API : CONVERTIR LES POINTS EN SOLDE VIP
 app.post('/api/customers/convertir-points', verifierToken, async (req, res) => {
     try {
         const { codeFidelite } = req.body;
         const client = await LoyalCustomer.findOne({ codeFidelite });
         if (!client) return res.status(404).json({ error: "Client introuvable" });
 
-        const configFid = await StoreSettings.findOne({ type: 'fidelite' }) || { pointsRequis: 100, valeurCredit: 5 };
+        // On récupère les réglages avec une sécurité si c'est vide
+        let configFid = await StoreSettings.findOne({ type: 'fidelite' });
+        const pRequis = (configFid && configFid.pointsRequis) ? configFid.pointsRequis : 100;
+        const vCredit = (configFid && configFid.valeurCredit) ? configFid.valeurCredit : 5;
         
-        if (client.points < configFid.pointsRequis) {
-            return res.status(400).json({ error: `Pas assez de points. Il faut ${configFid.pointsRequis} points.` });
+        if (client.points < pRequis) {
+            return res.status(400).json({ error: `Pas assez de points. Il faut ${pRequis} points.` });
         }
 
-        // Calcul : Combien de fois il a le montant requis ?
-        const nbConversions = Math.floor(client.points / configFid.pointsRequis);
-        const pointsAConsommer = nbConversions * configFid.pointsRequis;
-        const argentGagne = nbConversions * configFid.valeurCredit;
+        // Calcul mathématique sécurisé
+        const nbConversions = Math.floor(client.points / pRequis);
+        const pointsAConsommer = nbConversions * pRequis;
+        const argentGagne = nbConversions * vCredit;
 
-        // Mise à jour
+        // Mise à jour propre avec toFixed pour éviter les erreurs de virgules
         client.points = parseFloat((client.points - pointsAConsommer).toFixed(2));
         client.solde = parseFloat((client.solde + argentGagne).toFixed(2));
         await client.save();
 
-        res.json({ success: true, message: `${pointsAConsommer} points convertis en ${argentGagne} DT !`, solde: client.solde, pointsRestants: client.points });
+        res.json({  
+            success: true, 
+            message: `${pointsAConsommer} points convertis en ${argentGagne} DT !`, 
+            solde: client.solde, 
+            pointsRestants: client.points 
+        });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 // 🔥 API : RÉCUPÉRER LES COMMANDES EN COURS D'UN CLIENT PRÉCIS
@@ -702,11 +711,12 @@ app.put('/api/depenses/:id', verifierToken, async (req, res) => {
     }
 });
 // 🔥 API : LIRE LES PARAMÈTRES DE FIDÉLITÉ
+// 🔥 API : LIRE LES PARAMÈTRES DE FIDÉLITÉ
 app.get('/api/settings/fidelite', verifierToken, async (req, res) => {
     try {
         let config = await StoreSettings.findOne({ type: 'fidelite' });
-        // Si ça n'existe pas encore, on le crée avec les valeurs par défaut
-        if (!config) config = await new StoreSettings({ type: 'fidelite', pointsRequis: 50, valeurCredit: 4 }).save();
+        // Si ça n'existe pas, on met les valeurs par défaut des points
+        if (!config) config = await new StoreSettings({ type: 'fidelite', pointsRequis: 100, valeurCredit: 5 }).save();
         res.json(config);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -714,10 +724,11 @@ app.get('/api/settings/fidelite', verifierToken, async (req, res) => {
 // 🔥 API : SAUVEGARDER LES PARAMÈTRES DE FIDÉLITÉ
 app.post('/api/settings/fidelite', verifierToken, async (req, res) => {
     try {
+        // On récupère bien les nouvelles variables envoyées par le frontend
         const { pointsRequis, valeurCredit } = req.body;
         const config = await StoreSettings.findOneAndUpdate(
             { type: 'fidelite' },
-            { palierDepense, bonusOffert },
+            { pointsRequis, valeurCredit },
             { new: true, upsert: true }
         );
         res.json({ success: true, config });
