@@ -62,72 +62,157 @@ function getClientId() {
 
 // ========== CHARGEMENT ==========
 document.addEventListener("DOMContentLoaded", async () => {
-    // --- GESTION DU MODE SOMBRE ---
-const themeBtn = document.getElementById('themeToggle');
-const currentTheme = localStorage.getItem('theme');
-
-// Charger la préférence au démarrage
-if (currentTheme === 'dark') {
-    document.body.classList.add('dark-theme');
-    themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
-}
-
-themeBtn.addEventListener('click', () => {
-    document.body.classList.toggle('dark-theme');
     
-    let theme = 'light';
-    if (document.body.classList.contains('dark-theme')) {
-        theme = 'dark';
-        themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
-    } else {
-        themeBtn.innerHTML = '<i class="fas fa-moon"></i>';
+    // =========================================================
+    // 1. GESTION DU MODE SOMBRE (DARK MODE)
+    // =========================================================
+    const themeBtn = document.getElementById('themeToggle');
+    const currentTheme = localStorage.getItem('theme');
+
+    // Restaurer le thème au chargement
+    if (currentTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        if (themeBtn) themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
     }
-    
-    // Sauvegarder dans le navigateur
-    localStorage.setItem('theme', theme);
-    
-    // Petite vibration pour le feedback tactile
-    if(navigator.vibrate) navigator.vibrate(10);
-});
+
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+            // Petite transition fluide
+            document.documentElement.style.setProperty('--transition-speed', '0.5s');
+            document.body.classList.toggle('dark-theme');
+            
+            const isDark = document.body.classList.contains('dark-theme');
+            
+            // Animation de rotation du bouton
+            themeBtn.style.transform = 'rotate(360deg)';
+            setTimeout(() => {
+                themeBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+                themeBtn.style.transform = 'rotate(0deg)';
+            }, 200);
+
+            // Sauvegarde
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            if (navigator.vibrate) navigator.vibrate(10);
+        });
+    }
+
+    // =========================================================
+    // 2. RÉCUPÉRATION DES PARAMÈTRES D'URL
+    // =========================================================
     const urlParams = new URLSearchParams(window.location.search);
     const tableUrl = urlParams.get('table');
-    const authUrl = urlParams.get('auth'); // Peut être le code Table OU le code Fidélité
+    const authUrl = urlParams.get('auth');
 
-    // 1. GESTION DU SCAN (TABLE OU CARTE FIDÉLITÉ)
-    if (authUrl) {
-        // On stocke le code d'authentification immédiatement (Zéro-Clic)
-        sessionStorage.setItem('tabia_auth_qr', authUrl);
-        
-        // On vérifie si c'est un client fidèle pour récupérer son nom
-        try {
-            const resFid = await fetch(`/api/fidelite/identifier/${authUrl}`);
-            if (resFid.ok) {
-                const data = await resFid.json();
-                if (data.success) {
-                    sessionStorage.setItem('client_nom_premium', data.nomComplet);
-                    setTimeout(() => { 
-                        afficherNotification(`✨ Bienvenue ${data.nomComplet} !`, "success"); 
-                    }, 1000);
+    // =========================================================
+    // 3. GESTION DE L'ESPACE CLIENT (VIP WALLET)
+    // =========================================================
+    const userBadge = document.querySelector('.user-badge');
+    
+    // Ouvrir la modale au clic sur le bouton VIP en haut à droite
+    if (userBadge) {
+        userBadge.addEventListener('click', () => {
+            document.getElementById('clientModal').style.display = 'flex';
+            const savedCode = sessionStorage.getItem('tabia_auth_qr');
+            if (savedCode) {
+                document.getElementById('clientLoginCode').value = savedCode;
+                // Si on a déjà le nom en session, on affiche direct le profil
+                if (sessionStorage.getItem('client_nom_premium')) {
+                    window.verifierCodeClient(true); // true = silencieux
                 }
             }
-        } catch(e) { 
-            console.log("Code table simple détecté ou erreur identification."); 
-        }
+        });
     }
 
+    // Fonction globale pour se connecter
+    window.verifierCodeClient = async function(silencieux = false) {
+        const inputEl = document.getElementById('clientLoginCode');
+        const code = inputEl ? inputEl.value.trim() : "";
+        
+        if (!code) return afficherNotification("Veuillez entrer votre code.", "error");
+
+        try {
+            const res = await fetch(`/api/customers/verify/${code}`);
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                sessionStorage.setItem('tabia_auth_qr', code);
+                sessionStorage.setItem('client_nom_premium', `${data.customer.prenom} ${data.customer.nom}`);
+                
+                // Remplissage dynamique de la Carte VIP
+                document.getElementById('vipName').innerText = `${data.customer.prenom} ${data.customer.nom}`;
+                document.getElementById('vipCode').innerText = data.customer.codeFidelite;
+                document.getElementById('vipPoints').innerHTML = `${parseFloat(data.customer.points || 0).toFixed(1)} <i class="fas fa-star" style="font-size:0.9rem; color:#f1c40f;"></i>`;
+                document.getElementById('vipSolde').innerText = parseFloat(data.customer.solde || 0).toFixed(2) + ' DT';
+
+                // Changer l'affichage dans la modale
+                document.getElementById('clientLoginSection').style.display = 'none';
+                document.getElementById('clientProfileSection').style.display = 'block';
+                
+                // Changer le bouton en haut à droite (Couronne + Prénom)
+                if (userBadge) userBadge.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${data.customer.prenom}`;
+                
+                if (!silencieux) afficherNotification(`✨ Bienvenue ${data.customer.prenom} !`, "success");
+            } else {
+                if (!silencieux) afficherNotification("Code secret incorrect.", "error");
+            }
+        } catch (err) {
+            if (!silencieux) afficherNotification("Erreur de connexion au serveur.", "error");
+        }
+    };
+
+    // Fonctions globales de la modale VIP
+    window.fermerEspaceClient = function() {
+        document.getElementById('clientModal').style.display = 'none';
+    };
+
+    window.deconnecterClient = function() {
+        sessionStorage.removeItem('tabia_auth_qr');
+        sessionStorage.removeItem('client_nom_premium');
+        if (userBadge) userBadge.innerHTML = `<i class="fas fa-user-circle"></i> Espace Client`;
+        
+        document.getElementById('clientLoginCode').value = '';
+        document.getElementById('clientLoginSection').style.display = 'block';
+        document.getElementById('clientProfileSection').style.display = 'none';
+        
+        fermerEspaceClient();
+        afficherNotification("Vous êtes déconnecté.", "success");
+    };
+
+    // =========================================================
+    // 4. AUTO-LOGIN ET SÉCURITÉ DES SESSIONS
+    // =========================================================
+    
+    // A. S'il vient de scanner un QR Code Client (URL ?auth=...)
+    if (authUrl) {
+        sessionStorage.setItem('tabia_auth_qr', authUrl);
+        document.getElementById('clientLoginCode').value = authUrl;
+        await window.verifierCodeClient(true); // Connexion silencieuse
+        setTimeout(() => { 
+            const prenom = sessionStorage.getItem('client_nom_premium')?.split(' ')[0] || "Client";
+            afficherNotification(`✨ Bienvenue ${prenom} !`, "success"); 
+        }, 1000);
+    }
+
+    // B. S'il vient de scanner une Table (URL ?table=...)
     if (tableUrl) {
         sessionStorage.setItem('tabia_table_qr', tableUrl);
-        setTimeout(() => { 
-            afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
-        }, 1500);
+        setTimeout(() => { afficherNotification(`📍 Table ${tableUrl} activée`, "success"); }, 1500);
     }
 
-    // On nettoie l'URL pour la discrétion
+    // C. Nettoyage de l'URL pour faire propre
     if (tableUrl || authUrl) {
         window.history.replaceState({}, document.title, "/");
     }
 
-    // 2. VÉRIFICATION DE SÉCURITÉ (GHOST SESSION)
+    // D. Restaurer le bouton VIP si le client rafraîchit la page (sans relog)
+    if (!authUrl && sessionStorage.getItem('client_nom_premium')) {
+        const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
+        if (userBadge) userBadge.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
+        // Préparer la modale en arrière-plan
+        window.verifierCodeClient(true); 
+    }
+
+    // E. Sécurité "Ghost Session" : Vérifier que le code table n'a pas expiré
     const storedTable = sessionStorage.getItem('tabia_table_qr');
     const storedAuth = sessionStorage.getItem('tabia_auth_qr');
 
@@ -138,10 +223,7 @@ themeBtn.addEventListener('click', () => {
                 const tables = await resTables.json();
                 const tableData = tables.find(t => parseInt(t.numero) === parseInt(storedTable));
                 
-                // Si c'est un code table (pas un client fidèle) et qu'il a changé
-                // On vérifie d'abord si ce n'est pas un client fidèle enregistré
                 const isFidele = sessionStorage.getItem('client_nom_premium');
-                
                 if (!isFidele && tableData && tableData.code !== String(storedAuth)) {
                     sessionStorage.removeItem('tabia_table_qr');
                     sessionStorage.removeItem('tabia_auth_qr');
@@ -151,20 +233,24 @@ themeBtn.addEventListener('click', () => {
         } catch(e) { console.error("Erreur check session", e); }
     }
 
-    // 3. Initialisation normale
-    clientId = getClientId();
-    await chargerCatalogue();
-    chargerPanier();
-    mettreAJourUIPanier();
-    nettoyerCommandesExpirees();
-    // On synchronise les commandes avec le serveur au lieu de juste charger
+    // =========================================================
+    // 5. INITIALISATION DU MENU ET DU PANIER
+    // =========================================================
+    if (typeof getClientId === "function") clientId = getClientId();
+    if (typeof chargerCatalogue === "function") await chargerCatalogue();
+    if (typeof chargerPanier === "function") chargerPanier();
+    if (typeof mettreAJourUIPanier === "function") mettreAJourUIPanier();
+    if (typeof nettoyerCommandesExpirees === "function") nettoyerCommandesExpirees();
+    
+    // Compatibilité avec ta version actuelle
     if (typeof synchroniserMesCommandesAvecServeur === "function") {
         await synchroniserMesCommandesAvecServeur();
-    } else {
+    } else if (typeof chargerMesCommandes === "function") {
         chargerMesCommandes();
     }
-    initClientSocket();
-    configurerEvenements();
+    
+    if (typeof initClientSocket === "function") initClientSocket();
+    if (typeof configurerEvenements === "function") configurerEvenements();
 });
 
 // ========== FETCH API STOCK ==========

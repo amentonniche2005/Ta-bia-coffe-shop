@@ -117,7 +117,57 @@
             
         </div>
     </div>
+   <div id="clientModal" class="cart-modal" style="display: none;">
+        <div class="cart-content" style="max-width: 450px;">
+            <div class="cart-header">
+                <h2><i class="fas fa-user-circle"></i> Espace Privilège</h2>
+                <button class="close-cart" onclick="fermerEspaceClient()"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="cart-items" id="clientModalBody" style="padding-top: 0;">
+                
+                <div id="clientLoginSection" style="text-align: center; padding: 20px 0;">
+                    <div style="background: var(--surface-2); width: 80px; height: 80px; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px auto;">
+                        <i class="fas fa-qrcode" style="font-size: 2.5rem; color: var(--primary);"></i>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Scannez votre carte physique ou entrez votre code secret à 4 chiffres.</p>
+                    <input type="text" id="clientLoginCode" class="code-input" placeholder="****" maxlength="4" style="text-align: center; font-size: 2rem; letter-spacing: 15px;">
+                    <button class="checkout-btn" onclick="verifierCodeClient()" style="margin-top: 15px;">Me connecter</button>
+                </div>
 
+                <div id="clientProfileSection" style="display: none;">
+                    <div class="vip-card">
+                        <div class="vip-card-header">
+                            <span>TA'BIA Premium</span>
+                            <i class="fas fa-crown" style="color: #f1c40f; font-size: 1.2rem;"></i>
+                        </div>
+                        <div class="vip-card-body">
+                            <h3 id="vipName">Client Name</h3>
+                            <p class="vip-code" id="vipCode">****</p>
+                        </div>
+                        <div class="vip-card-footer">
+                            <div>
+                                <span class="vip-label">Points Fidélité</span>
+                                <span class="vip-value" id="vipPoints">0 <i class="fas fa-star" style="font-size: 0.9rem; color: #f1c40f;"></i></span>
+                            </div>
+                            <div style="text-align: right;">
+                                <span class="vip-label">Solde (Wallet)</span>
+                                <span class="vip-value" id="vipSolde">0.00 DT</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; background: var(--surface-1); padding: 15px; border-radius: 16px; border: 1px solid var(--border-color);">
+                        <h4 style="margin-bottom: 8px; color: var(--text-main); font-size: 0.95rem;"><i class="fas fa-gift" style="color: var(--primary);"></i> Vos avantages</h4>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">Gagnez 1 point pour chaque Dinar dépensé. Utilisez vos points pour obtenir du solde gratuit. Présentez cet écran à la caisse pour payer !</p>
+                    </div>
+                    
+                    <button class="checkout-btn" style="margin-top: 20px; background: var(--surface-2); color: var(--danger); border: 1px solid var(--border-color); box-shadow: none;" onclick="deconnecterClient()"><i class="fas fa-sign-out-alt"></i> Déconnexion</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script-client.js"></script>
 </body>
