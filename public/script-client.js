@@ -390,76 +390,59 @@ function afficherContenuPanier() {
     const totalElement = document.getElementById("cartTotal");
     const checkoutBtn = document.getElementById("checkoutBtn");
     
-    // GESTION MAGIQUE DU MENU DÉROULANT DE PAIEMENT
+    // --- 🔥 AJOUT ICI : GESTION DYNAMIQUE DU PAIEMENT VIP ---
     const selectPaiement = document.getElementById('methodePaiementClient');
     if (selectPaiement) {
-        let optionFidelite = document.getElementById('optionFidelite');
-        // Si le client est connecté via son "Espace Client" en haut
-        if (clientFideleVerifie) {
-            if (!optionFidelite) {
-                optionFidelite = document.createElement('option');
-                optionFidelite.id = 'optionFidelite';
-                optionFidelite.value = 'carte_fidelite';
-                selectPaiement.appendChild(optionFidelite);
+        let optionVIP = document.getElementById('optionPaiementVIP');
+        
+        // On vérifie si un client est connecté (via le nom stocké en session)
+        const clientConnecte = sessionStorage.getItem('client_nom_premium');
+        
+        if (clientConnecte) {
+            // Si le client est VIP, on ajoute l'option si elle n'existe pas déjà
+            if (!optionVIP) {
+                optionVIP = document.createElement('option');
+                optionVIP.id = 'optionPaiementVIP';
+                optionVIP.value = 'carte_fidelite';
+                selectPaiement.appendChild(optionVIP);
             }
-            optionFidelite.textContent = `💳 Payer avec mon Solde VIP (${(clientFideleVerifie.solde || 0).toFixed(2)} DT)`;
-            selectPaiement.value = 'carte_fidelite'; 
+            // On récupère le solde affiché dans la carte VIP
+            const soldeAffiche = document.getElementById('vipSolde')?.innerText || "0.00 DT";
+            optionVIP.textContent = `⭐ Payer avec mon Solde VIP (${soldeAffiche})`;
+            
+            // On force la sélection sur VIP par défaut pour lui faire plaisir
+            selectPaiement.value = 'carte_fidelite';
         } else {
-            if (optionFidelite) optionFidelite.remove();
+            // Si pas de client connecté, on supprime l'option VIP
+            if (optionVIP) optionVIP.remove();
             selectPaiement.value = 'especes';
         }
     }
+    // --- FIN DE L'AJOUT ---
 
     if (panier.length === 0) {
-        // Design Premium pour le panier vide
-        conteneur.innerHTML = `
-            <div style='padding: 4rem 1rem; text-align: center; color: #94a3b8; display: flex; flex-direction: column; align-items: center;'>
-                <div style="background: linear-gradient(135deg, #f8fafc, #e2e8f0); width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: inset 0 4px 10px rgba(255,255,255,0.5);">
-                    <i class='fas fa-shopping-bag fa-3x' style='color: #cbd5e1; transform: translateY(2px);'></i>
-                </div>
-                <h3 style="color: #334155; font-size: 1.3rem; font-weight: 800; margin-bottom: 8px;">Votre panier est vide</h3>
-                <p style="font-size: 0.95rem;">Laissez-vous tenter par nos délices... ☕🍰</p>
-            </div>`;
+        conteneur.innerHTML = `<div style='padding: 4rem 1rem; text-align: center; color: #94a3b8;'><i class='fas fa-shopping-bag fa-3x'></i><p>Votre panier est vide</p></div>`;
         totalElement.textContent = "0.00 DT";
         checkoutBtn.disabled = true;
-        checkoutBtn.style.opacity = "0.5";
-        checkoutBtn.style.cursor = "not-allowed";
         return;
     }
     
     checkoutBtn.disabled = false;
-    checkoutBtn.style.opacity = "1";
-    checkoutBtn.style.cursor = "pointer";
-
     let total = 0;
     conteneur.innerHTML = panier.map(article => {
         total += article.prix * article.quantite;
-        const nomPropre = article.nom.split(' (')[0];
-        const varianteHTML = article.variante ? `<div class="modern-cart-item-variant">${article.variante}</div>` : '';
-        
-        // RÉCUPÉRATION DE L'IMAGE DU PRODUIT
-        const produitBase = produits.find(p => p.id === article.baseId);
-        const imgSrc = (produitBase && produitBase.image) ? produitBase.image : (produitBase ? defaultImages[produitBase.categorie] : defaultImages['cafe']);
-
         return `
             <div class="modern-cart-item">
-                <div class="modern-cart-item-img" style="background-image: url('${imgSrc}');"></div>
                 <div class="modern-cart-item-info">
-                    <h4>${nomPropre}</h4>
-                    ${varianteHTML}
+                    <h4>${article.nom}</h4>
                     <div class="modern-cart-item-price">${article.prix.toFixed(2)} DT</div>
                 </div>
                 <div class="modern-qty-control">
-                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', -1)">
-                        <i class="fas ${article.quantite === 1 ? 'fa-trash-alt' : 'fa-minus'}" style="color: ${article.quantite === 1 ? '#ef4444' : '#1e293b'}; font-size: ${article.quantite === 1 ? '0.85rem' : '1rem'}"></i>
-                    </button>
+                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', -1)"><i class="fas fa-minus"></i></button>
                     <span class="modern-qty-val">${article.quantite}</span>
-                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', 1)">
-                        <i class="fas fa-plus"></i>
-                    </button>
+                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', 1)"><i class="fas fa-plus"></i></button>
                 </div>
-            </div>
-        `;
+            </div>`;
     }).join('');
 
     totalElement.textContent = `${total.toFixed(2)} DT`;
