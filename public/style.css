@@ -341,3 +341,43 @@ header {
 .vip-card-footer { display: flex; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 15px; }
 .vip-label { display: block; font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
 .vip-value { font-size: 1.3rem; font-weight: 900; color: white; }
+/* ======================================================= */
+/* 🔥 DESIGN DES BOUTONS DE L'ESPACE VIP */
+/* ======================================================= */
+.auth-btn {
+    width: 100%;
+    padding: 16px;
+    border-radius: 16px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s ease;
+    border: none;
+    margin-top: 20px;
+}
+
+/* Bouton de Connexion (Premium Orange) */
+.btn-login {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    box-shadow: 0 8px 20px rgba(219, 128, 10, 0.25);
+}
+.btn-login:active {
+    transform: scale(0.97);
+    box-shadow: 0 4px 10px rgba(219, 128, 10, 0.15);
+}
+
+/* Bouton de Déconnexion (Rouge Doux) */
+.btn-logout {
+    background: rgba(239, 68, 68, 0.1); /* Fond rouge très léger */
+    color: var(--danger); /* Texte rouge vif */
+    margin-top: 25px;
+}
+.btn-logout:active {
+    transform: scale(0.97);
+    background: rgba(239, 68, 68, 0.15);
+}

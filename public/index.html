@@ -118,9 +118,11 @@
                     <div style="background: var(--surface-2); width: 80px; height: 80px; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px auto;">
                         <i class="fas fa-qrcode" style="font-size: 2.5rem; color: var(--primary);"></i>
                     </div>
-                    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Scannez votre carte physique ou entrez votre code secret à 4 chiffres.</p>
+                    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Scannez votre carte physique ou entrez votre code secret.</p>
                     <input type="text" id="clientLoginCode" class="code-input" placeholder="****" maxlength="4" style="text-align: center; font-size: 2rem; letter-spacing: 15px;">
-                    <button class="checkout-btn" onclick="verifierCodeClient()" style="margin-top: 15px;">Me connecter</button>
+                    <button class="auth-btn btn-login" onclick="verifierCodeClient()">
+    Accéder à mon espace <i class="fas fa-arrow-right"></i>
+</button>
                 </div>
 
                 <div id="clientProfileSection" style="display: none;">
@@ -139,14 +141,15 @@
                                 <span class="vip-value" id="vipPoints">0 <i class="fas fa-star" style="font-size: 0.9rem; color: #f1c40f;"></i></span>
                             </div>
                             <div style="text-align: right;">
-                                <span class="vip-label">Solde (Wallet)</span>
+                                <span class="vip-label">Solde </span>
                                 <span class="vip-value" id="vipSolde">0.00 DT</span>
                             </div>
                         </div>
                     </div>
                     
-                    <button class="checkout-btn" style="margin-top: 20px; background: #f8fafc; color: #ef4444; border: 1px solid #e2e8f0; box-shadow: none;" onclick="deconnecterClient()"><i class="fas fa-sign-out-alt"></i> Déconnexion</button>
-                </div>
+<button class="auth-btn btn-logout" onclick="deconnecterClient()">
+    <i class="fas fa-sign-out-alt"></i> Me déconnecter
+</button>                </div>
 
             </div>
         </div>
