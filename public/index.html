@@ -8,22 +8,28 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <header>
-        <div class="header-container">
-            <div class="logo">
-                <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img" onerror="this.src='https://via.placeholder.com/50/143621/e3c496?text=TB'">
-                <h1>TA'BIA<span class="logo-subtext">Coffee Shop</span></h1>
-            </div>
-            <div class="nav-right">
-                <button id="themeToggle" class="dark-mode-toggle" title="Changer le thème"><i class="fas fa-moon"></i></button>
-                <div class="user-badge" id="btnEspaceClient"><i class="fas fa-user-circle"></i> Espace VIP</div>
-            </div>
+<header>
+    <div class="header-container">
+        <div class="logo">
+            <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img">
+            <h1>
+                TA'BIA
+                <span class="logo-subtext">Coffee Shop</span>
+            </h1>
         </div>
-    </header>
+        <div class="nav-right" style="display: flex; gap: 10px; align-items: center;">
+            <button id="themeToggle" class="dark-mode-toggle">
+                <i class="fas fa-moon"></i>
+            </button>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> Espace Client</div>
+        </div>
+    </div>
+</header>
 
     <div class="hero">
         <div class="hero-content">
@@ -38,127 +44,77 @@
 
     <div class="menu-section">
         <div class="menu-grid" id="menuGrid">
-            <div class="loading-menu" style="grid-column: 1/-1; text-align: center; padding: 4rem 1rem; color: var(--text-muted);">
-                <i class="fas fa-spinner fa-spin fa-2x" style="color: var(--primary); margin-bottom: 15px;"></i><br>
-                <span style="font-weight: 600; font-size: 1.1rem;">Préparation du menu...</span>
+            <div class="loading-menu" style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #7f8c8d;">
+                <i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Chargement du menu délicieux...
             </div>
         </div>
     </div>
 
     <div class="tracking-section">
-        <h2 style="font-size: 1.2rem; margin-bottom: 1rem; color: var(--text-main);"><i class="fas fa-box-open" style="color: var(--primary);"></i> Mes commandes en cours</h2>
+        <h2>📦 Mes commandes en cours</h2>
         <div id="mesCommandes" class="commandes-list"></div>
     </div>
 
-    <div class="floating-cart" id="floatingCart">
-        <div class="cart-badge" id="cartBadge">0</div>
+    <div class="floating-cart" id="floatingCart" onclick="ouvrirFermerPanier()">
+        <div class="cart-badge" id="conteurpanier">0</div>
         <span class="cart-text">Voir mon panier</span>
-        <span class="cart-price" id="floatingCartPrice">0.00 DT</span>
+        <span class="cart-price" id="floatingCartTotal">0.00 DT</span>
     </div>
 
     <div class="options-modal" id="optionsModal" style="display: none;">
         <div class="options-content">
-            <div class="drag-handle"></div>
             <div class="options-header">
-                <h3 id="optionsTitle">Personnalisez</h3>
-                <button class="close-options" id="closeOptions"><i class="fas fa-times"></i></button>
+                <h2 id="optionsTitle">Personnalisez</h2>
+                <button class="close-options" id="closeOptions">&times;</button>
             </div>
-            <p style="color: var(--text-muted); margin: 0 24px 15px 24px; font-size: 0.9rem; font-weight: 500;">Choisissez votre préférence :</p>
+            <p style="color: #64748b; margin-bottom: 15px; font-size: 0.9rem;">Choisissez votre préférence :</p>
             <div id="optionsList" class="options-list"></div>
-            <div style="padding: 10px 24px 24px 24px;">
-                <button class="checkout-btn" id="confirmOptionBtn">Ajouter <span id="optionPriceDisplay"></span></button>
-            </div>
+            <button class="checkout-btn add-option-btn" id="confirmOptionBtn" style="margin-top: 15px; background: #db800a; color: white; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer;">
+                Ajouter <span id="optionPriceDisplay"></span>
+            </button>
         </div>
     </div>
 
-    <div id="cartModal" class="cart-modal" style="display: none;">
+<div class="cart-modal" id="cartModal" style="display: none;">
         <div class="cart-content">
-            <div class="drag-handle"></div>
+            <div style="width: 40px; height: 5px; background: #cbd5e1; border-radius: 10px; margin: 0 auto 15px;"></div>
+            
             <div class="cart-header">
-                <h2><i class="fas fa-shopping-basket" style="color: var(--primary);"></i> Mon Panier</h2>
-                <button id="closeCart" class="close-cart"><i class="fas fa-times"></i></button>
+                <h2><i class="fas fa-shopping-bag" style="color: var(--primary);"></i> Votre Panier</h2>
+                <button class="close-cart" id="closeCart"><i class="fas fa-times"></i></button>
             </div>
             
-            <div class="cart-body">
-                <div id="cartItems" class="cart-items"></div>
-
-                <div class="checkout-options" id="zonePaiementOptions">
-                    <h4 class="options-title">Mode de règlement</h4>
-                    <div class="sleek-input-group">
-                        <i class="fas fa-wallet sleek-icon"></i>
-                        <select id="methodePaiementClient" class="sleek-select">
-                            <option value="especes">Payer à la caisse (Espèces / TPE)</option>
-                            <option value="en_ligne">📱 Payer en ligne (D17, Flouci, CB)</option>
-                            </select>
-                        <i class="fas fa-chevron-down select-arrow"></i>
+            <div id="cartItems" class="cart-items">
+                </div>
+            
+            <div class="checkout-section">
+<div id="zoneFidelitePanier" style="margin-bottom: 15px; background: #fffbeb; padding: 10px 12px; border-radius: 16px; border: 1px solid #fde68a;">                    <div class="sleek-input-group">
+                        <i class="fas fa-star sleek-icon"></i>
+                        <input type="text" id="inputFidelitePanier" class="sleek-input" placeholder="Code fidélité ?">
+                        <button type="button" id="btnVerifierFidelite" style="background: #f59e0b; color: white; border: none; border-radius: 10px; padding: 0 15px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);">OK</button>
                     </div>
+                    <div id="msgFidelite" style="font-size: 0.85rem; color: #059669; font-weight: 800; margin-top: 8px; margin-left: 5px; display: none;"></div>
                 </div>
-            </div>
+                
+                <div style="position: relative; margin-bottom: 15px;">
+                    <i class="fas fa-credit-card sleek-icon" style="color: #143621; z-index: 10;"></i>
+                    <select id="methodePaiementClient" class="sleek-select">
+                        <option value="especes">Payer sur place (Espèces,Ticket Resto,Carte Bancaire)</option>
+                        <option value="en_ligne">Payer en ligne (D17,Flouci,Visa,MasterCard)</option>
+                    </select>
+                    <i class="fas fa-chevron-down" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;"></i>
+                </div>
 
-            <div class="checkout-footer">
                 <div class="cart-total-row">
-                    <span class="total-label">Total à payer</span>
-                    <span id="cartTotal" class="total-amount">0.00 DT</span>
+                    <span style="font-size: 1.1rem; color: #64748b; font-weight: 700;">Total</span>
+                    <span id="cartTotal">0.00 DT</span>
                 </div>
-                <button class="checkout-btn" id="checkoutBtn">
+
+                <button class="checkout-btn" id="checkoutBtn" style="background: linear-gradient(135deg, #db800a, #e65c00); color: white; width: 100%; padding: 16px; border: none; border-radius: 16px; font-size: 1.2rem; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 12px; box-shadow: 0 8px 20px rgba(219, 128, 10, 0.3); transition: transform 0.2s;">
                     Valider la commande <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
-        </div>
-    </div>
-
-    <div id="clientModal" class="cart-modal" style="display: none;">
-        <div class="cart-content" style="max-width: 450px;">
-            <div class="drag-handle"></div>
-            <div class="cart-header">
-                <h2><i class="fas fa-crown" style="color: var(--warning);"></i> Espace Privilège</h2>
-                <button class="close-cart" onclick="fermerEspaceClient()"><i class="fas fa-times"></i></button>
-            </div>
             
-            <div class="cart-body" style="padding: 20px 24px;">
-                <div id="clientLoginSection" style="text-align: center;">
-                    <div style="background: var(--surface-2); width: 80px; height: 80px; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px auto; box-shadow: var(--shadow-sm);">
-                        <i class="fas fa-qrcode" style="font-size: 2.5rem; color: var(--primary);"></i>
-                    </div>
-                    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Scannez votre carte physique ou entrez votre code secret à 4 chiffres.</p>
-                    <div class="sleek-input-group">
-                        <input type="text" id="clientLoginCode" class="code-input" placeholder="****" maxlength="4">
-                    </div>
-                    <button class="checkout-btn" onclick="verifierCodeClient()" style="margin-top: 15px;">Me connecter</button>
-                </div>
-
-                <div id="clientProfileSection" style="display: none;">
-                    <div class="vip-card">
-                        <div class="vip-card-header">
-                            <span>TA'BIA Premium</span>
-                            <i class="fas fa-crown" style="color: #f1c40f; font-size: 1.2rem;"></i>
-                        </div>
-                        <div class="vip-card-body">
-                            <h3 id="vipName">Client Name</h3>
-                            <p class="vip-code" id="vipCode">****</p>
-                        </div>
-                        <div class="vip-card-footer">
-                            <div>
-                                <span class="vip-label">Points Fidélité</span>
-                                <span class="vip-value" id="vipPoints">0 <i class="fas fa-star" style="font-size: 0.9rem; color: #f1c40f;"></i></span>
-                            </div>
-                            <div style="text-align: right;">
-                                <span class="vip-label">Solde (Wallet)</span>
-                                <span class="vip-value" id="vipSolde">0.00 DT</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top: 20px; background: var(--surface-2); padding: 15px; border-radius: 16px; border: 1px solid var(--border-color);">
-                        <h4 style="margin-bottom: 8px; color: var(--text-main); font-size: 0.95rem;"><i class="fas fa-gift" style="color: var(--primary);"></i> Vos avantages</h4>
-                        <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">Gagnez 1 point pour chaque Dinar dépensé. Convertissez-les à la caisse pour payer vos prochaines commandes !</p>
-                    </div>
-                    
-                    <button class="checkout-btn" style="margin-top: 20px; background: transparent; color: var(--danger); border: 2px solid var(--danger); box-shadow: none;" onclick="deconnecterClient()">
-                        <i class="fas fa-sign-out-alt"></i> Déconnexion
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 
