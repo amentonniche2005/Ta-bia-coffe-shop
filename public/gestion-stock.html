@@ -772,141 +772,69 @@ function afficherStockDOM(produits) {
         }
 
 function ouvrirModalEdition(id) {
-    const p = stockProduits.find(x => x.id === id);
-    if(!p) return;
+            const p = stockProduits.find(x => x.id === id);
+            if(!p) return;
+            document.getElementById('modalContainer').innerHTML = `
+                <div class="modal active">
+                    <div class="modal-content">
+                        <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+                        <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
+                        
+                        <div class="form-group">
+                            <label>Type de choix pour le client :</label>
+                            <select id="editProdTypeChoix" onchange="document.getElementById('divEditVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
+                                <option value="aucun" ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'selected' : ''}>🚫 Aucun choix (Produit simple)</option>
+                                <option value="unique" ${p.typeChoix === 'unique' ? 'selected' : ''}>🔘 Un seul choix</option>
+                                <option value="multiple" ${p.typeChoix === 'multiple' ? 'selected' : ''}>☑️ Plusieurs choix</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="divEditVariantes" style="display: ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'none' : 'block'};">
+                            <label>Choix / Variantes (séparés par des virgules) :</label>
+                            <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Petit, Moyen, Grand">
+                        </div>
 
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active">
-            <div class="modal-content" style="max-width: 550px;">
-                <div class="modal-header">
-                    <h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3>
-                    <span class="modal-close" onclick="fermerModal()">&times;</span>
-                </div>
-
-                <div class="form-group"><label>Nom du produit :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
-                
-                <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;">
-                        <label>Type de choix :</label>
-                        <select id="editProdTypeChoix" onchange="document.getElementById('divEditVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
-                            <option value="aucun" ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'selected' : ''}>🚫 Aucun</option>
-                            <option value="unique" ${p.typeChoix === 'unique' ? 'selected' : ''}>🔘 Unique</option>
-                            <option value="multiple" ${p.typeChoix === 'multiple' ? 'selected' : ''}>☑️ Multiple</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex:1;">
-                        <label>Catégorie :</label>
-                        <select id="editProdCat">
+                        <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="Collez le lien .jpg ici"></div>
+                        <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
                             <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
                             <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
                             <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
                             <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
                             <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
-                            <option value="matiere_premiere" ${p.categorie==='matiere_premiere'?'selected':''}>📦 Matière Première</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-group" id="divEditVariantes" style="display: ${(!p.typeChoix || p.typeChoix === 'aucun') ? 'none' : 'block'};">
-                    <label>Variantes (virgules) :</label>
-                    <input type="text" id="editProdVariantes" value="${p.variantes || ''}">
-                </div>
-
-                <div style="margin: 15px 0; padding: 15px; background: #f8fafc; border-radius: 12px; border: 1px solid var(--border-color);">
-                    <h4 style="font-size: 0.9rem; color: var(--primary); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-                        <span><i class="fas fa-utensils"></i> Composition (Recette)</span>
-                        <button type="button" class="btn-action" style="padding: 4px 8px; font-size: 0.7rem;" onclick="ajouterLigneIngredient()">+ Ajouter</button>
-                    </h4>
-                    <div id="listeIngredientsRecette">
+                            <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option>
+                        </select></div>
+                        
+                        <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Prix Achat (DT):</label><input type="number" id="editProdPrixAchat" step="0.01" value="${p.prixAchat || 0}"></div>
+                            <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
+                            <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
                         </div>
-                    <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">* Si vide, le système déduit le produit lui-même du stock.</p>
-                </div>
-
-                <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Prix Achat (DT):</label><input type="number" id="editProdPrixAchat" step="0.01" value="${p.prixAchat || 0}"></div>
-                    <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="editProdPrice" step="0.1" value="${p.prix}"></div>
-                </div>
-                
-                <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" step="1" value="${p.stock}"></div>
-                    <div class="form-group" style="flex:1;"><label>Seuil Alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
-                </div>
-
-                <div class="modal-buttons">
-                    <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
-                    <button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button>
-                </div>
-            </div>
-        </div>`;
-
-    // Charger la recette existante si elle existe
-    if (p.recette && p.recette.length > 0) {
-        p.recette.forEach(ing => ajouterLigneIngredient(ing.ingredientId, ing.quantiteConsommee));
-    }
-}
+                        
+                        <div class="form-group"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}" step="1"></div>
+                        <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
+                    </div>
+                </div>`;
+        }
 
 async function sauvegarderEditionProduit(id) {
-    const typeC = document.getElementById('editProdTypeChoix').value;
-    
-    // 🔥 RÉCUPÉRATION DES INGRÉDIENTS DE LA RECETTE
-    const recette = [];
-    document.querySelectorAll('.ingredient-row').forEach(row => {
-        const ingId = row.querySelector('.ing-id-input').value;
-        const qte = parseFloat(row.querySelector('.ing-qte-input').value);
-        if (ingId && qte > 0) {
-            recette.push({ ingredientId: parseInt(ingId), quantiteConsommee: qte });
+            const typeC = document.getElementById('editProdTypeChoix').value;
+            const produitData = {
+                nom: document.getElementById('editProdName').value,
+                variantes: typeC === 'aucun' ? "" : document.getElementById('editProdVariantes').value,
+                typeChoix: typeC,
+                image: document.getElementById('editProdImage').value,
+                categorie: document.getElementById('editProdCat').value,
+                // 🔥 CORRECTION ICI : On capture la valeur de la nouvelle case
+                prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
+                prix: parseFloat(document.getElementById('editProdPrice').value),
+                stock: parseInt(document.getElementById('editProdStock').value),
+                seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
+            };
+            try {
+                const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
+                if (response.ok) { showNotification("✅ Produit mis à jour !"); fermerModal(); chargerStock(); chargerDashboard(); chargerAlertes();}
+            } catch (error) { showNotification("❌ Erreur de mise à jour", "var(--danger)"); }
         }
-    });
-
-    const produitData = {
-        nom: document.getElementById('editProdName').value,
-        variantes: typeC === 'aucun' ? "" : document.getElementById('editProdVariantes').value,
-        typeChoix: typeC,
-        categorie: document.getElementById('editProdCat').value,
-        prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
-        prix: parseFloat(document.getElementById('editProdPrice').value),
-        stock: parseInt(document.getElementById('editProdStock').value),
-        seuilAlerte: parseInt(document.getElementById('editProdAlerte').value),
-        recette: recette // 🔥 On envoie la recette ici
-    };
-
-    try {
-        const response = await fetchSecurise(`/api/stock/${id}`, { 
-            method: 'PUT', 
-            body: JSON.stringify(produitData) 
-        });
-        if (response.ok) { 
-            showNotification("✅ Produit et Recette mis à jour !"); 
-            fermerModal(); 
-            chargerStock(); 
-        }
-    } catch (error) { 
-        showNotification("❌ Erreur de mise à jour", "var(--danger)"); 
-    }
-}
-function ajouterLigneIngredient(idPreselectionne = "", qtePreselectionnee = "") {
-    const container = document.getElementById('listeIngredientsRecette');
-    
-    // On filtre pour ne pas se mettre soi-même dans sa recette
-    // Idéalement, on ne montre que les produits de catégorie 'matiere_premiere'
-    const options = stockProduits
-        .map(p => `<option value="${p.id}" ${p.id == idPreselectionne ? 'selected' : ''}>${p.nom} (${p.unite || 'u'})</option>`)
-        .join('');
-
-    const html = `
-        <div class="ingredient-row" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
-            <select class="ing-id-input" style="flex: 2; padding: 8px; border-radius: 8px; border: 1px solid #ddd;">
-                <option value="">-- Choisir --</option>
-                ${options}
-            </select>
-            <input type="number" class="ing-qte-input" value="${qtePreselectionnee}" placeholder="Qté" step="0.001" style="flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #ddd;">
-            <button type="button" onclick="this.parentElement.remove()" style="background: none; border: none; color: var(--danger); cursor: pointer;">
-                <i class="fas fa-trash"></i>
-            </button>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', html);
-}
 
         async function supprimerProduit(id) {
             if (!confirm("⚠️ Voulez-vous vraiment supprimer ce produit ? Cette action est définitive.")) return;
@@ -1467,59 +1395,62 @@ async function chargerClients() {
             const tbody = document.getElementById('fideliteTableBody');
             tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>';
             try {
-                // 🔥 NOUVEAU : 1. On récupère d'abord les paramètres de fidélité (le Palier)
-                let palierActuel = 50; // Valeur par défaut si erreur
+                // 1. Récupération de la règle de conversion
+                let pointsRequis = 100; // Valeur par défaut
+                let valeurCredit = 5;   // Valeur par défaut
                 try {
                     const resConfig = await fetchSecurise('/api/settings/fidelite');
                     if (resConfig.ok) {
                         const config = await resConfig.json();
-                        if (config && config.palierDepense) {
-                            palierActuel = config.palierDepense;
-                            
-                            // 👉 C'EST ICI QUE SE TROUVE LA LIGNE AJOUTÉE :
-                            // On la sauvegarde globalement pour que l'interface soit parfaite
-                            window.currentPalierFidelite = config.palierDepense; 
+                        if (config && config.pointsRequis) {
+                            pointsRequis = config.pointsRequis;
+                            valeurCredit = config.valeurCredit;
                         }
                     }
-                } catch(errConfig) { console.warn("Impossible de récupérer le palier, utilisation de 50 par défaut."); }
+                } catch(e) {}
 
-                // 2. On récupère les clients
+                // 2. Affichage des clients
                 const res = await fetchSecurise('/api/customers'); 
                 const clients = await res.json();
                 
                 if(clients.length === 0) { 
-                    tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Aucun client fidèle enregistré</td></tr>'; 
-                    return; 
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Aucun client fidèle enregistré</td></tr>'; return; 
                 }
                 
                 tbody.innerHTML = clients.map(c => {
                     const solde = (c.solde || 0).toFixed(2);
-                    const depense = (c.totalDepense || 0).toFixed(2);
+                    const points = parseFloat(c.points || 0); // On lit les POINTS, pas totalDepense
                     
-                    // 🔥 LA MERVEILLE : Calcul basé sur le Palier Dynamique
-                    const depenseDansPalierActuel = (c.totalDepense || 0) % palierActuel;
-                    const pourcentageProgression = (depenseDansPalierActuel / palierActuel) * 100;
+                    // Calcul visuel de la jauge de points
+                    let pourcentage = (points / pointsRequis) * 100;
+                    if (pourcentage > 100) pourcentage = 100;
+                    
+                    const peutConvertir = points >= pointsRequis;
+                    const couleurJauge = peutConvertir ? 'var(--success)' : 'var(--info)';
 
                     return `<tr>
                         <td><span style="font-size:0.85rem; color:var(--text-muted);">${c.dateInscription}</span></td>
                         <td><strong style="color:var(--primary); font-size:1.05rem;">${escapeHtml(c.nom)} ${escapeHtml(c.prenom)}</strong></td>
                         <td><i class="fas fa-phone-alt" style="color:var(--text-muted); font-size:0.8rem;"></i> ${escapeHtml(c.telephone)}</td>
-                        <td style="text-align:center;"><span class="badge badge-neutral" style="font-size:1.1rem; letter-spacing:3px; background:#f8fafc; border:1px solid #e2e8f0; color:var(--text-main);">${c.codeFidelite}</span></td>
+                        <td style="text-align:center;"><span class="badge badge-neutral" style="font-size:1.1rem; letter-spacing:3px;">${c.codeFidelite}</span></td>
                         
                         <td style="text-align:right;">
-                            <div style="font-size:1.3rem; font-weight:900; color:var(--success);">${solde} DT</div>
+                            <div style="font-size:1.3rem; font-weight:900; color:var(--warning);">${solde} DT</div>
                         </td>
                         
-                        <td style="text-align:right; width: 200px;">
-                            <div style="font-weight:700; color:var(--text-main); font-size:0.9rem;">${depense} DT <span style="color:var(--text-muted); font-weight:normal; font-size:0.75rem;">(Total)</span></div>
-                            <div style="width:100%; background:#e2e8f0; height:6px; border-radius:3px; margin-top:6px; overflow:hidden;" title="${depenseDansPalierActuel.toFixed(2)} / ${palierActuel} DT pour le prochain bonus">
-                                <div style="width:${pourcentageProgression}%; background:var(--warning); height:100%; border-radius:3px; transition: width 0.5s;"></div>
+                        <td style="text-align:right; width: 220px;">
+                            <div style="font-weight:700; color:var(--text-main); font-size:0.9rem;">
+                                ${points.toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>
                             </div>
+                            <div style="width:100%; background:#e2e8f0; height:8px; border-radius:4px; margin-top:6px; overflow:hidden;" title="${points.toFixed(1)} / ${pointsRequis} pts pour gagner ${valeurCredit} DT">
+                                <div style="width:${pourcentage}%; background:${couleurJauge}; height:100%; transition: width 0.5s;"></div>
+                            </div>
+                            ${peutConvertir ? `<button onclick="convertirPoints('${c.codeFidelite}')" style="margin-top:5px; width:100%; padding:4px; background:var(--success); color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.75rem; font-weight:bold;"><i class="fas fa-gift"></i> Convertir en ${valeurCredit} DT</button>` : `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px; text-align:center;">Encore ${(pointsRequis - points).toFixed(1)} pts pour un cadeau</div>`}
                         </td>
                         
                         <td style="text-align:center;">
-                            <button class="btn-action" style="padding:0.5rem 0.8rem; margin-right:5px; background:var(--warning); color:white;" onclick="ouvrirModalRecharge('${c.codeFidelite}', '${escapeHtml(c.nom)} ${escapeHtml(c.prenom)}')" title="Recharger le compte">
-                                <i class="fas fa-wallet"></i> Recharger
+                            <button class="btn-action" style="padding:0.5rem 0.8rem; margin-right:5px; background:var(--warning); color:white;" onclick="ouvrirModalRecharge('${c.codeFidelite}', '${escapeHtml(c.nom)}')" title="Recharger le compte (Argent)">
+                                <i class="fas fa-wallet"></i>
                             </button>
                             <button class="btn-action btn-danger" style="padding:0.5rem 0.8rem;" onclick="supprimerClient('${c._id}')"><i class="fas fa-trash"></i></button>
                         </td>
@@ -1527,8 +1458,28 @@ async function chargerClients() {
                 }).join('');
             } catch(e) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message error">Erreur de chargement</td></tr>'; }
         }
+async function convertirPoints(codeFidelite) {
+            if(!confirm("Voulez-vous convertir les points de ce client en argent sur son Wallet ?")) return;
+            
+            try {
+                const res = await fetchSecurise('/api/customers/convertir-points', {
+                    method: 'POST',
+                    body: JSON.stringify({ codeFidelite })
+                });
+                
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showNotification(`🎉 ${data.message}`, "var(--success)", "fa-gift");
+                    chargerClients(); // Met à jour l'affichage
+                } else {
+                    showNotification(data.error || "Erreur de conversion", "var(--danger)");
+                }
+            } catch(e) {
+                showNotification("Erreur de connexion", "var(--danger)");
+            }
+        }
 // 🔥 NOUVELLE FONCTION : Ouvrir la fenêtre de rechargement
-        function ouvrirModalRecharge(code, nom) {
+function ouvrirModalRecharge(code, nom) {
             document.getElementById('modalContainer').innerHTML = `
                 <div class="modal active"><div class="modal-content" style="max-width:400px; text-align:center;">
                     <div class="modal-header" style="justify-content:center;">
@@ -1552,7 +1503,7 @@ async function chargerClients() {
         }
 
         // 🔥 NOUVELLE FONCTION : Envoyer l'argent au serveur
-        async function validerRecharge(code) {
+async function validerRecharge(code) {
             const montant = parseFloat(document.getElementById('rechargeMontant').value);
             if(!montant || montant <= 0) return showNotification("Montant invalide", "var(--danger)");
 
@@ -1566,15 +1517,13 @@ async function chargerClients() {
                 if (res.ok && data.success) {
                     showNotification(`✅ +${montant.toFixed(2)} DT crédités avec succès !`, "var(--success)");
                     fermerModal();
-                    chargerClients(); // Rafraîchit le tableau instantanément pour voir le nouveau solde
+                    chargerClients();
                 } else {
                     showNotification(data.error || "Erreur lors de la recharge", "var(--danger)");
                 }
-            } catch(e) {
-                showNotification("Erreur serveur", "var(--danger)");
-            }
+            } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
         }
-        function ouvrirModalClient() {
+function ouvrirModalClient() {
             document.getElementById('modalContainer').innerHTML = `<div class="modal active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-star"></i> Inscrire un habitué</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div><div class="form-group"><label>Nom :</label><input type="text" id="custNom"></div><div class="form-group"><label>Prénom :</label><input type="text" id="custPrenom"></div><div class="form-group"><label>Téléphone :</label><input type="text" id="custTel"></div><div class="form-group"><label>Code Secret :</label><input type="text" id="custCode" value="${Math.floor(1000 + Math.random() * 9000)}" style="font-weight:bold; letter-spacing:4px; font-size:1.2rem; text-align:center;"></div><div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="validerClient()">Enregistrer</button></div></div></div>`;
         }
 
@@ -1766,7 +1715,7 @@ async function chargerClients() {
             a.click(); URL.revokeObjectURL(a.href);
         }
 // 🔥 NOUVELLE FONCTION : Ouvrir les paramètres de fidélité
-        async function ouvrirModalConfigFidelite() {
+async function ouvrirModalConfigFidelite() {
             document.getElementById('modalContainer').innerHTML = `
                 <div class="modal active"><div class="modal-content" style="max-width:400px; text-align:center;">
                     <div class="modal-header" style="justify-content:center;">
@@ -1775,16 +1724,16 @@ async function chargerClients() {
                     </div>
                     
                     <div style="background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:20px; text-align:left;">
-                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Définissez les règles pour vos clients VIP.</p>
+                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Définissez la valeur d'échange des points.</p>
                         
                         <div class="form-group">
-                            <label>Palier de dépense (DT) :</label>
-                            <input type="number" id="configPalier" step="1" min="1" placeholder="Ex: 50" style="font-weight:bold; color:var(--text-main);">
+                            <label>Points nécessaires :</label>
+                            <input type="number" id="configPoints" step="1" min="1" placeholder="Ex: 100" style="font-weight:bold; color:var(--text-main);">
                         </div>
                         
                         <div class="form-group" style="margin-bottom:0;">
-                            <label>Bonus offert au palier (DT) :</label>
-                            <input type="number" id="configBonus" step="0.5" min="0.5" placeholder="Ex: 4" style="font-weight:bold; color:var(--success);">
+                            <label>Crédit offert en échange (DT) :</label>
+                            <input type="number" id="configCredit" step="0.5" min="0.5" placeholder="Ex: 5" style="font-weight:bold; color:var(--success);">
                         </div>
                     </div>
                     
@@ -1795,50 +1744,45 @@ async function chargerClients() {
                 </div></div>
             `;
 
-            // Récupérer les valeurs actuelles depuis le serveur
             try {
                 const res = await fetchSecurise('/api/settings/fidelite');
                 if (res.ok) {
                     const data = await res.json();
-                    document.getElementById('configPalier').value = data.palierDepense || 50;
-                    document.getElementById('configBonus').value = data.bonusOffert || 4;
+                    document.getElementById('configPoints').value = data.pointsRequis || 100;
+                    document.getElementById('configCredit').value = data.valeurCredit || 5;
                 }
             } catch(e) { showNotification("Erreur de chargement", "var(--danger)"); }
         }
 
         // 🔥 NOUVELLE FONCTION : Sauvegarder les paramètres
-        async function sauvegarderConfigFidelite() {
-            const palier = parseFloat(document.getElementById('configPalier').value);
-            const bonus = parseFloat(document.getElementById('configBonus').value);
+async function sauvegarderConfigFidelite() {
+            const points = parseFloat(document.getElementById('configPoints').value);
+            const credit = parseFloat(document.getElementById('configCredit').value);
 
-            if(!palier || palier <= 0 || !bonus || bonus < 0) return showNotification("Valeurs invalides", "var(--danger)");
+            if(!points || points <= 0 || !credit || credit < 0) return showNotification("Valeurs invalides", "var(--danger)");
 
             try {
                 const res = await fetchSecurise('/api/settings/fidelite', {
                     method: 'POST',
-                    body: JSON.stringify({ palierDepense: palier, bonusOffert: bonus })
+                    body: JSON.stringify({ pointsRequis: points, valeurCredit: credit })
                 });
 
                 if (res.ok) {
                     showNotification("✅ Règles de fidélité mises à jour !", "var(--success)");
                     fermerModal();
-                    chargerClients(); // On recharge le tableau car la barre de progression dépend du nouveau palier
+                    chargerClients();
                 }
             } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
         }
         // ========== INIT DOM ==========
-        document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", () => {
             chargerDashboard(); chargerStock(); chargerCategories(); chargerHistorique(); chargerAlertes(); chargerDepenses();
             
-            // Events Stock
             document.getElementById('categorieFilter').addEventListener('change', appliquerFiltresEtTriStock);
             document.getElementById('etatFilter').addEventListener('change', appliquerFiltresEtTriStock);
             document.getElementById('searchFilter').addEventListener('input', appliquerFiltresEtTriStock);
-            
-            // 🔥 Event Ventes (Pour le filtre "Mode Paiement")
             document.getElementById('filtreMethodeVente').addEventListener('change', chargerRapportVentes);
 
-            // ========== SYNCHRONISATION EN TEMPS RÉEL ==========
             const socket = io({ 
                 auth: { token: monToken }, 
                 transports: ['websocket', 'polling'], 
