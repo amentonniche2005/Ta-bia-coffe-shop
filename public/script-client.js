@@ -368,44 +368,32 @@ function ouvrirFermerPanier() {
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
 
 // ========== AFFICHAGE DU PANIER MODERNE ==========
+// ========== AFFICHAGE DU PANIER MODERNE (NETTOYÉ) ==========
 
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
     const checkoutBtn = document.getElementById("checkoutBtn");
     
-    // 🔥 GESTION DE L'AFFICHAGE DE LA ZONE FIDÉLITÉ
-    const zoneFidelite = document.getElementById("zoneFidelitePanier");
-    const authQr = sessionStorage.getItem('tabia_auth_qr'); // 👈 CORRECTION : On ne cherche plus la table ici
-    
-    if (zoneFidelite) {
-        // On affiche la zone "Client fidèle" si le client a un code VIP (même sans table)
-        if (authQr) {
-            zoneFidelite.style.display = "block";
-            
-            // On pré-remplit son code secret s'il l'a scanné à l'entrée
-            const inputFidelite = document.getElementById("inputFidelitePanier");
-            if (inputFidelite && !inputFidelite.value) {
-                inputFidelite.value = authQr;
+    // GESTION MAGIQUE DU MENU DÉROULANT DE PAIEMENT
+    const selectPaiement = document.getElementById('methodePaiementClient');
+    if (selectPaiement) {
+        let optionFidelite = document.getElementById('optionFidelite');
+        // Si le client est connecté via son "Espace Client" en haut
+        if (clientFideleVerifie) {
+            if (!optionFidelite) {
+                optionFidelite = document.createElement('option');
+                optionFidelite.id = 'optionFidelite';
+                optionFidelite.value = 'carte_fidelite';
+                selectPaiement.appendChild(optionFidelite);
             }
-            
-            // 🔥 LA CORRECTION MAGIQUE (AUTO-VÉRIFICATION)
-            // Si le code est rempli, on vérifie la carte tout seul sans que le client ne clique sur OK
-            if (inputFidelite && inputFidelite.value && !clientFideleVerifie) {
-                setTimeout(() => {
-                    const btnOk = document.getElementById('btnVerifierFidelite');
-                    if (btnOk) btnOk.click(); // Le système clique à la place du client !
-                }, 300); // On attend 0.3s que le panier s'ouvre bien
-            }
-            
+            optionFidelite.textContent = `💳 Payer avec mon Solde VIP (${(clientFideleVerifie.solde || 0).toFixed(2)} DT)`;
+            selectPaiement.value = 'carte_fidelite'; 
         } else {
-            zoneFidelite.style.display = "none";
+            if (optionFidelite) optionFidelite.remove();
+            selectPaiement.value = 'especes';
         }
     }
-
-    // 🔥 SÉCURITÉ : On réaffiche la zone de paiement normale par défaut au chargement du panier
-    const zonePaiement = document.getElementById('methodePaiementClient')?.parentElement;
-    if (zonePaiement) zonePaiement.style.display = 'block';
 
     if (panier.length === 0) {
         // Design Premium pour le panier vide
@@ -421,9 +409,6 @@ function afficherContenuPanier() {
         checkoutBtn.disabled = true;
         checkoutBtn.style.opacity = "0.5";
         checkoutBtn.style.cursor = "not-allowed";
-        
-        // On cache aussi la zone fidélité si le panier est vide pour que ce soit plus propre
-        if (zoneFidelite) zoneFidelite.style.display = "none";
         return;
     }
     
@@ -467,59 +452,6 @@ function afficherContenuPanier() {
 
 // ========== ENVOI COMMANDE ==========
 let clientFideleVerifie = null;
-
-// Vérification du code fidélité dans le panier
-document.getElementById('btnVerifierFidelite')?.addEventListener('click', async () => {
-    const code = document.getElementById('inputFidelitePanier').value.trim();
-    const btn = document.getElementById('btnVerifierFidelite');
-    const msg = document.getElementById('msgFidelite');
-    const selectPaiement = document.getElementById('methodePaiementClient'); // 🔥 On récupère le menu
-    
-    if (!code) return;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    
-    try {
-        const res = await fetch(`/api/customers/verify/${code}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.success) {
-                clientFideleVerifie = data.customer;
-                
-                // Affichage du solde disponible
-                const solde = (clientFideleVerifie.solde || 0).toFixed(2);
-                msg.innerHTML = `👋 Bienvenue ${clientFideleVerifie.prenom} !<br><span style="color:#10b981;">Solde disponible : ${solde} DT</span>`;
-                msg.style.display = 'block';
-                btn.innerHTML = '<i class="fas fa-check"></i>';
-                btn.style.background = '#10b981';
-
-                // 🔥 CORRECTION DU CHOIX DE PAIEMENT
-                if (selectPaiement) {
-                    let optionFidelite = document.getElementById('optionFidelite');
-                    // On crée l'option si elle n'existe pas encore
-                    if (!optionFidelite) {
-                        optionFidelite = document.createElement('option');
-                        optionFidelite.id = 'optionFidelite';
-                        optionFidelite.value = 'carte_fidelite';
-                        selectPaiement.appendChild(optionFidelite);
-                    }
-                    // On met à jour le texte avec le solde exact
-                    optionFidelite.textContent = `💳 Payer avec mon Solde VIP (${solde} DT)`;
-                    
-                    // 🔥 ON FORCE LA SÉLECTION ! 
-                    // Le menu va afficher l'option VIP par défaut pour que le client la voie directement.
-                    selectPaiement.value = 'carte_fidelite'; 
-                }
-            }
-        } else {
-            msg.innerHTML = "❌ Code invalide";
-            msg.style.color = '#ef4444';
-            msg.style.display = 'block';
-            btn.innerHTML = 'OK';
-            btn.style.background = '#f59e0b';
-        }
-    } catch(e) { btn.innerHTML = 'OK'; }
-});
-
 
 function passerCommande() {
     if (panier.length === 0) return;
