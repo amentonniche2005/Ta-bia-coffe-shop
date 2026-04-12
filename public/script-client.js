@@ -23,24 +23,7 @@ let clientId = null;
 const HISTORIQUE_EXPIRATION = 24 * 60 * 60 * 1000;
 
 // Configurations des Variantes par mots-clés
-const variantesConfig = [
-    { mots: ['gazeuse', 'soda'], options: ['Coca-Cola', 'Coca Zéro', 'Boga Cidre', 'Fanta', 'Sprite'] },
-    { mots: ['cafe', 'café', 'espresso', 'capucin', 'direct'], options: ['Normal', 'Serré', 'Allongé', 'Sans Sucre'] },
-    { mots: ['jus', 'citronnade', 'mojito'], options: ['Bien frais', 'Glaçons à part', 'Sans sucre ajouté'] },
-    { mots: ['thé', 'the', 'infusion'], options: ['Normal', 'Léger en sucre', 'Sans sucre', 'Menthe extra'] },
-    { mots: ['crêpe', 'gaufre', 'crepe'], options: ['Chocolat au lait', 'Chocolat Noir', 'Beurre salé', 'Miel'] }
-];
 
-let produitEnAttenteOption = null;
-
-// Images attrayantes par défaut
-const defaultImages = {
-    'cafe': 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=400&q=80',
-    'the': 'https://images.unsplash.com/photo-1576092762791-dd9e2220afa1?auto=format&fit=crop&w=400&q=80',
-    'boissons': 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80',
-    'dessert': 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=400&q=80',
-    'sale': 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
-};
 
 const categoryLabels = {
     'cafe': '☕ Cafés',
@@ -927,27 +910,3 @@ function configurerEvenements() {
         if(e.target.id === 'optionsModal') document.getElementById("optionsModal").style.display = "none";
     }
 }
-// ========== GESTION DU MODE SOMBRE ==========
-const themeToggle = document.getElementById('themeToggle');
-const body = document.body;
-const icon = themeToggle.querySelector('i');
-
-// Vérifier si le mode sombre était déjà activé
-if (localStorage.getItem('dark-mode') === 'enabled') {
-    body.classList.add('dark-mode');
-    icon.classList.replace('fa-moon', 'fa-sun');
-}
-
-themeToggle.addEventListener('click', () => {
-    body.classList.toggle('dark-mode');
-    
-    if (body.classList.contains('dark-mode')) {
-        localStorage.setItem('dark-mode', 'enabled');
-        icon.classList.replace('fa-moon', 'fa-sun');
-        if(navigator.vibrate) navigator.vibrate(50);
-    } else {
-        localStorage.setItem('dark-mode', 'disabled');
-        icon.classList.replace('fa-sun', 'fa-moon');
-        if(navigator.vibrate) navigator.vibrate(30);
-    }
-});
