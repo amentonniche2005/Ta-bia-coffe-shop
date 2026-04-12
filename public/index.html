@@ -114,16 +114,22 @@
             
             <div class="cart-items" id="clientModalBody" style="padding-top: 0;">
                 
-                <div id="clientLoginSection" style="text-align: center; padding: 20px 0;">
-                    <div style="background: var(--surface-2); width: 80px; height: 80px; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px auto;">
-                        <i class="fas fa-qrcode" style="font-size: 2.5rem; color: var(--primary);"></i>
-                    </div>
-                    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Scannez votre carte physique ou entrez votre code secret.</p>
-                    <input type="text" id="clientLoginCode" class="code-input" placeholder="****" maxlength="4" style="text-align: center; font-size: 2rem; letter-spacing: 15px;">
-                    <button class="auth-btn btn-login" onclick="verifierCodeClient()">
-    Accéder à mon espace <i class="fas fa-arrow-right"></i>
-</button>
-                </div>
+<div id="clientLoginSection" style="text-align: center; padding: 20px 0;">
+    <div style="background: var(--surface-2); width: 80px; height: 80px; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px auto;">
+        <i class="fas fa-qrcode" style="font-size: 2.5rem; color: var(--primary);"></i>
+    </div>
+    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Scannez votre carte physique ou entrez votre code secret.</p>
+    
+    <input type="text" 
+           id="clientLoginCode" 
+           class="code-input" 
+           placeholder="Code secret" 
+           style="text-align: center; font-size: 1.8rem; letter-spacing: 4px; width: 100%; max-width: 280px; margin-bottom: 15px;">
+    
+    <button class="auth-btn btn-login" onclick="verifierCodeClient()">
+        Accéder à mon espace <i class="fas fa-arrow-right"></i>
+    </button>
+</div>
 
                 <div id="clientProfileSection" style="display: none;">
                     <div class="vip-card">
