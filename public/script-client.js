@@ -62,6 +62,33 @@ function getClientId() {
 
 // ========== CHARGEMENT ==========
 document.addEventListener("DOMContentLoaded", async () => {
+    // --- GESTION DU MODE SOMBRE ---
+const themeBtn = document.getElementById('themeToggle');
+const currentTheme = localStorage.getItem('theme');
+
+// Charger la préférence au démarrage
+if (currentTheme === 'dark') {
+    document.body.classList.add('dark-theme');
+    themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+}
+
+themeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark-theme');
+    
+    let theme = 'light';
+    if (document.body.classList.contains('dark-theme')) {
+        theme = 'dark';
+        themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+    } else {
+        themeBtn.innerHTML = '<i class="fas fa-moon"></i>';
+    }
+    
+    // Sauvegarder dans le navigateur
+    localStorage.setItem('theme', theme);
+    
+    // Petite vibration pour le feedback tactile
+    if(navigator.vibrate) navigator.vibrate(10);
+});
     const urlParams = new URLSearchParams(window.location.search);
     const tableUrl = urlParams.get('table');
     const authUrl = urlParams.get('auth'); // Peut être le code Table OU le code Fidélité

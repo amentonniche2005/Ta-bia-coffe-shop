@@ -1,3 +1,69 @@
+/* ========== THEMES (VARIABLES) ========== */
+:root {
+    /* Couleurs de base (Mode Clair) */
+    --bg-color: #f8f9fa;
+    --card-bg: #ffffff;
+    --text-main: #2c3e50;
+    --text-muted: #7f8c8d;
+    --header-bg: #143621;
+    --primary: #db800a;
+    --primary-dark: #b86a07;
+    --border-color: #e2e8f0;
+    --cart-bg: #f8fafc;
+    --cart-item-bg: #ffffff;
+}
+
+/* Mode Sombre */
+body.dark-theme {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --header-bg: #020617;
+    --border-color: #334155;
+    --cart-bg: #0f172a;
+    --cart-item-bg: #1e293b;
+}
+
+/* Appliquer les variables aux éléments existants */
+body {
+    background: var(--bg-color);
+    color: var(--text-main);
+    transition: background 0.3s, color 0.3s;
+}
+
+header { background: var(--header-bg); }
+
+.categories-wrapper, .menu-item, .cart-content, .modern-cart-item, .options-content {
+    background: var(--card-bg);
+    color: var(--text-main);
+    border-color: var(--border-color);
+}
+
+.modern-cart-item { background: var(--cart-item-bg); }
+.cart-content { background: var(--cart-bg); }
+.modern-qty-control { background: var(--bg-color); border-color: var(--border-color); }
+.modern-qty-btn { background: var(--card-bg); color: var(--text-main); }
+.modern-qty-val { color: var(--text-main); }
+.sleek-input, .sleek-select { background: var(--bg-color); color: var(--text-main); border-color: var(--border-color); }
+.checkout-section { background: var(--card-bg); border-color: var(--border-color); }
+.modern-cart-item-info h4 { color: var(--text-main); }
+
+/* Bouton flottant du Dark Mode */
+.dark-mode-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fdfbf7;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.dark-mode-toggle:hover { background: rgba(255, 255, 255, 0.2); }
 /* ========== RESET & BASE ========== */
 :root {
     --primary: #db800a;
