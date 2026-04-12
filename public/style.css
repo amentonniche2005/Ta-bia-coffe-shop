@@ -321,3 +321,23 @@ header {
         border-radius: 25px; /* Arrondi des 4 coins sur PC */
     }
 }
+/* ======================================================= */
+/* 🔥 DESIGN DE LA CARTE VIP (À AJOUTER TOUT EN BAS) */
+/* ======================================================= */
+.vip-card {
+    background: linear-gradient(135deg, #1e293b 0%, #020617 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px; padding: 24px; color: white;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    position: relative; overflow: hidden;
+}
+.vip-card::after {
+    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 60%); pointer-events: none;
+}
+.vip-card-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-weight: 800; color: #cbd5e1; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 2px; }
+.vip-card-body h3 { font-size: 1.6rem; font-weight: 800; margin-bottom: 5px; color: white; }
+.vip-code { font-family: monospace; font-size: 1.2rem; letter-spacing: 6px; color: var(--primary); margin-bottom: 25px; font-weight: bold; }
+.vip-card-footer { display: flex; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 15px; }
+.vip-label { display: block; font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.vip-value { font-size: 1.3rem; font-weight: 900; color: white; }

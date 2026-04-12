@@ -926,4 +926,89 @@ function configurerEvenements() {
         if(e.target.id === 'cartModal') fermerPanier();
         if(e.target.id === 'optionsModal') document.getElementById("optionsModal").style.display = "none";
     }
+    
 }
+// =================================================================
+// 🔥 LOGIQUE DU PROFIL VIP (À AJOUTER TOUT EN BAS DU FICHIER)
+// =================================================================
+
+// 1. Écouteur pour ouvrir la fenêtre Espace Client
+document.addEventListener("DOMContentLoaded", () => {
+    const btnEspace = document.getElementById('btnEspaceClient');
+    if (btnEspace) {
+        btnEspace.addEventListener('click', () => {
+            document.getElementById('clientModal').style.display = 'flex';
+            
+            // Si le client s'était déjà connecté, on remplit son code automatiquement
+            const savedCode = sessionStorage.getItem('tabia_auth_qr');
+            if (savedCode) {
+                document.getElementById('clientLoginCode').value = savedCode;
+                verifierCodeClient(true);
+            }
+        });
+
+        // Remet la petite couronne 👑 si le client rafraîchit la page
+        if (sessionStorage.getItem('client_nom_premium')) {
+            const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
+            btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
+        }
+    }
+});
+
+// 2. Fonction qui interroge la base de données et dessine la carte VIP
+window.verifierCodeClient = async function(silencieux = false) {
+    const code = document.getElementById('clientLoginCode').value.trim();
+    if (!code) return;
+
+    try {
+        // On appelle ton API (Celle qui est dans server.js)
+        const res = await fetch(`/api/customers/verify/${code}`);
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            // Remplissage de la Carte VIP HTML avec les données de la DB
+            document.getElementById('vipName').innerText = `${data.customer.prenom} ${data.customer.nom}`;
+            document.getElementById('vipCode').innerText = data.customer.codeFidelite;
+            document.getElementById('vipPoints').innerHTML = `${parseFloat(data.customer.points || 0).toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
+            document.getElementById('vipSolde').innerText = parseFloat(data.customer.solde || 0).toFixed(2) + ' DT';
+
+            // On cache la zone de code, on affiche la carte
+            document.getElementById('clientLoginSection').style.display = 'none';
+            document.getElementById('clientProfileSection').style.display = 'block';
+            
+            // On met à jour le bouton en haut à droite de l'écran
+            const btnEspace = document.getElementById('btnEspaceClient');
+            if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${data.customer.prenom}`;
+            
+            // On sauvegarde en mémoire
+            sessionStorage.setItem('tabia_auth_qr', code);
+            sessionStorage.setItem('client_nom_premium', `${data.customer.prenom} ${data.customer.nom}`);
+
+            if (!silencieux) afficherNotification(`✨ Profil chargé avec succès !`);
+        } else {
+            if (!silencieux) afficherNotification("❌ Code secret incorrect.", "error");
+        }
+    } catch (err) {
+        if (!silencieux) afficherNotification("❌ Erreur de connexion au serveur.", "error");
+    }
+};
+
+// 3. Fonctions pour fermer et se déconnecter
+window.fermerEspaceClient = function() {
+    document.getElementById('clientModal').style.display = 'none';
+};
+
+window.deconnecterClient = function() {
+    sessionStorage.removeItem('tabia_auth_qr');
+    sessionStorage.removeItem('client_nom_premium');
+    
+    const btnEspace = document.getElementById('btnEspaceClient');
+    if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-user-circle"></i> Espace Client`;
+    
+    document.getElementById('clientLoginCode').value = '';
+    document.getElementById('clientLoginSection').style.display = 'block';
+    document.getElementById('clientProfileSection').style.display = 'none';
+    
+    fermerEspaceClient();
+    afficherNotification("Vous êtes déconnecté.");
+};
