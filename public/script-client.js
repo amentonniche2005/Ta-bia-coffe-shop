@@ -449,19 +449,74 @@ function sauvegarderPanier() { localStorage.setItem("mon_panier", JSON.stringify
 function chargerPanier() { const p = localStorage.getItem("mon_panier"); if (p) panier = JSON.parse(p); }
 
 function mettreAJourUIPanier() {
-    const totalQty = panier.reduce((sum, item) => sum + item.quantite, 0);
-    const totalPrix = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
+    const cartItemsContainer = document.getElementById("cartItems");
+    const cartBadge = document.getElementById("cartBadge");
+    const cartTotalSpan = document.getElementById("cartTotal");
+    const floatingCart = document.getElementById("floatingCart");
+    const checkoutBtn = document.getElementById("checkoutBtn");
     
-    document.getElementById("conteurpanier").textContent = totalQty;
+    cartItemsContainer.innerHTML = "";
+    let total = 0;
+    let nbArticles = 0;
+
+    // SCÉNARIO : PANIER VIDE
+    if (panier.length === 0) {
+        cartItemsContainer.innerHTML = `
+            <div class="empty-cart-state">
+                <i class="fas fa-shopping-bag"></i>
+                <p>Votre panier est vide</p>
+                <span style="font-size: 0.9rem;">Laissez-vous tenter par nos délices !</span>
+            </div>
+        `;
+        if (floatingCart) floatingCart.classList.remove("visible");
+        cartTotalSpan.innerText = "0.000 DT";
+        if (cartBadge) cartBadge.innerText = "0";
+        checkoutBtn.disabled = true;
+        return;
+    }
+
+    // SCÉNARIO : ARTICLES PRÉSENTS
+    checkoutBtn.disabled = false;
     
-    const floatCart = document.getElementById("floatingCart");
-    if (totalQty > 0) {
-        floatCart.style.display = "flex";
-        floatCart.classList.add("visible");
-        document.getElementById("floatingCartTotal").textContent = totalPrix.toFixed(2) + " DT";
-    } else {
-        floatCart.style.display = "none";
-        floatCart.classList.remove("visible");
+    panier.forEach((item, index) => {
+        const sousTotal = item.prix * item.quantite;
+        total += sousTotal;
+        nbArticles += item.quantite;
+
+        // Image par défaut si le produit n'a pas de photo
+        const imgSrc = item.image || 'https://via.placeholder.com/150';
+
+        cartItemsContainer.innerHTML += `
+            <div class="modern-cart-item">
+                <div class="modern-cart-item-img" style="background-image: url('${imgSrc}')"></div>
+                <div class="modern-cart-item-info">
+                    <h4>${escapeHtml(item.nom)}</h4>
+                    ${item.variante ? `<span class="modern-cart-item-variant">${escapeHtml(item.variante)}</span>` : ''}
+                    <div class="modern-cart-item-price">${parseFloat(item.prix).toFixed(3)} DT</div>
+                </div>
+                <div class="modern-qty-control">
+                    <button class="modern-qty-btn" onclick="modifierQuantite(${index}, -1)"><i class="fas fa-minus"></i></button>
+                    <span class="modern-qty-val">${item.quantite}</span>
+                    <button class="modern-qty-btn" onclick="modifierQuantite(${index}, 1)"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+        `;
+    });
+
+    // Mise à jour des totaux
+    cartTotalSpan.innerText = total.toFixed(3) + " DT";
+    
+    if (cartBadge) cartBadge.innerText = nbArticles;
+    
+    const floatingCartPrice = document.getElementById("floatingCartPrice");
+    if (floatingCartPrice) floatingCartPrice.innerText = total.toFixed(3) + " DT";
+    
+    // Animation du panier flottant
+    if (floatingCart) {
+        floatingCart.classList.add("visible");
+        floatingCart.classList.remove("pulse");
+        void floatingCart.offsetWidth; // Force le reflow
+        floatingCart.classList.add("pulse");
     }
 }
 
