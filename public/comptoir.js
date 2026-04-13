@@ -22,6 +22,7 @@ async function fetchSecurise(url, options = {}) {
 // ========== COMPTOIR AVEC SOCKET.IO - LOGIQUE KDS ==========
 let filtreActuel = "all";
 let commandesComptoirCache = [];
+let vueActuelle = "commandes";
 
 async function chargerCommandes() {
     try {
@@ -120,6 +121,9 @@ function afficherCommandes() {
     
     document.getElementById("nbAttente").textContent = enAttente.length;
     document.getElementById("nbPreparation").textContent = enPreparation.length;
+    if (vueActuelle === "synthese") {
+        afficherSynthese();
+    }
 }
 
 function afficherColonne(containerId, commandes, type) {
@@ -377,7 +381,82 @@ document.head.appendChild(style);
                 .catch(err => console.log('Erreur Service Worker', err));
         });
     }
+// ========== LOGIQUE VUE SYNTHÈSE (PRODUCTION GROUPÉE) ==========
 
+window.basculerVue = function(vue) {
+    vueActuelle = vue;
+    
+    // Changement visuel des boutons
+    document.getElementById('btnVueCommandes').classList.toggle('active', vue === 'commandes');
+    document.getElementById('btnVueSynthese').classList.toggle('active', vue === 'synthese');
+    
+    // Affichage des bons conteneurs
+    if (vue === 'commandes') {
+        document.getElementById('commandesContainer').style.display = 'flex';
+        document.getElementById('syntheseContainer').style.display = 'none';
+        afficherCommandes();
+    } else {
+        document.getElementById('commandesContainer').style.display = 'none';
+        document.getElementById('syntheseContainer').style.display = 'block';
+        afficherSynthese();
+    }
+};
+
+function afficherSynthese() {
+    const container = document.getElementById('syntheseContainer');
+    if (!container) return;
+
+    const produitsAGrouper = {};
+
+    // 1. On parcourt les commandes "En Attente" et "En Préparation" uniquement
+    commandesComptoirCache.forEach(cmd => {
+        if (cmd.statut === 'en_attente' || cmd.statut === 'en_preparation') {
+            
+            // On respecte les filtres (si le gérant filtre "Sur Place", on n'additionne que ça)
+            let conserver = true;
+            if (filtreActuel === "fidele" && !cmd.clientName) conserver = false;
+            if (filtreActuel === "client" && (!cmd.clientId || cmd.clientName)) conserver = false;
+            if (filtreActuel === "comptoir" && (cmd.clientId || cmd.clientName)) conserver = false;
+
+            if (conserver) {
+                // 2. On additionne les articles
+                cmd.articles.forEach(art => {
+                    // Clé unique pour différencier "Direct (Serré)" de "Direct (Allongé)"
+                    const cle = `${art.nom}_${art.variante || 'standard'}`;
+                    
+                    if (!produitsAGrouper[cle]) {
+                        produitsAGrouper[cle] = { nom: art.nom, variante: art.variante, quantite: 0 };
+                    }
+                    produitsAGrouper[cle].quantite += (art.quantite || 1);
+                });
+            }
+        }
+    });
+
+    // 3. Transformation en tableau et tri (Les plus demandés en premier)
+    const tableauSynthese = Object.values(produitsAGrouper).sort((a, b) => b.quantite - a.quantite);
+
+    if (tableauSynthese.length === 0) {
+        container.innerHTML = `<div class='empty-col' style='margin-top:5rem;'><i class="fas fa-mug-hot" style="font-size:5rem;"></i><p>Aucun produit en cours de production</p></div>`;
+        return;
+    }
+
+    // 4. Création du HTML des grosses cartes
+    container.innerHTML = `
+        <h2 style="margin-bottom: 2rem; color: #1e293b; font-size: 2rem; font-weight: 800;"><i class="fas fa-layer-group"></i> Production Groupée en cours</h2>
+        <div class="synthese-grid">
+            ${tableauSynthese.map(item => `
+                <div class="synthese-card">
+                    <div class="synthese-qty">${item.quantite}</div>
+                    <div>
+                        <div class="synthese-name">${item.nom}</div>
+                        ${item.variante ? `<span class="synthese-variant">${item.variante}</span>` : ''}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
 // ========== INIT ==========
 
 document.addEventListener("DOMContentLoaded", () => {
