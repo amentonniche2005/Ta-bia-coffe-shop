@@ -21,27 +21,6 @@ let produits = [];
 let categorieActuelle = "all";
 let clientId = null;
 const HISTORIQUE_EXPIRATION = 24 * 60 * 60 * 1000;
-
-// Configurations des Variantes par mots-clés
-const variantesConfig = [
-    { mots: ['gazeuse', 'soda'], options: ['Coca-Cola', 'Coca Zéro', 'Boga Cidre', 'Fanta', 'Sprite'] },
-    { mots: ['cafe', 'café', 'espresso', 'capucin', 'direct'], options: ['Normal', 'Serré', 'Allongé', 'Sans Sucre'] },
-    { mots: ['jus', 'citronnade', 'mojito'], options: ['Bien frais', 'Glaçons à part', 'Sans sucre ajouté'] },
-    { mots: ['thé', 'the', 'infusion'], options: ['Normal', 'Léger en sucre', 'Sans sucre', 'Menthe extra'] },
-    { mots: ['crêpe', 'gaufre', 'crepe'], options: ['Chocolat au lait', 'Chocolat Noir', 'Beurre salé', 'Miel'] }
-];
-
-let produitEnAttenteOption = null;
-
-// Images attrayantes par défaut
-const defaultImages = {
-    'cafe': 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=400&q=80',
-    'the': 'https://images.unsplash.com/photo-1576092762791-dd9e2220afa1?auto=format&fit=crop&w=400&q=80',
-    'boissons': 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80',
-    'dessert': 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=400&q=80',
-    'sale': 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
-};
-
 const categoryLabels = {
     'cafe': '☕ Cafés',
     'the': '🫖 Thés & Infusions',
@@ -156,7 +135,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ========== FETCH API STOCK ==========
+// Affiche de fausses cartes pendant le chargement
+function afficherSkeleton() {
+    const grille = document.getElementById("menuGrid");
+    if (!grille) return;
+    // On génère 6 fausses cartes clignotantes
+    grille.innerHTML = Array(6).fill(`
+        <div class="skeleton-item">
+            <div class="skeleton-img"></div>
+            <div class="skeleton-info">
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line short"></div>
+                <div class="skeleton-btn"></div>
+            </div>
+        </div>
+    `).join('');
+}
+
 async function chargerCatalogue() {
+    afficherSkeleton(); // 🔥 On lance l'animation fantôme tout de suite
+    
     try {
         const response = await fetch('/api/stock');
         if (!response.ok) throw new Error("Erreur serveur");
@@ -165,15 +163,19 @@ async function chargerCatalogue() {
         produits = Array.isArray(data) ? data : (data.produits || []);
         
         if (produits.length === 0) {
-            document.getElementById("menuGrid").innerHTML = "<p class='empty-message' style='grid-column: 1/-1; text-align:center;'>Le menu est actuellement vide.</p>";
+            document.getElementById("menuGrid").innerHTML = "<p class='empty-message'>Le menu est actuellement vide.</p>";
             return;
         }
 
-        genererCategoriesDynamiques(); 
-        afficherProduits();
+        // On ajoute un tout petit délai artificiel (300ms) pour que l'œil ait le temps de voir l'effet premium du skeleton
+        setTimeout(() => {
+            genererCategoriesDynamiques(); 
+            afficherProduits();
+        }, 300);
+
     } catch (error) {
         const grille = document.getElementById("menuGrid");
-        if(grille) grille.innerHTML = "<p class='empty-message' style='grid-column: 1/-1; text-align:center;'>❌ Impossible de charger le menu.</p>";
+        if(grille) grille.innerHTML = "<p class='empty-message'>❌ Impossible de charger le menu.</p>";
     }
 }
 
@@ -322,6 +324,7 @@ function executerAjoutPanier(produit, variante) {
     sauvegarderPanier();
     mettreAJourUIPanier();
     animerBoutonPanier();
+    if(navigator.vibrate) navigator.vibrate(20);
 }
 
 function changerQuantite(cartId, delta) {
@@ -632,7 +635,7 @@ async function validerCommande(numTable, clientData, codeSaisi) {
                 setTimeout(() => { window.location.href = commande.payUrl; }, 1500);
                 return; 
             }
-            
+            if(navigator.vibrate) navigator.vibrate([50, 50, 50]);
             // 3. Notification de succès personnalisée
             const messageSucces = nomFidele ? `🎉 Merci ${nomFidele} ! Commande envoyée.` : "🎉 Commande envoyée avec succès !";
             afficherNotification(messageSucces);
@@ -688,13 +691,11 @@ function chargerMesCommandes() {
     if(!conteneur) return;
     
     const hist = JSON.parse(localStorage.getItem(`tabia_mes_commandes_${clientId}`) || "[]");
-    
-    // 🔥 MODIFICATION 1 : On ne garde que les commandes non expirées ET qui ne sont PAS payées
     const valides = hist.filter(c => c.expiration > Date.now() && c.statut !== 'paye');
     
     if(!valides.length) { 
         conteneur.innerHTML = `
-            <div style='padding: 2.5rem 1rem; text-align: center; color: #94a3b8; background: white; border-radius: 20px; border: 1px dashed #cbd5e1; box-shadow: 0 4px 6px rgba(0,0,0,0.02);'>
+            <div style='padding: 2.5rem 1rem; text-align: center; color: #94a3b8; background: white; border-radius: 20px; border: 1px dashed #cbd5e1;'>
                 <i class="fas fa-receipt fa-2x" style="opacity: 0.4; margin-bottom: 10px;"></i>
                 <p style="margin: 0; font-weight: 600;">Aucune commande en cours</p>
             </div>`; 
@@ -702,47 +703,54 @@ function chargerMesCommandes() {
     }
 
     conteneur.innerHTML = valides.map(cmd => {
-        let statusClass = 'status-attente';
-        let statusText = 'En attente';
-        let statusIcon = '<i class="fas fa-clock"></i>';
+        // Logique du Tracker visuel
+        let step1 = 'active', step2 = '', step3 = '';
+        let progressWidth = '0%';
+        let animPrep = '', animPret = '';
         
-        // 🔥 MODIFICATION 2 : Logique des badges avec icônes animées FontAwesome
-        if(cmd.statut === 'en_attente') { 
-            statusClass = 'status-attente'; 
-            statusText = 'En attente'; 
-            statusIcon = '<i class="fas fa-clock"></i>';
+        if (cmd.statut === 'en_preparation') { 
+            step1 = 'completed'; step2 = 'active'; 
+            progressWidth = '50%'; 
+            animPrep = 'fa-beat'; // La flamme bat
         }
-        else if(cmd.statut === 'en_preparation') { 
-            statusClass = 'status-preparation'; 
-            statusText = 'Préparation'; 
-            statusIcon = '<i class="fas fa-fire fa-beat" style="--fa-animation-duration: 1.5s;"></i>';
-        }
-        else if(cmd.statut === 'terminee') { 
-            statusClass = 'status-termine'; 
-            statusText = 'C\'est Prêt !'; 
-            statusIcon = '<i class="fas fa-check-circle fa-bounce" style="--fa-animation-duration: 2s;"></i>';
+        else if (cmd.statut === 'terminee') { 
+            step1 = 'completed'; step2 = 'completed'; step3 = 'completed'; 
+            progressWidth = '100%'; 
+            animPret = 'fa-bounce'; // Le check sautille
         }
 
-        const numCmd = cmd.numero ? `#${cmd.numero}` : 'en cours...';
+        const numCmd = cmd.numero ? `#${cmd.numero}` : '...';
 
         return `
-            <div class="historique-commande-card">
-                <div class="historique-commande-header">
-                    <span class="commande-numero" style="font-size: 1.1rem;">Commande ${numCmd}</span>
-                    <span class="status-badge ${statusClass}" style="display:flex; align-items:center; gap:6px; padding: 6px 12px; font-size: 0.8rem;">
-                        ${statusIcon} ${statusText}
-                    </span>
+            <div class="historique-commande-card" style="padding: 1.5rem 1rem;">
+                <div class="historique-commande-header" style="border-bottom: none; padding-bottom: 0;">
+                    <span class="commande-numero" style="font-size: 1.2rem;">Commande ${numCmd}</span>
+                    <span style="font-weight: 900; color: #143621; font-size: 1.2rem;">${(cmd.total || 0).toFixed(2)} DT</span>
                 </div>
-                <div style="margin-bottom: 15px;">
+                
+                <div class="order-tracker">
+                    <div class="tracker-progress" style="width: ${progressWidth};"></div>
+                    
+                    <div class="tracker-step ${step1}">
+                        <div class="step-icon"><i class="fas fa-file-invoice"></i></div>
+                        <span class="step-label">Validée</span>
+                    </div>
+                    <div class="tracker-step ${step2}">
+                        <div class="step-icon"><i class="fas fa-fire ${animPrep}" style="--fa-animation-duration: 1.5s;"></i></div>
+                        <span class="step-label">En Cuisine</span>
+                    </div>
+                    <div class="tracker-step ${step3}">
+                        <div class="step-icon"><i class="fas fa-check ${animPret}" style="--fa-animation-duration: 2s;"></i></div>
+                        <span class="step-label">Prête !</span>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; border-radius: 12px; padding: 12px; margin-top: 15px;">
                     ${cmd.articles.map(a => `
-                        <div class="article-detail" style="padding: 5px 0;">
-                            <span><span style="font-weight:900; color:#1e293b;">${a.quantite}x</span> ${a.nom}</span> 
-                            <span style="font-weight:600; color:#475569;">${(a.prix*a.quantite).toFixed(2)} DT</span>
+                        <div class="article-detail" style="padding: 3px 0;">
+                            <span><span style="font-weight:900; color:#1e293b;">${a.quantite}x</span> ${a.nom} ${a.variante ? `<span style="font-size:0.75rem; color:#94a3b8;">(${a.variante})</span>` : ''}</span> 
                         </div>
                     `).join('')}
-                </div>
-                <div style="font-weight:900; text-align:right; border-top:2px dashed #e2e8f0; padding-top:12px; margin-top:8px; color:#143621; font-size:1.3rem;">
-                    Total: ${(cmd.total || 0).toFixed(2)} DT
                 </div>
             </div>
         `;

@@ -379,8 +379,7 @@ document.head.appendChild(style);
     }
 
 // ========== INIT ==========
-// ========== INIT ==========
-// ========== INIT ==========
+
 document.addEventListener("DOMContentLoaded", () => {
     initSocket();
     chargerCommandes();
