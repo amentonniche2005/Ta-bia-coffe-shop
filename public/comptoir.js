@@ -479,19 +479,25 @@ window.fermerModal = fermerModal;
 window.rafraichirCommandes = rafraichirCommandes;
 window.changerFiltre = changerFiltre;
 // ========== FONCTION IMPRESSION TICKET ==========
+// ========== FONCTION IMPRESSION TICKET ==========
 window.imprimerTicket = function(id) {
-    const cmd = commandesComptoirCache.find(c => c.id === id);
-    if (!cmd) return;
+    console.log("Tentative d'impression pour la commande ID :", id);
+
+    // Recherche de la commande (On force le format Texte pour éviter les erreurs)
+    const cmd = commandesComptoirCache.find(c => String(c.id) === String(id));
+    
+    if (!cmd) {
+        afficherNotification("Commande introuvable pour l'impression", "error");
+        return;
+    }
 
     const zonePrint = document.getElementById('ticket-impression');
-    if(!zonePrint) return;
-    
     zonePrint.style.display = 'block'; 
 
     let articlesHTML = cmd.articles.map(a => `
         <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-family:monospace; font-size:14px;">
             <span>${a.quantite}x ${a.nom}</span>
-            <span>${(a.prix * a.quantite).toFixed(2)}</span>
+            <span>${(parseFloat(a.prix) * a.quantite).toFixed(2)}</span>
         </div>
         ${a.variante ? `<div style="font-size:12px; margin-left:10px; margin-bottom:8px;">- ${a.variante}</div>` : ''}
     `).join('');
@@ -522,10 +528,13 @@ window.imprimerTicket = function(id) {
         <br>
     `;
 
-    window.print();
-
+    // Lancement de l'impression
     setTimeout(() => {
-        zonePrint.style.display = 'none';
-        zonePrint.innerHTML = '';
-    }, 500);
+        window.print();
+        // On recache le ticket une fois la fenêtre d'impression ouverte
+        setTimeout(() => {
+            zonePrint.style.display = 'none';
+            zonePrint.innerHTML = '';
+        }, 500);
+    }, 100); 
 };
