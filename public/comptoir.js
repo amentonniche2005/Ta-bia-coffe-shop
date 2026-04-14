@@ -482,8 +482,9 @@ window.fermerModal = fermerModal;
 window.rafraichirCommandes = rafraichirCommandes;
 window.changerFiltre = changerFiltre;
 
-// ========== FONCTION IMPRESSION TICKET (DESIGN PREMIUM) ==========
+// ========== FONCTION IMPRESSION TICKET (DESIGN CAISSE STANDARD) ==========
 window.imprimerTicket = function(id) {
+    // 1. Récupération de la commande
     const cmd = commandesComptoirCache.find(c => String(c.id) === String(id));
     if (!cmd) {
         afficherNotification("Commande introuvable pour l'impression", "error");
@@ -493,88 +494,75 @@ window.imprimerTicket = function(id) {
     const zonePrint = document.getElementById('ticket-impression');
     if (!zonePrint) return;
 
-    zonePrint.style.display = 'block'; 
-
-    // 1. Formatage intelligent de la date
+    // 2. Formatage des données (Identique à la caisse)
     const dateObj = new Date(cmd.timestamp || Date.now());
     const dateStr = dateObj.toLocaleDateString('fr-FR');
     const timeStr = dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    
+    let nomOrigine = (cmd.numeroTable === 'Emporter' || !cmd.numeroTable) ? "📦 Emporter" : `Table ${cmd.numeroTable}`;
+    if (cmd.clientName) nomOrigine = `Fidèle : ${cmd.clientName}`;
 
-    // 2. Construction de la liste des articles avec un alignement parfait
+    // 3. Génération de la liste des articles (Alignement strict de caisse)
     let articlesHTML = cmd.articles.map(a => `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; font-size: 14px; font-weight: bold; font-family: monospace;">
-            <div style="flex: 1; text-align: left; padding-right: 10px;">
-                ${a.quantite}x ${a.nom.toUpperCase()}
-                ${a.variante ? `<br><span style="font-size: 12px; font-weight: normal; margin-left: 15px;">+ ${a.variante}</span>` : ''}
-            </div>
-            <div style="white-space: nowrap;">
-                ${(parseFloat(a.prix) * a.quantite).toFixed(2)}
-            </div>
+        <div style="display: flex; justify-content: space-between; font-family: 'Courier New', Courier, monospace; font-size: 14px; font-weight: bold; margin-bottom: 4px;">
+            <div style="flex: 1;">${a.quantite}x ${a.nom.toUpperCase()}</div>
+            <div style="width: 70px; text-align: right;">${(parseFloat(a.prix) * a.quantite).toFixed(2)}</div>
         </div>
+        ${a.variante ? `<div style="font-family: 'Courier New', Courier, monospace; font-size: 12px; margin-left: 15px; margin-bottom: 6px;">> ${a.variante}</div>` : ''}
     `).join('');
 
-    const isSurPlace = cmd.numeroTable && cmd.numeroTable !== 'Emporter';
-    const textType = isSurPlace ? `SUR PLACE - TABLE ${cmd.numeroTable}` : 'À EMPORTER';
-    const textPaiement = cmd.methodePaiement === 'en_ligne' ? 'PAYÉ EN LIGNE' : 'À ENCAISSER';
-
-    // 3. Injection du Design Premium (Full Inline CSS pour forcer l'imprimante)
+    // 4. Injection du HTML (Design Caisse)
+    zonePrint.style.display = 'block';
     zonePrint.innerHTML = `
-        <div style="width: 100%; max-width: 80mm; margin: 0 auto; color: #000; font-family: monospace; background: #fff; padding: 0;">
+        <div style="width: 100%; max-width: 80mm; margin: 0 auto; color: #000; font-family: 'Courier New', Courier, monospace; background: #fff; padding: 0;">
             
-            <div style="text-align: center; margin-bottom: 15px;">
-                <h1 style="font-size: 24px; font-family: sans-serif; margin: 0 0 5px 0; font-weight: 900; letter-spacing: 1px;">TA'BIA COFFEE</h1>
-                <p style="font-size: 12px; margin: 0; line-height: 1.4; font-family: sans-serif;">
-                    123 Avenue de la Médina<br>
-                    Tunis, Tunisie<br>
-                    Tél : +216 20 000 000
-                </p>
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h2 style="margin: 0; font-size: 22px; font-weight: bold;">TA'BIA COFFEE</h2>
+                <p style="margin: 5px 0 0 0; font-size: 12px;">Ticket Cuisine / Préparation</p>
             </div>
             
-            <div style="border-top: 2px dashed #000; margin: 10px 0;"></div>
+            <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
 
-            <div style="font-size: 13px; line-height: 1.6; margin-bottom: 10px;">
+            <div style="font-size: 13px; line-height: 1.5;">
                 <div style="display: flex; justify-content: space-between;">
                     <span><b>TICKET:</b> #${cmd.numero || cmd.id}</span>
                     <span>${dateStr} ${timeStr}</span>
                 </div>
-                <div><b>TYPE:</b> ${textType}</div>
-                ${cmd.clientName ? `<div><b>CLIENT:</b> ${cmd.clientName.toUpperCase()} <span style="font-size: 10px;">(VIP)</span></div>` : ''}
-                <div><b>STATUT:</b> ${textPaiement}</div>
+                <div><b>ORIGINE:</b> ${nomOrigine}</div>
+                <div><b>STATUT:</b> ${cmd.methodePaiement === 'en_ligne' ? 'PAYÉ EN LIGNE' : 'À ENCAISSER'}</div>
             </div>
 
-            <div style="border-top: 2px dashed #000; margin: 10px 0;"></div>
+            <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
 
-            <div style="margin: 15px 0;">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px; border-bottom: 1px solid #000; padding-bottom: 4px;">
-                    <b>QTE x ARTICLE</b>
-                    <b>MONTANT</b>
-                </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; margin-bottom: 5px;">
+                <div style="flex: 1;">QTE x DESIGNATION</div>
+                <div style="width: 70px; text-align: right;">MONTANT</div>
+            </div>
+            
+            <div style="border-top: 1px solid #000; margin-bottom: 8px;"></div>
+
+            <div style="margin-bottom: 10px;">
                 ${articlesHTML}
             </div>
 
-            <div style="border-top: 2px dashed #000; margin: 10px 0;"></div>
+            <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 20px; font-weight: bold; margin: 15px 0; font-family: sans-serif;">
-                <span>TOTAL TTC</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: bold; margin: 10px 0;">
+                <span>TOTAL A PAYER</span>
                 <span>${parseFloat(cmd.total || 0).toFixed(2)} DT</span>
             </div>
 
-            <div style="border-top: 2px dashed #000; margin: 10px 0;"></div>
+            <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
 
-            <div style="text-align: center; font-size: 12px; margin-top: 15px; font-family: sans-serif;">
-                <p style="margin: 0 0 5px 0; font-weight: bold;">*** MERCI DE VOTRE VISITE ***</p>
-                <p style="margin: 0; font-size: 11px; color: #333;">Rejoignez-nous sur Instagram<br><b>@tabiacoffee</b></p>
-            </div>
-            
-            <div style="text-align: center; margin-top: 15px; font-size: 11px; padding: 5px; border: 1px solid #000; border-radius: 4px;">
-                <p style="margin: 0;">WiFi : <b>Tabia_Guest</b> | Pass : <b>Tabia2026</b></p>
+            <div style="text-align: center; font-size: 12px; margin-top: 15px;">
+                <p style="margin: 0;">*** BONNE DÉGUSTATION ***</p>
             </div>
             
             <div style="height: 40px;"></div> 
         </div>
     `;
 
-    // 4. Lancement de l'impression
+    // 5. Lancement de l'impression
     setTimeout(() => {
         window.print();
         setTimeout(() => {
