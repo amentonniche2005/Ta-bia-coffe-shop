@@ -303,6 +303,36 @@
         }
         .synthese-name { font-size: 1.8rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
         .synthese-variant { font-size: 1.1rem; color: #64748b; font-weight: 700; display: block; margin-top: 6px; }
+        /* ========== STYLE SPÉCIAL IMPRESSION TICKET ========== */
+@media print {
+    /* Cache tout le reste de la page */
+    body * { visibility: hidden; }
+    header, .kanban-board, .toolbar, .modal, #syntheseContainer, .notification { display: none !important; }
+
+    /* Affiche uniquement la zone de ticket */
+    #ticket-impression, #ticket-impression * { visibility: visible; }
+    #ticket-impression {
+        position: absolute;
+        left: 0; top: 0;
+        width: 80mm; /* Largeur standard imprimante thermique */
+        padding: 5mm;
+        color: black;
+        background: white;
+    }
+}
+
+/* Style visuel du bouton imprimer sur la carte */
+.btn-print {
+    background: #64748b;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: 0.2s;
+}
+.btn-print:hover { background: #475569; }
     </style>
 </head>
 <body>
@@ -372,6 +402,7 @@
             <div id="modalBody" style="font-size: 1.1rem; line-height: 1.6; color: #334155;"></div>
         </div>
     </div>
+    <div id="ticket-impression" style="display:none;"></div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="comptoir.js"></script>
 </body>

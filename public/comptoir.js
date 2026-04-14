@@ -196,7 +196,10 @@ function afficherColonne(containerId, commandes, type) {
                 <ul class="items-list">
                     ${itemsHtml}
                 </ul>
-                <div class="ticket-actions">
+<div class="ticket-actions">
+                    <button class="btn-action" style="background:#64748b; flex: 0.3;" onclick="event.stopPropagation(); imprimerTicket(${cmd.id})">
+                        <i class="fas fa-print"></i>
+                    </button>
                     ${getBoutonsAction(cmd, type)}
                 </div>
             </div>
@@ -475,3 +478,54 @@ window.voirDetails = voirDetails;
 window.fermerModal = fermerModal;
 window.rafraichirCommandes = rafraichirCommandes;
 window.changerFiltre = changerFiltre;
+// ========== FONCTION IMPRESSION TICKET ==========
+window.imprimerTicket = function(id) {
+    const cmd = commandesComptoirCache.find(c => c.id === id);
+    if (!cmd) return;
+
+    const zonePrint = document.getElementById('ticket-impression');
+    if(!zonePrint) return;
+    
+    zonePrint.style.display = 'block'; 
+
+    let articlesHTML = cmd.articles.map(a => `
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-family:monospace; font-size:14px;">
+            <span>${a.quantite}x ${a.nom}</span>
+            <span>${(a.prix * a.quantite).toFixed(2)}</span>
+        </div>
+        ${a.variante ? `<div style="font-size:12px; margin-left:10px; margin-bottom:8px;">- ${a.variante}</div>` : ''}
+    `).join('');
+
+    const textTable = (cmd.numeroTable === 'Emporter' || !cmd.numeroTable) ? 'A EMPORTER' : 'TABLE ' + cmd.numeroTable;
+
+    zonePrint.innerHTML = `
+        <div style="text-align:center; font-family:sans-serif; margin-bottom: 10px;">
+            <h2 style="margin:0; font-size: 18px;">TA'BIA COFFEE</h2>
+            <p style="font-size:12px; margin: 5px 0;">Ticket Cuisine</p>
+            <hr style="border-top:1px dashed black;">
+        </div>
+        
+        <div style="font-family:monospace; font-size:14px; margin:10px 0;">
+            <b>CMD: #${cmd.numero || cmd.id}</b><br>
+            HEURE: ${cmd.date || new Date(cmd.timestamp || Date.now()).toLocaleTimeString()}<br>
+            TYPE: ${textTable}<br>
+            CLIENT: ${cmd.clientName ? cmd.clientName.toUpperCase() : 'PASSAGER'}<br>
+        </div>
+        
+        <hr style="border-top:1px dashed black;">
+        <div style="margin:10px 0;">${articlesHTML}</div>
+        <hr style="border-top:1px dashed black;">
+        
+        <div style="text-align:right; font-family:monospace; font-weight:bold; font-size:16px;">
+            TOTAL: ${parseFloat(cmd.total || 0).toFixed(2)} DT
+        </div>
+        <br>
+    `;
+
+    window.print();
+
+    setTimeout(() => {
+        zonePrint.style.display = 'none';
+        zonePrint.innerHTML = '';
+    }, 500);
+};
