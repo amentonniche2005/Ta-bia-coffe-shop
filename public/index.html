@@ -85,8 +85,9 @@
                 <div style="position: relative; margin-bottom: 15px;">
                     <i class="fas fa-credit-card sleek-icon" style="color: #143621; z-index: 10;"></i>
                     <select id="methodePaiementClient" class="sleek-select">
-                        <option value="especes">Payer sur place (Espèces,Ticket Resto,Carte Bancaire)</option>
-                        <option value="en_ligne">Payer en ligne (D17,Flouci,Visa,MasterCard)</option>
+                        <option id="optionPaiementVIP" value="carte_fidelite" style="display: none;">⭐ Payer avec mon Solde VIP</option>
+                        <option value="especes">Payer sur place (Espèces,Ticket Resto,CB)</option>
+                        <option value="en_ligne">Payer en ligne (D17,Flouci,Visa...)</option>
                     </select>
                     <i class="fas fa-chevron-down" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;"></i>
                 </div>
@@ -96,7 +97,7 @@
                     <span id="cartTotal">0.00 DT</span>
                 </div>
 
-                <button class="checkout-btn" id="checkoutBtn" style="background: linear-gradient(135deg, #db800a, #e65c00); color: white; width: 100%; padding: 16px; border: none; border-radius: 16px; font-size: 1.2rem; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 12px; box-shadow: 0 8px 20px rgba(219, 128, 10, 0.3); transition: transform 0.2s;">
+                <button class="checkout-btn" id="checkoutBtn" style="background: linear-gradient(135deg, #db800a, #e65c00); color: white; width: 100%; padding: 16px; border: none; border-radius: 16px; font-size: 1.2rem; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 12px; box-shadow: 0 8px 20px rgba(219, 128, 10, 0.3);">
                     Valider la commande <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
@@ -111,26 +112,16 @@
             </div>
             
             <div class="cart-items" id="clientModalBody" style="padding-top: 0;">
-                
                 <div id="clientLoginSection" style="text-align: center; padding: 20px 0;">
                     <div style="background: var(--surface-2); width: 80px; height: 80px; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px auto;">
                         <i class="fas fa-qrcode" style="font-size: 2.5rem; color: var(--primary);"></i>
                     </div>
-                    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Scannez votre carte physique ou entrez votre code secret.</p>
-                    
-                    <input type="text" 
-                           id="clientLoginCode" 
-                           class="code-input" 
-                           placeholder="Code secret" 
-                           style="text-align: center; font-size: 1.8rem; letter-spacing: 4px; width: 100%; max-width: 280px; margin-bottom: 15px;">
-                    
-                    <button class="auth-btn btn-login" onclick="verifierCodeClient()">
-                        Accéder à mon espace <i class="fas fa-arrow-right"></i>
-                    </button>
+                    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Entrez votre code secret VIP.</p>
+                    <input type="text" id="clientLoginCode" class="code-input" placeholder="Code secret" style="text-align: center; font-size: 1.8rem; letter-spacing: 4px; width: 100%; max-width: 280px; margin-bottom: 15px;">
+                    <button class="auth-btn btn-login" onclick="verifierCodeClient()">Accéder à mon espace <i class="fas fa-arrow-right"></i></button>
                 </div>
 
                 <div id="clientProfileSection" style="display: none;">
-                    
                     <div class="vip-card" id="vipCardElement">
                         <div class="vip-card-header">
                             <span>TA'BIA Premium</span>
@@ -166,7 +157,6 @@
                         <i class="fas fa-sign-out-alt"></i> Me déconnecter
                     </button>                
                 </div>
-                
             </div>
         </div>
     </div>

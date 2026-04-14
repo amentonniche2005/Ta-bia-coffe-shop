@@ -384,44 +384,37 @@ function ouvrirFermerPanier() {
 
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
 
-// ========== AFFICHAGE DU PANIER MODERNE ==========
-
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
     const checkoutBtn = document.getElementById("checkoutBtn");
     
-    // --- 🔥 LA GESTION DYNAMIQUE DU PAIEMENT VIP EST DE RETOUR ---
+    // --- GESTION DU PAIEMENT VIP ---
     const selectPaiement = document.getElementById('methodePaiementClient');
-    if (selectPaiement) {
-        let optionVIP = document.getElementById('optionPaiementVIP');
-        
-        // On vérifie si un client est connecté (via son nom stocké en session)
-        const clientConnecte = sessionStorage.getItem('client_nom_premium');
-        
+    const optionVIP = document.getElementById('optionPaiementVIP');
+    const clientConnecte = sessionStorage.getItem('client_nom_premium');
+    
+    if (optionVIP && selectPaiement) {
         if (clientConnecte) {
-            // Si le client est VIP, on crée l'option si elle n'existe pas
-            if (!optionVIP) {
-                optionVIP = document.createElement('option');
-                optionVIP.id = 'optionPaiementVIP';
-                optionVIP.value = 'carte_fidelite';
-                // On la place tout en haut de la liste !
-                selectPaiement.insertBefore(optionVIP, selectPaiement.firstChild);
-            }
+            // On affiche l'option VIP
+            optionVIP.style.display = 'block';
             
-            // On récupère son solde pour l'afficher dans le choix
-            const soldeAffiche = document.getElementById('vipSolde') ? document.getElementById('vipSolde').innerText : "0.00 DT";
+            // On récupère le solde actuel depuis l'écran VIP s'il est chargé
+            const soldeAffiche = document.getElementById('vipSolde')?.innerText || "0.00 DT";
             optionVIP.textContent = `⭐ Payer avec mon Solde VIP (${soldeAffiche})`;
             
-            // On sélectionne cette option par défaut pour lui faire gagner du temps
-            selectPaiement.value = 'carte_fidelite';
+            // On le sélectionne par défaut
+            if (selectPaiement.value === 'especes') {
+                selectPaiement.value = 'carte_fidelite';
+            }
         } else {
-            // Si pas de client connecté, on supprime l'option VIP
-            if (optionVIP) optionVIP.remove();
-            if (selectPaiement.value === 'carte_fidelite') selectPaiement.value = 'especes';
+            // On cache l'option si non connecté
+            optionVIP.style.display = 'none';
+            if (selectPaiement.value === 'carte_fidelite') {
+                selectPaiement.value = 'especes';
+            }
         }
     }
-    // --- FIN DE L'AJOUT ---
 
     if (panier.length === 0) {
         conteneur.innerHTML = `<div style='padding: 4rem 1rem; text-align: center; color: #94a3b8;'><i class='fas fa-shopping-bag fa-3x'></i><p>Votre panier est vide</p></div>`;
