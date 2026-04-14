@@ -214,7 +214,8 @@ function afficherProduits() {
         const classeRupture = rupture ? 'sold-out' : '';
         const bouton = rupture 
             ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
-            : `<button class="add-to-cart" onclick="gererClicAjout(${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;
+            // 🔥 AJOUT DE 'event' ICI :
+            : `<button class="add-to-cart" onclick="gererClicAjout(event, ${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;
             
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
         const prixFormatte = parseFloat(p.prix || 0).toFixed(2);
@@ -236,7 +237,8 @@ function afficherProduits() {
 }
 
 // ========== GESTION DES VARIANTES (OPTIONS) ==========
-function gererClicAjout(id) {
+// 🔥 AJOUT DE 'event' DANS LES PARAMÈTRES
+function gererClicAjout(event, id) {
     const produit = produits.find(p => p.id === id);
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
@@ -244,6 +246,7 @@ function gererClicAjout(id) {
 
     if (produit.typeChoix === 'aucun') {
         executerAjoutPanier(produit, null);
+        animerPanierVolant(event); // 🔥 DÉCLENCHE L'ANIMATION ICI
         return; 
     }
 
@@ -264,6 +267,7 @@ function gererClicAjout(id) {
         ouvrirModalOptions(produit, optionsTrouvees);
     } else {
         executerAjoutPanier(produit, null);
+        animerPanierVolant(event); // 🔥 DÉCLENCHE L'ANIMATION ICI
     }
 }
 
@@ -821,7 +825,7 @@ function configurerEvenements() {
     document.getElementById("closeCart").onclick = fermerPanier;
     document.getElementById("checkoutBtn").onclick = passerCommande;
     
-    document.getElementById("confirmOptionBtn")?.addEventListener("click", () => {
+    document.getElementById("confirmOptionBtn")?.addEventListener("click", (e) => { 
         const checkedBoxes = document.querySelectorAll('input[name="varianteOption"]:checked');
         
         if (produitEnAttenteOption) {
@@ -832,6 +836,7 @@ function configurerEvenements() {
             }
             
             executerAjoutPanier(produitEnAttenteOption, valeursChoisies);
+            animerPanierVolant(e); // 🔥 DÉCLENCHE L'ANIMATION DEPUIS LE MODAL
             document.getElementById("optionsModal").style.display = "none";
             produitEnAttenteOption = null;
         }
@@ -915,9 +920,19 @@ window.verifierCodeClient = async function(silencieux = false) {
                 setTimeout(() => {
                     bar.style.width = `${pourcentage}%`;
                     
-                    if (estFini) {
+                        if (estFini) {
                         bar.style.background = "linear-gradient(90deg, #10b981, #059669)"; // Vert succès
                         msg.innerHTML = `<span style="color:#10b981; font-weight:800;">🎉 Objectif atteint ! Passez en caisse.</span>`;
+                        
+                        // 🔥 DÉCLENCHEMENT DES CONFETTIS ICI
+                        if (typeof confetti === 'function') {
+                            confetti({
+                                particleCount: 150,
+                                spread: 80,
+                                origin: { y: 0.6 },
+                                colors: ['#f1c40f', '#e67e22', '#2ecc71', '#3498db']
+                            });
+                        }
                     } else {
                         bar.style.background = "linear-gradient(90deg, #db800a, #e65c00)"; // Orange standard
                         const reste = (pointsRequis - ptsClient).toFixed(1);
