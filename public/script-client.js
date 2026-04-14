@@ -858,88 +858,78 @@ function configurerEvenements() {
 }
 
 
-// 2. Fonction qui interroge la base de données et dessine la carte VIP (Jauge Corrigée)
+// 2. Fonction qui interroge la base de données et dessine la carte VIP
 window.verifierCodeClient = async function(silencieux = false) {
     const code = document.getElementById('clientLoginCode').value.trim();
     if (!code) return;
 
     try {
+        // 1. 🔥 ON VA CHERCHER LA CONFIGURATION DU GÉRANT EN PREMIER
+        let pointsRequis = 100; // Valeur par défaut si erreur
+        let valeurCadeau = 5;   // Valeur par défaut si erreur
+        try {
+            const resConfig = await fetch('/api/settings/fidelite');
+            if (resConfig.ok) {
+                const config = await resConfig.json();
+                if (config && config.pointsRequis) {
+                    pointsRequis = parseFloat(config.pointsRequis);
+                    valeurCadeau = parseFloat(config.valeurCredit);
+                }
+            }
+        } catch(e) { console.warn("Impossible de récupérer la configuration de fidélité."); }
+
+        // 2. On vérifie le client
         const res = await fetch(`/api/customers/verify/${code}`);
         const data = await res.json();
 
         if (res.ok && data.success) {
             clientFideleVerifie = data.customer;
+            const ptsClient = parseFloat(data.customer.points || 0);
             
-            // 1. Remplissage des textes standards
+            // Remplissage de la carte
             document.getElementById('vipName').innerText = `${data.customer.prenom} ${data.customer.nom}`;
             document.getElementById('vipCode').innerText = data.customer.codeFidelite;
-            document.getElementById('vipPoints').innerHTML = `${parseFloat(data.customer.points || 0).toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
+            document.getElementById('vipPoints').innerHTML = `${ptsClient.toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
             document.getElementById('vipSolde').innerText = parseFloat(data.customer.solde || 0).toFixed(2) + ' DT';
 
-            // 2. Récupération de la configuration du gérant
-            let pointsRequisBase = 100; 
-            let valeurCadeau = 5;       
-            try {
-                const resConfig = await fetch('/api/settings/fidelite');
-                if (resConfig.ok) {
-                    const config = await resConfig.json();
-                    if (config && config.pointsRequis) {
-                        pointsRequisBase = parseFloat(config.pointsRequis);
-                        valeurCadeau = parseFloat(config.valeurCredit);
-                    }
-                }
-            } catch(e) { console.warn("Config par défaut utilisée."); }
-
-            // 3. Calculs mathématiques
-            const ptsClient = parseFloat(data.customer.points || 0);
-            const palierBronzeMax = pointsRequisBase / 2;
-            const palierSilverMax = pointsRequisBase;
-
-            let tier = "Bronze";
-            let nextTierPts = palierBronzeMax;
-            let basePts = 0;
-            let tierClass = "bronze";
-            let icon = "fa-medal";
-
-            if (ptsClient >= palierSilverMax) {
-                tier = "Gold VIP"; nextTierPts = ptsClient; basePts = palierSilverMax; tierClass = "gold"; icon = "fa-crown";
-            } else if (ptsClient >= palierBronzeMax) {
-                tier = "Silver"; nextTierPts = palierSilverMax; basePts = palierBronzeMax; tierClass = "silver"; icon = "fa-star";
-            }
-
-            // 🔥 CORRECTION ICI : ON AFFICHE D'ABORD LA FENÊTRE AVANT D'ANIMER
+            // On affiche l'espace client D'ABORD pour que l'animation CSS de la jauge s'active
             document.getElementById('clientLoginSection').style.display = 'none';
             document.getElementById('clientProfileSection').style.display = 'block';
 
-            // 4. Animation de la Jauge
+            // =========================================================
+            // 🔥 NOUVEAU : JAUGE 100% BASÉE SUR LA RÈGLE DU GÉRANT
+            // =========================================================
             const badge = document.getElementById('vipTierName');
             const msg = document.getElementById('vipPointsLeft');
             const bar = document.getElementById('vipProgressBar');
 
             if (badge && msg && bar) {
-                bar.style.width = "0%"; // On force le reset visuel
+                bar.style.width = "0%"; // Remise à zéro immédiate
                 
-                badge.className = `tier-badge ${tierClass}`;
-                badge.innerHTML = `<i class="fas ${icon}"></i> ${tier}`;
+                // Le badge indique l'objectif final fixé par le gérant
+                badge.className = `tier-badge gold`;
+                badge.innerHTML = `<i class="fas fa-gift"></i> Cadeau de ${valeurCadeau} DT`;
                 
-                // Petite pause de 50ms pour laisser le navigateur afficher la div "display: block"
+                // Calcul strict du pourcentage
+                let pourcentage = (ptsClient / pointsRequis) * 100;
+                if (pourcentage > 100) pourcentage = 100;
+
                 setTimeout(() => {
-                    if (tier === "Gold VIP") {
-                        msg.innerHTML = `Niveau Max ! Cadeau de <b>${valeurCadeau} DT</b> débloqué ! 🏆`;
+                    if (ptsClient >= pointsRequis) {
+                        msg.innerHTML = `<span style="color:#10b981; font-weight:900;">🎁 Cadeau débloqué ! Convertissez-le.</span>`;
+                        bar.style.background = "linear-gradient(90deg, #10b981, #059669)"; // Devient vert
                         bar.style.width = "100%";
                     } else {
-                        const pointsRestants = (nextTierPts - ptsClient).toFixed(1);
-                        msg.innerHTML = `Encore <b>${pointsRestants} pts</b> pour ${tier === "Bronze" ? "Silver" : "Gold VIP"} !`;
-                        let range = nextTierPts - basePts;
-                        let currentProgress = ptsClient - basePts;
-                        let percent = (currentProgress / range) * 100;
-                        
-                        bar.style.width = `${percent}%`; // Déclenche l'animation fluide
+                        const pointsRestants = (pointsRequis - ptsClient).toFixed(1);
+                        msg.innerHTML = `Encore <b>${pointsRestants} pts</b> pour la récompense !`;
+                        bar.style.background = "linear-gradient(90deg, #f59e0b, #db800a)"; // Orange normal
+                        bar.style.width = `${pourcentage}%`; // Se remplit selon la limite du gérant
                     }
                 }, 50);
             }
-
-            // Bouton Espace Client
+            // =========================================================
+            
+            // Mise à jour du bouton header
             const btnEspace = document.getElementById('btnEspaceClient');
             if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${data.customer.prenom}`;
             
