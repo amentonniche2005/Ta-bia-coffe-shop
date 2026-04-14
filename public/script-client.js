@@ -385,39 +385,40 @@ function ouvrirFermerPanier() {
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
 
 // ========== AFFICHAGE DU PANIER MODERNE ==========
-// ========== AFFICHAGE DU PANIER MODERNE (NETTOYÉ) ==========
 
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
     const checkoutBtn = document.getElementById("checkoutBtn");
     
-    // --- 🔥 AJOUT ICI : GESTION DYNAMIQUE DU PAIEMENT VIP ---
+    // --- 🔥 LA GESTION DYNAMIQUE DU PAIEMENT VIP EST DE RETOUR ---
     const selectPaiement = document.getElementById('methodePaiementClient');
     if (selectPaiement) {
         let optionVIP = document.getElementById('optionPaiementVIP');
         
-        // On vérifie si un client est connecté (via le nom stocké en session)
+        // On vérifie si un client est connecté (via son nom stocké en session)
         const clientConnecte = sessionStorage.getItem('client_nom_premium');
         
         if (clientConnecte) {
-            // Si le client est VIP, on ajoute l'option si elle n'existe pas déjà
+            // Si le client est VIP, on crée l'option si elle n'existe pas
             if (!optionVIP) {
                 optionVIP = document.createElement('option');
                 optionVIP.id = 'optionPaiementVIP';
                 optionVIP.value = 'carte_fidelite';
-                selectPaiement.appendChild(optionVIP);
+                // On la place tout en haut de la liste !
+                selectPaiement.insertBefore(optionVIP, selectPaiement.firstChild);
             }
-            // On récupère le solde affiché dans la carte VIP
-            const soldeAffiche = document.getElementById('vipSolde')?.innerText || "0.00 DT";
-            optionVIP.textContent = `⭐ Payer avec mon Solde VIP `;
             
-            // On force la sélection sur VIP par défaut pour lui faire plaisir
+            // On récupère son solde pour l'afficher dans le choix
+            const soldeAffiche = document.getElementById('vipSolde') ? document.getElementById('vipSolde').innerText : "0.00 DT";
+            optionVIP.textContent = `⭐ Payer avec mon Solde VIP (${soldeAffiche})`;
+            
+            // On sélectionne cette option par défaut pour lui faire gagner du temps
             selectPaiement.value = 'carte_fidelite';
         } else {
             // Si pas de client connecté, on supprime l'option VIP
             if (optionVIP) optionVIP.remove();
-            selectPaiement.value = 'especes';
+            if (selectPaiement.value === 'carte_fidelite') selectPaiement.value = 'especes';
         }
     }
     // --- FIN DE L'AJOUT ---
