@@ -865,8 +865,8 @@ window.verifierCodeClient = async function(silencieux = false) {
 
     try {
         // 1. 🔥 ON VA CHERCHER LA CONFIGURATION DU GÉRANT EN PREMIER
-        let pointsRequis = 100; // Valeur par défaut si erreur
-        let valeurCadeau = 5;   // Valeur par défaut si erreur
+        let pointsRequis = 100; // Valeur de sécurité par défaut
+        let valeurCadeau = 5;   
         try {
             const resConfig = await fetch('/api/settings/fidelite');
             if (resConfig.ok) {
@@ -876,7 +876,7 @@ window.verifierCodeClient = async function(silencieux = false) {
                     valeurCadeau = parseFloat(config.valeurCredit);
                 }
             }
-        } catch(e) { console.warn("Impossible de récupérer la configuration de fidélité."); }
+        } catch(e) { console.warn("Impossible de récupérer la config du gérant."); }
 
         // 2. On vérifie le client
         const res = await fetch(`/api/customers/verify/${code}`);
@@ -886,45 +886,48 @@ window.verifierCodeClient = async function(silencieux = false) {
             clientFideleVerifie = data.customer;
             const ptsClient = parseFloat(data.customer.points || 0);
             
-            // Remplissage de la carte
+            // Remplissage des textes standards
             document.getElementById('vipName').innerText = `${data.customer.prenom} ${data.customer.nom}`;
             document.getElementById('vipCode').innerText = data.customer.codeFidelite;
             document.getElementById('vipPoints').innerHTML = `${ptsClient.toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
             document.getElementById('vipSolde').innerText = parseFloat(data.customer.solde || 0).toFixed(2) + ' DT';
 
-            // On affiche l'espace client D'ABORD pour que l'animation CSS de la jauge s'active
+            // On affiche l'espace client D'ABORD pour que l'animation CSS puisse se déclencher
             document.getElementById('clientLoginSection').style.display = 'none';
             document.getElementById('clientProfileSection').style.display = 'block';
 
             // =========================================================
-            // 🔥 NOUVEAU : JAUGE 100% BASÉE SUR LA RÈGLE DU GÉRANT
+            // 🔥 NOUVEAU : JAUGE 100% CONNECTÉE AU TABLEAU DE BORD
             // =========================================================
             const badge = document.getElementById('vipTierName');
             const msg = document.getElementById('vipPointsLeft');
             const bar = document.getElementById('vipProgressBar');
 
             if (badge && msg && bar) {
-                bar.style.width = "0%"; // Remise à zéro immédiate
+                // Remise à zéro immédiate de la barre
+                bar.style.width = "0%"; 
                 
-                // Le badge indique l'objectif final fixé par le gérant
-                badge.className = `tier-badge gold`;
-                badge.innerHTML = `<i class="fas fa-gift"></i> Cadeau de ${valeurCadeau} DT`;
-                
-                // Calcul strict du pourcentage
+                // Calcul strict du pourcentage en fonction du choix du gérant
                 let pourcentage = (ptsClient / pointsRequis) * 100;
                 if (pourcentage > 100) pourcentage = 100;
+                
+                const peutConvertir = ptsClient >= pointsRequis;
 
+                // Affichage du badge Objectif
+                badge.className = `tier-badge ${peutConvertir ? 'gold' : 'silver'}`;
+                badge.innerHTML = `<i class="fas fa-gift"></i> Objectif : ${valeurCadeau} DT`;
+
+                // Déclenchement de l'animation avec un mini-délai pour la fluidité
                 setTimeout(() => {
-                    if (ptsClient >= pointsRequis) {
-                        msg.innerHTML = `<span style="color:#10b981; font-weight:900;">🎁 Cadeau débloqué ! Convertissez-le.</span>`;
-                        bar.style.background = "linear-gradient(90deg, #10b981, #059669)"; // Devient vert
-                        bar.style.width = "100%";
+                    if (peutConvertir) {
+                        msg.innerHTML = `<span style="color:#10b981; font-weight:800;">🎉 Cadeau débloqué ! Demandez-le en caisse.</span>`;
+                        bar.style.background = "linear-gradient(90deg, #10b981, #059669)"; // Devient Vert
                     } else {
                         const pointsRestants = (pointsRequis - ptsClient).toFixed(1);
-                        msg.innerHTML = `Encore <b>${pointsRestants} pts</b> pour la récompense !`;
-                        bar.style.background = "linear-gradient(90deg, #f59e0b, #db800a)"; // Orange normal
-                        bar.style.width = `${pourcentage}%`; // Se remplit selon la limite du gérant
+                        msg.innerHTML = `Encore <b>${pointsRestants} pts</b> pour gagner ${valeurCadeau} DT !`;
+                        bar.style.background = "linear-gradient(90deg, #f59e0b, #db800a)"; // Reste Orange
                     }
+                    bar.style.width = `${pourcentage}%`; // Se remplit selon la limite du gérant
                 }, 50);
             }
             // =========================================================
