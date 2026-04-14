@@ -212,6 +212,9 @@ function getBoutonsAction(cmd, type) {
         return `<button class="btn-action btn-start" onclick="event.stopPropagation(); demarrerPreparation(${cmd.id})"><i class="fas fa-fire"></i> Préparer</button>`;
     } else if (type === "preparation") {
         return `<button class="btn-action btn-finish" onclick="event.stopPropagation(); terminerCommande(${cmd.id})"><i class="fas fa-check-double"></i> Terminer</button>`;
+    } else if (type === "terminee") {
+        // 🔥 NOUVEAU : LE BOUTON OUPS POUR LES COMMANDES TERMINÉES
+        return `<button class="btn-action" style="background:#ef4444;" onclick="event.stopPropagation(); annulerTerminee(${cmd.id})"><i class="fas fa-undo"></i> Oups !</button>`;
     }
     return "";
 }
@@ -580,3 +583,42 @@ window.imprimerTicket = function(id) {
         }, 500);
     }, 150); 
 };
+// ========== FONCTION "OUPS" (RETOUR EN PRÉPARATION) ==========
+window.annulerTerminee = async function(id) {
+    try {
+        // On remet le statut à 'en_preparation'
+        const response = await fetchSecurise(`/api/commandes/${id}/statut`, {
+            method: 'PUT', body: JSON.stringify({ statut: 'en_preparation' })
+        });
+        if (response.ok) {
+            jouerSonAction();
+            afficherNotification("🔙 Commande remise en préparation !", "info");
+        }
+    } catch (error) { 
+        afficherNotification("❌ Erreur réseau", "error"); 
+    }
+};
+
+// ========== LOGIQUE DU MODE SOMBRE ==========
+window.toggleDarkMode = function() {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    
+    // On sauvegarde le choix dans la mémoire de la tablette
+    localStorage.setItem('tabia_dark_mode', isDark);
+    
+    // On change l'icône
+    const icon = document.getElementById('iconDarkMode');
+    if(icon) {
+        icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+    }
+};
+
+// Vérification au chargement de la page (si le barista avait déjà mis le mode sombre hier)
+document.addEventListener("DOMContentLoaded", () => {
+    if (localStorage.getItem('tabia_dark_mode') === 'true') {
+        document.body.classList.add('dark-mode');
+        const icon = document.getElementById('iconDarkMode');
+        if(icon) icon.className = 'fas fa-sun';
+    }
+});

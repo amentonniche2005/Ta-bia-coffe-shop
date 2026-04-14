@@ -333,6 +333,32 @@
     transition: 0.2s;
 }
 .btn-print:hover { background: #475569; }
+/* ========== MODE SOMBRE (DARK MODE) ========== */
+        body.dark-mode {
+            --bg-body: #0f172a;
+            --bg-header: #020617;
+            --text-main: #f1f5f9;
+            background: var(--bg-body);
+            color: var(--text-main);
+        }
+        body.dark-mode .toolbar { background: #1e293b; border-bottom: 1px solid #334155; }
+        body.dark-mode .colonne { background: #020617; border: 1px solid #334155; }
+        body.dark-mode .ticket { background: #1e293b; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+        body.dark-mode .ticket-id { color: #f8fafc; }
+        body.dark-mode .item-row { color: #cbd5e1; }
+        body.dark-mode .item-qty { background: #334155; color: #f8fafc; border-color: #475569; }
+        body.dark-mode .ticket-header { border-bottom-color: #334155; }
+        body.dark-mode .filtre-btn { background: #1e293b; color: #94a3b8; border-color: #334155; }
+        body.dark-mode .filtre-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+        body.dark-mode .stat-item span { background: #334155; color: white; }
+        body.dark-mode .modal-content { background: #1e293b; color: white; border: 1px solid #334155; }
+        body.dark-mode .modal-header h2 { color: white; }
+        body.dark-mode .modal-header { border-bottom-color: #334155; }
+        body.dark-mode .close-btn { background: #334155; color: white; }
+        body.dark-mode .close-btn:hover { background: #475569; color: #ef4444; }
+        body.dark-mode .synthese-container { background: #0f172a; }
+        body.dark-mode .synthese-card { background: #1e293b; }
+        body.dark-mode .synthese-name { color: white; }
     </style>
 </head>
 <body>
@@ -347,6 +373,9 @@
             <div class="status-badge" style="background: rgba(255,255,255,0.1); color: white; padding: 0.5rem 1rem; border-radius: 30px; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.2);">
                 <span id="onlineStatus">🟢</span> Serveur
             </div>
+            <button class="btn-sync" onclick="toggleDarkMode()" style="background: transparent; color: #e3c496; border: 1px solid #e3c496; padding: 0.6rem 1rem; border-radius: 30px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-moon" id="iconDarkMode"></i>
+            </button>
             <button class="btn-sync" onclick="rafraichirCommandes()" style="background: #db800a; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 30px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                 <i class="fas fa-sync-alt"></i> Maj
             </button>
