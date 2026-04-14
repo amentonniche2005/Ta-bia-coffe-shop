@@ -858,87 +858,108 @@ function configurerEvenements() {
 }
 
 
-// 2. Fonction qui interroge la base de données et dessine la carte VIP
+// 2. Fonction qui interroge la base de données et dessine la carte VIP (Jauge Dynamique)
 window.verifierCodeClient = async function(silencieux = false) {
     const code = document.getElementById('clientLoginCode').value.trim();
     if (!code) return;
 
     try {
-        // On appelle ton API (Celle qui est dans server.js)
+        // A. On appelle ton API pour vérifier le client
         const res = await fetch(`/api/customers/verify/${code}`);
         const data = await res.json();
 
         if (res.ok && data.success) {
-            // Remplissage de la Carte VIP HTML avec les données de la DB
+            clientFideleVerifie = data.customer;
+            
+            // B. Remplissage des données de base de la carte VIP
             document.getElementById('vipName').innerText = `${data.customer.prenom} ${data.customer.nom}`;
             document.getElementById('vipCode').innerText = data.customer.codeFidelite;
             document.getElementById('vipPoints').innerHTML = `${parseFloat(data.customer.points || 0).toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
             document.getElementById('vipSolde').innerText = parseFloat(data.customer.solde || 0).toFixed(2) + ' DT';
 
             // =========================================================
-            // 🔥 NOUVEAU : LOGIQUE DE GAMIFICATION DES PALIERS
+            // 🔥 NOUVEAU : JAUGE DE GAMIFICATION DYNAMIQUE (Connectée à la DB)
             // =========================================================
-            const pts = parseFloat(data.customer.points || 0);
+            const ptsClient = parseFloat(data.customer.points || 0);
+            
+            // 1. On récupère la configuration dictée par le gérant depuis la base de données
+            let pointsRequisBase = 100; // Valeur de sécurité par défaut
+            let valeurCadeau = 5;       // Valeur de sécurité par défaut
+            
+            try {
+                const resConfig = await fetch('/api/settings/fidelite');
+                if (resConfig.ok) {
+                    const config = await resConfig.json();
+                    if (config && config.pointsRequis) {
+                        pointsRequisBase = parseFloat(config.pointsRequis);
+                        valeurCadeau = parseFloat(config.valeurCredit);
+                    }
+                }
+            } catch(e) {
+                console.warn("Impossible de récupérer la config du gérant, utilisation des valeurs par défaut.");
+            }
+
+            // 2. Calcul des paliers en fonction du choix du gérant
+            // Ex: Si le gérant a mis 100 pts pour un cadeau. 
+            // Bronze = 0 à 50% (50 pts) | Silver = 50% à 100% (100 pts) | Gold = > 100%
+            const palierBronzeMax = pointsRequisBase / 2;
+            const palierSilverMax = pointsRequisBase;
+
             let tier = "Bronze";
-            let nextTierPts = 50;   // Palier suivant : 50 points
+            let nextTierPts = palierBronzeMax;
             let basePts = 0;
             let tierClass = "bronze";
             let icon = "fa-medal";
 
-            // Définition des niveaux
-            if (pts >= 150) {
+            // Logique d'attribution du grade
+            if (ptsClient >= palierSilverMax) {
                 tier = "Gold VIP";
-                nextTierPts = pts; // Niveau max
-                basePts = 150;
+                nextTierPts = ptsClient; // Plus de palier supérieur
+                basePts = palierSilverMax;
                 tierClass = "gold";
                 icon = "fa-crown";
-            } else if (pts >= 50) {
+            } else if (ptsClient >= palierBronzeMax) {
                 tier = "Silver";
-                nextTierPts = 150; // Palier suivant : 150 points
-                basePts = 50;
+                nextTierPts = palierSilverMax; 
+                basePts = palierBronzeMax;
                 tierClass = "silver";
                 icon = "fa-star";
             }
 
-            // Mise à jour de l'HTML de la jauge
+            // 3. Mise à jour visuelle (HTML & CSS)
             const badge = document.getElementById('vipTierName');
             const msg = document.getElementById('vipPointsLeft');
             const bar = document.getElementById('vipProgressBar');
 
             if (badge && msg && bar) {
-                // Remet la barre à zéro pour préparer l'animation
-                bar.style.width = "0%";
+                bar.style.width = "0%"; // Reset
                 
                 badge.className = `tier-badge ${tierClass}`;
                 badge.innerHTML = `<i class="fas ${icon}"></i> ${tier}`;
                 
                 if (tier === "Gold VIP") {
-                    msg.innerText = "Niveau Maximum atteint ! 🏆";
+                    msg.innerHTML = `Niveau Max ! Cadeau de <b>${valeurCadeau} DT</b> débloqué ! 🏆`;
                     setTimeout(() => { bar.style.width = "100%"; }, 100);
                 } else {
-                    const pointsRestants = (nextTierPts - pts).toFixed(1);
-                    msg.innerText = `Encore ${pointsRestants} pts pour ${tier === "Bronze" ? "Silver" : "Gold VIP"} !`;
+                    const pointsRestants = (nextTierPts - ptsClient).toFixed(1);
+                    msg.innerHTML = `Encore <b>${pointsRestants} pts</b> pour ${tier === "Bronze" ? "Silver" : "Gold VIP"} !`;
                     
-                    // Calcul du pourcentage de remplissage entre deux paliers
                     let range = nextTierPts - basePts;
-                    let currentProgress = pts - basePts;
+                    let currentProgress = ptsClient - basePts;
                     let percent = (currentProgress / range) * 100;
                     
-                    // Petit délai (100ms) pour que l'œil humain voie l'animation démarrer de 0
                     setTimeout(() => { bar.style.width = `${percent}%`; }, 100);
                 }
             }
             // =========================================================
 
-            // On cache la zone de code, on affiche la carte
+            // On affiche l'espace client
             document.getElementById('clientLoginSection').style.display = 'none';
             document.getElementById('clientProfileSection').style.display = 'block';
             
-            // On met à jour le bouton en haut à droite de l'écran
             const btnEspace = document.getElementById('btnEspaceClient');
             if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${data.customer.prenom}`;
             
-            // On sauvegarde en mémoire
             sessionStorage.setItem('tabia_auth_qr', code);
             sessionStorage.setItem('client_nom_premium', `${data.customer.prenom} ${data.customer.nom}`);
 
