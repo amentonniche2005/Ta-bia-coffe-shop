@@ -40,7 +40,7 @@
     <div class="menu-section">
         <div class="menu-grid" id="menuGrid">
             <div class="loading-menu" style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #7f8c8d;">
-                <i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Chargement du menu délicieux...
+                <i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Chargement du menu...
             </div>
         </div>
     </div>
@@ -62,7 +62,6 @@
                 <h2 id="optionsTitle">Personnalisez</h2>
                 <button class="close-options" id="closeOptions">&times;</button>
             </div>
-            <p style="color: #64748b; margin-bottom: 15px; font-size: 0.9rem;">Choisissez votre préférence :</p>
             <div id="optionsList" class="options-list"></div>
             <button class="checkout-btn add-option-btn" id="confirmOptionBtn" style="margin-top: 15px; background: #db800a; color: white; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer;">
                 Ajouter <span id="optionPriceDisplay"></span>
@@ -73,30 +72,25 @@
     <div class="cart-modal" id="cartModal" style="display: none;">
         <div class="cart-content">
             <div style="width: 40px; height: 5px; background: #cbd5e1; border-radius: 10px; margin: 0 auto 15px;"></div>
-            
             <div class="cart-header">
                 <h2><i class="fas fa-shopping-bag" style="color: var(--primary);"></i> Votre Panier</h2>
                 <button class="close-cart" id="closeCart"><i class="fas fa-times"></i></button>
             </div>
-            
             <div id="cartItems" class="cart-items"></div>
-            
             <div class="checkout-section">
                 <div style="position: relative; margin-bottom: 15px;">
                     <i class="fas fa-credit-card sleek-icon" style="color: #143621; z-index: 10;"></i>
                     <select id="methodePaiementClient" class="sleek-select">
-                        <option id="optionPaiementVIP" value="carte_fidelite" style="display: none;">⭐ Payer avec mon Solde VIP</option>
-                        <option value="especes">Payer sur place (Espèces,Ticket Resto,CB)</option>
-                        <option value="en_ligne">Payer en ligne (D17,Flouci,Visa...)</option>
+                        <option id="optionPaiementVIP" value="carte_fidelite" style="display: none; font-weight: bold; color: #db800a;">⭐ Payer avec mon Solde VIP</option>
+                        <option value="especes">Payer sur place (Espèces, Ticket Resto, CB)</option>
+                        <option value="en_ligne">Payer en ligne (D17, Flouci, Visa...)</option>
                     </select>
                     <i class="fas fa-chevron-down" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;"></i>
                 </div>
-
                 <div class="cart-total-row">
                     <span style="font-size: 1.1rem; color: #64748b; font-weight: 700;">Total</span>
                     <span id="cartTotal">0.00 DT</span>
                 </div>
-
                 <button class="checkout-btn" id="checkoutBtn" style="background: linear-gradient(135deg, #db800a, #e65c00); color: white; width: 100%; padding: 16px; border: none; border-radius: 16px; font-size: 1.2rem; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 12px; box-shadow: 0 8px 20px rgba(219, 128, 10, 0.3);">
                     Valider la commande <i class="fas fa-arrow-right"></i>
                 </button>
@@ -110,14 +104,14 @@
                 <h2><i class="fas fa-user-circle"></i> Espace Privilège</h2>
                 <button class="close-cart" onclick="fermerEspaceClient()"><i class="fas fa-times"></i></button>
             </div>
-            
             <div class="cart-items" id="clientModalBody" style="padding-top: 0;">
+                
                 <div id="clientLoginSection" style="text-align: center; padding: 20px 0;">
                     <div style="background: var(--surface-2); width: 80px; height: 80px; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px auto;">
                         <i class="fas fa-qrcode" style="font-size: 2.5rem; color: var(--primary);"></i>
                     </div>
                     <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Entrez votre code secret VIP.</p>
-                    <input type="text" id="clientLoginCode" class="code-input" placeholder="Code secret" style="text-align: center; font-size: 1.8rem; letter-spacing: 4px; width: 100%; max-width: 280px; margin-bottom: 15px;">
+                    <input type="text" id="clientLoginCode" class="code-input" placeholder="Code" style="text-align: center; font-size: 1.8rem; letter-spacing: 4px; width: 100%; max-width: 280px; margin-bottom: 15px;">
                     <button class="auth-btn btn-login" onclick="verifierCodeClient()">Accéder à mon espace <i class="fas fa-arrow-right"></i></button>
                 </div>
 
@@ -128,7 +122,7 @@
                             <i class="fas fa-crown" style="color: #f1c40f; font-size: 1.2rem;"></i>
                         </div>
                         <div class="vip-card-body">
-                            <h3 id="vipName">Client Name</h3>
+                            <h3 id="vipName">Chargement...</h3>
                             <p class="vip-code" id="vipCode">****</p>
                         </div>
                         <div class="vip-card-footer">
@@ -146,7 +140,7 @@
                     <div class="gamification-container">
                         <div class="gamification-header">
                             <span id="vipTierName" class="tier-badge bronze"><i class="fas fa-medal"></i> Bronze</span>
-                            <span id="vipPointsLeft" class="points-left">Calcul en cours...</span>
+                            <span id="vipPointsLeft" class="points-left">Calcul...</span>
                         </div>
                         <div class="progress-bar-bg">
                             <div id="vipProgressBar" class="progress-bar-fill"></div>
@@ -157,6 +151,7 @@
                         <i class="fas fa-sign-out-alt"></i> Me déconnecter
                     </button>                
                 </div>
+                
             </div>
         </div>
     </div>
