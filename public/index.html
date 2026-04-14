@@ -131,8 +131,8 @@
     </button>
 </div>
 
-                <div id="clientProfileSection" style="display: none;">
-                        <div class="vip-card" id="vipCardElement"></div>
+<div id="clientProfileSection" style="display: none;">
+                    <div class="vip-card" id="vipCardElement">
                         <div class="vip-card-header">
                             <span>TA'BIA Premium</span>
                             <i class="fas fa-crown" style="color: #f1c40f; font-size: 1.2rem;"></i>
@@ -152,6 +152,20 @@
                             </div>
                         </div>
                     </div>
+                    <div class="gamification-container">
+                        <div class="gamification-header">
+                            <span id="vipTierName" class="tier-badge bronze"><i class="fas fa-medal"></i> Bronze</span>
+                            <span id="vipPointsLeft" class="points-left">Calcul en cours...</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div id="vipProgressBar" class="progress-bar-fill"></div>
+                        </div>
+                    </div>
+                    
+                    <button class="auth-btn btn-logout" onclick="deconnecterClient()">
+                        <i class="fas fa-sign-out-alt"></i> Me déconnecter
+                    </button>                
+                </div>
                     <div class="gamification-container">
                 <div class="gamification-header">
                     <span id="vipTierName" class="tier-badge bronze"><i class="fas fa-medal"></i> Bronze</span>
