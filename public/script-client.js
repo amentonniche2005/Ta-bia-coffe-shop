@@ -875,6 +875,61 @@ window.verifierCodeClient = async function(silencieux = false) {
             document.getElementById('vipPoints').innerHTML = `${parseFloat(data.customer.points || 0).toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
             document.getElementById('vipSolde').innerText = parseFloat(data.customer.solde || 0).toFixed(2) + ' DT';
 
+            // =========================================================
+            // 🔥 NOUVEAU : LOGIQUE DE GAMIFICATION DES PALIERS
+            // =========================================================
+            const pts = parseFloat(data.customer.points || 0);
+            let tier = "Bronze";
+            let nextTierPts = 50;   // Palier suivant : 50 points
+            let basePts = 0;
+            let tierClass = "bronze";
+            let icon = "fa-medal";
+
+            // Définition des niveaux
+            if (pts >= 150) {
+                tier = "Gold VIP";
+                nextTierPts = pts; // Niveau max
+                basePts = 150;
+                tierClass = "gold";
+                icon = "fa-crown";
+            } else if (pts >= 50) {
+                tier = "Silver";
+                nextTierPts = 150; // Palier suivant : 150 points
+                basePts = 50;
+                tierClass = "silver";
+                icon = "fa-star";
+            }
+
+            // Mise à jour de l'HTML de la jauge
+            const badge = document.getElementById('vipTierName');
+            const msg = document.getElementById('vipPointsLeft');
+            const bar = document.getElementById('vipProgressBar');
+
+            if (badge && msg && bar) {
+                // Remet la barre à zéro pour préparer l'animation
+                bar.style.width = "0%";
+                
+                badge.className = `tier-badge ${tierClass}`;
+                badge.innerHTML = `<i class="fas ${icon}"></i> ${tier}`;
+                
+                if (tier === "Gold VIP") {
+                    msg.innerText = "Niveau Maximum atteint ! 🏆";
+                    setTimeout(() => { bar.style.width = "100%"; }, 100);
+                } else {
+                    const pointsRestants = (nextTierPts - pts).toFixed(1);
+                    msg.innerText = `Encore ${pointsRestants} pts pour ${tier === "Bronze" ? "Silver" : "Gold VIP"} !`;
+                    
+                    // Calcul du pourcentage de remplissage entre deux paliers
+                    let range = nextTierPts - basePts;
+                    let currentProgress = pts - basePts;
+                    let percent = (currentProgress / range) * 100;
+                    
+                    // Petit délai (100ms) pour que l'œil humain voie l'animation démarrer de 0
+                    setTimeout(() => { bar.style.width = `${percent}%`; }, 100);
+                }
+            }
+            // =========================================================
+
             // On cache la zone de code, on affiche la carte
             document.getElementById('clientLoginSection').style.display = 'none';
             document.getElementById('clientProfileSection').style.display = 'block';
