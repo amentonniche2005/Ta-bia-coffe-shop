@@ -212,10 +212,10 @@ function afficherProduits() {
     grille.innerHTML = produitsTries.map(p => {
         const rupture = p.stock <= 0 && p.stock !== undefined;
         const classeRupture = rupture ? 'sold-out' : '';
-        const bouton = rupture 
+const bouton = rupture 
             ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
-            // 🔥 AJOUT DE 'event' ICI :
-            : `<button class="add-to-cart" onclick="gererClicAjout(event, ${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;
+            // 🔥 CORRECTION : Ajout des guillemets simples autour de '${p.id}'
+            : `<button class="add-to-cart" onclick="gererClicAjout(event, '${p.id}')">Ajouter <i class="fas fa-plus"></i></button>`;
             
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
         const prixFormatte = parseFloat(p.prix || 0).toFixed(2);
@@ -239,7 +239,7 @@ function afficherProduits() {
 // ========== GESTION DES VARIANTES (OPTIONS) ==========
 // 🔥 AJOUT DE 'event' DANS LES PARAMÈTRES
 function gererClicAjout(event, id) {
-    const produit = produits.find(p => p.id === id);
+    const produit = produits.find(p => String(p.id) === String(id));
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
     let optionsTrouvees = null;
@@ -974,4 +974,42 @@ window.deconnecterClient = function() {
     
     fermerEspaceClient();
     afficherNotification("Vous êtes déconnecté.");
+};
+// ========== FONCTION MAGIQUE : PANIER VOLANT ==========
+window.animerPanierVolant = function(event) {
+    if (!event) return;
+
+    // 🔥 LA CORRECTION EST ICI : On cible bien le bouton entier, même si le client clique sur l'icône +
+    const boutonCible = event.target.closest('button') || event.target;
+
+    // 1. Création de la bulle volante
+    const flyingDot = document.createElement('div');
+    flyingDot.className = 'flying-item';
+    flyingDot.innerHTML = '<i class="fas fa-coffee"></i>'; // Icône du produit
+
+    // 2. Position de départ (Là où le client a cliqué)
+    const rectBtn = boutonCible.getBoundingClientRect();
+    flyingDot.style.top = `${rectBtn.top}px`;
+    flyingDot.style.left = `${rectBtn.left}px`;
+    document.body.appendChild(flyingDot);
+
+    // 3. Position d'arrivée (L'icône du panier en bas)
+    const btnPanier = document.getElementById('floatingCart');
+    if (!btnPanier) return;
+    const rectCart = btnPanier.getBoundingClientRect();
+
+    // 4. On lance l'animation
+    setTimeout(() => {
+        flyingDot.style.top = `${rectCart.top + 10}px`;
+        flyingDot.style.left = `${rectCart.left + (rectCart.width / 2)}px`;
+        flyingDot.style.transform = 'scale(0.3)';
+        flyingDot.style.opacity = '0';
+    }, 50);
+
+    // 5. On nettoie et on fait rebondir le gros bouton panier
+    setTimeout(() => {
+        flyingDot.remove();
+        btnPanier.classList.add('cart-bounce');
+        setTimeout(() => btnPanier.classList.remove('cart-bounce'), 300);
+    }, 600);
 };
