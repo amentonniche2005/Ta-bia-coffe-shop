@@ -856,89 +856,88 @@ function configurerEvenements() {
     }
     
 }
-
-// 2. Fonction qui interroge la base de données et dessine la carte VIP (Jauge Dynamique)
+// 2. Fonction qui interroge la base de données et dessine la carte VIP (SYNC GÉRANT)
 window.verifierCodeClient = async function(silencieux = false) {
     const code = document.getElementById('clientLoginCode').value.trim();
     if (!code) return;
 
     try {
-        // A. RÉCUPÉRATION DE LA CONFIGURATION GÉRANT (Dynamique)
-        let pointsRequis = 100; // Valeur par défaut
+        // A. ON RÉCUPÈRE LES RÉGLAGES DU GÉRANT (Ex: 80 pts = 7 DT)
+        let pointsRequis = 100; 
         let valeurCadeau = 5;
         try {
             const resConfig = await fetch('/api/settings/fidelite');
             if (resConfig.ok) {
                 const config = await resConfig.json();
+                // Ici, on récupère les vraies valeurs du gérant
                 pointsRequis = parseFloat(config.pointsRequis) || 100;
                 valeurCadeau = parseFloat(config.valeurCredit) || 5;
             }
-        } catch(e) { console.warn("Erreur config, on garde 100pts par défaut"); }
+        } catch(e) { console.warn("Config gérant introuvable, retour au défaut."); }
 
-        // B. RÉCUPÉRATION DU PROFIL CLIENT
+        // B. ON RÉCUPÈRE LE PROFIL DU CLIENT
         const res = await fetch(`/api/customers/verify/${code}`);
         const data = await res.json();
 
         if (res.ok && data.success) {
             const customer = data.customer;
-            const pts = parseFloat(customer.points || 0);
+            const ptsClient = parseFloat(customer.points || 0);
 
-            // Remplissage texte
+            // Remplissage des infos classiques
             document.getElementById('vipName').innerText = `${customer.prenom} ${customer.nom}`;
             document.getElementById('vipCode').innerText = customer.codeFidelite;
-            document.getElementById('vipPoints').innerHTML = `${pts.toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
+            document.getElementById('vipPoints').innerHTML = `${ptsClient.toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
             document.getElementById('vipSolde').innerText = (customer.solde || 0).toFixed(2) + ' DT';
 
-            // AFFICHAGE DE LA SECTION (Indispensable avant l'animation)
+            // AFFICHAGE DES SECTIONS
             document.getElementById('clientLoginSection').style.display = 'none';
             document.getElementById('clientProfileSection').style.display = 'block';
 
-            // C. CALCUL ET ANIMATION DE LA JAUGE
-            const bar = document.getElementById('vipProgressBar');
-            const msg = document.getElementById('vipPointsLeft');
+            // C. CALCUL DE LA JAUGE BASÉ SUR LE GÉRANT
             const badge = document.getElementById('vipTierName');
+            const msg = document.getElementById('vipPointsLeft');
+            const bar = document.getElementById('vipProgressBar');
 
             if (bar && msg && badge) {
-                bar.style.width = "0%"; // Reset
+                bar.style.width = "0%"; // On remet à zéro pour l'animation
                 
-                // Calcul du pourcentage basé sur la config du gérant
-                let pourcentage = (pts / pointsRequis) * 100;
+                // Calcul du pourcentage réel
+                let pourcentage = (ptsClient / pointsRequis) * 100;
                 if (pourcentage > 100) pourcentage = 100;
 
-                const estFini = pts >= pointsRequis;
+                const estFini = ptsClient >= pointsRequis;
 
-                // Design du badge
+                // Mise à jour du badge objectif
                 badge.className = estFini ? "tier-badge gold" : "tier-badge silver";
-                badge.innerHTML = estFini ? `<i class="fas fa-crown"></i> Statut Gold` : `<i class="fas fa-star"></i> Objectif ${valeurCadeau} DT`;
+                badge.innerHTML = `<i class="fas fa-gift"></i> Cadeau de ${valeurCadeau} DT`;
 
-                // Déclenchement de l'animation
+                // Déclenchement de l'animation après affichage
                 setTimeout(() => {
                     bar.style.width = `${pourcentage}%`;
+                    
                     if (estFini) {
-                        bar.style.background = "linear-gradient(90deg, #10b981, #059669)"; // Vert Succès
-                        msg.innerHTML = `🎉 Félicitations ! Cadeau de <b>${valeurCadeau} DT</b> prêt !`;
+                        bar.style.background = "linear-gradient(90deg, #10b981, #059669)"; // Vert succès
+                        msg.innerHTML = `<span style="color:#10b981; font-weight:800;">🎉 Objectif atteint ! Passez en caisse.</span>`;
                     } else {
-                        bar.style.background = "linear-gradient(90deg, #db800a, #e65c00)"; // Orange Standard
-                        const reste = (pointsRequis - pts).toFixed(1);
-                        msg.innerHTML = `Plus que <b>${reste} pts</b> pour votre cadeau !`;
+                        bar.style.background = "linear-gradient(90deg, #db800a, #e65c00)"; // Orange standard
+                        const reste = (pointsRequis - ptsClient).toFixed(1);
+                        msg.innerHTML = `Encore <b>${reste} pts</b> pour gagner ${valeurCadeau} DT !`;
                     }
                 }, 100);
             }
 
-            // Bouton Header
+            // Bouton Espace Client (Header)
             const btnEspace = document.getElementById('btnEspaceClient');
             if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${customer.prenom}`;
             
             sessionStorage.setItem('tabia_auth_qr', code);
-            sessionStorage.setItem('client_nom_premium', `${customer.prenom} ${customer.nom}`);
-
-            if (!silencieux) afficherNotification(`✨ Bienvenue ${customer.prenom} !`);
+            if (!silencieux) afficherNotification(`✨ Profil de ${customer.prenom} chargé !`);
         } else {
             if (!silencieux) afficherNotification("❌ Code secret incorrect.", "error");
         }
     } catch (err) {
         console.error(err);
-        if (!silencieux) afficherNotification("❌ Erreur de connexion.", "error");
+        if (!silencieux) afficherNotification("❌ Erreur serveur.", "error");
     }
 };
 
