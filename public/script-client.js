@@ -911,6 +911,11 @@ window.verifierCodeClient = async function(silencieux = false) {
                 if (pourcentage > 100) pourcentage = 100;
 
                 const estFini = ptsClient >= pointsRequis;
+                const carteVip = document.getElementById('vipCardElement');
+                if (carteVip) {
+                    if (estFini) carteVip.classList.add('theme-gold');
+                    else carteVip.classList.remove('theme-gold');
+                }
 
                 // Mise à jour du badge objectif
                 badge.className = estFini ? "tier-badge gold" : "tier-badge silver";

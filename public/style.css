@@ -447,3 +447,52 @@ header {
 .cart-bounce {
     animation: panierBounce 0.3s ease;
 }
+/* ======================================================= */
+/* 👑 THÈME ÉVOLUTIF : VIP GOLD MODE */
+/* ======================================================= */
+.vip-card {
+    transition: all 0.5s ease; /* Transition douce entre le mode normal et Gold */
+}
+
+/* Le skin exclusif quand l'objectif est atteint */
+.vip-card.theme-gold {
+    background: linear-gradient(135deg, #111827 0%, #1e293b 100%); /* Noir Mat luxueux */
+    color: #fef08a;
+    border: 1px solid #fbbf24;
+    box-shadow: 0 10px 30px rgba(245, 158, 11, 0.3);
+    position: relative;
+    overflow: hidden;
+    transform: scale(1.02); /* Met la carte légèrement en avant */
+}
+
+.vip-card.theme-gold .vip-card-header {
+    color: #fbbf24;
+    border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.vip-card.theme-gold h3 {
+    color: #ffffff; /* Nom du client en blanc éclatant */
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+}
+
+.vip-card.theme-gold .vip-code, 
+.vip-card.theme-gold .vip-label, 
+.vip-card.theme-gold .vip-value {
+    color: #fcd34d;
+}
+
+/* Effet magique : un rayon de lumière dorée qui traverse la carte en permanence */
+.vip-card.theme-gold::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,215,0,0.15) 50%, rgba(255,255,255,0) 100%);
+    transform: rotate(30deg);
+    animation: goldShine 3s infinite linear;
+    pointer-events: none;
+}
+
+@keyframes goldShine {
+    0% { transform: translateX(-50%) rotate(30deg); }
+    100% { transform: translateX(50%) rotate(30deg); }
+}
