@@ -20,6 +20,29 @@ let panier = [];
 let produits = []; 
 let categorieActuelle = "all";
 let clientId = null;
+// 🎵 MOTEUR AUDIO (Sons natifs sans fichiers)
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(type) {
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    
+    if(type === 'pop') { // Son d'ajout au panier
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    } else if(type === 'magic') { // Son VIP Gold
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(1400, audioCtx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+    }
+}
 
 const HISTORIQUE_EXPIRATION = 24 * 60 * 60 * 1000;
 const variantesConfig = [
@@ -151,6 +174,22 @@ document.addEventListener("DOMContentLoaded", async () => {
             btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
         }
     }
+    // 1. Masquer le Splash Screen après 1.5s
+    setTimeout(() => { document.getElementById('splashScreen').classList.add('splash-hidden'); }, 1500);
+
+    // 4. Initialisation du Dark Mode
+    const btnDark = document.getElementById('darkModeToggle');
+    if (localStorage.getItem('tabia_darkmode') === 'true') {
+        document.body.classList.add('dark-mode');
+        btnDark.classList.replace('fa-moon', 'fa-sun');
+    }
+    btnDark.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        localStorage.setItem('tabia_darkmode', isDark);
+        btnDark.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        if(navigator.vibrate) navigator.vibrate(15);
+    });
 });
 
 // ========== FETCH API STOCK ==========
@@ -773,11 +812,14 @@ function initClientSocket() {
 }
 
 function afficherNotification(msg, type = "success") {
-    const notif = document.createElement("div");
-    notif.className = `notification ${type === "error" ? "notification-error" : ""}`;
-    notif.textContent = msg;
-    document.body.appendChild(notif);
-    setTimeout(() => { notif.style.transform = "translate(-50%, -100px)"; notif.style.opacity = "0"; setTimeout(() => notif.remove(), 300); }, 3000);
+    const n = document.createElement("div");
+    n.className = `notification ${type === "error" ? "notification-error" : ""}`;
+    n.style.paddingBottom = "12px"; // Fait de la place pour la barre
+    n.innerHTML = `
+        <div style="display:flex; align-items:center;"><i class="fas ${type === "success" ? "fa-check-circle" : "fa-exclamation-circle"}"></i> ${msg}</div>
+        <div class="notif-progress"></div> `;
+    document.body.appendChild(n);
+    setTimeout(() => { n.style.transform = "translate(-50%, -100px)"; n.style.opacity = "0"; setTimeout(() => n.remove(), 300); }, 3000);
 }
 // 🔥 NOUVEAU : SYNCHRONISATION DES COMMANDES AU DÉMARRAGE
 async function synchroniserMesCommandesAvecServeur() {

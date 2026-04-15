@@ -501,3 +501,43 @@ header {
         box-shadow: 0 10px 35px rgba(219, 128, 10, 0.8), 0 0 15px rgba(219, 128, 10, 0.4); /* Lueur plus forte */
     }
 }
+/* ======================================================= */
+/* 🚀 PACK ULTRA-PREMIUM : SENSORIEL & IMMERSION           */
+/* ======================================================= */
+
+/* 1. SPLASH SCREEN (Écran de Démarrage) */
+.splash-screen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #143621; /* Le vert de ton logo */
+    z-index: 999999; /* Par-dessus tout le reste */
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.splash-logo { width: 130px; border-radius: 50%; box-shadow: 0 0 40px rgba(219, 128, 10, 0.5); margin-bottom: 30px; }
+.splash-loader { width: 50px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden; }
+.splash-loader::after { content: ''; display: block; width: 50%; height: 100%; background: #db800a; animation: splashLoad 1s infinite ease-in-out; }
+@keyframes splashLoad { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+.splash-hidden { opacity: 0; pointer-events: none; }
+
+/* 3. BARRE DE TEMPS SUR LES NOTIFICATIONS */
+.notification { position: relative; overflow: hidden; padding-bottom: 12px; }
+.notif-progress {
+    position: absolute; bottom: 0; left: 0; height: 4px;
+    background: rgba(255,255,255,0.4); width: 100%;
+    animation: notifTime 3s linear forwards;
+}
+@keyframes notifTime { from { width: 100%; } to { width: 0%; } }
+
+/* 4. DARK MODE (Midnight Lounge) */
+body.dark-mode { background: #0f172a; color: #f8fafc; }
+body.dark-mode .menu-item, 
+body.dark-mode .cart-content, 
+body.dark-mode .options-content {
+    background: #1e293b; border-color: #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.3); color: white;
+}
+body.dark-mode .item-info h3, body.dark-mode h2 { color: #f8fafc; }
+body.dark-mode .categories-wrapper { background: rgba(15, 23, 42, 0.8) !important; border-bottom: 1px solid #334155; }
+body.dark-mode .category-btn { background: #334155; color: #cbd5e1; }
+body.dark-mode .category-btn.active { background: #db800a; color: white; }
+body.dark-mode .modern-cart-item { border-bottom: 1px solid #334155; }
+body.dark-mode .modern-qty-val { color: white; }
