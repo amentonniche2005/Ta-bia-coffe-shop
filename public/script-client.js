@@ -11,9 +11,8 @@ socket.on('nouvelle_commande', (data) => {
 });
 
 // 3. Si un statut change 
-socket.on('mise_a_jour_commande', (data) => { // <-- Ajoute (data) ici
+socket.on('mise_a_jour_commande', () => {
     chargerMesCommandes(); 
-    if (data) updateLiveActivity(data.statut, data.numero); // <-- Utilise data au lieu de commande
 });
 
 // ========== VARIABLES GLOBALES ==========
@@ -84,35 +83,16 @@ function getClientId() {
 
 // ========== CHARGEMENT ==========
 document.addEventListener("DOMContentLoaded", async () => {
-    // 1. GESTION DU SPLASH SCREEN (Écran de démarrage)
-    setTimeout(() => { 
-        const splash = document.getElementById('splashScreen');
-        if (splash) splash.classList.add('splash-hidden'); 
-    }, 1500);
-
-    // 2. INITIALISATION DU DARK MODE
-    const btnDark = document.getElementById('darkModeToggle');
-    if (btnDark) {
-        if (localStorage.getItem('tabia_darkmode') === 'true') {
-            document.body.classList.add('dark-mode');
-            btnDark.classList.replace('fa-moon', 'fa-sun');
-        }
-        btnDark.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            localStorage.setItem('tabia_darkmode', isDark);
-            btnDark.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
-            if(navigator.vibrate) navigator.vibrate(15);
-        });
-    }
-
-    // 3. GESTION DU SCAN (URL PARAMS)
     const urlParams = new URLSearchParams(window.location.search);
     const tableUrl = urlParams.get('table');
-    const authUrl = urlParams.get('auth');
+    const authUrl = urlParams.get('auth'); // Peut être le code Table OU le code Fidélité
 
+    // 1. GESTION DU SCAN (TABLE OU CARTE FIDÉLITÉ)
     if (authUrl) {
+        // On stocke le code d'authentification immédiatement (Zéro-Clic)
         sessionStorage.setItem('tabia_auth_qr', authUrl);
+        
+        // On vérifie si c'est un client fidèle pour récupérer son nom
         try {
             const resFid = await fetch(`/api/fidelite/identifier/${authUrl}`);
             if (resFid.ok) {
@@ -124,46 +104,61 @@ document.addEventListener("DOMContentLoaded", async () => {
                     }, 1000);
                 }
             }
-        } catch(e) { console.log("Code table ou erreur identification."); }
+        } catch(e) { 
+            console.log("Code table simple détecté ou erreur identification."); 
+        }
     }
 
     if (tableUrl) {
         sessionStorage.setItem('tabia_table_qr', tableUrl);
-        setTimeout(() => { afficherNotification(`📍 Table ${tableUrl} activée`, "success"); }, 1500);
+        setTimeout(() => { 
+            afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
+        }, 1500);
     }
 
-    // Nettoyage discret de l'URL
+    // On nettoie l'URL pour la discrétion
     if (tableUrl || authUrl) {
         window.history.replaceState({}, document.title, "/");
     }
 
-    // 4. INITIALISATION DES DONNÉES
+    // 2. VÉRIFICATION DE SÉCURITÉ (GHOST SESSION)
+    const storedTable = sessionStorage.getItem('tabia_table_qr');
+    const storedAuth = sessionStorage.getItem('tabia_auth_qr');
+
+    if (storedTable && storedAuth && storedTable !== 'Emporter') {
+        try {
+            const resTables = await fetch('/api/numbers');
+            if (resTables.ok) {
+                const tables = await resTables.json();
+                const tableData = tables.find(t => parseInt(t.numero) === parseInt(storedTable));
+                
+                // Si c'est un code table (pas un client fidèle) et qu'il a changé
+                // On vérifie d'abord si ce n'est pas un client fidèle enregistré
+                const isFidele = sessionStorage.getItem('client_nom_premium');
+                
+                if (!isFidele && tableData && tableData.code !== String(storedAuth)) {
+                    sessionStorage.removeItem('tabia_table_qr');
+                    sessionStorage.removeItem('tabia_auth_qr');
+                    console.log("Ancienne session table expirée.");
+                }
+            }
+        } catch(e) { console.error("Erreur check session", e); }
+    }
+
+    // 3. Initialisation normale
     clientId = getClientId();
     await chargerCatalogue();
     chargerPanier();
     mettreAJourUIPanier();
-    
-    // 🔥 PERSISTANCE DYNAMIC ISLAND (Vérification commande en cours)
-    const key = `tabia_mes_commandes_${clientId}`;
-    const hist = JSON.parse(localStorage.getItem(key) || "[]");
-    // On cherche une commande active (pas payée, pas terminée et non expirée)
-    const active = hist.find(c => c.statut !== 'paye' && c.statut !== 'terminee' && c.expiration > Date.now());
-    
-    if (active) {
-        updateLiveActivity(active.statut, active.numero);
-    }
-
-    // 5. SYNCHRONISATION & SOCKETS
+    nettoyerCommandesExpirees();
+    // On synchronise les commandes avec le serveur au lieu de juste charger
     if (typeof synchroniserMesCommandesAvecServeur === "function") {
         await synchroniserMesCommandesAvecServeur();
     } else {
         chargerMesCommandes();
     }
-    
     initClientSocket();
     configurerEvenements();
-
-    // 6. GESTION BOUTON ESPACE CLIENT
     const btnEspace = document.getElementById('btnEspaceClient');
     if (btnEspace) {
         btnEspace.addEventListener('click', () => {
@@ -179,6 +174,22 @@ document.addEventListener("DOMContentLoaded", async () => {
             btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
         }
     }
+    // 1. Masquer le Splash Screen après 1.5s
+    setTimeout(() => { document.getElementById('splashScreen').classList.add('splash-hidden'); }, 1500);
+
+    // 4. Initialisation du Dark Mode
+    const btnDark = document.getElementById('darkModeToggle');
+    if (localStorage.getItem('tabia_darkmode') === 'true') {
+        document.body.classList.add('dark-mode');
+        btnDark.classList.replace('fa-moon', 'fa-sun');
+    }
+    btnDark.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        localStorage.setItem('tabia_darkmode', isDark);
+        btnDark.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        if(navigator.vibrate) navigator.vibrate(15);
+    });
 });
 
 // ========== FETCH API STOCK ==========
@@ -344,7 +355,7 @@ function executerAjoutPanier(produit, variante) {
             quantite: 1 
         });
     }
-    playSound('pop');
+
     sauvegarderPanier();
     mettreAJourUIPanier();
     animerBoutonPanier();
@@ -434,7 +445,7 @@ function afficherContenuPanier() {
             }
             // On récupère le solde affiché dans la carte VIP
             const soldeAffiche = document.getElementById('vipSolde')?.innerText || "0.00 DT";
-            optionVIP.textContent = `⭐ Payer avec mon Solde VIP (${soldeAffiche})`;
+            optionVIP.textContent = `⭐ Payer avec mon Solde VIP `;
             
             // On force la sélection sur VIP par défaut pour lui faire plaisir
             selectPaiement.value = 'carte_fidelite';
@@ -1025,31 +1036,6 @@ confetti({ zIndex: 9999, particleCount: 150, spread: 80, origin: { y: 0.6 }, col
         if (!silencieux) afficherNotification("❌ Erreur de connexion au serveur.", "error");
     }
 };
-function updateLiveActivity(statut, numero) {
-    const activity = document.getElementById('liveActivity');
-    const text = document.getElementById('liveText');
-    const icon = document.getElementById('liveIcon');
-
-    if (!statut || statut === 'paye') {
-        activity.classList.remove('live-visible');
-        return;
-    }
-
-    activity.classList.add('live-visible');
-
-    if (statut === 'en_attente' || statut === 'en_preparation') {
-        activity.classList.remove('live-ready');
-        icon.className = "fas fa-fire-alt live-icon";
-        text.innerText = `Commande #${numero || ''} - Préparation... 🔥`;
-    } 
-    else if (statut === 'terminee') {
-        activity.classList.add('live-ready');
-        icon.className = "fas fa-check-circle live-icon";
-        text.innerText = `Commande #${numero || ''} - C'est prêt ! ✅`;
-        if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
-        playSound('magic'); // On réutilise ton son premium
-    }
-}
 
 // 3. Fonctions pour fermer et se déconnecter
 window.fermerEspaceClient = function() {
