@@ -428,3 +428,76 @@ header {
     0% { transform: translateX(-50%) rotate(30deg); }
     100% { transform: translateX(50%) rotate(30deg); }
 }
+/* ======================================================= */
+/* ✨ PACK UI/UX ULTRA-PREMIUM (Animations & Interactions) */
+/* ======================================================= */
+
+/* 1. EFFET LÉVITATION ET ZOOM SUR LES PLATS */
+.menu-item {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    /* Le débordement doit être caché pour que l'image ne sorte pas de la carte en zoomant */
+    overflow: hidden; 
+}
+
+.menu-item .item-image {
+    transition: transform 0.6s ease; /* Transition douce pour le zoom */
+}
+
+/* Ce qui se passe quand le client touche ou survole la carte */
+.menu-item:hover {
+    transform: translateY(-5px); /* La carte se soulève */
+    box-shadow: 0 15px 30px rgba(219, 128, 10, 0.15); /* Ombre orangée luxueuse */
+    border-color: rgba(219, 128, 10, 0.3);
+}
+
+.menu-item:hover .item-image {
+    transform: scale(1.08); /* L'image zoome légèrement vers le client */
+}
+
+
+/* 2. MENU CATÉGORIES "STICKY GLASS" (Verre Dépoli) */
+.categories-wrapper {
+    position: sticky;
+    top: 70px; /* Ajuste ce chiffre selon la hauteur de ton header vert pour qu'il se colle juste en dessous */
+    z-index: 90;
+    /* L'effet Verre Dépoli iOS */
+    background: rgba(248, 249, 250, 0.75) !important; 
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 10px 0;
+    margin-bottom: 20px;
+}
+
+
+/* 3. EFFET BOUTON PRESSÉ (Micro-interaction) */
+/* S'applique au bouton "Ajouter", aux boutons "+" et "-", et aux catégories */
+.add-to-cart, 
+.modern-qty-btn, 
+.category-btn,
+.checkout-btn {
+    transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
+}
+
+/* Quand le client enfonce son doigt sur le bouton */
+.add-to-cart:active, 
+.modern-qty-btn:active, 
+.category-btn:active,
+.checkout-btn:active {
+    transform: scale(0.92); /* Rétrécit de 8% pour simuler un vrai bouton physique */
+}
+
+
+/* 4. LUEUR RESPIRANTE SUR LE PANIER FLOTTANT (Glow Effect) */
+.floating-cart.visible {
+    animation: cartGlow 3s infinite alternate; /* Respiration infinie */
+}
+
+@keyframes cartGlow {
+    0% {
+        box-shadow: 0 10px 25px rgba(219, 128, 10, 0.4);
+    }
+    100% {
+        box-shadow: 0 10px 35px rgba(219, 128, 10, 0.8), 0 0 15px rgba(219, 128, 10, 0.4); /* Lueur plus forte */
+    }
+}
