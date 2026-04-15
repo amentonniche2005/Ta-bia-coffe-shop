@@ -484,48 +484,44 @@ async function syncVentesHorsLigne() {
     }
 
 async function viderTicket(tableNum, confirmDialogue = true) {
-    if (!confirmDialogue || confirm(`Vider ce ticket (et annuler en cuisine) ?`)) {
-        
-        const ticket = tickets[tableNum];
-        
-        if (confirmDialogue) { 
-            try { 
-                // 🔥 CORRECTION : Si la commande est en cuisine, on L'ANNULE pour libérer l'écran du chef
-                if (ticket && ticket.orderIds && ticket.orderIds.length > 0) {
-                    for (let oid of ticket.orderIds) { 
-                        // On passe en statut 'annulee' (ou 'paye' pour la cacher du KDS)
-                        await fetchSecurise(`/api/commandes/${oid}/statut`, { 
-                            method: 'PUT', 
-                            body: JSON.stringify({ statut: 'paye' }) 
-                        }); 
+        if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
+            if (confirmDialogue) { 
+                try { 
+                    // 🔥 CORRECTION : Gestion spécifique pour les clients fidèles
+                    if (String(tableNum).startsWith('Fidele_')) {
+                        const ticket = tickets[tableNum];
+                        if (ticket && ticket.orderIds && ticket.orderIds.length > 0) {
+                            // On annule chaque commande de ce client une par une
+                            for (let oid of ticket.orderIds) { 
+                                await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); 
+                            }
+                        }
+                    } else {
+                        // Si c'est une table normale, on utilise la méthode classique
+                        await nettoyerCommandesCuisine(tableNum); 
                     }
-                } else if (!String(tableNum).startsWith('Fidele_')) {
-                    await nettoyerCommandesCuisine(tableNum); 
-                }
-            } catch(e) { console.error("Erreur lors du vidage", e); } 
-        }
-        
-        // Suppression locale du ticket
-        if (String(tableNum).startsWith('Fidele_')) { 
-            delete tickets[tableNum]; 
-            if (currentTable === tableNum) currentTable = 'Emporter'; 
-        } else { 
-            tickets[tableNum] = { articles: [], total: 0, orderIds: [] }; 
-        }
-        
-        sauvegarderTousLesTickets(); 
-        
-        // Renouvellement du code table
-        if (!String(tableNum).startsWith('Fidele_') && tableNum !== 'Emporter') {
+                } catch(e) { console.error("Erreur lors du vidage", e); } 
+            }
+            
+            // Suppression locale du ticket
+            if (String(tableNum).startsWith('Fidele_')) { 
+                delete tickets[tableNum]; 
+                if (currentTable === tableNum) currentTable = 'Emporter'; 
+            } else { 
+                tickets[tableNum] = { articles: [], total: 0 }; 
+            }
+            
+            sauvegarderTousLesTickets(); 
+            // 🔥 RENOUVELLEMENT AUTO DU CODE SI LA TABLE EST VIDÉE / ANNULÉE
+        if (!tableNum.startsWith('Fidele_') && tableNum !== 'Emporter') {
             try { await fetchSecurise(`/api/numbers/refresh/${tableNum}`, { method: 'POST' }); } catch(e) {}
         }
-        
-        afficherTicket(); 
-        afficherListeTables();
-        
-        if(confirmDialogue) showNotification(`🧾 Ticket vidé et cuisine notifiée`, "#3b82f6");
+            afficherTicket(); 
+            afficherListeTables();
+            
+            if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3b82f6");
+        }
     }
-}
 
     function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
 
