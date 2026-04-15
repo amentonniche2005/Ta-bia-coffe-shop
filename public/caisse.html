@@ -903,39 +903,109 @@ ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre,
 
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
-    function initSocket() {
+function initSocket() {
         socket = io({ auth: { token: monToken }, transports: ['websocket', 'polling'] });
-        socket.on('connect', async () => { await chargerCommandesCuisineInitiales(); synchroniserTicketsAvecServeur(); });
-        socket.on('update_stock', async () => { await chargerCatalogue(); if (currentTable) afficherTicket(); renderProducts(); });
-socket.on('nouvelle_commande', (commande) => { 
-    commandesRecues.push(commande); 
-    if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
-    afficherCommandesWeb(); // 🔥 On actualise le bloc du haut en temps réel
-});        socket.on('mise_a_jour_commande', (commande) => {
-            const idx = commandesRecues.findIndex(c => c.id === commande.id); if (idx !== -1) commandesRecues[idx] = commande; else commandesRecues.push(commande);
+        
+        socket.on('connect', async () => { 
+            await chargerCommandesCuisineInitiales(); 
+            synchroniserTicketsAvecServeur(); 
+        });
+        
+        socket.on('update_stock', async () => { 
+            await chargerCatalogue(); 
+            if (currentTable) afficherTicket(); 
+            renderProducts(); 
+        });
+
+        socket.on('nouvelle_commande', (commande) => { 
+            commandesRecues.push(commande); 
+            if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
+            afficherCommandesWeb(); // 🔥 On actualise le bloc du haut en temps réel
+        }); 
+
+        socket.on('mise_a_jour_commande', (commande) => {
+            const idx = commandesRecues.findIndex(c => c.id === commande.id); 
+            if (idx !== -1) commandesRecues[idx] = commande; 
+            else commandesRecues.push(commande);
+            
             afficherCommandesWeb();
             
             if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            
             
+            // 🟢 RETOUR DE CUISINE (La commande est prête)
             if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
                 window.commandesTraiteesTickets.add(commande.id);
-                let tableNum = String(commande.numeroTable || 'Emporter').trim(); let customLabel = null;
-                if (commande.clientName) { tableNum = 'Fidele_' + commande.clientName; customLabel = commande.clientName; }
+                
+                let tableNum = String(commande.numeroTable || 'Emporter').trim(); 
+                let customLabel = null;
+                
+                if (commande.clientName) { 
+                    tableNum = 'Fidele_' + commande.clientName; 
+                    customLabel = commande.clientName; 
+                }
+                
                 if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
-                if (customLabel) tickets[tableNum].label = customLabel; if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
-                tickets[tableNum].orderIds.push(commande.id);
+                if (customLabel) tickets[tableNum].label = customLabel; 
+                
+                if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
+                if (!tickets[tableNum].orderIds.includes(commande.id)) tickets[tableNum].orderIds.push(commande.id);
+
                 if (commande.articles) { 
-                    commande.articles.forEach((article, arrIdx) => { 
-                        let nomPropre = article.nom || "Inconnu"; let variante = article.variante || null;
-                        if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-                        let vraiPrix = parseFloat(article.prix); if (isNaN(vraiPrix) || vraiPrix===0) { const p = produits.find(p => String(p.id) === String(article.id)); if (p) vraiPrix = parseFloat(p.prix); }
-                        // 🔥 CORRIGÉ : On ajoute l'article en précisant fromServer = true
-                        ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1 }, false, true); 
+                    commande.articles.forEach((cmdArt, arrIdx) => { 
+                        let nomPropre = cmdArt.nom || "Inconnu"; 
+                        let variante = cmdArt.variante || null;
+                        
+                        if (!variante && nomPropre.includes('(')) { 
+                            const parts = nomPropre.split('('); 
+                            nomPropre = parts[0].trim(); 
+                            variante = parts[1].replace(')', '').trim(); 
+                        }
+                        
+                        let vraiPrix = parseFloat(cmdArt.prix); 
+                        if (isNaN(vraiPrix) || vraiPrix === 0) { 
+                            const p = produits.find(p => String(p.id) === String(cmdArt.id)); 
+                            if (p) vraiPrix = parseFloat(p.prix); 
+                        }
+
+                        // 🔥 CORRECTION ANTI-DOUBLON ICI
+                        // On cherche l'article qui est actuellement "caché" en cuisine
+                        const existing = tickets[tableNum].articles.find(a => 
+                            (a.nom === nomPropre) && 
+                            (a.variante || null) === variante && 
+                            a.envoye === true && 
+                            !a.pret
+                        );
+
+                        if (existing) {
+                            // L'article était bien dans le ticket : on le marque comme Prêt (pour le faire réapparaître)
+                            existing.pret = true; 
+                            existing.quantite = parseInt(cmdArt.quantite) || existing.quantite;
+                        } else {
+                            // Sécurité : l'article n'existe pas localement (ex: F5 de la page caisse entre temps)
+                            // On le recrée en précisant qu'il est déjà "envoyé" ET "prêt"
+                            ajouterAuTicket(tableNum, { 
+                                id: cmdArt.id || Date.now() + arrIdx, 
+                                nom: nomPropre, 
+                                variante: variante, 
+                                prix: vraiPrix || 0, 
+                                quantite: parseInt(cmdArt.quantite) || 1,
+                                envoye: true, // Statut serveur
+                                pret: true    // Il est prêt à être servi !
+                            }, false, true); 
+                        }
                     }); 
                 }
-                afficherListeTables(); if (String(currentTable) === tableNum) afficherTicket();
+                
+                // Recalcul de sécurité du total de la table
+                tickets[tableNum].total = tickets[tableNum].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
+                sauvegarderTousLesTickets();
+                
+                afficherListeTables(); 
+                if (String(currentTable) === tableNum) afficherTicket();
+                
                 showNotification(`🔔 Cuisine prête: #${commande.numero}`, "#10b981");
             }
+            
             if (derniereTableModal) afficherCommandesTable(derniereTableModal);
         });
     }
