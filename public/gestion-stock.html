@@ -1774,12 +1774,9 @@ async function sauvegarderConfigFidelite() {
                 }
             } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
         }
-// ========== INIT DOM ==========
-        document.addEventListener("DOMContentLoaded", () => {
+        // ========== INIT DOM ==========
+document.addEventListener("DOMContentLoaded", () => {
             chargerDashboard(); chargerStock(); chargerCategories(); chargerHistorique(); chargerAlertes(); chargerDepenses();
-            
-            // On s'assure de charger les clients au démarrage
-            chargerClients(); 
             
             document.getElementById('categorieFilter').addEventListener('change', appliquerFiltresEtTriStock);
             document.getElementById('etatFilter').addEventListener('change', appliquerFiltresEtTriStock);
@@ -1792,25 +1789,11 @@ async function sauvegarderConfigFidelite() {
                 reconnection: true 
             });
 
-            // Quand le stock bouge
             socket.on('update_stock', () => {
                 chargerStock();
                 chargerDashboard();
                 chargerAlertes();
-            });
-
-            // 🔥 NOUVEAU : QUAND UN CLIENT PAYE (LIGNE OU CAISSE)
-            // Met à jour la liste des clients fidèles (points) SANS ATTENDRE LA CUISINE
-            socket.on('nouvelle_commande', () => {
-                chargerClients(); // Rafraîchit les points VIP instantanément
-                chargerRapportVentes(); // Rafraîchit le Chiffre d'Affaires du jour
-                chargerDashboard();
-            });
-
-            // Quand la cuisine termine une commande ou que la caisse valide un paiement
-            socket.on('mise_a_jour_commande', () => {
-                chargerClients(); // Rafraîchit les points VIP instantanément
-                chargerRapportVentes(); 
+                console.log("🔄 Stock mis à jour en direct !");
             });
         });
     </script>

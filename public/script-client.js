@@ -212,10 +212,9 @@ function afficherProduits() {
     grille.innerHTML = produitsTries.map(p => {
         const rupture = p.stock <= 0 && p.stock !== undefined;
         const classeRupture = rupture ? 'sold-out' : '';
-const bouton = rupture 
+        const bouton = rupture 
             ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
-            // 🔥 CORRECTION : Ajout des guillemets simples autour de '${p.id}'
-            : `<button class="add-to-cart" onclick="gererClicAjout(event, '${p.id}')">Ajouter <i class="fas fa-plus"></i></button>`;
+            : `<button class="add-to-cart" onclick="gererClicAjout(${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;
             
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
         const prixFormatte = parseFloat(p.prix || 0).toFixed(2);
@@ -237,16 +236,14 @@ const bouton = rupture
 }
 
 // ========== GESTION DES VARIANTES (OPTIONS) ==========
-// 🔥 AJOUT DE 'event' DANS LES PARAMÈTRES
-function gererClicAjout(event, id) {
-    const produit = produits.find(p => String(p.id) === String(id));
+function gererClicAjout(id) {
+    const produit = produits.find(p => p.id === id);
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
     let optionsTrouvees = null;
 
     if (produit.typeChoix === 'aucun') {
         executerAjoutPanier(produit, null);
-        animerPanierVolant(event); // 🔥 DÉCLENCHE L'ANIMATION ICI
         return; 
     }
 
@@ -267,7 +264,6 @@ function gererClicAjout(event, id) {
         ouvrirModalOptions(produit, optionsTrouvees);
     } else {
         executerAjoutPanier(produit, null);
-        animerPanierVolant(event); // 🔥 DÉCLENCHE L'ANIMATION ICI
     }
 }
 
@@ -384,46 +380,43 @@ function ouvrirFermerPanier() {
 
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
 
+// ========== AFFICHAGE DU PANIER MODERNE ==========
+// ========== AFFICHAGE DU PANIER MODERNE (NETTOYÉ) ==========
+
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
     const checkoutBtn = document.getElementById("checkoutBtn");
     
-    // --- 🔥 CORRECTION : GESTION DYNAMIQUE DU PAIEMENT VIP ---
+    // --- 🔥 AJOUT ICI : GESTION DYNAMIQUE DU PAIEMENT VIP ---
     const selectPaiement = document.getElementById('methodePaiementClient');
     if (selectPaiement) {
         let optionVIP = document.getElementById('optionPaiementVIP');
+        
+        // On vérifie si un client est connecté (via le nom stocké en session)
         const clientConnecte = sessionStorage.getItem('client_nom_premium');
         
         if (clientConnecte) {
-            // Si le client est VIP, on crée l'option si elle n'existe pas
+            // Si le client est VIP, on ajoute l'option si elle n'existe pas déjà
             if (!optionVIP) {
                 optionVIP = document.createElement('option');
                 optionVIP.id = 'optionPaiementVIP';
                 optionVIP.value = 'carte_fidelite';
-                optionVIP.style.color = '#db800a';
-                optionVIP.style.fontWeight = 'bold';
-                // On la place TOUT EN HAUT de la liste
-                selectPaiement.insertBefore(optionVIP, selectPaiement.firstChild);
+                selectPaiement.appendChild(optionVIP);
             }
-            
             // On récupère le solde affiché dans la carte VIP
             const soldeAffiche = document.getElementById('vipSolde')?.innerText || "0.00 DT";
-            optionVIP.textContent = `⭐ Payer avec mon Solde VIP (${soldeAffiche})`;
+            optionVIP.textContent = `⭐ Payer avec mon Solde VIP `;
             
-            // On force la sélection VIP par défaut (une seule fois pour ne pas bloquer le client s'il veut changer)
-            if (selectPaiement.dataset.vipInit !== 'true') {
-                selectPaiement.value = 'carte_fidelite';
-                selectPaiement.dataset.vipInit = 'true';
-            }
+            // On force la sélection sur VIP par défaut pour lui faire plaisir
+            selectPaiement.value = 'carte_fidelite';
         } else {
-            // Si pas de client connecté, on supprime l'option VIP et on remet à zéro
+            // Si pas de client connecté, on supprime l'option VIP
             if (optionVIP) optionVIP.remove();
-            if (selectPaiement.value === 'carte_fidelite') selectPaiement.value = 'especes';
-            selectPaiement.dataset.vipInit = 'false';
+            selectPaiement.value = 'especes';
         }
     }
-    // --- FIN DE LA CORRECTION ---
+    // --- FIN DE L'AJOUT ---
 
     if (panier.length === 0) {
         conteneur.innerHTML = `<div style='padding: 4rem 1rem; text-align: center; color: #94a3b8;'><i class='fas fa-shopping-bag fa-3x'></i><p>Votre panier est vide</p></div>`;
@@ -828,7 +821,7 @@ function configurerEvenements() {
     document.getElementById("closeCart").onclick = fermerPanier;
     document.getElementById("checkoutBtn").onclick = passerCommande;
     
-    document.getElementById("confirmOptionBtn")?.addEventListener("click", (e) => { 
+    document.getElementById("confirmOptionBtn")?.addEventListener("click", () => {
         const checkedBoxes = document.querySelectorAll('input[name="varianteOption"]:checked');
         
         if (produitEnAttenteOption) {
@@ -839,7 +832,6 @@ function configurerEvenements() {
             }
             
             executerAjoutPanier(produitEnAttenteOption, valeursChoisies);
-            animerPanierVolant(e); // 🔥 DÉCLENCHE L'ANIMATION DEPUIS LE MODAL
             document.getElementById("optionsModal").style.display = "none";
             produitEnAttenteOption = null;
         }
@@ -864,99 +856,43 @@ function configurerEvenements() {
     }
     
 }
-// 2. Fonction qui interroge la base de données et dessine la carte VIP (SYNC GÉRANT)
+
+
+// 2. Fonction qui interroge la base de données et dessine la carte VIP
 window.verifierCodeClient = async function(silencieux = false) {
     const code = document.getElementById('clientLoginCode').value.trim();
     if (!code) return;
 
     try {
-        // A. ON RÉCUPÈRE LES RÉGLAGES DU GÉRANT (Ex: 80 pts = 7 DT)
-        let pointsRequis = 100; 
-        let valeurCadeau = 5;
-        try {
-            const resConfig = await fetch('/api/settings/fidelite');
-            if (resConfig.ok) {
-                const config = await resConfig.json();
-                // Ici, on récupère les vraies valeurs du gérant
-                pointsRequis = parseFloat(config.pointsRequis) || 100;
-                valeurCadeau = parseFloat(config.valeurCredit) || 5;
-            }
-        } catch(e) { console.warn("Config gérant introuvable, retour au défaut."); }
-
-        // B. ON RÉCUPÈRE LE PROFIL DU CLIENT
+        // On appelle ton API (Celle qui est dans server.js)
         const res = await fetch(`/api/customers/verify/${code}`);
         const data = await res.json();
 
         if (res.ok && data.success) {
-            const customer = data.customer;
-            const ptsClient = parseFloat(customer.points || 0);
+            // Remplissage de la Carte VIP HTML avec les données de la DB
+            document.getElementById('vipName').innerText = `${data.customer.prenom} ${data.customer.nom}`;
+            document.getElementById('vipCode').innerText = data.customer.codeFidelite;
+            document.getElementById('vipPoints').innerHTML = `${parseFloat(data.customer.points || 0).toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
+            document.getElementById('vipSolde').innerText = parseFloat(data.customer.solde || 0).toFixed(2) + ' DT';
 
-            // Remplissage des infos classiques
-            document.getElementById('vipName').innerText = `${customer.prenom} ${customer.nom}`;
-            document.getElementById('vipCode').innerText = customer.codeFidelite;
-            document.getElementById('vipPoints').innerHTML = `${ptsClient.toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
-            document.getElementById('vipSolde').innerText = (customer.solde || 0).toFixed(2) + ' DT';
-
-            // AFFICHAGE DES SECTIONS
+            // On cache la zone de code, on affiche la carte
             document.getElementById('clientLoginSection').style.display = 'none';
             document.getElementById('clientProfileSection').style.display = 'block';
-
-            // C. CALCUL DE LA JAUGE BASÉ SUR LE GÉRANT
-            const badge = document.getElementById('vipTierName');
-            const msg = document.getElementById('vipPointsLeft');
-            const bar = document.getElementById('vipProgressBar');
-
-            if (bar && msg && badge) {
-                bar.style.width = "0%"; // On remet à zéro pour l'animation
-                
-                // Calcul du pourcentage réel
-                let pourcentage = (ptsClient / pointsRequis) * 100;
-                if (pourcentage > 100) pourcentage = 100;
-
-                const estFini = ptsClient >= pointsRequis;
-                
-
-                // Mise à jour du badge objectif
-                badge.className = estFini ? "tier-badge gold" : "tier-badge silver";
-                badge.innerHTML = `<i class="fas fa-gift"></i> Cadeau de ${valeurCadeau} DT`;
-
-                // Déclenchement de l'animation après affichage
-                setTimeout(() => {
-                    bar.style.width = `${pourcentage}%`;
-                    
-                        if (estFini) {
-                        bar.style.background = "linear-gradient(90deg, #10b981, #059669)"; // Vert succès
-                        msg.innerHTML = `<span style="color:#10b981; font-weight:800;">🎉 Objectif atteint ! Passez en caisse.</span>`;
-                        
-                        // 🔥 DÉCLENCHEMENT DES CONFETTIS ICI
-                        if (typeof confetti === 'function') {
-                            confetti({
-                                particleCount: 150,
-                                spread: 80,
-                                origin: { y: 0.6 },
-                                colors: ['#f1c40f', '#e67e22', '#2ecc71', '#3498db']
-                            });
-                        }
-                    } else {
-                        bar.style.background = "linear-gradient(90deg, #db800a, #e65c00)"; // Orange standard
-                        const reste = (pointsRequis - ptsClient).toFixed(1);
-                        msg.innerHTML = `Encore <b>${reste} pts</b> pour gagner ${valeurCadeau} DT !`;
-                    }
-                }, 100);
-            }
-
-            // Bouton Espace Client (Header)
-            const btnEspace = document.getElementById('btnEspaceClient');
-            if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${customer.prenom}`;
             
+            // On met à jour le bouton en haut à droite de l'écran
+            const btnEspace = document.getElementById('btnEspaceClient');
+            if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${data.customer.prenom}`;
+            
+            // On sauvegarde en mémoire
             sessionStorage.setItem('tabia_auth_qr', code);
-            if (!silencieux) afficherNotification(`✨ Profil de ${customer.prenom} chargé !`);
+            sessionStorage.setItem('client_nom_premium', `${data.customer.prenom} ${data.customer.nom}`);
+
+            if (!silencieux) afficherNotification(`✨ Profil chargé avec succès !`);
         } else {
             if (!silencieux) afficherNotification("❌ Code secret incorrect.", "error");
         }
     } catch (err) {
-        console.error(err);
-        if (!silencieux) afficherNotification("❌ Erreur serveur.", "error");
+        if (!silencieux) afficherNotification("❌ Erreur de connexion au serveur.", "error");
     }
 };
 
@@ -978,47 +914,4 @@ window.deconnecterClient = function() {
     
     fermerEspaceClient();
     afficherNotification("Vous êtes déconnecté.");
-
-    // 🔥 CORRECTION : On avertit le panier de retirer l'option de paiement
-    const selectPaiement = document.getElementById('methodePaiementClient');
-    if (selectPaiement) selectPaiement.dataset.vipInit = 'false';
-    afficherContenuPanier(); 
-};
-// ========== FONCTION MAGIQUE : PANIER VOLANT ==========
-window.animerPanierVolant = function(event) {
-    if (!event) return;
-
-    // 🔥 LA CORRECTION EST ICI : On cible bien le bouton entier, même si le client clique sur l'icône +
-    const boutonCible = event.target.closest('button') || event.target;
-
-    // 1. Création de la bulle volante
-    const flyingDot = document.createElement('div');
-    flyingDot.className = 'flying-item';
-    flyingDot.innerHTML = '<i class="fas fa-coffee"></i>'; // Icône du produit
-
-    // 2. Position de départ (Là où le client a cliqué)
-    const rectBtn = boutonCible.getBoundingClientRect();
-    flyingDot.style.top = `${rectBtn.top}px`;
-    flyingDot.style.left = `${rectBtn.left}px`;
-    document.body.appendChild(flyingDot);
-
-    // 3. Position d'arrivée (L'icône du panier en bas)
-    const btnPanier = document.getElementById('floatingCart');
-    if (!btnPanier) return;
-    const rectCart = btnPanier.getBoundingClientRect();
-
-    // 4. On lance l'animation
-    setTimeout(() => {
-        flyingDot.style.top = `${rectCart.top + 10}px`;
-        flyingDot.style.left = `${rectCart.left + (rectCart.width / 2)}px`;
-        flyingDot.style.transform = 'scale(0.3)';
-        flyingDot.style.opacity = '0';
-    }, 50);
-
-    // 5. On nettoie et on fait rebondir le gros bouton panier
-    setTimeout(() => {
-        flyingDot.remove();
-        btnPanier.classList.add('cart-bounce');
-        setTimeout(() => btnPanier.classList.remove('cart-bounce'), 300);
-    }, 600);
 };
