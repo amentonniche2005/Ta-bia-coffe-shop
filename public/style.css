@@ -658,3 +658,58 @@ body.dark-mode .empty-message {
 body.dark-mode div[style*="background: var(--surface-2)"] {
     background-color: #1e293b !important;
 }
+/* 10. Barre de Catégories (Le défilement horizontal) */
+body.dark-mode .categories-wrapper,
+body.dark-mode .categories {
+    background-color: #0f172a !important; /* Se fond parfaitement avec le fond de la page */
+    border-bottom: 1px solid #334155 !important;
+}
+
+body.dark-mode .category-btn {
+    background-color: #1e293b !important; /* Bouton inactif foncé */
+    color: #94a3b8 !important; /* Texte gris clair */
+    border: 1px solid #334155 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+}
+
+body.dark-mode .category-btn:hover {
+    background-color: #334155 !important;
+    color: #f8fafc !important; /* Devient blanc au survol */
+}
+
+body.dark-mode .category-btn.active {
+    background-color: var(--primary) !important; /* Ton Orange ou Vert principal */
+    color: #ffffff !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 4px 12px rgba(219, 128, 10, 0.4) !important; /* Lueur élégante */
+}
+
+/* 11. Bannière de bienvenue (Hero Section) */
+body.dark-mode .hero {
+    /* Ajoute un voile beaucoup plus sombre sur l'image de fond pour ne pas éblouir */
+    background-color: #1e293b !important;
+    border-bottom: 1px solid #334155 !important;
+}
+body.dark-mode .hero h1 {
+    color: #f8fafc !important;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8) !important;
+}
+body.dark-mode .hero p {
+    color: #cbd5e1 !important;
+}
+
+/* 12. Le Panier Flottant en bas de l'écran (Floating Cart) */
+body.dark-mode .floating-cart {
+    background-color: #1e293b !important; /* Fond bleu nuit */
+    border: 1px solid #334155 !important;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.6) !important; /* Ombre inversée plus forte */
+}
+body.dark-mode .cart-text,
+body.dark-mode .cart-price {
+    color: #f8fafc !important; /* Texte blanc pur */
+}
+body.dark-mode .cart-badge {
+    background-color: var(--primary) !important; /* Garde la couleur d'alerte */
+    color: white !important;
+    border: 2px solid #1e293b !important; /* Contour raccord avec le fond */
+}
