@@ -528,16 +528,133 @@ header {
 }
 @keyframes notifTime { from { width: 100%; } to { width: 0%; } }
 
-/* 4. DARK MODE (Midnight Lounge) */
-body.dark-mode { background: #0f172a; color: #f8fafc; }
+/* ======================================================= */
+/* 🌙 DARK MODE PREMIUM (Midnight Lounge) - FULL UPGRADE   */
+/* ======================================================= */
+body.dark-mode {
+    background-color: #0f172a;
+    color: #f1f5f9;
+}
+
+/* 1. Conteneurs et Modales (Override des styles inline 'white') */
 body.dark-mode .menu-item, 
 body.dark-mode .cart-content, 
-body.dark-mode .options-content {
-    background: #1e293b; border-color: #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.3); color: white;
+body.dark-mode .options-content,
+body.dark-mode .table-modal-content,
+body.dark-mode .historique-commande-card,
+body.dark-mode .gamification-container,
+body.dark-mode .vip-card:not(.theme-gold) {
+    background-color: #1e293b !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4) !important;
 }
-body.dark-mode .item-info h3, body.dark-mode h2 { color: #f8fafc; }
-body.dark-mode .categories-wrapper { background: rgba(15, 23, 42, 0.8) !important; border-bottom: 1px solid #334155; }
-body.dark-mode .category-btn { background: #334155; color: #cbd5e1; }
-body.dark-mode .category-btn.active { background: #db800a; color: white; }
-body.dark-mode .modern-cart-item { border-bottom: 1px solid #334155; }
-body.dark-mode .modern-qty-val { color: white; }
+
+/* 2. Textes et Titres principaux */
+body.dark-mode h1, 
+body.dark-mode h2, 
+body.dark-mode h3, 
+body.dark-mode h4,
+body.dark-mode p,
+body.dark-mode .commande-numero,
+body.dark-mode .modern-cart-item-info h4 {
+    color: #f8fafc !important;
+}
+
+/* 3. Textes codés en dur dans le JS/HTML (La Magie opère ici) */
+body.dark-mode span[style*="color:#1e293b"],
+body.dark-mode span[style*="color: #1e293b"],
+body.dark-mode span[style*="color:#333"],
+body.dark-mode div[style*="color:#143621"],
+body.dark-mode div[style*="color: #143621"],
+body.dark-mode i[style*="color: #143621"] {
+    color: #e2e8f0 !important; /* Transforme le texte noir en texte très clair */
+}
+
+body.dark-mode span[style*="color:#475569"],
+body.dark-mode span[style*="color:#64748b"],
+body.dark-mode div[style*="color:#94a3b8"],
+body.dark-mode div[style*="color: #94a3b8"] {
+    color: #94a3b8 !important; /* Transforme le texte gris foncé en gris clair */
+}
+
+body.dark-mode div[style*="border-top:2px dashed #e2e8f0"] {
+    border-top-color: #334155 !important;
+}
+
+/* 4. Boutons Catégories */
+body.dark-mode .category-btn { 
+    background-color: #1e293b; 
+    color: #94a3b8; 
+    border-color: #334155; 
+}
+body.dark-mode .category-btn.active { 
+    background-color: var(--primary); 
+    color: white; 
+    border-color: var(--primary);
+}
+
+/* 5. Inputs et Selects (Code table, Paiement...) */
+body.dark-mode .code-input,
+body.dark-mode .sleek-select {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border: 2px solid #334155 !important;
+}
+body.dark-mode .code-input::placeholder {
+    color: #64748b !important;
+}
+
+/* 6. Boutons de quantité et Panier (Aspect Moderne) */
+body.dark-mode .modern-cart-item {
+    background-color: #0f172a;
+    border-color: #334155;
+}
+body.dark-mode .modern-qty-btn {
+    background-color: #1e293b;
+    color: #f8fafc;
+    border-color: #334155;
+}
+body.dark-mode .modern-qty-btn:hover {
+    background-color: #334155;
+}
+
+/* 7. Boutons d'annulation et modales */
+body.dark-mode #cancelTableBtn, 
+body.dark-mode #annulerCodeBtn {
+    background-color: #334155 !important;
+    color: #f8fafc !important;
+}
+body.dark-mode .close-cart, 
+body.dark-mode .close-options {
+    background-color: #334155;
+    color: #e2e8f0;
+}
+body.dark-mode .close-cart:hover, 
+body.dark-mode .close-options:hover {
+    background-color: #475569;
+}
+
+/* 8. Options Modales (Variantes : Lait, Sucre, etc.) */
+body.dark-mode .option-box {
+    background-color: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+body.dark-mode .option-input:checked + .option-box {
+    background-color: rgba(219, 128, 10, 0.15); /* Orange transparent */
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* 9. Carte VIP et Espace Client */
+body.dark-mode .progress-bar-bg {
+    background-color: #334155 !important;
+}
+body.dark-mode .empty-message {
+    color: #64748b !important;
+}
+
+/* Force le fond du QRCode à rester transparent ou foncé */
+body.dark-mode div[style*="background: var(--surface-2)"] {
+    background-color: #1e293b !important;
+}
