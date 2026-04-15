@@ -161,7 +161,10 @@ function afficherColonne(containerId, commandes, type) {
         const badgeOrigine = cmd.clientId && !cmd.clientName 
             ? `<span class="badge badge-client"><i class="fas fa-mobile-alt"></i> Web</span>` : ``;
 
-        const badgePaiement = cmd.methodePaiement === 'en_ligne'
+// 🔥 CORRECTION : On vérifie si c'est payé en ligne OU par Carte Fidélité
+        const estPaye = (cmd.methodePaiement === 'en_ligne' || cmd.methodePaiement === 'carte_fidelite' || cmd.methodePaiement === 'Carte Fidélité');
+        
+        const badgePaiement = estPaye
             ? `<span class="badge" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0;"><i class="fas fa-check-circle"></i> Payé</span>`
             : `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;"><i class="fas fa-hand-holding-usd"></i> À encaisser</span>`;
 
@@ -236,10 +239,10 @@ function voirDetails(id) {
             </div>
 <div style="margin-bottom:0.5rem;"><strong><i class="fas fa-compass"></i> Origine :</strong> ${cmd.clientId ? 'Client Web (Mobile)' : 'Caisse / Serveur'}</div>
             
-            <div style="margin-bottom:0.5rem;">
+<div style="margin-bottom:0.5rem;">
                 <strong><i class="fas fa-wallet"></i> Paiement :</strong> 
-                ${cmd.methodePaiement === 'en_ligne' 
-                    ? '<span style="color:#166534; font-weight:bold; background:#dcfce7; padding:2px 8px; border-radius:10px;">✅ Déjà payé en ligne</span>' 
+                ${(cmd.methodePaiement === 'en_ligne' || cmd.methodePaiement === 'carte_fidelite' || cmd.methodePaiement === 'Carte Fidélité')
+                    ? '<span style="color:#166534; font-weight:bold; background:#dcfce7; padding:2px 8px; border-radius:10px;">✅ Déjà payé (En Ligne / Wallet)</span>' 
                     : '<span style="color:#b91c1c; font-weight:bold; background:#fee2e2; padding:2px 8px; border-radius:10px;">⚠️ À encaisser à la caisse</span>'}
             </div>
 
@@ -529,8 +532,7 @@ window.imprimerTicket = function(id) {
                     <span>${dateStr} ${timeStr}</span>
                 </div>
                 <div><b>ORIGINE:</b> ${nomOrigine}</div>
-                <div><b>STATUT:</b> ${cmd.methodePaiement === 'en_ligne' ? 'PAYÉ EN LIGNE' : 'À ENCAISSER'}</div>
-            </div>
+                <div><b>STATUT:</b> ${(cmd.methodePaiement === 'en_ligne' || cmd.methodePaiement === 'carte_fidelite' || cmd.methodePaiement === 'Carte Fidélité') ? 'DÉJÀ PAYÉ' : 'À ENCAISSER'}</div>            </div>
 
             <div style="border-top: 1px dashed #000; margin: 10px 0;"></div>
 
