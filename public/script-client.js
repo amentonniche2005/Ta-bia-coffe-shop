@@ -11,8 +11,9 @@ socket.on('nouvelle_commande', (data) => {
 });
 
 // 3. Si un statut change 
-socket.on('mise_a_jour_commande', () => {
+socket.on('mise_a_jour_commande', (data) => { // Ajoute 'data' ici
     chargerMesCommandes(); 
+    updateLiveActivity(data.statut, data.numero); // Utilise 'data' au lieu de 'commande'
 });
 
 // ========== VARIABLES GLOBALES ==========
@@ -355,7 +356,7 @@ function executerAjoutPanier(produit, variante) {
             quantite: 1 
         });
     }
-
+    playSound('pop');
     sauvegarderPanier();
     mettreAJourUIPanier();
     animerBoutonPanier();
@@ -445,7 +446,7 @@ function afficherContenuPanier() {
             }
             // On récupère le solde affiché dans la carte VIP
             const soldeAffiche = document.getElementById('vipSolde')?.innerText || "0.00 DT";
-            optionVIP.textContent = `⭐ Payer avec mon Solde VIP `;
+            optionVIP.textContent = `⭐ Payer avec mon Solde VIP (${soldeAffiche})`;
             
             // On force la sélection sur VIP par défaut pour lui faire plaisir
             selectPaiement.value = 'carte_fidelite';
@@ -1036,6 +1037,31 @@ confetti({ zIndex: 9999, particleCount: 150, spread: 80, origin: { y: 0.6 }, col
         if (!silencieux) afficherNotification("❌ Erreur de connexion au serveur.", "error");
     }
 };
+function updateLiveActivity(statut, numero) {
+    const activity = document.getElementById('liveActivity');
+    const text = document.getElementById('liveText');
+    const icon = document.getElementById('liveIcon');
+
+    if (!statut || statut === 'paye') {
+        activity.classList.remove('live-visible');
+        return;
+    }
+
+    activity.classList.add('live-visible');
+
+    if (statut === 'en_attente' || statut === 'en_preparation') {
+        activity.classList.remove('live-ready');
+        icon.className = "fas fa-fire-alt live-icon";
+        text.innerText = `Commande #${numero || ''} - Préparation... 🔥`;
+    } 
+    else if (statut === 'terminee') {
+        activity.classList.add('live-ready');
+        icon.className = "fas fa-check-circle live-icon";
+        text.innerText = `Commande #${numero || ''} - C'est prêt ! ✅`;
+        if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        playSound('magic'); // On réutilise ton son premium
+    }
+}
 
 // 3. Fonctions pour fermer et se déconnecter
 window.fermerEspaceClient = function() {
