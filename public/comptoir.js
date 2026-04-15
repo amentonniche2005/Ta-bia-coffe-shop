@@ -116,21 +116,31 @@ function initSocket() {
     });
     
 socket.on('mise_a_jour_commande', (commande) => {
-    const index = commandesComptoirCache.findIndex(c => String(c.id) === String(commande.id));
-    // 🔥 MODIFICATION : On ne supprime que si la caisse a encaissé (paye)
-    if (commande.statut === 'paye') {
-        if (index !== -1) commandesComptoirCache.splice(index, 1);
-    } else {
-        if (index !== -1) commandesComptoirCache[index] = commande;
-        else commandesComptoirCache.push(commande);
-    }
-    afficherCommandes();
-    
-    // Met à jour la modale d'historique en temps réel si elle est ouverte
-    if (document.getElementById("modalDetails").style.display === "flex" && document.getElementById("titreModalArchives")) {
-        afficherModalArchives(); 
-    }
-});
+        const index = commandesComptoirCache.findIndex(c => String(c.id) === String(commande.id));
+        // On ne supprime que si la caisse a encaissé (paye)
+        if (commande.statut === 'paye') {
+            if (index !== -1) commandesComptoirCache.splice(index, 1);
+        } else {
+            if (index !== -1) commandesComptoirCache[index] = commande;
+            else commandesComptoirCache.push(commande);
+        }
+        afficherCommandes();
+        
+        // 🔥 CORRECTION : Mise à jour intelligente des modales
+        const modal = document.getElementById("modalDetails");
+        const title = document.getElementById("modalTitle").innerHTML;
+        
+        if (modal.style.display === "flex") {
+            // Si c'est la modale des archives qui est ouverte
+            if (title.includes("Plats Servis")) {
+                afficherModalArchives(); 
+            } 
+            // Si c'est la modale de détails d'une commande spécifique
+            else if (derniereTableModal === commande.numeroTable) {
+                voirDetails(commande.id);
+            }
+        }
+    });
     
     socket.on('suppression_commande', (id) => {
         commandesComptoirCache = commandesComptoirCache.filter(c => String(c.id) !== String(id));
@@ -601,46 +611,65 @@ document.addEventListener("DOMContentLoaded", () => {
         if(icon) icon.className = 'fas fa-sun';
     }
 });
-// ========== NOUVEAU : HISTORIQUE DES COMMANDES SERVIES ==========
+// ========== NOUVEAU : HISTORIQUE DES COMMANDES SERVIES (OPTIMISÉ DARK MODE & UX) ==========
 window.afficherModalArchives = function() {
-    // On filtre uniquement celles qui ont le statut 'livree' (servies mais pas encore payées)
+    // 1. Filtrer et trier
     const servies = commandesComptoirCache.filter(c => c.statut === 'livree');
-    
-    // On les trie de la plus récente à la plus ancienne
     servies.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    // 2. Mettre à jour le vrai titre de la modale existante
+    document.getElementById('modalTitle').innerHTML = '<i class="fas fa-history"></i> Plats Servis (Non payés)';
 
     let html = '';
     if (servies.length === 0) {
-        html = '<div class="empty-message" style="text-align:center; padding:20px; color:#64748b;">Aucun plat servi en attente de paiement.</div>';
+        html = '<div class="empty-message" style="text-align:center; padding:2rem; color:var(--text-muted); font-size:1.1rem;"><i class="fas fa-check-double fa-2x" style="display:block; margin-bottom:10px; opacity:0.5;"></i>Aucun plat en attente de paiement.</div>';
     } else {
         html = servies.map(cmd => {
             const nomAffiche = cmd.clientName ? `Fidèle: ${escapeHtml(cmd.clientName)}` : (cmd.numeroTable === 'Emporter' ? 'À Emporter' : `Table ${cmd.numeroTable}`);
             const timeStr = cmd.date ? cmd.date.split(' ')[1] : new Date(cmd.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             
+            // On génère la liste des articles pour que le cuisinier sache ce qu'il a servi
+            const articlesHtml = cmd.articles.map(a => `
+                <div style="font-size: 0.95rem; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 8px;">
+                    <span style="background: var(--col-preparation); color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.85rem;">${parseInt(a.quantite || 1)}x</span> 
+                    <span style="color: var(--text-main);">${escapeHtml(a.nom)}</span>
+                    ${a.variante ? `<span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">(${escapeHtml(a.variante)})</span>` : ''}
+                </div>
+            `).join('');
+
+            // On utilise var(--bg-body) et var(--text-main) pour que le Dark Mode s'applique automatiquement !
             return `
-                <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <strong style="color:var(--text-main); font-size:1.1rem;">#${cmd.numero} - ${nomAffiche}</strong>
-                        <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">
-                            <i class="far fa-clock"></i> Servi à ${timeStr}
+                <div style="background: var(--bg-body); border: 1px solid rgba(100, 116, 139, 0.3); padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s;">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                        <div>
+                            <strong style="color:var(--text-main); font-size:1.2rem;">#${cmd.numero} - ${nomAffiche}</strong>
+                            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">
+                                <i class="far fa-clock"></i> Servi à ${timeStr}
+                            </div>
                         </div>
+                        <span class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding:6px 12px; font-size:0.9rem;">
+                            <i class="fas fa-check-circle"></i> Servi
+                        </span>
                     </div>
-                    <div style="text-align:right;">
-                        <span class="badge" style="background:#eef2ff; color:#3b82f6; padding:6px 12px; font-size:0.9rem;"><i class="fas fa-utensils"></i> Servie</span>
-                        <button class="btn-action" style="background:#ef4444; padding:8px 12px; margin-left:10px; border-radius:8px;" onclick="annulerLivree('${cmd.id}')" title="Annuler et remettre sur le comptoir">
-                            <i class="fas fa-undo"></i> Oups
+
+                    <div style="border-top: 1px dashed rgba(100, 116, 139, 0.3); padding-top: 10px; margin-bottom: 12px;">
+                        ${articlesHtml}
+                    </div>
+
+                    <div style="text-align: right;">
+                        <button class="btn-action" style="background: #ef4444; color: white; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);" onclick="annulerLivree('${cmd.id}')" title="Annuler et remettre sur le comptoir">
+                            <i class="fas fa-undo"></i> Remettre en Cuisine
                         </button>
                     </div>
+
                 </div>
             `;
         }).join('');
     }
 
     document.getElementById('modalBody').innerHTML = `
-        <h3 id="titreModalArchives" style="margin-bottom:15px; color:#334155; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">
-            <i class="fas fa-history"></i> Historique des Plats Servis (Non payés)
-        </h3>
-        <div style="max-height:60vh; overflow-y:auto; padding-right:5px;">
+        <div style="max-height: 65vh; overflow-y: auto; padding-right: 5px; margin-top: 10px;" id="archivesScroller">
             ${html}
         </div>
     `;
@@ -655,8 +684,7 @@ window.annulerLivree = async function(id) {
         });
         if (response.ok) {
             jouerSonAction();
-            afficherNotification("🔙 Commande remise sur le comptoir !", "info");
-            // La modale va s'actualiser toute seule grâce au Socket !
+            afficherNotification("🔙 Commande remise sur le comptoir !", "warning");
         }
     } catch (error) { afficherNotification("❌ Erreur réseau", "error"); }
 };
