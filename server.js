@@ -199,7 +199,7 @@ app.post('/api/commandes', async (req, res) => {
         const cmdId = Date.now().toString();
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
 
-        // CAS A : Le client paie AVEC sa carte de fidélité (Wallet)
+// CAS A : Le client paie AVEC sa carte de fidélité (Wallet)
         if (req.body.methodePaiement === 'carte_fidelite') {
             const clientVIP = await LoyalCustomer.findOne({ codeFidelite: codeEnvoye });
             
@@ -234,7 +234,27 @@ app.post('/api/commandes', async (req, res) => {
                 date: new Date().toLocaleString('fr-FR'),
                 timestamp: Date.now()
             }).save();
-        } 
+
+            // 🔥 CORRECTION : DÉDUCTION IMMÉDIATE DU STOCK POUR LE VIP
+            for (let art of articlesSecurises) {
+                const qte = parseInt(art.quantite) || 1;
+                const produitMisAJour = await Product.findOneAndUpdate(
+                    { id: art.id }, // On cherche juste par ID
+                    { $inc: { stock: -qte } }, // On déduit la quantité
+                    { new: true }
+                );
+
+                // Optionnel : Ajouter le mouvement dans l'historique d'inventaire
+                if (produitMisAJour && produitMisAJour.stock !== undefined) {
+                    await new Movement({ 
+                        type: 'vente_vip', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
+                        quantite: qte, ancienStock: produitMisAJour.stock + qte,
+                        nouveauStock: produitMisAJour.stock, raison: `Achat VIP #${numeroCmd}` 
+                    }).save();
+                }
+            }
+            io.emit('update_stock'); // Fait clignoter le stock sur tous les écrans en direct !
+        }
         // CAS B : Le client paie autrement (Espèces/Ligne), mais il A SCANNÉ sa carte VIP
         else if (codeEnvoye && codeEnvoye !== "00000") {
             const clientVIP = await LoyalCustomer.findOne({ codeFidelite: codeEnvoye });
@@ -357,15 +377,15 @@ app.get('/api/simulateur-paiement/:orderId', async (req, res) => {
         commande.statut = 'en_attente';
         await commande.save();
 
-        // 🔥 SÉCURITÉ : Gestion atomique du stock avec $inc
+// 🔥 SÉCURITÉ : Gestion atomique du stock avec $inc
         for (let art of commande.articles) {
             const produitMisAJour = await Product.findOneAndUpdate(
-                { id: art.id, stock: { $exists: true } }, 
+                { id: art.id }, // 🔥 CORRIGÉ : On enlève le stock: {$exists: true}
                 { $inc: { stock: -art.quantite } },
                 { new: true } // Renvoie la valeur APRÈS déduction
             );
 
-            if (produitMisAJour) {
+            if (produitMisAJour && produitMisAJour.stock !== undefined) {
                 await new Movement({ 
                     type: 'vente_web', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
                     quantite: art.quantite, 
@@ -431,15 +451,15 @@ app.post('/api/webhook/paiement', async (req, res) => {
             commande.statut = 'en_attente';
             await commande.save();
 
-            // 🔥 SÉCURITÉ : Gestion atomique du stock avec $inc
+// 🔥 SÉCURITÉ : Gestion atomique du stock avec $inc
             for (let art of commande.articles) {
                 const produitMisAJour = await Product.findOneAndUpdate(
-                    { id: art.id, stock: { $exists: true } }, 
+                    { id: art.id }, // 🔥 CORRIGÉ : On enlève le stock: {$exists: true}
                     { $inc: { stock: -art.quantite } },
                     { new: true } 
                 );
 
-                if (produitMisAJour) {
+                if (produitMisAJour && produitMisAJour.stock !== undefined) {
                     await new Movement({ 
                         type: 'vente_web', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
                         quantite: art.quantite, ancienStock: produitMisAJour.stock + art.quantite,
