@@ -451,24 +451,50 @@ async function syncVentesHorsLigne() {
         if (ventesRestantes.length === 0) showNotification("✅ Ventes synchronisées", "#10b981");
     }
 
-    function ajouterAuTicket(tableNum, produit, updateUI = true) {
-        if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0 };
+function ajouterAuTicket(tableNum, produit, updateUI = true, fromServer = false) {
+        if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
         const ticket = tickets[tableNum];
         const prixSecurise = parseFloat(produit.prix) || 0;
         const qteSecurise = parseInt(produit.quantite) || 1;
-        const existing = ticket.articles.find(a => (String(a.id) === String(produit.id) || a.nom === produit.nom) && (a.variante || null) === (produit.variante || null));
-        if (existing) existing.quantite += qteSecurise; else ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise });
+        
+        // 🔥 NOUVEAU : On définit si l'article est déjà en cuisine
+        const isEnvoye = fromServer ? true : (produit.envoye || false);
+
+        // On ne fusionne les quantités QUE si les articles ont le même statut d'envoi
+        const existing = ticket.articles.find(a => 
+            (String(a.id) === String(produit.id) || a.nom === produit.nom) && 
+            (a.variante || null) === (produit.variante || null) &&
+            (a.envoye === isEnvoye) // Sécurité anti-mélange
+        );
+
+        if (existing) {
+            existing.quantite += qteSecurise;
+        } else {
+            ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise, envoye: isEnvoye });
+        }
+        
         ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
         sauvegarderTousLesTickets();
         if (updateUI) { if (String(currentTable) === String(tableNum)) afficherTicket(); afficherListeTables(); }
     }
 
-    function modifierQuantite(tableNum, produitId, variante, delta) {
+function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
         const ticket = tickets[tableNum]; if (!ticket) return;
-        const index = ticket.articles.findIndex(a => String(a.id) === String(produitId) && (a.variante || null) === (variante || null));
+        
+        // On cherche précisément la ligne qui a le même statut d'envoi
+        const index = ticket.articles.findIndex(a => 
+            String(a.id) === String(produitId) && 
+            (a.variante || null) === (variante || null) && 
+            a.envoye === isEnvoye
+        );
+        
         if (index !== -1) {
-            const article = ticket.articles[index]; const nouvelleQuantite = article.quantite + delta;
-            if (nouvelleQuantite <= 0) ticket.articles.splice(index, 1); else article.quantite = nouvelleQuantite;
+            const article = ticket.articles[index]; 
+            const nouvelleQuantite = article.quantite + delta;
+            
+            if (nouvelleQuantite <= 0) ticket.articles.splice(index, 1); 
+            else article.quantite = nouvelleQuantite;
+            
             ticket.total = ticket.articles.reduce((sum, a) => sum + (a.prix * a.quantite), 0);
             sauvegarderTousLesTickets();
             if (String(currentTable) === String(tableNum)) afficherTicket();
@@ -530,22 +556,27 @@ async function envoyerEnCuisine() {
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#ef4444");
 
+        // 🔥 NOUVEAU : On filtre uniquement les articles "Nouveau" (non envoyés)
+        const articlesAEnvoyer = ticket.articles.filter(a => !a.envoye);
+
+        if (articlesAEnvoyer.length === 0) {
+            return showNotification("✅ Tous les articles de ce ticket sont déjà en cuisine !", "#3b82f6");
+        }
+
         let nomTableServeur = currentTable; let nomClientFidele = null;
-        // 🔥 CORRECTION : On récupère proprement le code fidélité s'il y en a un
-        let codePourLeServeur = "00000"; // Code maître (Bypass) pour le caissier
+        let codePourLeServeur = "00000"; 
 
         if (currentTable.startsWith('Fidele_')) { 
             nomTableServeur = ticket.numeroTableOrigine || 'Emporter'; 
             nomClientFidele = ticket.label.split(' (')[0]; 
-            // Si tu as sauvegardé le vrai code de la carte fidélité lors du scan à la caisse, mets-le ici
-            // Sinon, le code "00000" fera l'affaire pour passer la sécurité
         }
 
         try {
             const response = await fetchSecurise('/api/commandes', {
                 method: 'POST', 
                 body: JSON.stringify({ 
-                    articles: ticket.articles.map(a => ({ 
+                    // On n'envoie QUE la suite de la commande au chef
+                    articles: articlesAEnvoyer.map(a => ({ 
                         id: a.id, 
                         nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, 
                         prix: a.prix, 
@@ -554,16 +585,25 @@ async function envoyerEnCuisine() {
                     numeroTable: nomTableServeur, 
                     clientName: nomClientFidele, 
                     clientId: null,
-                    codeAuth: codePourLeServeur, // 🔥 CRUCIAL : Le serveur a besoin de ça !
+                    codeAuth: codePourLeServeur,
                     methodePaiement: "sur_place"
                 })
             });
             
             if (response.ok) { 
-                showNotification(`👨‍🍳 Commande envoyée !`, "#e67e22"); 
-                viderTicket(currentTable, false); 
+                const data = await response.json();
+                showNotification(`👨‍🍳 Nouveaux articles envoyés !`, "#e67e22"); 
+                
+                // On sauvegarde l'ID de cette nouvelle commande pour pouvoir la vider plus tard
+                if (!ticket.orderIds) ticket.orderIds = [];
+                if (data.id || data._id) ticket.orderIds.push(data.id || data._id);
+
+                // 🔥 On marque tous les articles du ticket local comme "Envoyés"
+                ticket.articles.forEach(a => { if (!a.envoye) a.envoye = true; });
+                
+                sauvegarderTousLesTickets(); 
+                afficherTicket(); // Met à jour l'affichage avec les badges verts
             } else { 
-                // Si la requête échoue, on affiche le VRAI message d'erreur du serveur
                 const errData = await response.json();
                 showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
             }
@@ -607,10 +647,20 @@ async function envoyerEnCuisine() {
         if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter'; else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
         if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
         
-        let totalArts = 0, html = '';
+let totalArts = 0, html = '';
         ticket.articles.forEach((item) => {
-            const prix = parseFloat(item.prix) || 0; const qte = parseInt(item.quantite) || 1; const itemTotal = prix * qte; totalArts += qte; const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null';
-            html += `<div class="ticket-item"><div class="item-info"><div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''}</div><div class="item-price">${prix.toFixed(2)} DT / u</div></div><div class="item-actions"><div class="qty-control"><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1)"><i class="fas fa-minus"></i></button><span>${qte}</span><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1)"><i class="fas fa-plus"></i></button></div><div class="item-total-price">${itemTotal.toFixed(2)}</div></div></div>`;
+            const prix = parseFloat(item.prix) || 0; 
+            const qte = parseInt(item.quantite) || 1; 
+            const itemTotal = prix * qte; totalArts += qte; 
+            const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null';
+            const envoyeVar = item.envoye ? 'true' : 'false';
+
+            // 🔥 BADGE VISUEL POUR LE CAISSIER
+            const badgeCuisine = item.envoye 
+                ? `<span style="background:#dcfce7; color:#166534; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;"><i class="fas fa-check"></i> Envoyé</span>` 
+                : `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
+
+            html += `<div class="ticket-item"><div class="item-info"><div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div><div class="item-price">${prix.toFixed(2)} DT / u</div></div><div class="item-actions"><div class="qty-control"><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button><span>${qte}</span><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button></div><div class="item-total-price">${itemTotal.toFixed(2)}</div></div></div>`;
         });
         
         itemsDiv.innerHTML = html; totalSpan.innerText = ticket.total.toFixed(2) + " DT"; countSpan.innerText = totalArts + " art.";
@@ -837,8 +887,7 @@ if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'car
                             let nomPropre = article.nom || "Inconnu"; let variante = article.variante || null;
                             if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
                             let vraiPrix = parseFloat(article.prix); if (isNaN(vraiPrix) || vraiPrix===0) { const p = produits.find(p => String(p.id) === String(article.id)); if (p) vraiPrix = parseFloat(p.prix); }
-                            ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1 }, false); 
-                        }); aMiseAJour = true;
+ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1 }, false, true);                        }); aMiseAJour = true;
                     }
                 }
             }
@@ -872,14 +921,14 @@ socket.on('nouvelle_commande', (commande) => {
 });        socket.on('mise_a_jour_commande', (commande) => {
             const idx = commandesRecues.findIndex(c => c.id === commande.id); if (idx !== -1) commandesRecues[idx] = commande; else commandesRecues.push(commande);
             afficherCommandesWeb();
-if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
+                if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
                 window.commandesTraiteesTickets.add(commande.id);
                 let tableNum = String(commande.numeroTable || 'Emporter').trim(); let customLabel = null;
                 if (commande.clientName) { tableNum = 'Fidele_' + commande.clientName; customLabel = commande.clientName; }
                 if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
                 if (customLabel) tickets[tableNum].label = customLabel; if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
                 tickets[tableNum].orderIds.push(commande.id);
-                if (commande.articles) { commande.articles.forEach((a, idx) => { ajouterAuTicket(tableNum, { id: a.id||Date.now(), nom: a.nom, variante: a.variante, prix: parseFloat(a.prix)||0, quantite: parseInt(a.quantite)||1 }, false); }); }
+                if (commande.articles) { commande.articles.forEach((a, idx) => { ajouterAuTicket(tableNum, { id: a.id||Date.now(), nom: a.nom, variante: a.variante, prix: parseFloat(a.prix)||0, quantite: parseInt(a.quantite)||1 }, false, true); }); }
                 afficherListeTables(); if (String(currentTable) === tableNum) afficherTicket();
                 showNotification(`🔔 Cuisine prête: #${commande.numero}`, "#10b981");
             }
@@ -1046,7 +1095,7 @@ function afficherCommandesWeb() {
             const badgeIcon = isFidele ? '<i class="fas fa-id-card"></i> Payé par Wallet' : '<i class="fas fa-globe"></i> Payé en ligne';
             const badgeColor = isFidele ? 'var(--primary-orange)' : 'var(--info)';
             
-            return `<div style="background: white; border: 2px solid ${badgeColor}; padding: 15px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+            return `<div style="background: var(--bg-card); border: 2px solid ${badgeColor}; padding: 15px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-bottom: 10px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <strong>#${cmd.numero}</strong>
                     <span style="color:${badgeColor}; font-weight:bold;">${badgeIcon}</span>
