@@ -711,11 +711,10 @@ app.put('/api/depenses/:id', verifierToken, async (req, res) => {
     }
 });
 // 🔥 API : LIRE LES PARAMÈTRES DE FIDÉLITÉ
-// 🔥 API : LIRE LES PARAMÈTRES DE FIDÉLITÉ
-app.get('/api/settings/fidelite', verifierToken, async (req, res) => {
+// 🔥 CORRECTION : On enlève 'verifierToken' pour que le client puisse lire la config
+app.get('/api/settings/fidelite', async (req, res) => {
     try {
         let config = await StoreSettings.findOne({ type: 'fidelite' });
-        // Si ça n'existe pas, on met les valeurs par défaut des points
         if (!config) config = await new StoreSettings({ type: 'fidelite', pointsRequis: 100, valeurCredit: 5 }).save();
         res.json(config);
     } catch (err) { res.status(500).json({ error: err.message }); }
