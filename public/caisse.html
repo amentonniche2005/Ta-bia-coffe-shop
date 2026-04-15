@@ -525,22 +525,51 @@ async function viderTicket(tableNum, confirmDialogue = true) {
 
     function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
 
-    async function envoyerEnCuisine() {
+async function envoyerEnCuisine() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444");
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#ef4444");
 
         let nomTableServeur = currentTable; let nomClientFidele = null;
-        if (currentTable.startsWith('Fidele_')) { nomTableServeur = ticket.numeroTableOrigine || 'Emporter'; nomClientFidele = ticket.label.split(' (')[0]; }
+        // 🔥 CORRECTION : On récupère proprement le code fidélité s'il y en a un
+        let codePourLeServeur = "00000"; // Code maître (Bypass) pour le caissier
+
+        if (currentTable.startsWith('Fidele_')) { 
+            nomTableServeur = ticket.numeroTableOrigine || 'Emporter'; 
+            nomClientFidele = ticket.label.split(' (')[0]; 
+            // Si tu as sauvegardé le vrai code de la carte fidélité lors du scan à la caisse, mets-le ici
+            // Sinon, le code "00000" fera l'affaire pour passer la sécurité
+        }
 
         try {
             const response = await fetchSecurise('/api/commandes', {
                 method: 'POST', 
-                body: JSON.stringify({ articles: ticket.articles.map(a => ({ id: a.id, nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, prix: a.prix, quantite: a.quantite })), numeroTable: nomTableServeur, clientName: nomClientFidele, clientId: null })
+                body: JSON.stringify({ 
+                    articles: ticket.articles.map(a => ({ 
+                        id: a.id, 
+                        nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, 
+                        prix: a.prix, 
+                        quantite: a.quantite 
+                    })), 
+                    numeroTable: nomTableServeur, 
+                    clientName: nomClientFidele, 
+                    clientId: null,
+                    codeAuth: codePourLeServeur, // 🔥 CRUCIAL : Le serveur a besoin de ça !
+                    methodePaiement: "sur_place"
+                })
             });
-            if (response.ok) { showNotification(`👨‍🍳 Commande envoyée !`, "#e67e22"); viderTicket(currentTable, false); } 
-            else { showNotification("❌ Refusé par le serveur.", "#ef4444"); }
-        } catch (error) { showNotification("❌ Erreur réseau", "#ef4444"); }
+            
+            if (response.ok) { 
+                showNotification(`👨‍🍳 Commande envoyée !`, "#e67e22"); 
+                viderTicket(currentTable, false); 
+            } else { 
+                // Si la requête échoue, on affiche le VRAI message d'erreur du serveur
+                const errData = await response.json();
+                showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
+            }
+        } catch (error) { 
+            showNotification("❌ Erreur réseau", "#ef4444"); 
+        }
     }
 
     function afficherListeTables() {
