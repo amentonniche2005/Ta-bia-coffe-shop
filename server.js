@@ -674,7 +674,20 @@ app.post('/api/stock/inventaire', verifierToken, async (req, res) => {
                 const ancien = dbP.stock;
                 dbP.stock = p.stockPhysique;
                 await dbP.save();
-                ecarts.push({ produit: dbP.nom, ancien, nouveau: p.stockPhysique, ecart: p.stockPhysique - ancien });
+                
+                const ecartVal = p.stockPhysique - ancien;
+                ecarts.push({ produit: dbP.nom, ancien, nouveau: p.stockPhysique, ecart: ecartVal });
+
+                // 🔥 CORRECTION : Enregistrer la perte/gain dans les Mouvements pour la traçabilité !
+                await new Movement({ 
+                    type: 'inventaire', 
+                    produit: dbP.nom, 
+                    produitId: dbP.id, 
+                    quantite: Math.abs(ecartVal), // Toujours positif dans les mouvements
+                    ancienStock: ancien, 
+                    nouveauStock: p.stockPhysique, 
+                    raison: p.raison || 'Ajustement Inventaire' 
+                }).save();
             }
         }
         await new Inventory({ ecarts }).save();
@@ -753,59 +766,60 @@ app.get('/api/ventes', verifierToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 🔥 VENTES CAISSE (SÉCURISÉES)
+// 🔥 API : ENREGISTRER UNE VENTE (Avec Sécurité VIP et Timestamps)
 app.post('/api/ventes', verifierToken, async (req, res) => {
     try {
-        if (req.body.id) {
-            const venteExistante = await Sale.findOne({ id: req.body.id.toString() });
-            if (venteExistante) {
-                return res.json({ success: true, message: "Vente déjà synchronisée (Ignoré)" });
-            }
-        }
+        const venteData = req.body;
 
-        let vraiTotalReel = 0;
-        const articlesVendus = req.body.articles;
+        // 1. 🔥 CORRECTION VIP : Vérification et Déduction du Solde
+        const estVIP = (venteData.methodePaiement === 'carte_fidelite' || venteData.methodePaiement === 'Carte Fidélité');
+        let clientVIP = null;
 
-        for (let art of articlesVendus) {
-            const produitDb = await Product.findOne({ $or: [{ id: art.id }, { nom: art.nom }] });
+        if (estVIP) {
+            // On extrait le nom du client depuis "Fidèle: Nom Du Client"
+            let nomExtrait = venteData.tableOrigine.replace('Fidèle :', '').replace('Fidèle:', '').trim();
+            // Recherche robuste ignorant la casse
+            clientVIP = await LoyalCustomer.findOne({ nom: { $regex: new RegExp('^' + nomExtrait.split(' ')[0], 'i') } });
             
-            if (produitDb) {
-                vraiTotalReel += (produitDb.prix * art.quantite); // Utilise le vrai prix DB
-                
-                // 🔥 SÉCURITÉ : Gestion atomique du stock avec $inc
-                if (produitDb.stock !== undefined) {
-                    const produitMisAJour = await Product.findOneAndUpdate(
-                        { id: produitDb.id },
-                        { $inc: { stock: -art.quantite } },
-                        { new: true }
-                    );
+            if (!clientVIP) {
+                return res.status(400).json({ error: "Client VIP introuvable." });
+            }
+            if (clientVIP.solde < venteData.total) {
+                return res.status(400).json({ error: `Solde insuffisant ! Solde actuel: ${clientVIP.solde.toFixed(2)} DT` });
+            }
+            
+            // Déduction du Wallet
+            clientVIP.solde -= venteData.total;
+            await clientVIP.save();
+        }
 
-                    await new Movement({ 
-                        type: 'vente', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
-                        quantite: art.quantite, 
-                        ancienStock: produitMisAJour.stock + art.quantite,
-                        nouveauStock: produitMisAJour.stock, 
-                        raison: `Vente ${req.body.numero}` 
-                    }).save();
-                }
-            } else {
-                vraiTotalReel += (art.prix * art.quantite); 
+        // 2. 🔥 CORRECTION TIMESTAMPS : Préserver l'heure du mode Hors-Ligne
+        const timestampReel = venteData.timestamp || Date.now();
+        const dateReelle = venteData.date || new Date(timestampReel).toLocaleString('fr-FR');
+
+        const nouvelleVente = new Vente({
+            ...venteData,
+            timestamp: timestampReel,
+            date: dateReelle
+        });
+
+        await nouvelleVente.save();
+
+        // 3. Déduction des stocks physiques
+        if (venteData.articles && venteData.articles.length > 0) {
+            for (let article of venteData.articles) {
+                const qte = parseInt(article.quantite) || 1;
+                await Product.findOneAndUpdate(
+                    { id: article.id },
+                    { $inc: { stock: -qte } }
+                );
             }
         }
 
-        if (req.body.remise && req.body.remise > 0) {
-            vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));
-        }
-
-        const venteData = { ...req.body, total: vraiTotalReel };
-        const vente = new Sale(venteData);
-        await vente.save();
-        
-        io.emit('update_stock');
-        
-        res.json({ success: true, totalSecurise: vraiTotalReel });
-    } catch (err) { 
-        res.status(500).json({ error: err.message }); 
+        res.json({ success: true, message: "Vente enregistrée" });
+    } catch (err) {
+        console.error("Erreur vente:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 app.put('/api/commandes/partiel-ids', verifierToken, async (req, res) => {

@@ -23,13 +23,12 @@ async function fetchSecurise(url, options = {}) {
 let filtreActuel = "all";
 let commandesComptoirCache = [];
 let vueActuelle = "commandes"; // Peut être "commandes" ou "synthese"
-
 async function chargerCommandes() {
     try {
         const response = await fetchSecurise('/api/commandes');
         const commandes = await response.json();
-        // On ne charge pas les commandes déjà payées/archivées
-        commandesComptoirCache = commandes.filter(c => c.statut !== 'paye' && c.statut !== 'livree');
+        // 🔥 MODIFICATION : On garde les commandes "livree" en mémoire, on ne supprime que les "paye"
+        commandesComptoirCache = commandes.filter(c => c.statut !== 'paye');
         afficherCommandes();
     } catch (error) {
         afficherNotification("❌ Erreur de chargement des commandes", "error");
@@ -116,17 +115,22 @@ function initSocket() {
         }, 50);
     });
     
-    socket.on('mise_a_jour_commande', (commande) => {
-        const index = commandesComptoirCache.findIndex(c => String(c.id) === String(commande.id));
-        // On retire de l'écran si c'est payé (par le caissier) ou livré/archivé (par la cuisine)
-        if (commande.statut === 'paye' || commande.statut === 'livree') {
-            if (index !== -1) commandesComptoirCache.splice(index, 1);
-        } else {
-            if (index !== -1) commandesComptoirCache[index] = commande;
-            else commandesComptoirCache.push(commande);
-        }
-        afficherCommandes();
-    });
+socket.on('mise_a_jour_commande', (commande) => {
+    const index = commandesComptoirCache.findIndex(c => String(c.id) === String(commande.id));
+    // 🔥 MODIFICATION : On ne supprime que si la caisse a encaissé (paye)
+    if (commande.statut === 'paye') {
+        if (index !== -1) commandesComptoirCache.splice(index, 1);
+    } else {
+        if (index !== -1) commandesComptoirCache[index] = commande;
+        else commandesComptoirCache.push(commande);
+    }
+    afficherCommandes();
+    
+    // Met à jour la modale d'historique en temps réel si elle est ouverte
+    if (document.getElementById("modalDetails").style.display === "flex" && document.getElementById("titreModalArchives")) {
+        afficherModalArchives(); 
+    }
+});
     
     socket.on('suppression_commande', (id) => {
         commandesComptoirCache = commandesComptoirCache.filter(c => String(c.id) !== String(id));
@@ -597,3 +601,62 @@ document.addEventListener("DOMContentLoaded", () => {
         if(icon) icon.className = 'fas fa-sun';
     }
 });
+// ========== NOUVEAU : HISTORIQUE DES COMMANDES SERVIES ==========
+window.afficherModalArchives = function() {
+    // On filtre uniquement celles qui ont le statut 'livree' (servies mais pas encore payées)
+    const servies = commandesComptoirCache.filter(c => c.statut === 'livree');
+    
+    // On les trie de la plus récente à la plus ancienne
+    servies.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    let html = '';
+    if (servies.length === 0) {
+        html = '<div class="empty-message" style="text-align:center; padding:20px; color:#64748b;">Aucun plat servi en attente de paiement.</div>';
+    } else {
+        html = servies.map(cmd => {
+            const nomAffiche = cmd.clientName ? `Fidèle: ${escapeHtml(cmd.clientName)}` : (cmd.numeroTable === 'Emporter' ? 'À Emporter' : `Table ${cmd.numeroTable}`);
+            const timeStr = cmd.date ? cmd.date.split(' ')[1] : new Date(cmd.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            return `
+                <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <strong style="color:var(--text-main); font-size:1.1rem;">#${cmd.numero} - ${nomAffiche}</strong>
+                        <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">
+                            <i class="far fa-clock"></i> Servi à ${timeStr}
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span class="badge" style="background:#eef2ff; color:#3b82f6; padding:6px 12px; font-size:0.9rem;"><i class="fas fa-utensils"></i> Servie</span>
+                        <button class="btn-action" style="background:#ef4444; padding:8px 12px; margin-left:10px; border-radius:8px;" onclick="annulerLivree('${cmd.id}')" title="Annuler et remettre sur le comptoir">
+                            <i class="fas fa-undo"></i> Oups
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    document.getElementById('modalBody').innerHTML = `
+        <h3 id="titreModalArchives" style="margin-bottom:15px; color:#334155; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">
+            <i class="fas fa-history"></i> Historique des Plats Servis (Non payés)
+        </h3>
+        <div style="max-height:60vh; overflow-y:auto; padding-right:5px;">
+            ${html}
+        </div>
+    `;
+    document.getElementById('modalDetails').style.display = 'flex';
+};
+
+// Fonction pour remettre une commande servie par erreur en "Terminée" (sur le comptoir)
+window.annulerLivree = async function(id) {
+    try {
+        const response = await fetchSecurise(`/api/commandes/${id}/statut`, {
+            method: 'PUT', body: JSON.stringify({ statut: 'terminee' })
+        });
+        if (response.ok) {
+            jouerSonAction();
+            afficherNotification("🔙 Commande remise sur le comptoir !", "info");
+            // La modale va s'actualiser toute seule grâce au Socket !
+        }
+    } catch (error) { afficherNotification("❌ Erreur réseau", "error"); }
+};
