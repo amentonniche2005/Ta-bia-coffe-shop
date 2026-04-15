@@ -529,187 +529,168 @@ header {
 @keyframes notifTime { from { width: 100%; } to { width: 0%; } }
 
 /* ======================================================= */
-/* 🌙 DARK MODE PREMIUM (Midnight Lounge) - FULL UPGRADE   */
+/* 🌙 DARK MODE PREMIUM (Midnight Lounge) - ULTIMATE FIX   */
 /* ======================================================= */
+
+/* --- 1. Base et Variables --- */
 body.dark-mode {
-    background-color: #0f172a;
-    color: #f1f5f9;
+    background-color: #0f172a !important; /* Bleu nuit très profond */
+    color: #f1f5f9 !important;
+    color-scheme: dark; /* Force les scrollbars natives et inputs en mode sombre */
 }
 
-/* 1. Conteneurs et Modales (Override des styles inline 'white') */
+/* --- 2. Écran de Chargement (Splash Screen) --- */
+body.dark-mode .splash-screen {
+    background-color: #0f172a !important;
+}
+
+/* --- 3. Toutes les Cartes & Conteneurs (Produits, Modales, VIP) --- */
+body.dark-mode .product-card,
+body.dark-mode .modal-content,
 body.dark-mode .menu-item, 
 body.dark-mode .cart-content, 
 body.dark-mode .options-content,
 body.dark-mode .table-modal-content,
+body.dark-mode .client-modal-content,
 body.dark-mode .historique-commande-card,
 body.dark-mode .gamification-container,
-body.dark-mode .vip-card:not(.theme-gold) {
-    background-color: #1e293b !important;
+body.dark-mode .stat-box,
+body.dark-mode .vip-card:not(.theme-gold),
+body.dark-mode .cart-total-container,
+body.dark-mode .auth-box,
+body.dark-mode .qr-container {
+    background-color: #1e293b !important; /* Gris/Bleu ardoise */
     border: 1px solid #334155 !important;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.4) !important;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.6) !important;
 }
 
-/* 2. Textes et Titres principaux */
-body.dark-mode h1, 
-body.dark-mode h2, 
-body.dark-mode h3, 
-body.dark-mode h4,
-body.dark-mode p,
+/* --- 4. Textes globaux, Titres et Prix --- */
+body.dark-mode h1, body.dark-mode h2, body.dark-mode h3, 
+body.dark-mode h4, body.dark-mode h5, body.dark-mode p,
+body.dark-mode .product-name,
 body.dark-mode .commande-numero,
-body.dark-mode .modern-cart-item-info h4 {
-    color: #f8fafc !important;
+body.dark-mode .modern-cart-item-info h4,
+body.dark-mode .stat-value,
+body.dark-mode .cart-total-container span {
+    color: #f8fafc !important; /* Blanc cassé pour ne pas éblouir */
 }
 
-/* 3. Textes codés en dur dans le JS/HTML (La Magie opère ici) */
-body.dark-mode span[style*="color:#1e293b"],
-body.dark-mode span[style*="color: #1e293b"],
-body.dark-mode span[style*="color:#333"],
-body.dark-mode div[style*="color:#143621"],
-body.dark-mode div[style*="color: #143621"],
-body.dark-mode i[style*="color: #143621"] {
-    color: #e2e8f0 !important; /* Transforme le texte noir en texte très clair */
+body.dark-mode .product-desc,
+body.dark-mode .stat-label,
+body.dark-mode .empty-message,
+body.dark-mode .text-muted {
+    color: #94a3b8 !important; /* Gris doux pour textes secondaires */
 }
 
-body.dark-mode span[style*="color:#475569"],
-body.dark-mode span[style*="color:#64748b"],
-body.dark-mode div[style*="color:#94a3b8"],
-body.dark-mode div[style*="color: #94a3b8"] {
-    color: #94a3b8 !important; /* Transforme le texte gris foncé en gris clair */
+/* --- 5. "LE NETTOYEUR" : Écrase TOUS les styles codés en dur dans le HTML/JS --- */
+body.dark-mode [style*="background: white"],
+body.dark-mode [style*="background:white"],
+body.dark-mode [style*="background-color: white"],
+body.dark-mode [style*="background-color: #fff"],
+body.dark-mode [style*="background-color:#fff"],
+body.dark-mode [style*="background:#fff"] {
+    background-color: #1e293b !important;
 }
 
-body.dark-mode div[style*="border-top:2px dashed #e2e8f0"] {
-    border-top-color: #334155 !important;
+body.dark-mode [style*="color:#1e293b"],
+body.dark-mode [style*="color: #1e293b"],
+body.dark-mode [style*="color:#333"],
+body.dark-mode [style*="color:#000"] {
+    color: #e2e8f0 !important;
 }
 
-/* 4. Boutons Catégories */
-body.dark-mode .category-btn { 
-    background-color: #1e293b; 
-    color: #94a3b8; 
-    border-color: #334155; 
-}
-body.dark-mode .category-btn.active { 
-    background-color: var(--primary); 
-    color: white; 
-    border-color: var(--primary);
+body.dark-mode div[style*="border-top:2px dashed"],
+body.dark-mode div[style*="border-bottom: 1px solid"] {
+    border-color: #334155 !important;
 }
 
-/* 5. Inputs et Selects (Code table, Paiement...) */
+/* --- 6. Inputs, Selects, Options et Boutons de Table --- */
+body.dark-mode input,
+body.dark-mode select,
 body.dark-mode .code-input,
-body.dark-mode .sleek-select {
-    background-color: #0f172a !important;
+body.dark-mode .sleek-input,
+body.dark-mode .sleek-select,
+body.dark-mode .option-box,
+body.dark-mode .table-btn {
+    background-color: #0f172a !important; /* Fond très sombre pour les zones de saisie */
     color: #f8fafc !important;
-    border: 2px solid #334155 !important;
-}
-body.dark-mode .code-input::placeholder {
-    color: #64748b !important;
+    border: 1px solid #334155 !important;
 }
 
-/* 6. Boutons de quantité et Panier (Aspect Moderne) */
+body.dark-mode .table-btn:hover { background-color: #334155 !important; }
+body.dark-mode .table-btn.occupied {
+    background-color: #450a0a !important; /* Rouge très sombre pour table occupée */
+    border-color: #7f1d1d !important;
+    color: #fca5a5 !important;
+}
+body.dark-mode .option-input:checked + .option-box {
+    background-color: rgba(219, 128, 10, 0.15) !important;
+    border-color: var(--primary) !important;
+    color: var(--primary) !important;
+}
+
+/* --- 7. Panier et Boutons de Quantité (+ / -) --- */
 body.dark-mode .modern-cart-item {
-    background-color: #0f172a;
-    border-color: #334155;
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
 }
-body.dark-mode .modern-qty-btn {
-    background-color: #1e293b;
-    color: #f8fafc;
-    border-color: #334155;
+body.dark-mode .modern-qty-btn,
+body.dark-mode .qty-btn {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
 }
-body.dark-mode .modern-qty-btn:hover {
-    background-color: #334155;
-}
+body.dark-mode .modern-qty-btn:hover { background-color: #334155 !important; }
 
-/* 7. Boutons d'annulation et modales */
+/* --- 8. Boutons Actions (Annuler, Fermer, Logout) --- */
+body.dark-mode .btn-logout,
+body.dark-mode .close-cart, 
+body.dark-mode .close-options,
 body.dark-mode #cancelTableBtn, 
 body.dark-mode #annulerCodeBtn {
     background-color: #334155 !important;
     color: #f8fafc !important;
-}
-body.dark-mode .close-cart, 
-body.dark-mode .close-options {
-    background-color: #334155;
-    color: #e2e8f0;
+    border: none !important;
 }
 body.dark-mode .close-cart:hover, 
 body.dark-mode .close-options:hover {
-    background-color: #475569;
+    background-color: #475569 !important;
 }
 
-/* 8. Options Modales (Variantes : Lait, Sucre, etc.) */
-body.dark-mode .option-box {
-    background-color: #0f172a;
-    border-color: #334155;
-    color: #e2e8f0;
-}
-body.dark-mode .option-input:checked + .option-box {
-    background-color: rgba(219, 128, 10, 0.15); /* Orange transparent */
-    border-color: var(--primary);
-    color: var(--primary);
-}
-
-/* 9. Carte VIP et Espace Client */
-body.dark-mode .progress-bar-bg {
-    background-color: #334155 !important;
-}
-body.dark-mode .empty-message {
-    color: #64748b !important;
-}
-
-/* Force le fond du QRCode à rester transparent ou foncé */
-body.dark-mode div[style*="background: var(--surface-2)"] {
-    background-color: #1e293b !important;
-}
-/* 10. Barre de Catégories (Le défilement horizontal) */
+/* --- 9. Barre de Catégories & Hero Section --- */
 body.dark-mode .categories-wrapper,
 body.dark-mode .categories {
-    background-color: #0f172a !important; /* Se fond parfaitement avec le fond de la page */
+    background-color: #0f172a !important;
     border-bottom: 1px solid #334155 !important;
 }
-
 body.dark-mode .category-btn {
-    background-color: #1e293b !important; /* Bouton inactif foncé */
-    color: #94a3b8 !important; /* Texte gris clair */
+    background-color: #1e293b !important;
+    color: #94a3b8 !important;
     border: 1px solid #334155 !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
 }
-
-body.dark-mode .category-btn:hover {
-    background-color: #334155 !important;
-    color: #f8fafc !important; /* Devient blanc au survol */
-}
-
 body.dark-mode .category-btn.active {
-    background-color: var(--primary) !important; /* Ton Orange ou Vert principal */
+    background-color: var(--primary) !important;
     color: #ffffff !important;
     border-color: var(--primary) !important;
-    box-shadow: 0 4px 12px rgba(219, 128, 10, 0.4) !important; /* Lueur élégante */
+    box-shadow: 0 4px 12px rgba(219, 128, 10, 0.4) !important;
 }
-
-/* 11. Bannière de bienvenue (Hero Section) */
 body.dark-mode .hero {
-    /* Ajoute un voile beaucoup plus sombre sur l'image de fond pour ne pas éblouir */
     background-color: #1e293b !important;
     border-bottom: 1px solid #334155 !important;
 }
-body.dark-mode .hero h1 {
-    color: #f8fafc !important;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.8) !important;
-}
-body.dark-mode .hero p {
-    color: #cbd5e1 !important;
-}
 
-/* 12. Le Panier Flottant en bas de l'écran (Floating Cart) */
+/* --- 10. Panier Flottant (Floating Cart) --- */
 body.dark-mode .floating-cart {
-    background-color: #1e293b !important; /* Fond bleu nuit */
+    background-color: #1e293b !important;
     border: 1px solid #334155 !important;
-    box-shadow: 0 -10px 30px rgba(0,0,0,0.6) !important; /* Ombre inversée plus forte */
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.7) !important;
 }
 body.dark-mode .cart-text,
-body.dark-mode .cart-price {
-    color: #f8fafc !important; /* Texte blanc pur */
-}
-body.dark-mode .cart-badge {
-    background-color: var(--primary) !important; /* Garde la couleur d'alerte */
-    color: white !important;
-    border: 2px solid #1e293b !important; /* Contour raccord avec le fond */
-}
+body.dark-mode .cart-price { color: #f8fafc !important; }
+body.dark-mode .cart-badge { border-color: #1e293b !important; }
+
+/* --- 11. Scrollbars personnalisées pour le Dark Mode --- */
+body.dark-mode ::-webkit-scrollbar-track { background: #0f172a; }
+body.dark-mode ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+body.dark-mode ::-webkit-scrollbar-thumb:hover { background: #475569; }
