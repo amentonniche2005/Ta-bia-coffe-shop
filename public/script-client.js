@@ -955,16 +955,21 @@ window.fermerEspaceClient = function() {
 };
 
 window.deconnecterClient = function() {
+    // 1. Nettoyage absolu et définitif de la mémoire du navigateur
     sessionStorage.removeItem('tabia_auth_qr');
     sessionStorage.removeItem('client_nom_premium');
+    localStorage.removeItem('tabia_auth_qr'); // Sécurité supplémentaire
     
-    const btnEspace = document.getElementById('btnEspaceClient');
-    if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-user-circle"></i> Espace Client`;
+    // 2. On ferme la fenêtre VIP
+    const modal = document.getElementById('clientModal');
+    if (modal) modal.style.display = 'none';
     
-    document.getElementById('clientLoginCode').value = '';
-    document.getElementById('clientLoginSection').style.display = 'block';
-    document.getElementById('clientProfileSection').style.display = 'none';
-    
-    fermerEspaceClient();
-    afficherNotification("Vous êtes déconnecté.");
+    // 3. On affiche le message de confirmation
+    afficherNotification("Vous êtes déconnecté. À bientôt !");
+
+    // 4. 🔥 L'ARME FATALE : On force le navigateur à recharger la page "à zéro"
+    // Cela détruit totalement le QR Code fantôme resté bloqué dans l'adresse URL
+    setTimeout(() => {
+        window.location.replace(window.location.pathname);
+    }, 800); // On attend 0.8 seconde pour que le client ait le temps de lire la notification
 };
