@@ -925,8 +925,7 @@ window.verifierCodeClient = async function(silencieux = false) {
                         
                         // Explosion de confettis
                         if (typeof confetti === 'function') {
-                            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#f1c40f', '#e67e22', '#2ecc71', '#3498db'] });
-                        }
+confetti({ zIndex: 9999, particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#f1c40f', '#e67e22', '#2ecc71', '#3498db'] });                        }
                     } else {
                         bar.style.background = "linear-gradient(90deg, #db800a, #e65c00)";
                         msg.innerHTML = `Encore <b>${(pointsRequis - ptsClient).toFixed(1)} pts</b> pour ${valeurCadeau} DT !`;
