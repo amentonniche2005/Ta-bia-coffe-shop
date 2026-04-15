@@ -26,7 +26,38 @@ io.use((socket, next) => {
 
 // ========== 1. CONNEXION MONGODB ATLAS ==========
 const mongoURI = process.env.MONGODB_URI;
+// =================================================================
+// 🔥 DÉFINITION DES MODÈLES DE BASE DE DONNÉES (Mongoose Schemas)
+// =================================================================
 
+// 1. Modèle pour les Sessions de Caisse (Ouverture / Fermeture Z)
+const sessionCaisseSchema = new mongoose.Schema({
+    dateOuverture: { type: Date, default: Date.now },
+    fondDeCaisse: { type: Number, default: 0 },
+    statut: { type: String, default: 'ouverte' }, // 'ouverte' ou 'fermee'
+    dateFermeture: { type: Date },
+    totalVentesEspeces: { type: Number, default: 0 },
+    especesReelles: { type: Number, default: 0 },
+    ecart: { type: Number, default: 0 },
+    caTotalSession: { type: Number, default: 0 }
+});
+const SessionCaisse = mongoose.model('SessionCaisse', sessionCaisseSchema);
+
+// 2. Modèle pour les Ventes (Tickets encaissés)
+const venteSchema = new mongoose.Schema({
+    id: { type: String, required: true },
+    numero: { type: String },
+    total: { type: Number, required: true },
+    remise: { type: Number, default: 0 },
+    typePaiement: { type: String }, // complet ou partiel
+    tableOrigine: { type: String },
+    methodePaiement: { type: String, default: 'especes' }, // especes, carte, en_ligne, carte_fidelite...
+    articles: { type: Array, default: [] },
+    timestamp: { type: Number, default: () => Date.now() },
+    date: { type: String, default: () => new Date().toLocaleString('fr-FR') }
+});
+// Vérifier si le modèle Vente existe déjà pour éviter de le recréer
+const Vente = mongoose.models.Vente || mongoose.model('Vente', venteSchema);
 mongoose.connect(mongoURI)
     .then(() => console.log("🚀 TA'BIA DB : Connectée avec succès !"))
     .catch(err => { 
