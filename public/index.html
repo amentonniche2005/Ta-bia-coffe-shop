@@ -131,8 +131,8 @@
     </button>
 </div>
 
-                <div id="clientProfileSection" style="display: none;">
-                    <div class="vip-card">
+<div id="clientProfileSection" style="display: none;">
+                    <div class="vip-card" id="vipCardElement">
                         <div class="vip-card-header">
                             <span>TA'BIA Premium</span>
                             <i class="fas fa-crown" style="color: #f1c40f; font-size: 1.2rem;"></i>
@@ -153,14 +153,25 @@
                         </div>
                     </div>
                     
-<button class="auth-btn btn-logout" onclick="deconnecterClient()">
-    <i class="fas fa-sign-out-alt"></i> Me déconnecter
-</button>                </div>
+                    <div class="gamification-container" style="margin-top: 15px; background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <div class="gamification-header" style="display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; font-size: 0.9rem;">
+                            <span id="vipTierName" style="padding: 4px 10px; border-radius: 8px; background: #cd7f32; color: white;"><i class="fas fa-medal"></i> Bronze</span>
+                            <span id="vipPointsLeft" style="color: #64748b;">Calcul en cours...</span>
+                        </div>
+                        <div class="progress-bar-bg" style="width: 100%; height: 12px; background: #e2e8f0; border-radius: 10px; overflow: hidden;">
+                            <div id="vipProgressBar" style="height: 100%; width: 0%; background: var(--primary); transition: width 1s ease-in-out;"></div>
+                        </div>
+                    </div>
+                    
+                    <button class="auth-btn btn-logout" onclick="deconnecterClient()">
+                        <i class="fas fa-sign-out-alt"></i> Me déconnecter
+                    </button>                
+                </div>
 
             </div>
         </div>
     </div>
-
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script-client.js"></script>
 </body>

@@ -858,34 +858,87 @@ function configurerEvenements() {
 }
 
 
-// 2. Fonction qui interroge la base de données et dessine la carte VIP
 window.verifierCodeClient = async function(silencieux = false) {
     const code = document.getElementById('clientLoginCode').value.trim();
     if (!code) return;
 
     try {
-        // On appelle ton API (Celle qui est dans server.js)
+        // 1. On récupère les règles du gérant
+        let pointsRequis = 100; 
+        let valeurCadeau = 5;
+        try {
+            const resConfig = await fetch('/api/settings/fidelite');
+            if (resConfig.ok) {
+                const config = await resConfig.json();
+                pointsRequis = parseFloat(config.pointsRequis) || 100;
+                valeurCadeau = parseFloat(config.valeurCredit) || 5;
+            }
+        } catch(e) {}
+
+        // 2. On récupère le client
         const res = await fetch(`/api/customers/verify/${code}`);
         const data = await res.json();
 
         if (res.ok && data.success) {
-            // Remplissage de la Carte VIP HTML avec les données de la DB
-            document.getElementById('vipName').innerText = `${data.customer.prenom} ${data.customer.nom}`;
-            document.getElementById('vipCode').innerText = data.customer.codeFidelite;
-            document.getElementById('vipPoints').innerHTML = `${parseFloat(data.customer.points || 0).toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
-            document.getElementById('vipSolde').innerText = parseFloat(data.customer.solde || 0).toFixed(2) + ' DT';
+            const customer = data.customer;
+            const ptsClient = parseFloat(customer.points || 0);
 
-            // On cache la zone de code, on affiche la carte
+            // Textes basiques
+            document.getElementById('vipName').innerText = `${customer.prenom} ${customer.nom}`;
+            document.getElementById('vipCode').innerText = customer.codeFidelite;
+            document.getElementById('vipPoints').innerHTML = `${ptsClient.toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
+            document.getElementById('vipSolde').innerText = parseFloat(customer.solde || 0).toFixed(2) + ' DT';
+
+            // Affichage de la vue
             document.getElementById('clientLoginSection').style.display = 'none';
             document.getElementById('clientProfileSection').style.display = 'block';
+
+            // 3. LA JAUGE, L'OR ET LES CONFETTIS
+            const badge = document.getElementById('vipTierName');
+            const msg = document.getElementById('vipPointsLeft');
+            const bar = document.getElementById('vipProgressBar');
+            const carteVip = document.getElementById('vipCardElement');
+
+            if (bar && msg && badge) {
+                bar.style.width = "0%"; 
+                let pourcentage = (ptsClient / pointsRequis) * 100;
+                if (pourcentage > 100) pourcentage = 100;
+                
+                const estFini = ptsClient >= pointsRequis;
+
+                // Application du thème Gold
+                if (carteVip) {
+                    if (estFini) carteVip.classList.add('theme-gold');
+                    else carteVip.classList.remove('theme-gold');
+                }
+
+                badge.innerHTML = estFini ? `<i class="fas fa-gift"></i> Cadeau de ${valeurCadeau} DT` : `<i class="fas fa-medal"></i> Bronze`;
+                badge.style.background = estFini ? "#f1c40f" : "#cd7f32";
+                badge.style.color = estFini ? "#2c3e50" : "white";
+
+                setTimeout(() => {
+                    bar.style.width = `${pourcentage}%`;
+                    
+                    if (estFini) {
+                        bar.style.background = "linear-gradient(90deg, #10b981, #059669)"; 
+                        msg.innerHTML = `<span style="color:#10b981; font-weight:800;">🎉 Objectif atteint !</span>`;
+                        
+                        // Explosion de confettis
+                        if (typeof confetti === 'function') {
+                            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#f1c40f', '#e67e22', '#2ecc71', '#3498db'] });
+                        }
+                    } else {
+                        bar.style.background = "linear-gradient(90deg, #db800a, #e65c00)";
+                        msg.innerHTML = `Encore <b>${(pointsRequis - ptsClient).toFixed(1)} pts</b> pour ${valeurCadeau} DT !`;
+                    }
+                }, 100);
+            }
             
-            // On met à jour le bouton en haut à droite de l'écran
             const btnEspace = document.getElementById('btnEspaceClient');
-            if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${data.customer.prenom}`;
+            if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${customer.prenom}`;
             
-            // On sauvegarde en mémoire
             sessionStorage.setItem('tabia_auth_qr', code);
-            sessionStorage.setItem('client_nom_premium', `${data.customer.prenom} ${data.customer.nom}`);
+            sessionStorage.setItem('client_nom_premium', `${customer.prenom} ${customer.nom}`);
 
             if (!silencieux) afficherNotification(`✨ Profil chargé avec succès !`);
         } else {
