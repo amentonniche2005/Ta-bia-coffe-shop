@@ -277,8 +277,7 @@ app.post('/api/commandes', async (req, res) => {
         res.status(500).json({ error: err.message }); 
     }
 });
-// 🔥 API : CONVERTIR LES POINTS EN SOLDE VIP
-// 🔥 API : CONVERTIR LES POINTS EN SOLDE VIP
+
 app.post('/api/customers/convertir-points', verifierToken, async (req, res) => {
     try {
         const { codeFidelite } = req.body;

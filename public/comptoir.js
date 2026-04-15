@@ -116,31 +116,17 @@ function initSocket() {
     });
     
 socket.on('mise_a_jour_commande', (commande) => {
-        const index = commandesComptoirCache.findIndex(c => String(c.id) === String(commande.id));
-        // On ne supprime que si la caisse a encaissé (paye)
-        if (commande.statut === 'paye') {
-            if (index !== -1) commandesComptoirCache.splice(index, 1);
-        } else {
-            if (index !== -1) commandesComptoirCache[index] = commande;
-            else commandesComptoirCache.push(commande);
-        }
-        afficherCommandes();
-        
-        // 🔥 CORRECTION : Mise à jour intelligente des modales
-        const modal = document.getElementById("modalDetails");
-        const title = document.getElementById("modalTitle").innerHTML;
-        
-        if (modal.style.display === "flex") {
-            // Si c'est la modale des archives qui est ouverte
-            if (title.includes("Plats Servis")) {
-                afficherModalArchives(); 
-            } 
-            // Si c'est la modale de détails d'une commande spécifique
-            else if (derniereTableModal === commande.numeroTable) {
-                voirDetails(commande.id);
-            }
-        }
-    });
+    // ✅ BON CODE : La commande ne disparaît de la cuisine QUE si elle est servie
+    const index = commandesComptoirCache.findIndex(c => c.id === commande.id);
+    
+    if (commande.statutCuisine === 'servi') {
+        if (index !== -1) commandesComptoirCache.splice(index, 1); // Disparaît de la cuisine
+    } else {
+        if (index !== -1) commandesComptoirCache[index] = commande;
+        else commandesComptoirCache.push(commande); // Reste à l'écran
+    }
+    afficherCommandes();
+});
     
     socket.on('suppression_commande', (id) => {
         commandesComptoirCache = commandesComptoirCache.filter(c => String(c.id) !== String(id));
