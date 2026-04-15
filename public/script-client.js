@@ -11,9 +11,9 @@ socket.on('nouvelle_commande', (data) => {
 });
 
 // 3. Si un statut change 
-socket.on('mise_a_jour_commande', (data) => { // Ajoute 'data' ici
+socket.on('mise_a_jour_commande', (data) => { // <-- Ajoute (data) ici
     chargerMesCommandes(); 
-    updateLiveActivity(data.statut, data.numero); // Utilise 'data' au lieu de 'commande'
+    if (data) updateLiveActivity(data.statut, data.numero); // <-- Utilise data au lieu de commande
 });
 
 // ========== VARIABLES GLOBALES ==========
