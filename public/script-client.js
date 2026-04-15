@@ -810,16 +810,63 @@ function initClientSocket() {
         }
     });
 }
+window.afficherNotification = function(msg, type = "success") {
+    // 1. On supprime l'ancienne notification s'il y en a une (pour éviter qu'elles se superposent)
+    const anciennes = document.querySelectorAll('.notification-premium');
+    anciennes.forEach(n => n.remove());
 
-function afficherNotification(msg, type = "success") {
-    const n = document.createElement("div");
-    n.className = `notification ${type === "error" ? "notification-error" : ""}`;
-    n.style.paddingBottom = "12px"; // Fait de la place pour la barre
-    n.innerHTML = `
-        <div style="display:flex; align-items:center;"><i class="fas ${type === "success" ? "fa-check-circle" : "fa-exclamation-circle"}"></i> ${msg}</div>
-        <div class="notif-progress"></div> `;
-    document.body.appendChild(n);
-    setTimeout(() => { n.style.transform = "translate(-50%, -100px)"; n.style.opacity = "0"; setTimeout(() => n.remove(), 300); }, 3000);
+    // 2. On crée la nouvelle bulle
+    const notif = document.createElement("div");
+    notif.className = "notification-premium";
+    
+    // 3. Design "Blindé" directement en JS (Infaillible)
+    notif.style.position = "fixed";
+    notif.style.top = "20px";
+    notif.style.left = "50%";
+    notif.style.transform = "translateX(-50%) translateY(-150px)"; // Cachée en haut au départ
+    notif.style.backgroundColor = type === "error" ? "#e74c3c" : "#143621"; // Rouge (Erreur) ou Vert (Succès)
+    notif.style.color = "white";
+    notif.style.padding = "16px 24px";
+    notif.style.borderRadius = "14px";
+    notif.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)";
+    notif.style.zIndex = "9999999"; // Toujours au premier plan
+    notif.style.display = "flex";
+    notif.style.flexDirection = "column";
+    notif.style.minWidth = "280px";
+    notif.style.maxWidth = "90%";
+    notif.style.transition = "transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease"; // Effet de rebond
+    notif.style.overflow = "hidden";
+
+    // 4. Le contenu avec la Barre de temps
+    const icone = type === "success" ? "fa-check-circle" : "fa-exclamation-circle";
+    const couleurIcone = type === "error" ? "#ffcccc" : "#a7f3d0"; // Icône légèrement plus claire
+
+    notif.innerHTML = `
+        <div style="display:flex; align-items:center; font-weight: 600; font-size: 1rem;">
+            <i class="fas ${icone}" style="margin-right: 12px; font-size: 1.3rem; color: ${couleurIcone};"></i> 
+            ${msg}
+        </div>
+        <div style="position: absolute; bottom: 0; left: 0; height: 4px; background: rgba(255,255,255,0.4); width: 100%; transition: width 3s linear;" id="notifBar"></div>
+    `;
+
+    document.body.appendChild(notif);
+
+    // 5. Animation d'entrée (Descente avec rebond)
+    setTimeout(() => {
+        notif.style.transform = "translateX(-50%) translateY(0)";
+        // Lancement de la barre de temps
+        setTimeout(() => { 
+            const barre = document.getElementById('notifBar');
+            if(barre) barre.style.width = "0%"; 
+        }, 50);
+    }, 10);
+
+    // 6. Animation de sortie après 3 secondes (Remontée et disparition)
+    setTimeout(() => { 
+        notif.style.transform = "translateX(-50%) translateY(-150px)"; 
+        notif.style.opacity = "0"; 
+        setTimeout(() => notif.remove(), 500); 
+    }, 3000);
 }
 // 🔥 NOUVEAU : SYNCHRONISATION DES COMMANDES AU DÉMARRAGE
 async function synchroniserMesCommandesAvecServeur() {
