@@ -354,16 +354,7 @@
     <div style="text-align:center; margin-top:15px; font-size:12px; font-weight:bold;">Merci de votre visite !</div>
     <div style="text-align:center; margin-top:5px;">- - - - - - - - - - - - - - - </div>
 </div>
-<div id="modalOptionsCaisse" class="modal-overlay">
-    <div class="modal-content" style="max-width: 400px;">
-        <div class="modal-header">
-            <h3 id="optionsCaisseTitle">Choix Variante</h3>
-            <button class="close-btn" onclick="document.getElementById('modalOptionsCaisse').classList.remove('active')">&times;</button>
-        </div>
-        <div id="optionsCaisseList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; max-height: 40vh; overflow-y: auto;">
-            </div>
-    </div>
-</div>
+
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
@@ -633,298 +624,35 @@ async function viderTicket(tableNum, confirmDialogue = true) {
         document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => { activeCategory = btn.dataset.cat; renderCategories(); renderProducts(); }));
     }
 
-// ========== AFFICHAGE ET GESTION DES PRODUITS (AVEC VARIANTES SERVEUR) ==========
-    const variantesConfig = [
-        { mots: ['gazeuse', 'soda'], options: ['Coca-Cola', 'Coca Zéro', 'Boga Cidre', 'Fanta', 'Sprite'] },
-        { mots: ['cafe', 'café', 'espresso', 'capucin', 'direct'], options: ['Normal', 'Serré', 'Allongé', 'Sans Sucre'] },
-        { mots: ['jus', 'citronnade', 'mojito'], options: ['Bien frais', 'Glaçons à part', 'Sans sucre ajouté'] },
-        { mots: ['thé', 'the', 'infusion'], options: ['Normal', 'Léger en sucre', 'Sans sucre', 'Menthe extra'] },
-        { mots: ['crêpe', 'gaufre', 'crepe'], options: ['Chocolat au lait', 'Chocolat Noir', 'Beurre salé', 'Miel'] }
-    ];
-
     function renderProducts() {
-        const grid = document.getElementById('productsGrid'); 
-        const searchTerm = (document.getElementById('searchInput')?.value || "").toLowerCase();
-        if (!grid) return;
-        
-        let filtered = produits;
-        if (activeCategory !== "all") { filtered = filtered.filter(p => p.categorie === activeCategory); }
-        if (searchTerm !== "") { filtered = filtered.filter(p => p.nom.toLowerCase().includes(searchTerm)); }
-        
-        if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit trouvé</div>'; return; }
-        
-        grid.innerHTML = filtered.map(p => { 
-            const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
-            return `<div class="product-card" data-id="${p.id}">
-                        <div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div>
-                        <div class="product-name">${escapeHtml(p.nom)}</div>
-                        <div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div>
-                    </div>`; 
-        }).join('');
-        
-        // GESTION DU CLIC SUR UN PRODUIT
-        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', function() { 
-            if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
-            
-            // Effet visuel au clic
-            this.style.opacity = "0.5"; setTimeout(() => this.style.opacity = "1", 100);
-
-            // 🔥 1. ON RÉCUPÈRE LE PRODUIT COMPLET DEPUIS LA BASE DE DONNÉES
-            const prodId = card.dataset.id;
-            const produitComplet = produits.find(p => String(p.id) === String(prodId));
-            
-            if (!produitComplet) return;
-
-            let optionsTrouvees = null;
-            let isMultiple = false;
-
-            // 🔥 2. LOGIQUE EXACTE DU CLIENT : Lecture depuis le serveur d'abord
-            if (produitComplet.typeChoix === 'aucun') {
-                // Pas d'options définies
-            } else if (produitComplet.variantes && typeof produitComplet.variantes === 'string' && produitComplet.variantes.trim() !== "") {
-                // Les options viennent de ton dashboard !
-                optionsTrouvees = produitComplet.variantes.split(',').map(v => v.trim());
-                isMultiple = (produitComplet.typeChoix === 'multiple');
-            } else {
-                // Fallback (sécurité si le serveur n'a rien)
-                const nomLower = produitComplet.nom.toLowerCase();
-                for (let config of variantesConfig) {
-                    if (config.mots.some(mot => nomLower.includes(mot))) { optionsTrouvees = config.options; break; }
-                }
-            }
-
-            // 3. Affichage Modale ou Ajout Direct
-            if (optionsTrouvees && optionsTrouvees.length > 0) {
-                afficherModalOptionsCaisse(produitComplet, optionsTrouvees, isMultiple);
-            } else {
-                ajouterAuTicket(currentTable, { id: produitComplet.id, nom: produitComplet.nom, prix: parseFloat(produitComplet.prix) });
-            }
-        }));
+        const grid = document.getElementById('productsGrid'); if (!grid) return;
+        let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
+        if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit</div>'; return; }
+        grid.innerHTML = filtered.map(p => { const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; return `<div class="product-card" data-id="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}"><div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div><div class="product-name">${escapeHtml(p.nom)}</div><div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div></div>`; }).join('');
+        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); ajouterAuTicket(currentTable, { id: parseInt(card.dataset.id) || Date.now(), nom: card.dataset.nom, prix: parseFloat(card.dataset.prix) }); }));
     }
 
-    // Écouteur pour la barre de recherche
-    document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById('searchInput')?.addEventListener('input', renderProducts);
-    });
-
-    // ========== LOGIQUE MODALE D'OPTIONS (ADAPTÉE POUR LA CAISSE) ==========
-    let produitEnAttenteCaisse = null;
-    let optionsChoisiesCaisse = [];
-
-    function afficherModalOptionsCaisse(produit, options, isMultiple) {
-        document.getElementById('optionsCaisseTitle').innerText = produit.nom;
-        const listDiv = document.getElementById('optionsCaisseList');
-        
-        produitEnAttenteCaisse = produit;
-        optionsChoisiesCaisse = [];
-
-        if (isMultiple) {
-            // MODE CHOIX MULTIPLE (Checkboxes, nécessite de valider)
-            listDiv.innerHTML = options.map((opt, idx) => `
-                <button class="btn-action option-btn-caisse" id="optCaisse_${idx}" style="background: #f1f5f9; color: var(--text-dark); border: 2px solid var(--border-soft); justify-content: flex-start; padding: 15px;" 
-                onclick="toggleOptionCaisse(${idx}, '${escapeHtml(opt)}')">
-                    <i class="far fa-square check-icon-caisse" style="color: var(--text-muted); font-size: 1.2rem; width: 25px;"></i> ${opt}
-                </button>
-            `).join('') + `
-            <button class="btn-valider" style="margin-top: 15px; width: 100%; padding: 15px; font-size: 1.1rem;" onclick="validerOptionsMultiplesCaisse()">
-                Valider
-            </button>`;
-        } else {
-            // MODE CHOIX UNIQUE (Ultra rapide : 1 clic ajoute au ticket et ferme la fenêtre)
-            listDiv.innerHTML = options.map(opt => `
-                <button class="btn-action" style="background: #f1f5f9; color: var(--text-dark); border: 2px solid var(--border-soft); justify-content: flex-start; padding: 15px;" 
-                onclick="validerOptionUniqueCaisse('${escapeHtml(opt)}')">
-                    <i class="fas fa-arrow-right" style="color: var(--primary-orange); width: 25px;"></i> ${opt}
-                </button>
-            `).join('');
-        }
-        
-        document.getElementById('modalOptionsCaisse').classList.add('active');
-    }
-
-    // Fonction si c'est un Choix Unique (Ferme direct)
-    window.validerOptionUniqueCaisse = function(variante) {
-        if (!produitEnAttenteCaisse) return;
-        ajouterAuTicket(currentTable, { 
-            id: produitEnAttenteCaisse.id, nom: produitEnAttenteCaisse.nom, 
-            prix: parseFloat(produitEnAttenteCaisse.prix), variante: variante 
-        });
-        document.getElementById('modalOptionsCaisse').classList.remove('active');
-    };
-
-    // Fonction pour cocher/décocher un Choix Multiple
-    window.toggleOptionCaisse = function(idx, opt) {
-        const btn = document.getElementById(`optCaisse_${idx}`);
-        const icon = btn.querySelector('.check-icon-caisse');
-        
-        const indexInArray = optionsChoisiesCaisse.indexOf(opt);
-        if (indexInArray === -1) {
-            optionsChoisiesCaisse.push(opt);
-            btn.style.borderColor = "var(--primary-orange)";
-            btn.style.background = "#fffbeb";
-            icon.className = "fas fa-check-square check-icon-caisse";
-            icon.style.color = "var(--primary-orange)";
-        } else {
-            optionsChoisiesCaisse.splice(indexInArray, 1);
-            btn.style.borderColor = "var(--border-soft)";
-            btn.style.background = "#f1f5f9";
-            icon.className = "far fa-square check-icon-caisse";
-            icon.style.color = "var(--text-muted)";
-        }
-    };
-
-    // Validation finale pour les Choix Multiples
-    window.validerOptionsMultiplesCaisse = function() {
-        if (!produitEnAttenteCaisse) return;
-        const varianteStr = optionsChoisiesCaisse.length > 0 ? optionsChoisiesCaisse.join(', ') : null;
-        
-        ajouterAuTicket(currentTable, { 
-            id: produitEnAttenteCaisse.id, nom: produitEnAttenteCaisse.nom, 
-            prix: parseFloat(produitEnAttenteCaisse.prix), variante: varianteStr 
-        });
-        document.getElementById('modalOptionsCaisse').classList.remove('active');
-    };
-
-function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
+    function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
         if (!caisseOuverte) { showNotification("❌ Caisse fermée !", "#ef4444"); return; }
         const container = document.getElementById('containerModalPaiement');
-        
-        // Nouvelle Modale avec Numpad Intégré
-        container.innerHTML = `
-        <div id="modalPaiement" class="modal-overlay active">
-            <div class="modal-content" style="max-width: 800px; display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
-                
-                <div>
-                    <div class="modal-header" style="border:none; margin-bottom:0;">
-                        <h3><i class="fas fa-wallet"></i> ${isPartial ? 'Paiement Partiel' : 'Encaissement'}</h3>
-                    </div>
-                    <div class="montant-total" id="modalTotal" style="font-size: 2.5rem;">${total.toFixed(2)} DT</div>
-                    
-                    <div class="fast-cash-grid" id="fastCashGrid">
-                        <button class="btn-fast-cash" onclick="appuyerFastCash(5)">5 <span>DT</span></button>
-                        <button class="btn-fast-cash" onclick="appuyerFastCash(10)">10 <span>DT</span></button>
-                        <button class="btn-fast-cash" onclick="appuyerFastCash(20)">20 <span>DT</span></button>
-                        <button class="btn-fast-cash" onclick="appuyerFastCash(50)">50 <span>DT</span></button>
-                    </div>
-
-                    <div class="form-group" id="montantRecuDiv">
-                        <label>Montant reçu (Cible Numpad)</label>
-                        <input type="text" id="montantRecuInput" class="numpad-target active-input" value="${total.toFixed(2)}" readonly>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Mode de paiement</label>
-                        <select id="selectModePaiement">
-                            <option value="especes">💰 Espèces</option>
-                            <option value="carte">💳 Carte Bancaire</option>
-                            <option value="ticket_resto">🎫 Ticket Resto</option>
-                        </select>
-                    </div>
-
-                    <div id="monnaieDiv" style="display:none; text-align:center; padding:15px; background:#ecfdf5; border-radius:12px; color:var(--success); font-weight:bold; font-size:1.2rem; border:2px solid #a7f3d0;">
-                        <i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT
-                    </div>
-                </div>
-
-                <div style="background: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid var(--border-soft); display:flex; flex-direction:column;">
-                    <div style="text-align:right; margin-bottom:10px;">
-                        <button type="button" class="close-btn" id="closePaiementBtn" style="display:inline-flex;">&times;</button>
-                    </div>
-                    
-                    <div class="numpad-grid">
-                        <button class="btn-numpad" onclick="appuyerNumpad('7')">7</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('8')">8</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('9')">9</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('4')">4</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('5')">5</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('6')">6</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('1')">1</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('2')">2</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('3')">3</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('0')">0</button>
-                        <button class="btn-numpad" onclick="appuyerNumpad('.')">.</button>
-                        <button class="btn-numpad action" onclick="appuyerNumpad('DEL')"><i class="fas fa-backspace"></i></button>
-                    </div>
-                    
-                    <button type="button" id="validerPaiementBtn" class="btn-valider" style="margin-top: 20px; width: 100%;">ENCAISSER</button>
-                </div>
-
-            </div>
-        </div>`;
-
-        const modal = document.getElementById("modalPaiement"); 
-        let totalAvecRemise = total;
-        
-        const montantRecuInput = document.getElementById("montantRecuInput"); 
-        const monnaieDiv = document.getElementById("monnaieDiv"); 
-        const monnaieSpan = document.getElementById("monnaieRendre"); 
-        const selectMode = document.getElementById("selectModePaiement"); 
-        const montantRecuDiv = document.getElementById("montantRecuDiv");
-        const fastCashGrid = document.getElementById("fastCashGrid");
-
-        // Calcul de la monnaie
-        window.calculerMonnaie = () => { 
-            const recu = parseFloat(montantRecuInput.value) || 0; 
-            const monnaie = recu - totalAvecRemise; 
-            if(recu > 0 && monnaie >= 0) { 
-                monnaieSpan.innerText = monnaie.toFixed(2); 
-                monnaieDiv.style.display = "block"; 
-            } else { 
-                monnaieDiv.style.display = "none"; 
-            } 
-        };
-
-        // Fonctions du Numpad Tactile
-        window.appuyerNumpad = (val) => {
-            let currentVal = montantRecuInput.value;
-            // Si on tape un chiffre et que le montant actuel est exactement le total (sélectionné par défaut), on l'écrase
-            if (parseFloat(currentVal) === totalAvecRemise && val !== 'DEL' && currentVal.indexOf('.') === -1) {
-                currentVal = '';
-            }
-            
-            if (val === 'DEL') {
-                montantRecuInput.value = currentVal.slice(0, -1);
-            } else if (val === '.') {
-                if (!currentVal.includes('.')) montantRecuInput.value += '.';
-            } else {
-                montantRecuInput.value = currentVal + val;
-            }
-            if (montantRecuInput.value === '') montantRecuInput.value = '0';
-            calculerMonnaie();
-        };
-
-        // Fast Cash
-        window.appuyerFastCash = (montant) => {
-            montantRecuInput.value = montant.toFixed(2);
-            calculerMonnaie();
-        };
-
-        selectMode.addEventListener('change', () => { 
-            if (selectMode.value === "especes") {
-                montantRecuDiv.style.display = "block";
-                fastCashGrid.style.display = "grid";
-            } else {
-                montantRecuDiv.style.display = "none";
-                fastCashGrid.style.display = "none";
-                monnaieDiv.style.display = "none";
-            }
-        });
+        container.innerHTML = `<div id="modalPaiement" class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-wallet"></i> ${isPartial ? 'Paiement Partiel' : 'Encaissement'}</h3><button type="button" class="close-btn" id="closePaiementBtn">&times;</button></div><div class="montant-total" id="modalTotal">${total.toFixed(2)} DT</div><div class="form-group"><label>Remise (%)</label><div style="display:flex; gap:10px;"><input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0"><button type="button" id="appliquerRemiseBtn" class="btn-valider" style="flex:0 0 auto; padding: 0 20px;"><i class="fas fa-check"></i></button></div></div><div class="form-group"><label>Mode de paiement</label><select id="selectModePaiement"><option value="especes">💰 Espèces</option><option value="carte">💳 Carte Bancaire</option><option value="ticket_resto">🎫 Ticket Resto</option></select></div><div class="form-group" id="montantRecuDiv"><label>Montant reçu (DT)</label><input type="number" id="montantRecuInput" step="0.1" value="${total.toFixed(2)}"></div><div id="monnaieDiv" style="display:none; text-align:center; padding:15px; background:#ecfdf5; border-radius:12px; color:var(--success); font-weight:bold; font-size:1.2rem; margin-bottom:15px; border:2px solid #a7f3d0;"><i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT</div><div class="modal-buttons"><button type="button" id="validerPaiementBtn" class="btn-valider">Valider</button></div></div></div>`;
+        const modal = document.getElementById("modalPaiement"); let remiseActuelle = 0; let totalAvecRemise = total;
+        const remiseInput = document.getElementById("remiseInput"); const appliquerRemise = document.getElementById("appliquerRemiseBtn"); const modalTotal = document.getElementById("modalTotal"); const montantRecuInput = document.getElementById("montantRecuInput"); const monnaieDiv = document.getElementById("monnaieDiv"); const monnaieSpan = document.getElementById("monnaieRendre"); const selectMode = document.getElementById("selectModePaiement"); const montantRecuDiv = document.getElementById("montantRecuDiv");
+        const updateTotal = () => { totalAvecRemise = total * (1 - remiseActuelle/100); modalTotal.innerText = totalAvecRemise.toFixed(2) + " DT"; montantRecuInput.value = totalAvecRemise.toFixed(2); calculerMonnaie(); };
+        const calculerMonnaie = () => { const recu = parseFloat(montantRecuInput.value) || 0; const monnaie = recu - totalAvecRemise; if(recu > 0 && monnaie >= 0) { monnaieSpan.innerText = monnaie.toFixed(2); monnaieDiv.style.display = "block"; } else { monnaieDiv.style.display = "none"; } };
+        appliquerRemise.onclick = () => { let val = parseFloat(remiseInput.value) || 0; if(val<0) val=0; if(val>100) val=100; remiseActuelle = val; remiseInput.value = val; updateTotal(); };
+        montantRecuInput.addEventListener('input', calculerMonnaie);
+        selectMode.addEventListener('change', () => { montantRecuDiv.style.display = (selectMode.value === "especes") ? "block" : "none"; monnaieDiv.style.display = "none"; });
         
         document.getElementById("validerPaiementBtn").onclick = async () => {
-            if(selectMode.value === "especes") { 
-                const recu = parseFloat(montantRecuInput.value) || 0; 
-                if(recu < totalAvecRemise) { showNotification("❌ Montant reçu insuffisant", "#ef4444"); return; } 
-            }
-            document.getElementById("validerPaiementBtn").disabled = true; 
-            document.getElementById("validerPaiementBtn").innerHTML = "⏳ Encaissement...";
+            if(selectMode.value === "especes") { const recu = parseFloat(montantRecuInput.value) || 0; if(recu < totalAvecRemise) { showNotification("❌ Montant insuffisant", "#ef4444"); return; } }
+            document.getElementById("validerPaiementBtn").disabled = true; document.getElementById("validerPaiementBtn").innerHTML = "⏳...";
             try {
-                if (isPartial) await executerPaiementPartiel(ticketArticles, totalAvecRemise, 0, selectedData, selectMode.value);
-                else await executerPaiementComplet(ticketArticles, totalAvecRemise, 0, selectMode.value);
+                if (isPartial) await executerPaiementPartiel(ticketArticles, totalAvecRemise, remiseActuelle, selectedData, selectMode.value);
+                else await executerPaiementComplet(ticketArticles, totalAvecRemise, remiseActuelle, selectMode.value);
             } catch (error) {} finally { modal.remove(); }
         };
-
         document.getElementById("closePaiementBtn").onclick = () => modal.remove();
-        calculerMonnaie();
     }
 
 async function executerPaiementComplet(articles, totalPaye, remise, methodePaiement = 'especes') {
@@ -1178,18 +906,108 @@ if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'car
         };
     }
 
-    function afficherModalFermetureCaisse() {
+function afficherModalFermetureCaisse() {
         const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `<div class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-moon"></i> Clôture (Z)</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div><div class="form-group"><label>Total Espèces comptées (DT)</label><input type="number" id="especesReellesInput" step="0.1" style="font-size:2rem; text-align:center;"></div><div class="modal-buttons"><button type="button" id="validerClotureBtn" class="btn-valider" style="background:var(--danger); box-shadow:none;">Clôturer</button></div></div></div>`;
+        container.innerHTML = `
+            <div class="modal-overlay active">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-moon"></i> Clôture de Caisse (Z)</h3>
+                        <button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                    </div>
+                    <div class="form-group" style="background: #fff5f5; padding: 15px; border-radius: 12px; border: 1px dashed var(--danger);">
+                        <label style="color: var(--danger); font-weight: bold;"><i class="fas fa-money-bill-wave"></i> Total des Espèces comptées dans le tiroir (DT)</label>
+                        <input type="number" id="especesReellesInput" step="0.1" style="font-size:2.5rem; text-align:center; font-weight: 900; color: var(--danger);">
+                    </div>
+                    <div class="modal-buttons">
+                        <button type="button" id="validerClotureBtn" class="btn-valider" style="background:var(--danger); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">Valider la Clôture</button>
+                    </div>
+                </div>
+            </div>`;
+
         document.getElementById('validerClotureBtn').onclick = async function() {
-            const reel = parseFloat(document.getElementById('especesReellesInput').value); if (isNaN(reel)) return; this.disabled = true;
+            const reel = parseFloat(document.getElementById('especesReellesInput').value); 
+            if (isNaN(reel)) {
+                showNotification("❌ Veuillez entrer le montant compté", "#ef4444");
+                return; 
+            }
+            
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Clôture en cours...';
+            
             try {
-                const res = await fetchSecurise('/api/tiroir/fermer', { method: 'POST', body: JSON.stringify({ reel }) }); const data = await res.json();
-                let messageEcart = data.session.ecart === 0 ? "✅ Parfait" : (data.session.ecart > 0 ? `📈 +${data.session.ecart.toFixed(2)}` : `⚠️ ${data.session.ecart.toFixed(2)}`);
-                container.innerHTML = `<div class="modal-overlay active"><div class="modal-content" style="text-align:center;"><h2>Rapport Z</h2><div style="background:#f8fafc; padding:20px; border-radius:12px; margin:20px 0; text-align:left;"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Fond:</span> <strong>${data.session.fondDeCaisse.toFixed(2)}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Ventes (Esp):</span> <strong>+ ${data.session.totalVentesEspeces.toFixed(2)}</strong></div><hr style="margin:15px 0;"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Attendu:</span> <strong>${data.attendu.toFixed(2)}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Compté:</span> <strong>${data.session.especesReelles.toFixed(2)}</strong></div></div><h1 style="margin-bottom:20px;">${messageEcart}</h1><button class="btn-valider" style="width:100%; margin-bottom:10px; background:var(--text-dark);" onclick="window.print()">🖨️ Imprimer</button><button class="btn-annuler" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">Fermer</button></div></div>`;
+                const res = await fetchSecurise('/api/tiroir/fermer', { method: 'POST', body: JSON.stringify({ reel }) }); 
+                const data = await res.json();
+                
+                if(!res.ok) {
+                    showNotification("❌ " + (data.error || "Erreur"), "#ef4444");
+                    return;
+                }
+
+                // Déterminer le message d'écart
+                let messageEcart = data.session.ecart === 0 ? 
+                    "<span style='color:var(--success);'><i class='fas fa-check-circle'></i> Caisse Juste</span>" : 
+                    (data.session.ecart > 0 ? 
+                        `<span style='color:#3498db;'><i class='fas fa-arrow-up'></i> Excédent (+${data.session.ecart.toFixed(2)} DT)</span>` : 
+                        `<span style='color:var(--danger);'><i class='fas fa-exclamation-triangle'></i> Manquant (${data.session.ecart.toFixed(2)} DT)</span>`);
+
+                // Affichage du Rapport Z Ultra-Détaillé
+                container.innerHTML = `
+                    <div class="modal-overlay active" id="impressionZoneZ">
+                        <div class="modal-content" style="text-align:center; max-width: 500px;">
+                            <h2 style="color: var(--primary-green); font-family: 'Cinzel', serif; font-weight: 800;">RAPPORT Z (CLÔTURE)</h2>
+                            <p style="color:var(--text-muted); margin-bottom: 20px;">Synthèse financière de la session</p>
+                            
+                            <div style="background:#f8fafc; padding:20px; border-radius:12px; text-align:left; border: 1px solid var(--border-soft);">
+                                
+                                <h4 style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; color: var(--text-dark);"><i class="fas fa-chart-line"></i> Chiffre d'Affaires (CA)</h4>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-weight: 900; font-size: 1.3rem; color: var(--success);">
+                                    <span>CA Total Généré:</span> <span>${data.rapportZ.totalCA.toFixed(2)} DT</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size: 0.9rem; color: var(--text-muted);">
+                                    <span>Nombre de tickets émis:</span> <span>${data.rapportZ.nbTickets} tickets</span>
+                                </div>
+
+                                <h4 style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; margin-top: 20px; color: var(--text-dark);"><i class="fas fa-pie-chart"></i> Répartition des Paiements</h4>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>💵 Espèces:</span> <strong>${data.rapportZ.details.especes.toFixed(2)} DT</strong></div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>💳 Carte Bancaire:</span> <strong>${data.rapportZ.details.carte.toFixed(2)} DT</strong></div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>🌐 En Ligne (Konnect/Flouci):</span> <strong style="color: #3498db;">${data.rapportZ.details.en_ligne.toFixed(2)} DT</strong></div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>⭐ Wallet VIP Fidélité:</span> <strong style="color: var(--primary-orange);">${data.rapportZ.details.fidelite.toFixed(2)} DT</strong></div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>🎫 Ticket Resto:</span> <strong>${data.rapportZ.details.ticket_resto.toFixed(2)} DT</strong></div>
+
+                                <h4 style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; margin-top: 20px; color: var(--text-dark);"><i class="fas fa-cash-register"></i> Contrôle du Tiroir</h4>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; color: var(--text-muted);"><span>Fond de caisse initial:</span> <span>${data.session.fondDeCaisse.toFixed(2)} DT</span></div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; color: var(--text-muted);"><span>(+) Ventes en Espèces:</span> <span>${data.rapportZ.details.especes.toFixed(2)} DT</span></div>
+                                <div style="background: #e2e8f0; height: 1px; margin: 8px 0;"></div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-weight: bold;"><span>Total Espèces Attendu:</span> <span>${data.attendu.toFixed(2)} DT</span></div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-weight: 900; color: var(--danger); font-size: 1.1rem;"><span>Total Espèces Comptées:</span> <span>${data.session.especesReelles.toFixed(2)} DT</span></div>
+                            </div>
+                            
+                            <h2 style="margin:20px 0; font-size: 1.5rem; background: #f1f5f9; padding: 10px; border-radius: 12px;">${messageEcart}</h2>
+                            
+                            <button class="btn-valider" style="width:100%; margin-bottom:10px; background:var(--text-dark);" onclick="imprimerContenu('impressionZoneZ')"><i class="fas fa-print"></i> Imprimer le Rapport Z</button>
+                            <button class="btn-annuler" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">Fermer & Quitter</button>
+                        </div>
+                    </div>`;
+                
                 verifierStatutCaisse();
-            } catch(e) {}
+            } catch(e) {
+                showNotification("❌ Erreur de connexion avec le serveur", "#ef4444");
+            }
         };
+    }
+
+    // Petite fonction utilitaire pour imprimer proprement le rapport Z
+    function imprimerContenu(divId) {
+        const contenu = document.getElementById(divId).innerHTML;
+        const fenetreImpression = window.open('', '', 'height=600,width=800');
+        fenetreImpression.document.write('<html><head><title>Rapport Z</title><style>body{font-family: sans-serif; padding: 20px;} .modal-buttons, button, .close-btn {display:none !important;} h4 {color: #333; border-bottom: 1px solid #ccc; padding-bottom: 5px;}</style>');
+        fenetreImpression.document.write('</head><body>');
+        fenetreImpression.document.write(contenu);
+        fenetreImpression.document.write('</body></html>');
+        fenetreImpression.document.close();
+        fenetreImpression.focus();
+        setTimeout(() => fenetreImpression.print(), 200);
     }
 
     function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {

@@ -568,29 +568,76 @@ app.post('/api/tiroir/ouvrir', verifierToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// 🔥 API : CLÔTURER LA CAISSE (Rapport Z Complet)
 app.post('/api/tiroir/fermer', verifierToken, async (req, res) => {
     try {
-        const session = await CashRegister.findOne({ statut: 'ouvert' });
-        if (!session) return res.status(400).json({ error: "Aucune caisse ouverte" });
-
-        const ventes = await Sale.find({ 
-            timestamp: { $gte: session.timestampOuverture },
-            methodePaiement: 'especes'
-        });
+        const { reel } = req.body;
+        const session = await SessionCaisse.findOne({ statut: 'ouverte' });
         
-        const totalEspeces = ventes.reduce((sum, v) => sum + v.total, 0);
-        const attendu = session.fondDeCaisse + totalEspeces;
-        const ecart = req.body.reel - attendu;
+        if (!session) {
+            return res.status(400).json({ error: "Aucune caisse ouverte actuellement." });
+        }
 
-        session.dateFermeture = new Date().toLocaleString('fr-FR');
+        // 1. Récupérer TOUTES les ventes réalisées depuis l'ouverture de cette caisse
+        // (On suppose que v.timestamp est en millisecondes. Si tu utilises une date ISO, adapte la requête)
+        const ventesSession = await Vente.find({
+            timestamp: { $gte: session.dateOuverture.getTime() }
+        });
+
+        // 2. Calculer le vrai Chiffre d'Affaires et la répartition des paiements
+        let totalCA = 0;
+        let totalEspeces = 0;
+        let totalCarte = 0;
+        let totalEnLigne = 0;
+        let totalFidelite = 0;
+        let totalTicketResto = 0;
+
+        ventesSession.forEach(v => {
+            const montant = parseFloat(v.total) || 0;
+            totalCA += montant;
+            
+            if (v.methodePaiement === 'especes') totalEspeces += montant;
+            else if (v.methodePaiement === 'carte') totalCarte += montant;
+            else if (v.methodePaiement === 'en_ligne') totalEnLigne += montant;
+            else if (v.methodePaiement === 'carte_fidelite') totalFidelite += montant;
+            else if (v.methodePaiement === 'ticket_resto') totalTicketResto += montant;
+            else totalEspeces += montant; // Fallback par défaut
+        });
+
+        // 3. Calculer l'écart dans le tiroir physique
+        // L'argent attendu = Le fond de caisse initial + Les ventes en espèces (uniquement)
+        const attendu = session.fondDeCaisse + totalEspeces; 
+        const ecart = parseFloat(reel) - attendu;
+
+        // 4. Mettre à jour et fermer la session
+        session.statut = 'fermee';
+        session.dateFermeture = new Date();
         session.totalVentesEspeces = totalEspeces;
-        session.especesReelles = req.body.reel;
+        session.especesReelles = parseFloat(reel);
         session.ecart = ecart;
-        session.statut = 'ferme';
+        session.caTotalSession = totalCA; // On sauvegarde le CA total généré
         await session.save();
 
-        res.json({ success: true, session, attendu });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        // 5. Renvoyer le rapport détaillé à la caisse
+        res.json({
+            success: true,
+            attendu: attendu,
+            session: session,
+            rapportZ: {
+                totalCA: totalCA,
+                nbTickets: ventesSession.length,
+                details: {
+                    especes: totalEspeces,
+                    carte: totalCarte,
+                    en_ligne: totalEnLigne,
+                    fidelite: totalFidelite,
+                    ticket_resto: totalTicketResto
+                }
+            }
+        });
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/stock', verifierToken, async (req, res) => {
