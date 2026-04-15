@@ -877,109 +877,91 @@ if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'car
             try { await fetchSecurise('/api/tiroir/ouvrir', { method: 'POST', body: JSON.stringify({ fond }) }); showNotification("☀️ Caisse ouverte", "#10b981"); container.innerHTML = ''; verifierStatutCaisse(); } catch(e) {}
         };
     }
-
 function afficherModalFermetureCaisse() {
         const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `
-            <div class="modal-overlay active">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3><i class="fas fa-moon"></i> Clôture de Caisse (Z)</h3>
-                        <button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
-                    </div>
-                    <div class="form-group" style="background: #fff5f5; padding: 15px; border-radius: 12px; border: 1px dashed var(--danger);">
-                        <label style="color: var(--danger); font-weight: bold;"><i class="fas fa-money-bill-wave"></i> Total des Espèces comptées dans le tiroir (DT)</label>
-                        <input type="number" id="especesReellesInput" step="0.1" style="font-size:2.5rem; text-align:center; font-weight: 900; color: var(--danger);">
-                    </div>
-                    <div class="modal-buttons">
-                        <button type="button" id="validerClotureBtn" class="btn-valider" style="background:var(--danger); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">Valider la Clôture</button>
-                    </div>
-                </div>
-            </div>`;
-
+        container.innerHTML = `<div class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-moon"></i> Clôture (Z)</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div><div class="form-group"><label>Total Espèces comptées (DT)</label><input type="number" id="especesReellesInput" step="0.1" style="font-size:2rem; text-align:center;"></div><div class="modal-buttons"><button type="button" id="validerClotureBtn" class="btn-valider" style="background:var(--danger); box-shadow:none;">Clôturer</button></div></div></div>`;
+        
         document.getElementById('validerClotureBtn').onclick = async function() {
             const reel = parseFloat(document.getElementById('especesReellesInput').value); 
-            if (isNaN(reel)) {
-                showNotification("❌ Veuillez entrer le montant compté", "#ef4444");
-                return; 
-            }
-            
+            if (isNaN(reel)) return; 
             this.disabled = true;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Clôture en cours...';
             
             try {
                 const res = await fetchSecurise('/api/tiroir/fermer', { method: 'POST', body: JSON.stringify({ reel }) }); 
                 const data = await res.json();
+                let messageEcart = data.session.ecart === 0 ? "✅ Parfait" : (data.session.ecart > 0 ? `📈 +${data.session.ecart.toFixed(2)}` : `⚠️ ${data.session.ecart.toFixed(2)}`);
                 
-                if(!res.ok) {
-                    showNotification("❌ " + (data.error || "Erreur"), "#ef4444");
-                    return;
-                }
+                // 🔥 NOUVEAU : On stocke temporairement les données pour l'impression
+                window.donneesRapportZ = {
+                    fond: data.session.fondDeCaisse,
+                    ventes: data.session.totalVentesEspeces,
+                    attendu: data.attendu,
+                    compte: data.session.especesReelles,
+                    ecart: data.session.ecart
+                };
 
-                // Déterminer le message d'écart
-                let messageEcart = data.session.ecart === 0 ? 
-                    "<span style='color:var(--success);'><i class='fas fa-check-circle'></i> Caisse Juste</span>" : 
-                    (data.session.ecart > 0 ? 
-                        `<span style='color:#3498db;'><i class='fas fa-arrow-up'></i> Excédent (+${data.session.ecart.toFixed(2)} DT)</span>` : 
-                        `<span style='color:var(--danger);'><i class='fas fa-exclamation-triangle'></i> Manquant (${data.session.ecart.toFixed(2)} DT)</span>`);
-
-                // Affichage du Rapport Z Ultra-Détaillé
-                container.innerHTML = `
-                    <div class="modal-overlay active" id="impressionZoneZ">
-                        <div class="modal-content" style="text-align:center; max-width: 500px;">
-                            <h2 style="color: var(--primary-green); font-family: 'Cinzel', serif; font-weight: 800;">RAPPORT Z (CLÔTURE)</h2>
-                            <p style="color:var(--text-muted); margin-bottom: 20px;">Synthèse financière de la session</p>
-                            
-                            <div style="background:#f8fafc; padding:20px; border-radius:12px; text-align:left; border: 1px solid var(--border-soft);">
-                                
-                                <h4 style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; color: var(--text-dark);"><i class="fas fa-chart-line"></i> Chiffre d'Affaires (CA)</h4>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-weight: 900; font-size: 1.3rem; color: var(--success);">
-                                    <span>CA Total Généré:</span> <span>${data.rapportZ.totalCA.toFixed(2)} DT</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; font-size: 0.9rem; color: var(--text-muted);">
-                                    <span>Nombre de tickets émis:</span> <span>${data.rapportZ.nbTickets} tickets</span>
-                                </div>
-
-                                <h4 style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; margin-top: 20px; color: var(--text-dark);"><i class="fas fa-pie-chart"></i> Répartition des Paiements</h4>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>💵 Espèces:</span> <strong>${data.rapportZ.details.especes.toFixed(2)} DT</strong></div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>💳 Carte Bancaire:</span> <strong>${data.rapportZ.details.carte.toFixed(2)} DT</strong></div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>🌐 En Ligne (Konnect/Flouci):</span> <strong style="color: #3498db;">${data.rapportZ.details.en_ligne.toFixed(2)} DT</strong></div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>⭐ Wallet VIP Fidélité:</span> <strong style="color: var(--primary-orange);">${data.rapportZ.details.fidelite.toFixed(2)} DT</strong></div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>🎫 Ticket Resto:</span> <strong>${data.rapportZ.details.ticket_resto.toFixed(2)} DT</strong></div>
-
-                                <h4 style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; margin-top: 20px; color: var(--text-dark);"><i class="fas fa-cash-register"></i> Contrôle du Tiroir</h4>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; color: var(--text-muted);"><span>Fond de caisse initial:</span> <span>${data.session.fondDeCaisse.toFixed(2)} DT</span></div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; color: var(--text-muted);"><span>(+) Ventes en Espèces:</span> <span>${data.rapportZ.details.especes.toFixed(2)} DT</span></div>
-                                <div style="background: #e2e8f0; height: 1px; margin: 8px 0;"></div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-weight: bold;"><span>Total Espèces Attendu:</span> <span>${data.attendu.toFixed(2)} DT</span></div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-weight: 900; color: var(--danger); font-size: 1.1rem;"><span>Total Espèces Comptées:</span> <span>${data.session.especesReelles.toFixed(2)} DT</span></div>
-                            </div>
-                            
-                            <h2 style="margin:20px 0; font-size: 1.5rem; background: #f1f5f9; padding: 10px; border-radius: 12px;">${messageEcart}</h2>
-                            
-                            <button class="btn-valider" style="width:100%; margin-bottom:10px; background:var(--text-dark);" onclick="imprimerContenu('impressionZoneZ')"><i class="fas fa-print"></i> Imprimer le Rapport Z</button>
-                            <button class="btn-annuler" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">Fermer & Quitter</button>
-                        </div>
-                    </div>`;
-                
+                container.innerHTML = `<div class="modal-overlay active"><div class="modal-content" style="text-align:center;"><h2>Rapport Z</h2><div style="background:#f8fafc; padding:20px; border-radius:12px; margin:20px 0; text-align:left;"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Fond:</span> <strong>${data.session.fondDeCaisse.toFixed(2)}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Ventes (Esp):</span> <strong>+ ${data.session.totalVentesEspeces.toFixed(2)}</strong></div><hr style="margin:15px 0;"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Attendu:</span> <strong>${data.attendu.toFixed(2)}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Compté:</span> <strong>${data.session.especesReelles.toFixed(2)}</strong></div></div><h1 style="margin-bottom:20px;">${messageEcart}</h1><button class="btn-valider" style="width:100%; margin-bottom:10px; background:var(--text-dark);" onclick="imprimerRapportZ()">🖨️ Imprimer Rapport Z</button><button class="btn-annuler" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">Fermer</button></div></div>`;
                 verifierStatutCaisse();
-            } catch(e) {
-                showNotification("❌ Erreur de connexion avec le serveur", "#ef4444");
-            }
+            } catch(e) {}
         };
     }
+    // 🔥 NOUVEAU : Impression thermique spécifique pour le Rapport Z
+    function imprimerRapportZ() {
+        const d = window.donneesRapportZ;
+        if (!d) return;
 
-    // Petite fonction utilitaire pour imprimer proprement le rapport Z
-    function imprimerContenu(divId) {
-        const contenu = document.getElementById(divId).innerHTML;
-        const fenetreImpression = window.open('', '', 'height=600,width=800');
-        fenetreImpression.document.write('<html><head><title>Rapport Z</title><style>body{font-family: sans-serif; padding: 20px;} .modal-buttons, button, .close-btn {display:none !important;} h4 {color: #333; border-bottom: 1px solid #ccc; padding-bottom: 5px;}</style>');
-        fenetreImpression.document.write('</head><body>');
-        fenetreImpression.document.write(contenu);
-        fenetreImpression.document.write('</body></html>');
-        fenetreImpression.document.close();
-        fenetreImpression.focus();
-        setTimeout(() => fenetreImpression.print(), 200);
+        const now = new Date(); 
+        const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
+        
+        const ticketDiv = document.getElementById('ticketCaisse');
+        // On sauvegarde le modèle de ticket normal
+        const ancienContenu = ticketDiv.innerHTML;
+
+        // On injecte le format comptable (Ticket 80mm)
+        ticketDiv.innerHTML = `
+            <div style="text-align:center; border-bottom:1px dashed black; padding-bottom:6px; margin-bottom:6px;">
+                <div style="font-size:18px; font-weight:bold; font-family: 'Arial', sans-serif;">☕ TA'BIA COFFEE</div>
+                <div style="font-size:12px; margin-top:3px; font-weight:bold;">RAPPORT Z - CLÔTURE CAISSE</div>
+            </div>
+            
+            <div style="font-size:12px; margin-bottom: 6px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Date d'édition:</span><span>${dateStr}</span></div>
+            </div>
+            
+            <div style="border-top:1px dashed black; margin:6px 0;"></div>
+            
+            <div style="font-size:12px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Fond de caisse :</span><span>${d.fond.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (Espèces):</span><span>+ ${d.ventes.toFixed(3)}</span></div>
+            </div>
+            
+            <div style="border-top:1px dashed black; margin:6px 0;"></div>
+            
+            <div style="font-size:14px; font-weight:bold;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>TOTAL ATTENDU :</span><span>${d.attendu.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>TOTAL COMPTÉ :</span><span>${d.compte.toFixed(3)}</span></div>
+            </div>
+            
+            <div style="border-top:1px dashed black; margin:6px 0;"></div>
+            
+            <div style="font-size:14px; font-weight:bold; margin-top:5px;">
+                <div style="display:flex; justify-content:space-between;"><span>ÉCART TIROIR :</span><span>${d.ecart > 0 ? '+' : ''}${d.ecart.toFixed(3)} DT</span></div>
+            </div>
+            
+            <div style="text-align:center; margin-top:25px; font-size:12px;">Signature du Caissier</div>
+            <div style="margin-top: 35px; border-bottom: 1px dotted black; width: 60%; margin-left: 20%;"></div>
+            <div style="text-align:center; margin-top:10px;">- - - - - - - - - - - - - - - </div>
+        `;
+
+        // Affichage et lancement de l'impression thermique
+        ticketDiv.style.display = 'block';
+        setTimeout(() => { 
+            window.print(); 
+            ticketDiv.style.display = 'none'; 
+            
+            // On restaure immédiatement le ticket normal en arrière-plan pour la prochaine commande
+            setTimeout(() => { ticketDiv.innerHTML = ancienContenu; }, 500);
+        }, 300);
     }
 
     function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
