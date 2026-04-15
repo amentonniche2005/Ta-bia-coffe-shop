@@ -819,14 +819,26 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
 
         const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
 
-        // 1. Calcul des articles restants
+        // 1. Calcul des articles restants (CORRIGÉ 🔥)
         const articlesRestants = [];
         ticket.articles.forEach((article, articleIndex) => {
             for (let i = 0; i < article.quantite; i++) {
                 const unitId = `${articleIndex}_${i}`;
                 if (!unitIdsASupprimer.includes(unitId)) {
-                    const existing = articlesRestants.find(a => a.id === article.id && a.variante === article.variante);
-                    if (existing) existing.quantite++; else articlesRestants.push({ id: article.id, nom: article.nom, variante: article.variante, prix: article.prix, quantite: 1 });
+                    // 🔥 On vérifie aussi l'état d'envoi pour ne pas mélanger
+                    const existing = articlesRestants.find(a => a.id === article.id && a.variante === article.variante && a.envoye === article.envoye);
+                    if (existing) {
+                        existing.quantite++; 
+                    } else {
+                        articlesRestants.push({ 
+                            id: article.id, 
+                            nom: article.nom, 
+                            variante: article.variante, 
+                            prix: article.prix, 
+                            quantite: 1,
+                            envoye: article.envoye // 🔥 LA CORRECTION EST ICI : On conserve le statut Cuisine !
+                        });
+                    }
                 }
             }
         });
@@ -841,7 +853,7 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
 
         if (!requeteReussie) {
-            // 🚨 HORS LIGNE : Sauvegarde avec les données pour mettre à jour la cuisine au retour d'internet
+            // 🚨 HORS LIGNE 
             let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
             venteBody.isPartiel = true;
             venteBody.offlineOrderIds = ticket.orderIds || [];
@@ -850,7 +862,7 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
             await localforage.setItem('tabia_ventes_offline', ventesOffline);
             showNotification("⚠️ Paiement partiel hors-ligne.", "#f39c12");
         } else {
-            // ✅ EN LIGNE : Envoi des articles restants à la cuisine
+            // ✅ EN LIGNE
             if (ticket.orderIds && ticket.orderIds.length > 0) {
                 try { await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants }) }); } catch(e) {}
             }
