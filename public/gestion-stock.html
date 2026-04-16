@@ -1586,8 +1586,7 @@ function ouvrirModalClient() {
                 ventesFiltrees.forEach(ticket => {
                     if(!ticket.articles) return;
                     ticket.articles.forEach(art => {
-                        // 🔥 CORRECTION : On regroupe uniquement par le nom de base, en ignorant la variante
-                        const nomBase = art.nom; 
+                        const nomBase = art.nom.split('(')[0].trim();
                         
                         if (!statsProds[nomBase]) statsProds[nomBase] = { qte: 0, ca: 0 };
                         statsProds[nomBase].qte += parseInt(art.quantite || 1);
