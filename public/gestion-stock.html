@@ -594,7 +594,9 @@ function getIconPaiement(methode) {
             if (tabId === 'mouvements') chargerHistorique();
             if (tabId === 'alertes') chargerAlertes();
             if (tabId === 'depenses') chargerDepenses();
-            if (tabId === 'analytics') rafraichirGraphiques();
+            if (tabId === 'analytics') {
+                setTimeout(rafraichirGraphiques, 50); 
+            }
             
             if (tabId === 'ventes') {
                 if (!document.getElementById('rapportDateDebut').value) {
@@ -1809,41 +1811,67 @@ async function sauvegarderConfigFidelite() {
         let chartCAInstance = null;
         let chartCatInstance = null;
 
-        async function rafraichirGraphiques() {
+async function rafraichirGraphiques() {
             // 1. Récupérer les données si elles ne sont pas déjà chargées
-            if (!toutesLesVentes || toutesLesVentes.length === 0) {
-                try {
-                    const res = await fetchSecurise('/api/ventes');
-                    toutesLesVentes = await res.json();
-                } catch(e) { console.error("Erreur de chargement des ventes"); return; }
-            }
+            try {
+                const resVentes = await fetchSecurise('/api/ventes');
+                toutesLesVentes = await resVentes.json();
+                
+                // Si on n'a pas les produits pour le camembert, on les charge
+                if (!stockProduits || stockProduits.length === 0) {
+                    const resStock = await fetchSecurise('/api/stock');
+                    let dataStock = await resStock.json();
+                    stockProduits = Array.isArray(dataStock) ? dataStock : (dataStock.produits || []);
+                }
+            } catch(e) { console.error("Erreur de chargement des données pour graphiques", e); return; }
 
-            // 2. Préparer les données pour la courbe (7 derniers jours)
+            // ==========================================
+            // 2. COURBE D'ÉVOLUTION CA (7 DERNIERS JOURS)
+            // ==========================================
             const statsJours = {};
-            const today = new Date();
-            // Créer les 7 derniers jours avec un CA de 0 par défaut
+            const labelsJours = [];
+            
+            // Créer les 7 derniers jours 
             for (let i = 6; i >= 0; i--) {
-                const d = new Date(today);
+                const d = new Date();
                 d.setDate(d.getDate() - i);
-                const dateStr = d.toLocaleDateString('fr-FR');
-                statsJours[dateStr] = 0;
+                
+                // Format standardisé DD/MM/YYYY pour être sûr à 100%
+                const jour = String(d.getDate()).padStart(2, '0');
+                const mois = String(d.getMonth() + 1).padStart(2, '0');
+                const annee = d.getFullYear();
+                const dateStandard = `${jour}/${mois}/${annee}`;
+                
+                labelsJours.push(dateStandard);
+                statsJours[dateStandard] = 0;
             }
 
             // Remplir avec les vraies ventes
             toutesLesVentes.forEach(v => {
-                const dateVente = v.date.split(' ')[0];
-                if (statsJours[dateVente] !== undefined) {
-                    statsJours[dateVente] += parseFloat(v.total) || 0;
+                // On extrait juste la date JJ/MM/YYYY
+                const dateVente = v.date.split(' ')[0].trim();
+                
+                // On uniformise au cas où la base de données renvoie "1/4/2026" au lieu de "01/04/2026"
+                const parts = dateVente.split('/');
+                if (parts.length === 3) {
+                    const cleanDate = `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+                    if (statsJours[cleanDate] !== undefined) {
+                        statsJours[cleanDate] += parseFloat(v.total) || 0;
+                    }
                 }
             });
 
-            // 3. Préparer les données pour le Camembert (Par Catégorie)
+            // ==========================================
+            // 3. CAMEMBERT (RÉPARTITION PAR CATÉGORIE)
+            // ==========================================
             const statsCat = {};
             toutesLesVentes.forEach(v => {
                 if(!v.articles) return;
                 v.articles.forEach(art => {
-                    // On cherche la catégorie du produit. Si on ne trouve pas, on met "Autre"
-                    const prod = stockProduits.find(p => p.nom === art.nom);
+                    // On enlève les parenthèses pour avoir le vrai nom de base (comme fait précédemment)
+                    const nomBase = art.nom.split('(')[0].trim();
+                    const prod = stockProduits.find(p => p.nom.trim() === nomBase);
+                    
                     const catId = prod ? prod.categorie : 'autre';
                     const catNom = getCatName(catId);
                     
@@ -1852,61 +1880,68 @@ async function sauvegarderConfigFidelite() {
                 });
             });
 
-            // 4. Détruire les anciens graphiques pour éviter les bugs visuels
+            // ==========================================
+            // 4. DESSIN DES GRAPHIQUES (CHART.JS)
+            // ==========================================
+            
+            // Détruire les anciens graphiques pour éviter les superpositions (bugs visuels)
             if (chartCAInstance) chartCAInstance.destroy();
             if (chartCatInstance) chartCatInstance.destroy();
 
-            // 5. Dessiner la Courbe (Line Chart)
-            const ctxCA = document.getElementById('chartCA').getContext('2d');
-            chartCAInstance = new Chart(ctxCA, {
-                type: 'line',
-                data: {
-                    labels: Object.keys(statsJours),
-                    datasets: [{
-                        label: "Chiffre d'Affaires (DT)",
-                        data: Object.values(statsJours),
-                        borderColor: '#10b981', // Vert Success
-                        backgroundColor: 'rgba(16, 185, 129, 0.2)', // Vert transparent
-                        borderWidth: 3,
-                        tension: 0.4, // Rend la courbe lisse et arrondie
-                        fill: true,
-                        pointBackgroundColor: '#143621',
-                        pointRadius: 4
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-
-            // 6. Dessiner le Camembert (Doughnut Chart)
-            const ctxCat = document.getElementById('chartCategories').getContext('2d');
-            chartCatInstance = new Chart(ctxCat, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(statsCat),
-                    datasets: [{
-                        data: Object.values(statsCat),
-                        backgroundColor: [
-                            '#e67e22', '#3498db', '#9b59b6', 
-                            '#2ecc71', '#f1c40f', '#e74c3c', '#34495e'
-                        ],
-                        borderWidth: 0,
-                        hoverOffset: 10
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'right', labels: { boxWidth: 15 } }
+            // Dessiner la Courbe (Line Chart)
+            const canvasCA = document.getElementById('chartCA');
+            if (canvasCA) {
+                const ctxCA = canvasCA.getContext('2d');
+                chartCAInstance = new Chart(ctxCA, {
+                    type: 'line',
+                    data: {
+                        labels: labelsJours, // L'axe X (Les dates)
+                        datasets: [{
+                            label: "Chiffre d'Affaires (DT)",
+                            data: labelsJours.map(date => statsJours[date]), // L'axe Y (Le CA)
+                            borderColor: '#10b981', 
+                            backgroundColor: 'rgba(16, 185, 129, 0.2)', 
+                            borderWidth: 3,
+                            tension: 0.4, 
+                            fill: true,
+                            pointBackgroundColor: '#143621',
+                            pointRadius: 4
+                        }]
                     },
-                    cutout: '65%' // Rend le centre vide (style Doughnut)
-                }
-            });
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+
+            // Dessiner le Camembert (Doughnut Chart)
+            const canvasCat = document.getElementById('chartCategories');
+            if (canvasCat) {
+                const ctxCat = canvasCat.getContext('2d');
+                chartCatInstance = new Chart(ctxCat, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(statsCat),
+                        datasets: [{
+                            data: Object.values(statsCat),
+                            backgroundColor: ['#e67e22', '#3498db', '#9b59b6', '#2ecc71', '#f1c40f', '#e74c3c', '#34495e'],
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { boxWidth: 15 } }
+                        },
+                        cutout: '65%'
+                    }
+                });
+            }
         }
         // ========== INIT DOM ==========
 document.addEventListener("DOMContentLoaded", () => {
