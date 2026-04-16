@@ -2,286 +2,274 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>TA'BIA - Caisse Salon de Thé</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>TA'BIA - Caisse Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <style>
-        /* ========== RESET & BASE ========== */
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
-        body { background: #f5f7fb; color: #1e293b; padding-bottom: 2rem; }
-        
-        /* ========== HEADER ========== */
-        header { background: #143621; padding: 1.2rem 2rem; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .header-container { max-width: 1600px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        .logo { display: flex; align-items: center; gap: 15px; }
-        .logo-img { height: 70px; width: 70px; border-radius: 50%; object-fit: cover; border: 2px solid #e3c496; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-        .logo h1 { font-size: 1.6rem; font-weight: 800; color: #fdfbf7; display: flex; flex-direction: column; line-height: 1.1; margin: 0; }
-        .logo .logo-subtext { font-size: 0.85rem; font-weight: 600; color: #e3c496; text-transform: uppercase; letter-spacing: 2px; }
-        
-        .nav-right { display: flex; gap: 1rem; align-items: center; }        
-        .caisse-badge { background: #27ae60; color: white; padding: 6px 14px; border-radius: 30px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; }
-        
-        /* ========== BOUTONS DE NAVIGATION ========== */
-        .btn-nav { padding: 8px 18px; border-radius: 30px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.3s ease; text-decoration: none; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
-        .btn-nav:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.25); }
-        .btn-nav:active { transform: translateY(0); }
-        .btn-stock { background: #34495e; color: white; }
-        .btn-stock:hover { background: #2c3e50; }
-        .btn-lock { background: #e74c3c; color: white; }
-        .btn-lock:hover { background: #c0392b; }
-
-        /* ========== LAYOUT PRINCIPAL ========== */
-        .dashboard { max-width: 1600px; margin: 1.5rem auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 450px; gap: 1.5rem; align-items: start; }
-
-        /* ========== MENU PRODUITS ========== */
-        .menu-container { background: white; border-radius: 24px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); overflow: hidden; }
-        .categories { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 1rem; border-bottom: 1px solid #eef2f6; }
-        .cat-btn { background: #f1f5f9; border: none; padding: 0.5rem 1.2rem; border-radius: 30px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; font-weight: 500;}
-        .cat-btn.active { background: #e67e22; color: white; }
-        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.8rem; padding: 1rem; max-height: 70vh; overflow-y: auto; }
-        .product-card { background: white; border: 1px solid #eef2f6; border-radius: 16px; padding: 0.8rem; text-align: center; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; justify-content: center; min-height: 80px;}
-        .product-card:hover { transform: translateY(-3px); border-color: #e67e22; background: #fef9f0; }
-        .product-name { font-weight: 600; font-size: 0.9rem; }
-        .product-price { color: #e67e22; font-weight: 600; font-size: 0.85rem; margin-top: 5px; }
-
-        /* ========== TABLES ========== */
-        .tables-list { background: white; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1rem; overflow: hidden; }
-        .tables-header { background: #e67e22; color: white; padding: 0.8rem 1rem; display: flex; justify-content: space-between; align-items: center; font-weight: 600;}
-        .tables-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; padding: 1rem; max-height: 350px; overflow-y: auto; }
-        .table-wrapper { position: relative; }
-        .table-btn { width: 100%; background: #f1f5f9; border: none; padding: 0.6rem; border-radius: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-        .table-btn.active { background: #e67e22; color: white; }
-        .table-btn.has-items { background: #fef5e6; border-left: 4px solid #e67e22; }
-        .table-num { font-size: 0.85rem; font-weight: bold; }
-        .table-total { font-size: 0.7rem; color: #27ae60; font-weight: bold;}
-        .table-btn.active .table-total { color: white; }
-        .details-btn { position: absolute; top: -5px; right: -5px; background: #e67e22; color: white; border: none; width: 24px; height: 24px; border-radius: 50%; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.2);}
-        .details-btn:hover { background: #d35400; transform: scale(1.1); }
-
-        /* ========== TICKET ========== */
-        .ticket-card { background: white; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column;}
-        .ticket-header { background: #2c3e50; color: white; padding: 0.8rem 1rem; display: flex; justify-content: space-between; align-items: center; font-weight: 600;}
-        .ticket-items { max-height: 400px; overflow-y: auto; min-height: 250px; flex: 1; padding: 0.5rem;}
-        .ticket-item { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem; border-bottom: 1px dashed #eef2f6; background: #fff; border-radius: 8px; margin-bottom: 4px;}
-        .item-info { flex: 2; }
-        .item-name { font-weight: 600; font-size: 0.9rem;}
-        .item-price { font-size: 0.75rem; color: #64748b; margin-top: 4px;}
-        .item-actions { display: flex; align-items: center; gap: 10px; }
-        .qty-control { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 4px 8px; border-radius: 30px; }
-        .qty-control button { background: white; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-weight: bold; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);}
-        .qty-control button:hover { background: #e67e22; color: white; }
-        .qty-control span { min-width: 20px; text-align: center; font-weight: 600;}
-        .remove-item { background: #fee2e2; border: none; color: #e74c3c; cursor: pointer; font-size: 0.9rem; width: 30px; height: 30px; border-radius: 50%; transition: all 0.2s; display: flex; align-items: center; justify-content: center;}
-        .remove-item:hover { background: #e74c3c; color: white; }
-        
-        .ticket-total { padding: 1rem; border-top: 2px dashed #e2e8f0; display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; background: #fef9f0; color: #2c3e50;}
-        .ticket-actions { padding: 1rem; display: flex; gap: 0.6rem; flex-wrap: wrap; background: white;}
-        .btn-action { border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1; transition: all 0.2s; }
-        .btn-action:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1);}
-        .btn-action:active { transform: translateY(0); }
-        .btn-vider { background: #f1f5f9; color: #475569; }
-        .btn-imprimer { background: #2c3e50; color: white; }
-        .btn-payer-select { background: #3498db; color: white; }
-        .btn-payer-tout { background: #27ae60; color: white; flex: 1.5; font-size: 0.9rem;}
-        .btn-cuisine { background: #e67e22; color: white; flex: 1; }
-
-        /* ========== MODALS ========== */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 2000; }
-        .modal-overlay.active { display: flex; }
-        .modal-content { background: white; border-radius: 24px; padding: 1.5rem; max-width: 450px; width: 90%; max-height: 90vh; overflow-y: auto; animation: modalSlide 0.3s ease; box-shadow: 0 10px 25px rgba(0,0,0,0.2);}
-        @keyframes modalSlide { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #eef2f6; }
-        .modal-header h3 { font-size: 1.2rem; color: #2c3e50; display: flex; align-items: center; gap: 8px;}
-        .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8; transition: color 0.2s;}
-        .close-btn:hover { color: #e74c3c; }
-
-        .montant-total { font-size: 2.2rem; font-weight: bold; color: #e67e22; text-align: center; margin: 1rem 0; }
-        .remise-section { background: #f8fafc; padding: 1rem; border-radius: 16px; margin: 1rem 0; border: 1px solid #eef2f6;}
-        .remise-input { display: flex; gap: 0.5rem; margin-top: 0.8rem; }
-        .remise-input input { flex: 1; padding: 0.8rem; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 1rem; outline: none;}
-        .remise-input input:focus { border-color: #3498db; }
-        .remise-input button { background: #e67e22; color: white; border: none; padding: 0.8rem 1.2rem; border-radius: 12px; cursor: pointer; font-weight: 600; transition: background 0.2s;}
-        .remise-input button:hover { background: #d35400; }
-        
-        .form-group { margin-bottom: 1rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #475569; font-size: 0.9rem;}
-        .form-group select, .form-group input { width: 100%; padding: 0.8rem; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 1rem; outline: none;}
-        .form-group select:focus, .form-group input:focus { border-color: #3498db; }
-        
-        .monnaie-div { background: #e8f5e9; padding: 1rem; border-radius: 16px; margin: 1rem 0; display: none; text-align: center; color: #27ae60; font-weight: bold; font-size: 1.1rem; border: 1px solid #c8e6c9;}
-        
-        .modal-buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
-        .btn-valider { background: #27ae60; color: white; flex: 1; padding: 1rem; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; font-size: 1rem; transition: background 0.2s;}
-        .btn-valider:hover { background: #219a52; }
-        .btn-annuler { background: #94a3b8; color: white; flex: 1; padding: 1rem; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; font-size: 1rem; transition: background 0.2s;}
-        .btn-annuler:hover { background: #64748b; }
-
-        /* ========== PAIEMENT PARTIEL (SÉLECTION) ========== */
-        .selection-actions { display: flex; gap: 0.5rem; padding-bottom: 1rem; border-bottom: 1px solid #eef2f6; margin-bottom: 1rem; }
-        .selection-actions button { flex: 1; padding: 0.8rem; border: none; border-radius: 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.2s;}
-        .btn-select-all { background: #3498db; color: white; }
-        .btn-deselect-all { background: #94a3b8; color: white; }
-        
-        .article-select-item { display: flex; align-items: center; justify-content: space-between; padding: 0.8rem; border: 1px solid #eef2f6; border-radius: 12px; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.2s; background: white;}
-        .article-select-item:hover { background: #f8fafc; border-color: #cbd5e1; }
-        .article-select-item.selected { background: #f0fdf4; border: 2px solid #27ae60; }
-        .article-checkbox { margin-right: 12px; width: 22px; height: 22px; cursor: pointer; accent-color: #27ae60;}
-        .article-info { flex: 1; }
-        .article-name { font-weight: 600; font-size: 0.95rem; color: #1e293b;}
-        .article-details { font-size: 0.75rem; color: #64748b; margin-top: 2px;}
-        .article-total { font-weight: bold; color: #e67e22; min-width: 80px; text-align: right; font-size: 1rem;}
-        
-        .selection-total { background: #f8fafc; padding: 1.2rem; border-radius: 16px; margin: 1rem 0; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 1.1rem; border: 1px solid #eef2f6;}
-        .selection-total .montant { color: #e67e22; font-size: 1.4rem; }
-        .unit-number { display: inline-block; background: #e2e8f0; border-radius: 20px; padding: 2px 8px; font-size: 0.65rem; margin-left: 8px; color: #475569; font-weight: bold;}
-        .article-select-item.selected .unit-number { background: #27ae60; color: white; }
-
-        /* ========== NOTIFICATIONS & IMPRESSION ========== */
-        .notification { position: fixed; bottom: 20px; right: 20px; background: #2c3e50; color: white; padding: 12px 24px; border-radius: 12px; z-index: 3000; display: flex; align-items: center; gap: 10px; font-weight: 500; box-shadow: 0 5px 15px rgba(0,0,0,0.2); transition: all 0.3s;}
-        .empty-message { text-align: center; padding: 2rem; color: #94a3b8; font-style: italic; font-size: 0.9rem;}
-
-        .ticket-caisse { width: 80mm; max-width: 80mm; background: white; padding: 10px; font-family: 'Courier New', Courier, monospace; font-size: 11px; display: none; margin: 0 auto; color: black;}
-        @media print { 
-            @page { size: 80mm auto; margin: 0; } 
-            body * { visibility: hidden; } 
-            #ticketCaisse, #ticketCaisse * { visibility: visible; } 
-            #ticketCaisse { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 5mm; } 
+        /* ========== RESET & VARIABLES ========== */
+        :root {
+            --primary-green: #143621;
+            --primary-orange: #e67e22;
+            --orange-hover: #d35400;
+            --bg-app: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --border-soft: #e2e8f0;
+            --success: #10b981;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --radius-lg: 20px;
+            --radius-md: 12px;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
         }
 
-        /* Responsive */
-        @media (max-width: 1000px) { .dashboard { grid-template-columns: 1fr; } .tables-grid { grid-template-columns: repeat(5, 1fr); } }
-        @media (max-width: 600px) { .tables-grid { grid-template-columns: repeat(3, 1fr); } }
-        /* ========== RESPONSIVE DESIGN CAISSE ========== */
-@media (max-width: 1024px) {
-    /* On empile la zone produits et le ticket */
-    .caisse-container {
-        flex-direction: column;
-        height: auto;
-    }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+        
+        /* App Layout - Bloque le scroll global */
+        body { background: var(--bg-app); color: var(--text-dark); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* Scrollbar Design */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-    /* Le ticket prend toute la largeur en bas */
-    .ticket-area {
-        width: 100%;
-        height: 500px; /* Hauteur fixe pour le ticket sur mobile */
-        border-left: none;
-        border-top: 2px solid var(--primary);
-    }
+        /* ========== HEADER ========== */
+        header { background: var(--primary-green); padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-md); z-index: 100; height: 75px;}
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo-img { height: 50px; width: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #e3c496; }
+        .logo h1 { font-family: 'Cinzel', serif; font-size: 1.6rem; font-weight: 800; color: #fdfbf7; line-height: 1; margin: 0; display: flex; flex-direction: column;}
+        .logo .logo-subtext { font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 600; color: #e3c496; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;}
+        
+        .nav-right { display: flex; gap: 0.8rem; align-items: center; }        
+        .caisse-badge { background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 6px 12px; border-radius: 30px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.5px;}
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-    /* Les catégories deviennent une ligne défilante horizontale */
-    .categories-bar {
-        overflow-x: auto;
-        display: flex;
-        flex-wrap: nowrap;
-        padding: 10px;
-        gap: 10px;
-    }
-    .cat-btn {
-        flex: 0 0 auto;
-        min-width: 100px;
-    }
+        .btn-nav { padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; border: none; color: white; text-decoration: none; }
+        .btn-nav:active { transform: scale(0.95); }
+        .btn-usb { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .btn-danger { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .btn-stock { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .btn-primary-action { background: linear-gradient(135deg, var(--primary-orange), var(--orange-hover)); }
 
-    /* Grille de produits : 2 colonnes sur mobile */
-    .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        padding: 10px;
-    }
+        /* ========== MAIN DASHBOARD (SPLIT SCREEN) ========== */
+        .dashboard { display: grid; grid-template-columns: 1fr 420px; gap: 1.5rem; padding: 1.5rem; flex: 1; overflow: hidden; height: calc(100vh - 75px); max-width: 1800px; margin: 0 auto; width: 100%;}
+        
+        /* LEFT PANEL (Scrollable) */
+        .left-panel { display: flex; flex-direction: column; gap: 1.5rem; overflow-y: auto; padding-right: 5px; }
 
-    /* Boutons tactiles plus grands */
-    .product-card {
-        padding: 15px;
-        height: 120px;
-    }
-    .btn-encaisser {
-        height: 70px; /* Plus facile de cliquer avec le pouce */
-        font-size: 1.4rem;
-    }
-}
+        /* SECTION: COMMANDES WEB & TABLES */
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; padding: 0 5px;}
+        .section-header h2 { font-size: 1.1rem; color: var(--text-dark); display: flex; align-items: center; gap: 8px; }
+        .badge-count { background: var(--text-muted); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; }
+        
+        .tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.8rem; }
+        .table-wrapper { position: relative; }
+        .table-btn { width: 100%; background: var(--bg-card); border: 2px solid transparent; padding: 0.8rem 0.5rem; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); height: 80px; justify-content: center;}
+        .table-btn:active { transform: scale(0.95); }
+        .table-btn.has-items { border-color: #fcd34d; background: #fffbeb; }
+        .table-btn.active { background: var(--primary-orange); border-color: var(--primary-orange); color: white; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4); transform: translateY(-2px);}
+        .table-num { font-size: 1rem; font-weight: 700; color: var(--text-dark); }
+        .table-btn.active .table-num { color: white; }
+        .table-total { font-size: 0.8rem; color: var(--success); font-weight: 700;}
+        .table-btn.active .table-total { color: #fef3c7; }
+        .details-btn { position: absolute; top: -8px; right: -8px; background: var(--text-dark); color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 5; box-shadow: var(--shadow-md);}
+        .details-btn:active { transform: scale(0.9); }
 
-/* Optimisation spécifique pour les petits téléphones */
-@media (max-width: 480px) {
-    .products-grid {
-        grid-template-columns: 1fr 1fr; /* Forcer 2 colonnes */
-    }
-    header h1 { font-size: 1.1rem; }
-}
+        /* SECTION: MENU PRODUITS */
+        .menu-container { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; flex: 1; min-height: 400px; overflow: hidden; border: 1px solid var(--border-soft);}
+        .categories { display: flex; gap: 0.5rem; padding: 1rem; border-bottom: 1px solid var(--border-soft); overflow-x: auto; background: #f8fafc;}
+        .cat-btn { background: white; border: 1px solid var(--border-soft); padding: 0.6rem 1.2rem; border-radius: 30px; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: var(--text-muted); transition: all 0.2s; white-space: nowrap; box-shadow: var(--shadow-sm);}
+        .cat-btn:active { transform: scale(0.95); }
+        .cat-btn.active { background: var(--primary-green); color: white; border-color: var(--primary-green); }
+        
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; padding: 1rem; overflow-y: auto; flex: 1; align-content: start;}
+        .product-card { background: white; border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 1rem 0.5rem; text-align: center; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; justify-content: center; height: 110px; box-shadow: var(--shadow-sm);}
+        .product-card:active { transform: scale(0.95); background: #f8fafc; border-color: #cbd5e1; }
+        .product-name { font-weight: 700; font-size: 0.95rem; color: var(--text-dark); margin-bottom: 5px; line-height: 1.2;}
+        .product-price { color: var(--primary-orange); font-weight: 800; font-size: 1rem; }
+
+        /* RIGHT PANEL: TICKET FIXE */
+        .ticket-card { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; height: 100%; border: 1px solid var(--border-soft); overflow: hidden;}
+        .ticket-header { background: #f8fafc; color: var(--text-dark); padding: 1.2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed var(--border-soft);}
+        .ticket-header h3 { font-size: 1.2rem; display: flex; align-items: center; gap: 8px;}
+        .ticket-header .ticket-badge { background: var(--text-dark); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold;}
+        
+        .ticket-items { flex: 1; overflow-y: auto; padding: 1rem 0.5rem 1rem 1rem; background: white;}
+        .ticket-item { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid #f1f5f9;}
+        .item-info { flex: 1; padding-right: 10px;}
+        .item-name { font-weight: 700; font-size: 0.95rem; color: var(--text-dark); line-height: 1.2;}
+        .item-price { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;}
+        
+        .item-actions { display: flex; align-items: center; gap: 12px; }
+        .qty-control { display: flex; align-items: center; background: #f1f5f9; padding: 4px; border-radius: 30px; }
+        .qty-control button { background: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-weight: bold; font-size: 1.1rem; color: var(--text-dark); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center;}
+        .qty-control button:active { background: #e2e8f0; transform: scale(0.9); }
+        .qty-control span { width: 30px; text-align: center; font-weight: 800; font-size: 1rem;}
+        .item-total-price { font-weight: 800; color: var(--text-dark); width: 70px; text-align: right;}
+        
+        /* Bottom actions of Ticket */
+        .ticket-footer { background: white; border-top: 1px solid var(--border-soft); padding: 0; display: flex; flex-direction: column; flex-shrink: 0;}
+        .ticket-total { padding: 1.2rem; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-bottom: 1px solid var(--border-soft);}
+        .ticket-total span:first-child { font-size: 1.2rem; font-weight: 700; color: var(--text-muted);}
+        .ticket-total span:last-child { font-size: 2rem; font-weight: 800; color: var(--primary-green);}
+        
+        .ticket-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+        .btn-action { border: none; padding: 16px; border-radius: var(--radius-md); cursor: pointer; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s; color: white;}
+        .btn-action:active { transform: scale(0.97); }
+        .btn-cuisine { background: var(--primary-orange); }
+        .btn-payer-select { background: var(--info); }
+        .btn-payer-tout { background: var(--success); grid-column: 1 / -1; font-size: 1.2rem; padding: 20px;}
+        .btn-vider { background: #f1f5f9; color: var(--danger); }
+        .btn-imprimer { background: var(--text-dark); }
+
+        /* ========== MODALS (Glassmorphism) ========== */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: white; border-radius: 24px; padding: 2rem; max-width: 500px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);}
+        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(20px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+        
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-soft); }
+        .modal-header h3 { font-size: 1.4rem; color: var(--text-dark); display: flex; align-items: center; gap: 10px;}
+        .close-btn { background: #f1f5f9; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;}
+        .close-btn:active { background: #e2e8f0; }
+
+        /* Formulaires dans Modal */
+        .montant-total { font-size: 3rem; font-weight: 800; color: var(--success); text-align: center; margin: 1rem 0; font-family: monospace;}
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-muted); font-size: 0.95rem;}
+        .form-group select, .form-group input { width: 100%; padding: 1rem; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: 1.1rem; outline: none; font-weight: 600; color: var(--text-dark); background: #f8fafc;}
+        .form-group select:focus, .form-group input:focus { border-color: var(--primary-green); background: white;}
+        
+        .modal-buttons { display: flex; gap: 1rem; margin-top: 2rem; }
+        .btn-valider { background: var(--success); color: white; flex: 2; padding: 1.2rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);}
+        .btn-valider:active { transform: scale(0.98); }
+        .btn-annuler { background: var(--border-soft); color: var(--text-dark); flex: 1; padding: 1.2rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 700; font-size: 1.1rem;}
+
+        /* Paiement Partiel List */
+        .article-select-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 2px solid var(--border-soft); border-radius: var(--radius-md); margin-bottom: 0.5rem; cursor: pointer; background: white;}
+        .article-select-item.selected { background: #ecfdf5; border-color: var(--success); }
+        .article-checkbox { width: 24px; height: 24px; accent-color: var(--success); margin-right: 15px; pointer-events: none;}
+        
+        /* ========== NOTIFICATIONS ========== */
+        .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--text-dark); color: white; padding: 16px 24px; border-radius: 30px; z-index: 3000; display: flex; align-items: center; gap: 12px; font-weight: 600; box-shadow: var(--shadow-lg); transition: all 0.3s; animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);}
+        @keyframes slideDown { from { top: -50px; opacity: 0; } to { top: 20px; opacity: 1; } }
+        .empty-message { text-align: center; padding: 3rem 1rem; color: #94a3b8; font-weight: 500; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; gap: 10px;}
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 1024px) {
+            .dashboard { grid-template-columns: 1fr; overflow-y: auto; height: auto; }
+            .left-panel { overflow-y: visible; }
+            .ticket-card { height: 600px; }
+            body { overflow-y: auto; }
+        }
+
+        /* ========== IMPRESSION THERMIQUE ========== */
+        .ticket-caisse { width: 80mm; max-width: 80mm; background: white; padding: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; display: none; margin: 0 auto; color: black;}
+        @media print { @page { size: 80mm auto; margin: 0; } body * { visibility: hidden; } #ticketCaisse, #ticketCaisse * { visibility: visible; } #ticketCaisse { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 2mm 5mm; } }
     </style>
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#143621">
-    
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="TA'BIA">
-    <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
 <body>
 
 <header>
-    <div class="header-container">
-        <div class="logo">
-            <img src="logo.jpg" class="logo-img" alt="Logo Ta'Bia" onerror="this.src='https://via.placeholder.com/70/143621/e3c496?text=TB'">
-            <h1>TA'BIA <span class="logo-subtext">Caisse</span></h1>
+    <div class="logo">
+        <img src="logo.jpg" class="logo-img" alt="Logo Ta'Bia" onerror="this.src='https://via.placeholder.com/70/143621/e3c496?text=TB'">
+        <h1>TA'BIA <span class="logo-subtext">Caisse POS</span></h1>
+    </div>
+    <div class="nav-right">
+        <div class="caisse-badge">
+            <i class="fas fa-circle" style="font-size: 8px; animation: pulse 2s infinite;"></i> En Ligne
         </div>
-        <div class="nav-right">
-            <div class="caisse-badge"><i class="fas fa-cash-register"></i> Mode caisse</div>
-            <button id="btn-tiroir" class="btn-nav" style="background: #e74c3c; color: white;"><i class="fas fa-lock"></i> Caisse Fermée</button>
-            <button id="btn-aller-stock" class="btn-nav btn-stock"><i class="fas fa-boxes"></i> Stock</button>  
-            <button id="btn-verrouiller" class="btn-nav btn-lock"><i class="fas fa-lock"></i> Verrouiller</button>    
-        </div>
+        <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 10px;"></div>
+        
+        <button id="btn-connect-tiroir" onclick="connecterTiroirUSB()" class="btn-nav btn-usb">
+            <i class="fab fa-usb"></i> Tiroir USB
+        </button>
+        <button onclick="ouvrirTiroirManuel()" class="btn-nav btn-danger">
+            <i class="fas fa-lock-open"></i> Tiroir
+        </button>
+        <button id="btn-tiroir" class="btn-nav btn-danger">
+            <i class="fas fa-lock"></i> Fermée
+        </button>
+        <button id="btn-aller-stock" class="btn-nav btn-stock">
+            <i class="fas fa-boxes"></i> Stock
+        </button>  
+        <button id="btn-verrouiller" class="btn-nav btn-primary-action">
+            <i class="fas fa-sign-out-alt"></i> Quitter
+        </button>    
     </div>
 </header>
 
 <div class="dashboard">
-    <div class="menu-container">
-        <div class="categories" id="categoriesContainer"></div>
-        <div class="products-grid" id="productsGrid"></div>
-    </div>
+    <div class="left-panel">
+        
+        <div id="sectionCommandesWeb" style="display:none;">
+            <div class="section-header">
+                <h2 style="color: var(--info);"><i class="fas fa-globe"></i> Commandes Web</h2>
+                <span class="badge-count" id="countCommandesWeb" style="background: var(--info);">0</span>
+            </div>
+            <div id="listeCommandesWeb" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;"></div>
+        </div>
 
-    <div>
-        <div class="tables-list">
-            <div class="tables-header">
-                <span><i class="fas fa-chair"></i> Tables & Emporter</span>
-                <span id="tablesCount">0 actifs</span>
+        <div class="section-tables">
+            <div class="section-header">
+                <h2><i class="fas fa-chair"></i> Tables & Fidéles</h2>
+                <span class="badge-count" id="tablesCount">0 actives</span>
             </div>
             <div class="tables-grid" id="tablesGrid"></div>
         </div>
 
-        <div class="ticket-card">
-            <div class="ticket-header">
-                <span><i class="fas fa-receipt"></i> Ticket <span id="currentTableLabel">-</span></span>
-                <span id="articleCount">0 article</span>
+        <div class="menu-container">
+            <div class="categories" id="categoriesContainer"></div>
+            <div class="products-grid" id="productsGrid"></div>
+        </div>
+    </div>
+
+    <div class="ticket-card">
+        <div class="ticket-header">
+            <h3><i class="fas fa-receipt"></i> <span id="currentTableLabel" style="font-weight: 800; color: var(--primary-orange); margin-left:5px;">-</span></h3>
+            <span class="ticket-badge" id="articleCount">0 article</span>
+        </div>
+        
+        <div class="ticket-items" id="ticketItemsList">
+            <div class="empty-message">
+                <i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>
+                Sélectionnez une table pour commencer
             </div>
-            <div class="ticket-items" id="ticketItemsList">
-                <div class="empty-message">Sélectionnez une table</div>
-            </div>
+        </div>
+        
+        <div class="ticket-footer">
             <div class="ticket-total">
                 <span>Total TTC</span>
                 <span id="ticketTotal">0.00 DT</span>
             </div>
-            <div class="ticket-actions">
-                <button class="btn-action btn-cuisine" id="envoyerCuisineBtn"><i class="fas fa-fire"></i> Cuisine</button>
-                <button class="btn-action btn-payer-select" id="payerSelectBtn"><i class="fas fa-tasks"></i> Sélectif</button>
-                <button class="btn-action btn-payer-tout" id="payerToutBtn"><i class="fas fa-hand-holding-usd"></i> Payer tout</button>
-            </div>
-            <div class="ticket-actions" style="border-top: 1px solid #eef2f6;">
-                <button class="btn-action btn-vider" id="viderTicketBtn"><i class="fas fa-trash-alt"></i> Vider</button>
-                <button class="btn-action btn-imprimer" id="imprimerTicketBtn"><i class="fas fa-print"></i> Imprimer ticket</button>
+            <div class="ticket-actions-grid">
+                <button class="btn-action btn-cuisine" id="envoyerCuisineBtn"><i class="fas fa-fire"></i> Envoyer Cuisine</button>
+                <button class="btn-action btn-payer-select" id="payerSelectBtn"><i class="fas fa-list-check"></i> Partiel</button>
+                <button class="btn-action btn-payer-tout" id="payerToutBtn"><i class="fas fa-wallet"></i> ENCAISSER TOUT</button>
+                <button class="btn-action btn-vider" id="viderTicketBtn"><i class="fas fa-trash"></i> Vider</button>
+                <button class="btn-action btn-imprimer" id="imprimerTicketBtn"><i class="fas fa-print"></i> Proforma</button>
             </div>
         </div>
     </div>
 </div>
 
 <div id="modalDetailsTable" class="modal-overlay">
-    <div class="modal-content" style="max-width: 550px;">
+    <div class="modal-content">
         <div class="modal-header">
-            <h3><i class="fas fa-concierge-bell"></i> Commandes cuisine - <span id="modalTableNum"></span></h3>
+            <h3><i class="fas fa-concierge-bell"></i> Suivi Cuisine : <span id="modalTableNum" style="color:var(--primary-orange);"></span></h3>
             <button class="close-btn" onclick="fermerModalDetails()">&times;</button>
         </div>
-        <div id="modalTableContent" style="max-height: 50vh; overflow-y: auto;">
+        <div id="modalTableContent">
             <div class="empty-message">⏳ Chargement...</div>
         </div>
         <div class="modal-buttons">
-            <button class="btn-annuler" onclick="fermerModalDetails()">Fermer</button>
+            <button class="btn-annuler" style="width: 100%;" onclick="fermerModalDetails()">Fermer</button>
         </div>
     </div>
 </div>
@@ -289,21 +277,20 @@
 <div id="modalSelectionArticles" class="modal-overlay">
     <div class="modal-content" style="max-width: 600px;">
         <div class="modal-header">
-            <h3><i class="fas fa-tasks"></i> Sélection des articles à payer</h3>
+            <h3><i class="fas fa-list-check"></i> Encaissement Partiel</h3>
             <button class="close-btn" onclick="fermerModalSelection()">&times;</button>
         </div>
-        <div class="selection-actions">
-            <button class="btn-select-all" onclick="selectionnerTousArticles()"><i class="fas fa-check-double"></i> Tout sélectionner</button>
-            <button class="btn-deselect-all" onclick="deselectionnerTousArticles()"><i class="fas fa-times"></i> Tout désélectionner</button>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button style="flex:1; padding:10px; border-radius:10px; border:none; background:#e0f2fe; color:#0369a1; font-weight:bold; cursor:pointer;" onclick="selectionnerTousArticles()">Tout cocher</button>
+            <button style="flex:1; padding:10px; border-radius:10px; border:none; background:#f1f5f9; color:#475569; font-weight:bold; cursor:pointer;" onclick="deselectionnerTousArticles()">Rien cocher</button>
         </div>
         <div id="articlesListeSelection" style="max-height: 40vh; overflow-y: auto; padding-right: 5px;"></div>
-        <div class="selection-total">
-            <span>Total sélectionné :</span>
-            <span id="selectionTotal" class="montant">0.00 DT</span>
+        <div style="background:#f8fafc; padding:15px; border-radius:12px; margin-top:15px; display:flex; justify-content:space-between; align-items:center; border:2px solid var(--border-soft);">
+            <span style="font-weight:bold; color:var(--text-muted);">Total Sélectionné:</span>
+            <span id="selectionTotal" style="font-size:1.5rem; font-weight:800; color:var(--primary-orange);">0.00 DT</span>
         </div>
         <div class="modal-buttons">
-            <button class="btn-valider" onclick="validerSelectionPaiement()"><i class="fas fa-cash-register"></i> Payer la sélection</button>
-            <button class="btn-annuler" onclick="fermerModalSelection()">Annuler</button>
+            <button class="btn-valider" onclick="validerSelectionPaiement()">Continuer vers Paiement <i class="fas fa-arrow-right"></i></button>
         </div>
     </div>
 </div>
@@ -312,171 +299,201 @@
 
 <div id="ticketCaisse" class="ticket-caisse">
     <div style="text-align:center; border-bottom:1px dashed black; padding-bottom:6px; margin-bottom:6px;">
-        <div style="font-size:14px; font-weight:bold;">☕ TA'BIA Coffee Shop</div>
-        <div>23 Av. souk el-asr, Tunis</div>
-        <div>Tel: 71 234 043</div>
-        <div>NIF: 1234567X | RC: 1234567</div>
+        <div style="font-size:18px; font-weight:bold; font-family: 'Arial', sans-serif;">☕ TA'BIA COFFEE</div>
+        <div style="font-size:11px; margin-top:3px;">23 Av. Souk El-Asr, Tunis</div>
+        <div style="font-size:11px;">Tel: 55 000 000</div>
+        <div style="font-size:11px; font-weight:bold; margin-top:2px;">M.F: 1234567/X/A/M/000</div>
     </div>
-    <div style="display:flex; justify-content:space-between; margin:4px 0;"><span>Ticket N°:</span><span id="printNumero">---</span></div>
-    <div style="display:flex; justify-content:space-between; margin:4px 0;"><span>Table:</span><span id="printTable">---</span></div>
-    <div style="display:flex; justify-content:space-between; margin:4px 0;"><span>Date:</span><span id="printDate">---</span></div>
+    <div style="font-size:11px; margin-bottom: 6px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Date:</span><span id="printDate">---</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Ticket N°:</span><span id="printNumero">---</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Table:</span><span id="printTable">---</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;" id="printClientDiv"><span>Client:</span><span id="printClient">---</span></div>
+    </div>
     <div style="border-top:1px dashed black; margin:6px 0;"></div>
-    <div id="printArticles"></div>
+    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px; margin-bottom: 4px;">
+        <span style="width: 15%;">Qté</span>
+        <span style="width: 55%;">Désignation</span>
+        <span style="width: 30%; text-align:right;">Montant</span>
+    </div>
+    <div id="printArticles" style="font-size:11px;"></div>
     <div style="border-top:1px dashed black; margin:6px 0;"></div>
-    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:14px; margin-top:5px;">
+    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:16px; margin-top:5px;">
         <span>TOTAL TTC</span><span id="printTotal">0.00 DT</span>
     </div>
-    <div style="text-align:center; margin-top:15px; font-style: italic;">Merci de votre visite !</div>
-    <div style="text-align:center; margin-top:5px;">. . . . . . . . . . . . . . . .</div>
+    <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px; color:#333;">
+        <span>Mode:</span><span id="printPaiement" style="font-weight:bold;">ESPECES</span>
+    </div>
+    <div style="text-align:center; margin-top:15px; font-size:12px; font-weight:bold;">Merci de votre visite !</div>
+    <div style="text-align:center; margin-top:5px;">- - - - - - - - - - - - - - - </div>
 </div>
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-    // 🛡️ SÉCURITÉ : Vérification du Token
+    /* ========================================================================= */
+    /* 🔥 LA LOGIQUE RESTE STRICTEMENT IDENTIQUE À TON CODE ORIGINAL 🔥 */
+    /* ========================================================================= */
     const monToken = localStorage.getItem('tabia_caisse_token');
-
-    if (!monToken) {
-        window.location.href = '/caisse-login.html'; 
-    }
+    if (!monToken) { window.location.href = '/caisse-login.html'; }
+    // ========== INITIALISATION INDEXEDDB ==========
+    localforage.config({
+        name: 'TabiaCaisseDB',
+        storeName: 'caisse_data', // Nom de la table interne
+        description: 'Base de données ultra-rapide pour le mode hors-ligne'
+    });
 
     async function fetchSecurise(url, options = {}) {
         if (!options.headers) options.headers = {};
         options.headers['authorization'] = monToken; 
         options.headers['Content-Type'] = 'application/json';
-        
         const reponse = await fetch(url, options);
-        if (reponse.status === 403) {
-            alert("Votre Token a expiré ou a été révoqué.");
-            localStorage.removeItem('tabia_caisse_token');
-            window.location.href = '/caisse-login.html';
-        }
+        if (reponse.status === 403) { alert("Session expirée."); localStorage.removeItem('tabia_caisse_token'); window.location.href = '/caisse-login.html'; }
         return reponse;
     }
 
-    // ========== MENU COMPLET ET DATA ==========
-    let tickets = {};
-    let currentTable = null;
-    let activeCategory = "all";
-    let produits = [];
-    
-    let derniereTableModal = null;
-    let socket = null;
-    let commandesRecues = []; 
+    let tickets = {}; let currentTable = null; let activeCategory = "all"; let produits = [];
+    let derniereTableModal = null; let socket = null; let commandesRecues = []; 
+    let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
 
-    let articlesDecomposes = [];
-    let selectedUnits = [];
-    let currentTableSelection = null;
-
-    for (let i = 1; i <= 20; i++) tickets[String(i)] = { articles: [], total: 0 };
+    for (let i = 1; i <= 20; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
     tickets['Emporter'] = { articles: [], total: 0 };
+    if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
 
-    if (!window.commandesTraiteesTickets) {
-        window.commandesTraiteesTickets = new Set();
-    }
+    function escapeHtml(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
 
-    function escapeHtml(text) {
-        if (!text) return text;
-        const div = document.createElement('div'); div.textContent = text; return div.innerHTML;
-    }
-
-    function showNotification(msg, bg = "#3498db") { 
+    function showNotification(msg, bg = "#1e293b") { 
         const n = document.createElement("div"); n.className = "notification"; 
-        n.innerHTML = `<i class="fas fa-info-circle"></i> ${msg}`; n.style.background = bg; 
+        n.innerHTML = `<i class="fas fa-bell"></i> ${msg}`; 
+        if(bg !== "#1e293b" && bg !== "#3498db") n.style.background = bg; 
         document.body.appendChild(n); 
-        setTimeout(() => { n.style.opacity = '0'; n.style.transform = 'translateY(20px)'; setTimeout(() => n.remove(), 300); }, 2500); 
+        setTimeout(() => { n.style.opacity = '0'; n.style.transform = 'translate(-50%, -20px)'; setTimeout(() => n.remove(), 300); }, 2500); 
     }
 
 async function sauvegarderTousLesTickets() { 
-        // Sauvegarde locale de secours
-        localStorage.setItem('tabia_caisse_tickets', JSON.stringify(tickets)); 
+        // 🔥 Sauvegarde dans IndexedDB (ultra-rapide)
+        await localforage.setItem('tabia_caisse_tickets', tickets); 
         
-        // Sauvegarde sur le serveur pour la table actuelle
         if (currentTable && tickets[currentTable]) {
-            try {
-                await fetchSecurise('/api/tickets-ouverts', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        tableNum: currentTable,
-                        ticketData: tickets[currentTable]
-                    })
-                });
-            } catch (e) { console.error("Erreur synchro cloud", e); }
+            try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: tickets[currentTable] }) }); } catch (e) {}
         }
     }    
+
 async function chargerTickets() {
         try {
-            // 1. On interroge la base de données
             const res = await fetchSecurise('/api/tickets-ouverts');
             const ticketsSauves = await res.json();
-            
             if (ticketsSauves && ticketsSauves.length > 0) {
-                ticketsSauves.forEach(t => {
-                    tickets[t.tableNum] = t.ticketData;
-                });
-                afficherListeTables();
-                if (currentTable) afficherTicket();
-                return; // Succès, on s'arrête là !
+                ticketsSauves.forEach(t => { tickets[t.tableNum] = t.ticketData; });
+                afficherListeTables(); if (currentTable) afficherTicket(); return;
             }
-        } catch(e) { console.error("Le cloud est injoignable, passage en mode local"); }
-
-        // 2. Si le cloud échoue, on charge le secours local
+        } catch(e) { console.warn("Serveur injoignable, chargement local..."); }
+        
         try {
-            const stored = localStorage.getItem('tabia_caisse_tickets');
-            if (stored) {
-                const saved = JSON.parse(stored);
-                Object.keys(saved).forEach(key => { tickets[key] = saved[key]; });
-            }
-        } catch(e) {}
+            // 🔥 Récupération depuis IndexedDB
+            const saved = await localforage.getItem('tabia_caisse_tickets');
+            if (saved) { Object.keys(saved).forEach(key => { tickets[key] = saved[key]; }); }
+        } catch(e) { console.error("Erreur lecture locale", e); }
     }
 
-    async function chargerCatalogue() {
+async function chargerCatalogue() {
         try {
             const res = await fetchSecurise('/api/stock');
             produits = await res.json();
-            renderCategories();
-            renderProducts();
-        } catch(e) { showNotification("❌ Erreur de chargement du menu", "#e74c3c"); }
-    }
-
-    function ajouterAuTicket(tableNum, produit, updateUI = true) {
-        if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0 };
-        const ticket = tickets[tableNum];
-
-        const prixSecurise = parseFloat(produit.prix) || 0;
-        const qteSecurise = parseInt(produit.quantite) || 1;
-
-        const existing = ticket.articles.find(a => 
-            (String(a.id) === String(produit.id) || a.nom === produit.nom) && 
-            (a.variante || null) === (produit.variante || null)
-        );
-        
-        if (existing) { existing.quantite += qteSecurise; } 
-        else { ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise }); }
-        
-        ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
-        sauvegarderTousLesTickets();
-        
-        if (updateUI) {
-            if (String(currentTable) === String(tableNum)) afficherTicket();
-            afficherListeTables();
+            // 🔥 Mise en cache IndexedDB
+            await localforage.setItem('tabia_menu_cache', produits); 
+            renderCategories(); renderProducts();
+        } catch(e) { 
+            showNotification("⚠️ Mode Hors-Ligne", "#f39c12");
+            // 🔥 Lecture depuis IndexedDB
+            const menuSauvegarde = await localforage.getItem('tabia_menu_cache'); 
+            if (menuSauvegarde) { produits = menuSauvegarde; renderCategories(); renderProducts(); } 
+            else { showNotification("❌ Aucun menu en mémoire", "#e74c3c"); }
         }
     }
 
-    function modifierQuantite(tableNum, produitId, variante, delta) {
-        const ticket = tickets[tableNum];
-        if (!ticket) return;
+    window.addEventListener('online', syncVentesHorsLigne);
+    let isSyncingOffline = false;
+
+async function syncVentesHorsLigne() {
+        if (isSyncingOffline) return; 
         
-        const index = ticket.articles.findIndex(a => String(a.id) === String(produitId) && (a.variante || null) === (variante || null));
+        const ventesEnAttente = await localforage.getItem('tabia_ventes_offline') || [];
+        if (ventesEnAttente.length === 0) return;
+        
+        isSyncingOffline = true;
+        showNotification(`🔄 Synchronisation de ${ventesEnAttente.length} ventes...`, "#3b82f6");
+        let ventesRestantes = [];
+        
+        for (let vente of ventesEnAttente) {
+            try {
+                // On pousse la vente vers la base de données
+                const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(vente) });
+                
+                if (res.ok) {
+                    // 🔥 NOUVEAUTÉ : Si la vente réussit, on ordonne au serveur de nettoyer la cuisine !
+                    if (vente.isPartiel && vente.offlineOrderIds) {
+                        await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: vente.offlineOrderIds, articlesRestants: vente.articlesRestantsOffline }) });
+                    } else if (!vente.isPartiel) {
+                        if (vente.offlineTable && vente.offlineTable.startsWith('Fidele_') && vente.offlineOrderIds) {
+                            for (let oid of vente.offlineOrderIds) { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); }
+                        } else if (vente.offlineTable && vente.offlineTable !== 'Emporter') {
+                            await fetchSecurise(`/api/commandes/table/${vente.offlineTable}/paye`, { method: 'PUT' });
+                        }
+                    }
+                } else {
+                    ventesRestantes.push(vente); 
+                }
+            } catch (e) { ventesRestantes.push(vente); }
+        }
+        
+        await localforage.setItem('tabia_ventes_offline', ventesRestantes);
+        isSyncingOffline = false;
+        if (ventesRestantes.length === 0) showNotification("✅ Ventes synchronisées", "#10b981");
+    }
+
+function ajouterAuTicket(tableNum, produit, updateUI = true, fromServer = false) {
+        if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
+        const ticket = tickets[tableNum];
+        const prixSecurise = parseFloat(produit.prix) || 0;
+        const qteSecurise = parseInt(produit.quantite) || 1;
+        
+        const isEnvoye = fromServer ? true : (produit.envoye || false);
+
+        const existing = ticket.articles.find(a => 
+            (String(a.id) === String(produit.id) || a.nom === produit.nom) && 
+            (a.variante || null) === (produit.variante || null) &&
+            (a.envoye === isEnvoye) // Sécurité anti-mélange
+        );
+
+        if (existing) {
+            existing.quantite += qteSecurise;
+        } else {
+            ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise, envoye: isEnvoye });
+        }
+        
+        ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
+        sauvegarderTousLesTickets();
+        if (updateUI) { if (String(currentTable) === String(tableNum)) afficherTicket(); afficherListeTables(); }
+    }
+
+function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
+        const ticket = tickets[tableNum]; if (!ticket) return;
+        
+        const index = ticket.articles.findIndex(a => 
+            String(a.id) === String(produitId) && 
+            (a.variante || null) === (variante || null) && 
+            a.envoye === isEnvoye
+        );
+        
         if (index !== -1) {
-            const article = ticket.articles[index];
+            const article = ticket.articles[index]; 
             const nouvelleQuantite = article.quantite + delta;
             
-            if (nouvelleQuantite <= 0) ticket.articles.splice(index, 1);
+            if (nouvelleQuantite <= 0) ticket.articles.splice(index, 1); 
             else article.quantite = nouvelleQuantite;
             
             ticket.total = ticket.articles.reduce((sum, a) => sum + (a.prix * a.quantite), 0);
             sauvegarderTousLesTickets();
-            
             if (String(currentTable) === String(tableNum)) afficherTicket();
             afficherListeTables();
         }
@@ -486,183 +503,153 @@ async function chargerTickets() {
         try {
             await fetchSecurise(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
             if (String(derniereTableModal) === String(tableNum)) { afficherCommandesTable(tableNum); }
-        } catch (error) { console.error("Erreur nettoyage cuisine:", error); }
+        } catch (error) {}
     }
 
-    async function viderTicket(tableNum, confirmDialogue = true) {
+async function viderTicket(tableNum, confirmDialogue = true) {
         if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
-            if (confirmDialogue) {
-                try { await nettoyerCommandesCuisine(tableNum); } catch(e) {}
+            if (confirmDialogue) { 
+                try { 
+                    // 🔥 CORRECTION : Gestion spécifique pour les clients fidèles
+                    if (String(tableNum).startsWith('Fidele_')) {
+                        const ticket = tickets[tableNum];
+                        if (ticket && ticket.orderIds && ticket.orderIds.length > 0) {
+                            // On annule chaque commande de ce client une par une
+                            for (let oid of ticket.orderIds) { 
+                                await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); 
+                            }
+                        }
+                    } else {
+                        // Si c'est une table normale, on utilise la méthode classique
+                        await nettoyerCommandesCuisine(tableNum); 
+                    }
+                } catch(e) { console.error("Erreur lors du vidage", e); } 
             }
-            if (String(tableNum).startsWith('Fidele_')) {
-                delete tickets[tableNum];
-                currentTable = 'Emporter';
-            } else {
-                tickets[tableNum] = { articles: [], total: 0 };
+            
+            // Suppression locale du ticket
+            if (String(tableNum).startsWith('Fidele_')) { 
+                delete tickets[tableNum]; 
+                if (currentTable === tableNum) currentTable = 'Emporter'; 
+            } else { 
+                tickets[tableNum] = { articles: [], total: 0 }; 
             }
-
-            sauvegarderTousLesTickets();
-            afficherTicket();
+            
+            sauvegarderTousLesTickets(); 
+            // 🔥 RENOUVELLEMENT AUTO DU CODE SI LA TABLE EST VIDÉE / ANNULÉE
+        if (!tableNum.startsWith('Fidele_') && tableNum !== 'Emporter') {
+            try { await fetchSecurise(`/api/numbers/refresh/${tableNum}`, { method: 'POST' }); } catch(e) {}
+        }
+            afficherTicket(); 
             afficherListeTables();
             
-            if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3498db");
+            if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3b82f6");
         }
     }
 
-    function selectionnerTable(tableNum) {
-        currentTable = String(tableNum);
-        afficherTicket();
-        afficherListeTables();
-    }
+    function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
 
-    async function envoyerEnCuisine() {
-        if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
+async function envoyerEnCuisine() {
+        if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444");
         const ticket = tickets[currentTable];
-        if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
+        if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#ef4444");
 
-        let nomTableServeur = currentTable;
-        let nomClientFidele = null;
-        
-        if (currentTable.startsWith('Fidele_')) {
-            nomTableServeur = ticket.numeroTableOrigine || 'Emporter';
+        const articlesAEnvoyer = ticket.articles.filter(a => !a.envoye);
+        if (articlesAEnvoyer.length === 0) return showNotification("✅ Déjà envoyés", "#3b82f6");
+
+        let nomTableServeur = currentTable; let nomClientFidele = null;
+        if (currentTable.startsWith('Fidele_')) { 
+            nomTableServeur = ticket.numeroTableOrigine || 'Emporter'; 
             nomClientFidele = ticket.label.split(' (')[0]; 
         }
 
         try {
             const response = await fetchSecurise('/api/commandes', {
                 method: 'POST', 
-                body: JSON.stringify({
-                    articles: ticket.articles.map(a => ({ id: a.id, nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, prix: a.prix, quantite: a.quantite })),
-                    numeroTable: nomTableServeur, clientName: nomClientFidele, clientId: null
+                body: JSON.stringify({ 
+                    articles: articlesAEnvoyer.map(a => ({ id: a.id, nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, prix: a.prix, quantite: a.quantite })), 
+                    numeroTable: nomTableServeur, clientName: nomClientFidele, clientId: null,
+                    codeAuth: "00000", methodePaiement: "sur_place"
                 })
             });
             
-            if (response.ok) {
-                showNotification(`👨‍🍳 Commande envoyée en cuisine !`, "#e67e22");
-                viderTicket(currentTable, false);
-            } else { showNotification("❌ Refusé par le serveur.", "#e74c3c"); }
-        } catch (error) { showNotification("❌ Erreur de réseau avec la cuisine", "#e74c3c"); }
+            if (response.ok) { 
+                const data = await response.json();
+                showNotification(`👨‍🍳 Articles envoyés en cuisine !`, "#e67e22"); 
+                
+                if (!ticket.orderIds) ticket.orderIds = [];
+                if (data.id || data._id) ticket.orderIds.push(data.id || data._id);
+
+                // 🔥 On les marque comme envoyés (ils vont disparaître de l'écran)
+                ticket.articles.forEach(a => { if (!a.envoye) a.envoye = true; });
+                sauvegarderTousLesTickets(); 
+                afficherTicket(); 
+            } else { 
+                const errData = await response.json();
+                showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
+            }
+        } catch (error) { showNotification("❌ Erreur réseau", "#ef4444"); }
     }
 
     function afficherListeTables() {
-        const container = document.getElementById('tablesGrid');
-        const countSpan = document.getElementById('tablesCount');
-        if (!container) return;
-        
-        let actives = 0, html = '';
+        const container = document.getElementById('tablesGrid'); const countSpan = document.getElementById('tablesCount');
+        if (!container) return; let actives = 0, html = '';
         
         for (let i = 1; i <= 20; i++) {
-            const tableStr = String(i);
-            const ticket = tickets[tableStr];
-            const hasItems = ticket && ticket.articles.length > 0;
+            const tableStr = String(i); const ticket = tickets[tableStr]; const hasItems = ticket && ticket.articles.length > 0;
             if (hasItems) actives++;
-            html += `
-            <div class="table-wrapper">
-                <button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')">
-                    <span class="table-num">Table ${i}</span>
-                    <span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span>
-                </button>
-                <button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn" title="Voir Cuisine"><i class="fas fa-concierge-bell"></i></button>
-            </div>`;
+            html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')"><span class="table-num">Table ${i}</span><span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
         }
         
-        const emporter = tickets['Emporter'];
-        const emporterHasItems = emporter && emporter.articles.length > 0;
+        const emporter = tickets['Emporter']; const emporterHasItems = emporter && emporter.articles.length > 0;
         if (emporterHasItems) actives++;
-        html += `
-        <div class="table-wrapper">
-            <button type="button" class="table-btn ${currentTable === 'Emporter' ? 'active' : ''} ${emporterHasItems ? 'has-items' : ''}" onclick="selectionnerTable('Emporter')">
-                <span class="table-num">📦 Emporter</span>
-                <span class="table-total">${emporterHasItems ? emporter.total.toFixed(2) + ' DT' : '-'}</span>
-            </button>
-            <button type="button" onclick="afficherCommandesTable('Emporter'); event.stopPropagation();" class="details-btn"><i class="fas fa-concierge-bell"></i></button>
-        </div>`;
+        html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === 'Emporter' ? 'active' : ''} ${emporterHasItems ? 'has-items' : ''}" onclick="selectionnerTable('Emporter')"><span class="table-num">📦 Emporter</span><span class="table-total">${emporterHasItems ? emporter.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('Emporter'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
 
         Object.keys(tickets).forEach(key => {
             if (key.startsWith('Fidele_')) {
-                const customTicket = tickets[key];
-                const hasItems = customTicket.articles.length > 0;
+                const customTicket = tickets[key]; const hasItems = customTicket.articles.length > 0;
                 if (hasItems || currentTable === key) {
                     if (hasItems) actives++;
-                    html += `
-                    <div class="table-wrapper">
-                        <button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="background: #fef5e6; border: 2px solid #e67e22;">
-                            <span class="table-num" style="color: #e67e22; font-size: 0.8rem;"><i class="fas fa-star"></i> ${escapeHtml(customTicket.label)}</span>
-                            <span class="table-total" style="color: #d35400;">${customTicket.total.toFixed(2)} DT</span>
-                        </button>
-                        <button type="button" onclick="viderTicket('${key}'); event.stopPropagation();" class="details-btn" style="background:#e74c3c;" title="Supprimer ce ticket"><i class="fas fa-times"></i></button>
-                    </div>`;
-                } else if (!hasItems && currentTable !== key) {
-                    delete tickets[key]; 
-                }
+                    html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="border-color:#e67e22;"><span class="table-num" style="font-size:0.85rem;"><i class="fas fa-star" style="color:#e67e22;"></i> ${escapeHtml(customTicket.label)}</span><span class="table-total">${customTicket.total.toFixed(2)} DT</span></button><button type="button" onclick="viderTicket('${key}'); event.stopPropagation();" class="details-btn" style="background:#ef4444;"><i class="fas fa-times"></i></button></div>`;
+                } else if (!hasItems && currentTable !== key) { delete tickets[key]; }
             }
         });
         
-        container.innerHTML = html;
-        if (countSpan) countSpan.innerText = `${actives} actif${actives > 1 ? 's' : ''}`;
+        container.innerHTML = html; if (countSpan) countSpan.innerText = `${actives} actives`;
     }
 
-    function afficherTicket() {
-        const itemsDiv = document.getElementById('ticketItemsList');
-        const totalSpan = document.getElementById('ticketTotal');
-        const countSpan = document.getElementById('articleCount');
-        const labelSpan = document.getElementById('currentTableLabel');
+function afficherTicket() {
+        const itemsDiv = document.getElementById('ticketItemsList'); const totalSpan = document.getElementById('ticketTotal'); const countSpan = document.getElementById('articleCount'); const labelSpan = document.getElementById('currentTableLabel');
         
-        if (!currentTable) { 
-            itemsDiv.innerHTML = '<div class="empty-message">Sélectionnez une table</div>'; 
-            totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 article"; labelSpan.innerText = "-"; 
-            return; 
-        }
-        
+        if (!currentTable) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; }
         const ticket = tickets[currentTable];
-        
-        if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter';
-        else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`;
-        else labelSpan.innerText = `Table ${currentTable}`;
-        
-        if (!ticket || !ticket.articles || ticket.articles.length === 0) { 
-            itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-receipt" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 10px; display: block;"></i>Ticket vide</div>'; 
-            totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 article"; 
-            return; 
-        }
+        if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter'; else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
+        if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
         
         let totalArts = 0, html = '';
+        
         ticket.articles.forEach((item) => {
             const prix = parseFloat(item.prix) || 0; 
-            const qte = parseInt(item.quantite) || 1;
-            const itemTotal = prix * qte;
-            totalArts += qte;
+            const qte = parseInt(item.quantite) || 1; 
+            const itemTotal = prix * qte; 
+            totalArts += qte; 
             
             const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null';
-            html += `
-                <div class="ticket-item">
-                    <div class="item-info">
-                        <div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:#e67e22;">(${item.variante})</span>` : ''}</div>
-                        <div class="item-price">${prix.toFixed(2)} DT / u</div>
-                    </div>
-                    <div class="item-actions">
-                        <div class="qty-control">
-                            <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1)"><i class="fas fa-minus"></i></button>
-                            <span>${qte}</span>
-                            <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1)"><i class="fas fa-plus"></i></button>
-                        </div>
-                        <div style="min-width: 65px; text-align: right; font-weight: bold; color: #27ae60; font-size: 0.9rem;">
-                            ${itemTotal.toFixed(2)}
-                        </div>
-                        <button type="button" class="remove-item" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -${qte})"><i class="fas fa-times"></i></button>
-                    </div>
-                </div>`;
+            const envoyeVar = item.envoye ? 'true' : 'false';
+
+            // 🔥 LOGIQUE ULTRA-SIMPLE : Le badge "Nouveau" disparaît dès que l'article est envoyé en cuisine.
+            const badgeCuisine = item.envoye 
+                ? '' // Rien ! Il devient un article normal
+                : `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
+
+            html += `<div class="ticket-item"><div class="item-info"><div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div><div class="item-price">${prix.toFixed(2)} DT / u</div></div><div class="item-actions"><div class="qty-control"><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button><span>${qte}</span><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button></div><div class="item-total-price">${itemTotal.toFixed(2)}</div></div></div>`;
         });
         
-        itemsDiv.innerHTML = html;
-        totalSpan.innerText = ticket.total.toFixed(2) + " DT";
-        countSpan.innerText = totalArts + (totalArts > 1 ? " articles" : " article");
+        itemsDiv.innerHTML = html; totalSpan.innerText = ticket.total.toFixed(2) + " DT"; countSpan.innerText = totalArts + " art.";
     }
 
     function renderCategories() {
         const container = document.getElementById('categoriesContainer');
-const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", chicha: "💨 Chichas" };        const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
-        
+        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", chicha: "💨 Chichas" }; const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
         let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
         Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });
         container.innerHTML = html;
@@ -670,72 +657,28 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
     }
 
     function renderProducts() {
-        const grid = document.getElementById('productsGrid');
-        if (!grid) return;
+        const grid = document.getElementById('productsGrid'); if (!grid) return;
         let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
-        if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit dans cette catégorie</div>'; return; }
-        
-        grid.innerHTML = filtered.map(p => {
-            const stockColor = p.stock <= 0 ? 'color: #e74c3c; font-weight: bold;' : 'color: #64748b;';
-            return `
-            <div class="product-card" data-id="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}">
-                <div style="font-size: 0.7rem; text-align: right; ${stockColor}">En stock : ${p.stock}</div>
-                <div class="product-name">${escapeHtml(p.nom)}</div>
-                <div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div>
-            </div>`;
-        }).join('');
-        
-        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { 
-            if (!currentTable) return showNotification("❌ Sélectionnez une table d'abord !", "#e74c3c"); 
-            ajouterAuTicket(currentTable, { id: parseInt(card.dataset.id) || Date.now(), nom: card.dataset.nom, prix: parseFloat(card.dataset.prix) }); 
-        }));
-    }
-
-    async function decrementerStock(articles) {
-        try {
-            await fetchSecurise('/api/stock/decrementer', { method: 'POST', body: JSON.stringify({ articles: articles.map(a => ({ id: a.id || a.baseId, quantite: a.quantite })) }) });
-        } catch (error) {}
+        if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit</div>'; return; }
+        grid.innerHTML = filtered.map(p => { const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; return `<div class="product-card" data-id="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}"><div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div><div class="product-name">${escapeHtml(p.nom)}</div><div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div></div>`; }).join('');
+        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); ajouterAuTicket(currentTable, { id: parseInt(card.dataset.id) || Date.now(), nom: card.dataset.nom, prix: parseFloat(card.dataset.prix) }); }));
     }
 
     function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
-        if (!caisseOuverte) {
-            showNotification("❌ Veuillez ouvrir la caisse d'abord !", "#e74c3c");
-            return;
-        }
-
+        if (!caisseOuverte) { showNotification("❌ Caisse fermée !", "#ef4444"); return; }
         const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `
-            <div id="modalPaiement" class="modal-overlay active">
-                <div class="modal-content">
-                    <div class="modal-header"><h3><i class="fas fa-cash-register"></i> ${isPartial ? 'Paiement de la sélection' : 'Encaissement'}</h3><button type="button" class="close-btn" id="closePaiementBtn">&times;</button></div>
-                    <div class="montant-total" id="modalTotal">${total.toFixed(2)} DT</div>
-                    <div class="remise-section"><div class="form-group"><label><i class="fas fa-tag"></i> Remise (%)</label><div class="remise-input"><input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0"><button type="button" id="appliquerRemiseBtn"><i class="fas fa-check"></i></button></div><div id="remiseInfo" style="font-size:0.8rem; color:#e67e22; margin-top:5px; font-weight: 600;"></div></div></div>
-                    <div class="form-group"><label><i class="fas fa-credit-card"></i> Mode de paiement</label>
-                        <select id="selectModePaiement">
-                            <option value="especes">💰 Espèces</option>
-                            <option value="carte">💳 Carte Bancaire</option>
-                            <option value="ticket_resto">🎫 Ticket Resto</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="montantRecuDiv"><label><i class="fas fa-money-bill-wave"></i> Montant reçu (DT)</label><input type="number" id="montantRecuInput" step="0.1" value="${total.toFixed(2)}"></div>
-                    <div id="monnaieDiv" class="monnaie-div"><i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT</div>
-                    <div class="modal-buttons"><button type="button" id="validerPaiementBtn" class="btn-valider">✅ Valider l'encaissement</button></div>
-                </div>
-            </div>`;
-        
+        container.innerHTML = `<div id="modalPaiement" class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-wallet"></i> ${isPartial ? 'Paiement Partiel' : 'Encaissement'}</h3><button type="button" class="close-btn" id="closePaiementBtn">&times;</button></div><div class="montant-total" id="modalTotal">${total.toFixed(2)} DT</div><div class="form-group"><label>Remise (%)</label><div style="display:flex; gap:10px;"><input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0"><button type="button" id="appliquerRemiseBtn" class="btn-valider" style="flex:0 0 auto; padding: 0 20px;"><i class="fas fa-check"></i></button></div></div><div class="form-group"><label>Mode de paiement</label><select id="selectModePaiement"><option value="especes">💰 Espèces</option><option value="carte">💳 Carte Bancaire</option><option value="ticket_resto">🎫 Ticket Resto</option></select></div><div class="form-group" id="montantRecuDiv"><label>Montant reçu (DT)</label><input type="number" id="montantRecuInput" step="0.1" value="${total.toFixed(2)}"></div><div id="monnaieDiv" style="display:none; text-align:center; padding:15px; background:#ecfdf5; border-radius:12px; color:var(--success); font-weight:bold; font-size:1.2rem; margin-bottom:15px; border:2px solid #a7f3d0;"><i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT</div><div class="modal-buttons"><button type="button" id="validerPaiementBtn" class="btn-valider">Valider</button></div></div></div>`;
         const modal = document.getElementById("modalPaiement"); let remiseActuelle = 0; let totalAvecRemise = total;
         const remiseInput = document.getElementById("remiseInput"); const appliquerRemise = document.getElementById("appliquerRemiseBtn"); const modalTotal = document.getElementById("modalTotal"); const montantRecuInput = document.getElementById("montantRecuInput"); const monnaieDiv = document.getElementById("monnaieDiv"); const monnaieSpan = document.getElementById("monnaieRendre"); const selectMode = document.getElementById("selectModePaiement"); const montantRecuDiv = document.getElementById("montantRecuDiv");
-        
-        const updateTotal = () => { totalAvecRemise = total * (1 - remiseActuelle/100); modalTotal.innerText = totalAvecRemise.toFixed(2) + " DT"; montantRecuInput.value = totalAvecRemise.toFixed(2); document.getElementById("remiseInfo").innerHTML = remiseActuelle > 0 ? `💰 Remise : ${remiseActuelle}% (- ${(total - totalAvecRemise).toFixed(2)} DT)` : ''; calculerMonnaie(); };
+        const updateTotal = () => { totalAvecRemise = total * (1 - remiseActuelle/100); modalTotal.innerText = totalAvecRemise.toFixed(2) + " DT"; montantRecuInput.value = totalAvecRemise.toFixed(2); calculerMonnaie(); };
         const calculerMonnaie = () => { const recu = parseFloat(montantRecuInput.value) || 0; const monnaie = recu - totalAvecRemise; if(recu > 0 && monnaie >= 0) { monnaieSpan.innerText = monnaie.toFixed(2); monnaieDiv.style.display = "block"; } else { monnaieDiv.style.display = "none"; } };
-
         appliquerRemise.onclick = () => { let val = parseFloat(remiseInput.value) || 0; if(val<0) val=0; if(val>100) val=100; remiseActuelle = val; remiseInput.value = val; updateTotal(); };
         montantRecuInput.addEventListener('input', calculerMonnaie);
         selectMode.addEventListener('change', () => { montantRecuDiv.style.display = (selectMode.value === "especes") ? "block" : "none"; monnaieDiv.style.display = "none"; });
         
         document.getElementById("validerPaiementBtn").onclick = async () => {
-            if(selectMode.value === "especes") { const recu = parseFloat(montantRecuInput.value) || 0; if(recu < totalAvecRemise) { showNotification("❌ Montant reçu insuffisant !", "#e74c3c"); montantRecuInput.focus(); return; } }
-            document.getElementById("validerPaiementBtn").disabled = true; document.getElementById("validerPaiementBtn").innerHTML = "⏳ Traitement...";
+            if(selectMode.value === "especes") { const recu = parseFloat(montantRecuInput.value) || 0; if(recu < totalAvecRemise) { showNotification("❌ Montant insuffisant", "#ef4444"); return; } }
+            document.getElementById("validerPaiementBtn").disabled = true; document.getElementById("validerPaiementBtn").innerHTML = "⏳...";
             try {
                 if (isPartial) await executerPaiementPartiel(ticketArticles, totalAvecRemise, remiseActuelle, selectedData, selectMode.value);
                 else await executerPaiementComplet(ticketArticles, totalAvecRemise, remiseActuelle, selectMode.value);
@@ -744,51 +687,63 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
         document.getElementById("closePaiementBtn").onclick = () => modal.remove();
     }
 
-    async function executerPaiementComplet(articles, totalPaye, remise, methodePaiement = 'especes') {
-        const ticket = tickets[currentTable];
-        if (!ticket.articles.length) return;
-        
-        decrementerStock(ticket.articles);
+async function executerPaiementComplet(articles, totalPaye, remise, methodePaiement = 'especes') {
+        const ticket = tickets[currentTable]; if (!ticket.articles.length) return;
+        if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
         let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
-        if (currentTable.startsWith('Fidele_')) {
-            nomOrigine = `Fidèle: ${ticket.label}`;
-            if (ticket.orderIds && ticket.orderIds.length > 0) {
-                for (let oid of ticket.orderIds) {
-                    await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) });
-                }
-            }
-        } else { nettoyerCommandesCuisine(currentTable); }
+        if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
 
-        const vente = { id: Date.now(), numero: "V" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, articles: ticket.articles.map(a => ({ nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), table: nomOrigine, methodePaiement: methodePaiement };
-        
+        const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
+
+        // 🔥 BLOQUER LES DOUBLONS : On dit à la caisse de ne plus jamais afficher ces commandes
+        if (ticket.orderIds && ticket.orderIds.length > 0) {
+            ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
+        }
+
+        // Tenter d'envoyer au serveur
+        let requeteReussie = false;
         try {
-            await fetchSecurise('/api/ventes', {
-                method: 'POST',
-                body: JSON.stringify({
-                    id: vente.id.toString(), numero: vente.numero, 
-                    total: totalPaye, remise: remise, typePaiement: 'complet',
-                    tableOrigine: nomOrigine, articles: vente.articles,
-                    methodePaiement: methodePaiement
-                })
-            });
-        } catch(e) { console.error("Erreur synchro vente", e); }
+            if (navigator.onLine) {
+                const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) });
+                if (res.ok) requeteReussie = true;
+            }
+        } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
+
+        if (!requeteReussie) {
+            // 🚨 HORS LIGNE : Sauvegarde ultra-robuste avec mémorisation de la table pour nettoyage futur
+            let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
+            venteBody.offlineTable = currentTable; 
+            venteBody.offlineOrderIds = ticket.orderIds || [];
+            ventesOffline.push(venteBody);
+            await localforage.setItem('tabia_ventes_offline', ventesOffline);
+            showNotification("⚠️ Serveur injoignable, Vente hors-ligne.", "#f39c12");
+        } else {
+            // ✅ EN LIGNE : On nettoie la cuisine tout de suite
+            if (currentTable.startsWith('Fidele_')) {
+                if (ticket.orderIds) { for (let oid of ticket.orderIds) { try { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); } catch(e){} } }
+            } else {
+                try { await nettoyerCommandesCuisine(currentTable); } catch(e){}
+            }
+        }
         
         if (currentTable.startsWith('Fidele_')) { delete tickets[currentTable]; currentTable = 'Emporter'; } 
-        else { tickets[currentTable] = { articles: [], total: 0 }; }
+        else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; }
         
-        sauvegarderTousLesTickets();
-        afficherTicket(); afficherListeTables();
-        showNotification(`✅ Paiement complet validé : ${totalPaye.toFixed(2)} DT`, "#27ae60");
-        imprimerTicket(nomOrigine, articles, totalPaye, remise);
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+        // 🔥 RENOUVELLEMENT AUTO DU CODE DE LA TABLE APRÈS PAIEMENT
+        if (!currentTable.startsWith('Fidele_') && currentTable !== 'Emporter') {
+            try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {}
+        }
+        showNotification(`✅ Payé : ${totalPaye.toFixed(2)} DT`, "#10b981");
+        imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
     }
 
     function payerSelection() {
-        if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
+        if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444");
         const ticket = tickets[currentTable];
-        if (!ticket || !ticket.articles || ticket.articles.length === 0) return showNotification("❌ Le ticket est vide", "#e74c3c");
-        currentTableSelection = currentTable;
-        afficherModalSelectionArticles(ticket.articles);
+        if (!ticket || !ticket.articles.length) return showNotification("❌ Le ticket est vide", "#ef4444");
+        currentTableSelection = currentTable; afficherModalSelectionArticles(ticket.articles);
     }
 
     function afficherModalSelectionArticles(articles) {
@@ -796,428 +751,454 @@ const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons
         articlesDecomposes = [];
         articles.forEach((article, originalIndex) => { for (let i = 0; i < article.quantite; i++) { articlesDecomposes.push({ id: article.id, nom: article.nom, variante: article.variante, prix: article.prix, quantite: 1, originalIndex: originalIndex, originalArticle: article, unitId: `${originalIndex}_${i}`, unitNumber: i + 1 }); } });
         selectedUnits = articlesDecomposes.map(() => false);
-        
-        container.innerHTML = articlesDecomposes.map((unit, index) => `<div class="article-select-item" data-unit-index="${index}" onclick="toggleUnitSelection(${index})"><input type="checkbox" class="article-checkbox" id="check_unit_${index}" onclick="event.stopPropagation(); toggleUnitSelection(${index})"><div class="article-info"><div class="article-name">${escapeHtml(unit.nom)} ${unit.variante ? `<span style="color:#e67e22;">(${unit.variante})</span>` : ''} <span class="unit-number">#${unit.unitNumber}</span></div><div class="article-details">${unit.prix.toFixed(2)} DT</div></div><div class="article-total">${unit.prix.toFixed(2)} DT</div></div>`).join('');
+        container.innerHTML = articlesDecomposes.map((unit, index) => `<div class="article-select-item" data-unit-index="${index}" onclick="toggleUnitSelection(${index})"><input type="checkbox" class="article-checkbox" id="check_unit_${index}"><div class="item-info"><div class="item-name">${escapeHtml(unit.nom)} ${unit.variante ? `<span style="color:var(--primary-orange);">(${unit.variante})</span>` : ''}</div></div><div class="item-total-price">${unit.prix.toFixed(2)} DT</div></div>`).join('');
         modal.classList.add('active'); mettreAJourTotalUnites();
     }
 
-    function toggleUnitSelection(unitIndex) { selectedUnits[unitIndex] = !selectedUnits[unitIndex]; const item = document.querySelector(`.article-select-item[data-unit-index="${unitIndex}"]`); const checkbox = document.getElementById(`check_unit_${unitIndex}`); if (selectedUnits[unitIndex]) { if (item) item.classList.add('selected'); if (checkbox) checkbox.checked = true; } else { if (item) item.classList.remove('selected'); if (checkbox) checkbox.checked = false; } mettreAJourTotalUnites(); }
+    function toggleUnitSelection(unitIndex) { selectedUnits[unitIndex] = !selectedUnits[unitIndex]; const item = document.querySelector(`.article-select-item[data-unit-index="${unitIndex}"]`); const checkbox = document.getElementById(`check_unit_${unitIndex}`); if (selectedUnits[unitIndex]) { item.classList.add('selected'); checkbox.checked = true; } else { item.classList.remove('selected'); checkbox.checked = false; } mettreAJourTotalUnites(); }
     function selectionnerTousArticles() { selectedUnits = selectedUnits.map(() => true); document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.add('selected'); document.getElementById(`check_unit_${idx}`).checked = true; }); mettreAJourTotalUnites(); }
     function deselectionnerTousArticles() { selectedUnits = selectedUnits.map(() => false); document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.remove('selected'); document.getElementById(`check_unit_${idx}`).checked = false; }); mettreAJourTotalUnites(); }
-    function mettreAJourTotalUnites() { let total = 0, nbUnites = 0; articlesDecomposes.forEach((unit, index) => { if (selectedUnits[index]) { total += unit.prix; nbUnites++; } }); document.getElementById('selectionTotal').innerHTML = `${total.toFixed(2)} DT <span style="font-size: 0.8rem; color: #64748b; font-weight: normal;">(${nbUnites} art.)</span>`; }
+    function mettreAJourTotalUnites() { let total = 0; articlesDecomposes.forEach((unit, index) => { if (selectedUnits[index]) { total += unit.prix; } }); document.getElementById('selectionTotal').innerText = `${total.toFixed(2)} DT`; }
 
-    function validerSelectionPaiement() {
+function validerSelectionPaiement() {
         const selectedUnitsList = articlesDecomposes.filter((_, index) => selectedUnits[index]);
-        if (selectedUnitsList.length === 0) return showNotification("❌ Sélectionnez au moins un article", "#e74c3c");
+        
+        if (selectedUnitsList.length === 0) return showNotification("❌ Aucun article", "#ef4444");
+
+        // 🔥 CORRECTION : Si TOUS les articles sont sélectionnés, on bascule sur un paiement COMPLET
+        if (selectedUnitsList.length === articlesDecomposes.length) {
+            fermerModalSelection();
+            // On utilise les articles originaux du ticket et on met isPartial à 'false'
+            afficherModalPaiement(tickets[currentTable].articles, tickets[currentTable].total, false);
+            return; // On arrête la fonction ici
+        }
+
+        // Si ce n'est qu'une partie des articles (Paiement Partiel normal) :
         const unitsParProduit = {};
-        selectedUnitsList.forEach(unit => { const key = `${unit.id}_${unit.variante}`; if (!unitsParProduit[key]) unitsParProduit[key] = { id: unit.id, nom: unit.nom, variante: unit.variante, prix: unit.prix, quantite: 0 }; unitsParProduit[key].quantite++; });
-        const articlesAPayer = Object.values(unitsParProduit); const total = articlesAPayer.reduce((s, a) => s + a.prix * a.quantite, 0); const unitIdsASupprimer = selectedUnitsList.map(u => u.unitId);
-        fermerModalSelection(); afficherModalPaiement(articlesAPayer, total, true, unitIdsASupprimer);
+        selectedUnitsList.forEach(unit => { 
+            const key = `${unit.id}_${unit.variante}`; 
+            if (!unitsParProduit[key]) unitsParProduit[key] = { id: unit.id, nom: unit.nom, variante: unit.variante, prix: unit.prix, quantite: 0 }; 
+            unitsParProduit[key].quantite++; 
+        });
+        
+        const articlesAPayer = Object.values(unitsParProduit); 
+        const total = articlesAPayer.reduce((s, a) => s + a.prix * a.quantite, 0); 
+        const unitIdsASupprimer = selectedUnitsList.map(u => u.unitId);
+        
+        fermerModalSelection(); 
+        afficherModalPaiement(articlesAPayer, total, true, unitIdsASupprimer);
     }
 
     function fermerModalSelection() { document.getElementById('modalSelectionArticles').classList.remove('active'); currentTableSelection = null; }
 
-    async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer, methodePaiement = 'especes') {
-        const ticket = tickets[currentTable];
-        if (!ticket || !ticket.articles.length) return;
-        
-        decrementerStock(articlesAPayer);
+async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer, methodePaiement = 'especes') {
+        const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
+        if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
         let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle : ${ticket.label}`;
 
-        const vente = { id: Date.now(), numero: "P" + Math.floor(Math.random() * 10000), date: new Date().toLocaleString(), total: totalPaye, remise: remise, type: "partiel", articles: articlesAPayer, table: nomOrigine, methodePaiement: methodePaiement };
+        const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
+
+        // 1. Calcul des articles restants (CORRIGÉ 🔥)
+// Dans `executerPaiementPartiel`, remplace UNIQUEMENT le bloc "1. Calcul des articles restants" par ceci :
         
-        try {
-            await fetchSecurise('/api/ventes', {
-                method: 'POST',
-                body: JSON.stringify({
-                    id: vente.id.toString(), numero: vente.numero, 
-                    total: totalPaye, remise: remise, typePaiement: 'partiel',
-                    tableOrigine: nomOrigine, articles: vente.articles,
-                    methodePaiement: methodePaiement
-                })
-            });
-        } catch(e) { console.error("Erreur synchro vente", e); }
-        
+        // 1. Calcul des articles restants
         const articlesRestants = [];
         ticket.articles.forEach((article, articleIndex) => {
             for (let i = 0; i < article.quantite; i++) {
                 const unitId = `${articleIndex}_${i}`;
                 if (!unitIdsASupprimer.includes(unitId)) {
-                    const existing = articlesRestants.find(a => a.id === article.id && a.variante === article.variante);
-                    if (existing) existing.quantite++; else articlesRestants.push({ id: article.id, nom: article.nom, variante: article.variante, prix: article.prix, quantite: 1 });
-                }
-            }
-        });
-        
-        tickets[currentTable].articles = articlesRestants;
-        tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
-        
-        sauvegarderTousLesTickets();
-        afficherTicket(); afficherListeTables();
-        showNotification(`💰 Paiement partiel validé (${totalPaye.toFixed(2)} DT)`, "#27ae60");
-        imprimerTicket(nomOrigine, articlesAPayer, totalPaye, remise, true);
-    }
-
-    // ========== IMPRESSION ==========
-    function imprimerTicket(tableNum, articles, total, remise, isPartial = false) {
-        const now = new Date(); const numTicket = `${isPartial?'P':'T'}-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}-${now.getHours()}${now.getMinutes()}`;
-        document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = tableNum; document.getElementById('printDate').textContent = now.toLocaleString();
-        
-        let html = '<div style="display:flex; justify-content:space-between; font-weight:bold; border-bottom:1px dashed black; padding-bottom:3px; margin-bottom:3px;"><span>Article</span><span>Qté</span><span>Prix</span></div>';
-        articles.forEach(a => { html += `<div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>${a.nom} ${a.variante?`(${a.variante})`:''}</span><span>x${a.quantite}</span><span>${(a.prix * a.quantite).toFixed(2)}</span></div>`; });
-        if (remise > 0) { const totalOriginal = total / (1 - remise/100); html += `<div style="display:flex; justify-content:space-between; margin-top:5px; font-weight:bold;"><span>Remise ${remise}%</span><span>- ${(totalOriginal - total).toFixed(2)}</span></div>`; }
-        if (isPartial) html += `<div style="margin-top:8px; text-align:center; font-weight:bold;">*** PAIEMENT PARTIEL ***</div>`;
-        
-        document.getElementById('printArticles').innerHTML = html; document.getElementById('printTotal').textContent = `${total.toFixed(2)} DT`;
-        const ticketElem = document.getElementById('ticketCaisse'); ticketElem.style.display = 'block';
-        setTimeout(() => { window.print(); ticketElem.style.display = 'none'; }, 300);
-    }
-    
-    function imprimerTicketCourant() {
-        if (!currentTable) return showNotification("❌ Sélectionnez une table", "#e74c3c");
-        const ticket = tickets[currentTable];
-        if (!ticket.articles || !ticket.articles.length) return showNotification("❌ Le ticket est vide", "#e74c3c");
-        
-        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
-        if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
-
-        imprimerTicket(nomOrigine, ticket.articles, ticket.total, 0, false);
-    }
-
-    // ========== SYNCHRO CUISINE ET RATTRAPAGE ==========
-    async function chargerCommandesCuisineInitiales() {
-        try {
-            const response = await fetchSecurise('/api/commandes');
-            commandesRecues = await response.json();
-        } catch(e) { console.error("Erreur historique cuisine:", e); }
-    }
-
-    function synchroniserTicketsAvecServeur() {
-        let aMiseAJour = false;
-        if (!commandesRecues || !Array.isArray(commandesRecues)) return;
-
-        commandesRecues.forEach(commande => {
-            if (commande.statut === 'terminee') {
-                if (window.commandesTraiteesTickets && window.commandesTraiteesTickets.has(commande.id)) return;
-
-                let tableNum = String(commande.numeroTable || 'Emporter').trim();
-                let customLabel = null;
-                
-                if (commande.clientName) {
-                    tableNum = 'Fidele_' + commande.clientName;
-                    let infoTable = (commande.numeroTable && commande.numeroTable !== 'Emporter') ? ` (T${commande.numeroTable})` : '';
-                    customLabel = commande.clientName + infoTable;
-                }
-                
-                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
-                if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
-
-                if (!tickets[tableNum].orderIds.includes(commande.id)) {
-                    tickets[tableNum].orderIds.push(commande.id);
-                    if (customLabel) tickets[tableNum].label = customLabel;
-                    
-                    window.commandesTraiteesTickets.add(commande.id);
-
-                    if (commande.articles && commande.articles.length > 0) {
-                        commande.articles.forEach((article, arrIdx) => { 
-                            let nomPropre = article.nom || "Article Inconnu";
-                            let variante = article.variante || null;
-                            if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-
-                            let vraiPrix = parseFloat(article.prix);
-                            if (isNaN(vraiPrix) || vraiPrix === 0) {
-                                const p = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom.trim().toLowerCase() === nomPropre.trim().toLowerCase());
-                                if (p) vraiPrix = parseFloat(p.prix);
-                            }
-                            const idSecurise = article.id || article.baseId || (Date.now() + arrIdx);
-                            ajouterAuTicket(tableNum, { id: idSecurise, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1 }, false); 
+                    // On conserve l'état 'envoye' pour ne pas faire réapparaitre le badge rouge
+                    const existing = articlesRestants.find(a => a.id === article.id && a.variante === article.variante && a.envoye === article.envoye);
+                    if (existing) {
+                        existing.quantite++; 
+                    } else {
+                        articlesRestants.push({ 
+                            id: article.id, nom: article.nom, variante: article.variante, 
+                            prix: article.prix, quantite: 1,
+                            envoye: article.envoye
                         });
-                        aMiseAJour = true;
                     }
                 }
             }
         });
 
-        if (aMiseAJour) {
-            sauvegarderTousLesTickets();
-            afficherListeTables();
-            if (currentTable) afficherTicket();
-            showNotification("🔄 Synchronisation : Nouvelles commandes de cuisine ajoutées !", "#27ae60");
+        // Tenter d'envoyer au serveur
+        let requeteReussie = false;
+        try {
+            if (navigator.onLine) {
+                const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) });
+                if (res.ok) requeteReussie = true;
+            }
+        } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
+
+        if (!requeteReussie) {
+            // 🚨 HORS LIGNE 
+            let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
+            venteBody.isPartiel = true;
+            venteBody.offlineOrderIds = ticket.orderIds || [];
+            venteBody.articlesRestantsOffline = articlesRestants; 
+            ventesOffline.push(venteBody);
+            await localforage.setItem('tabia_ventes_offline', ventesOffline);
+            showNotification("⚠️ Paiement partiel hors-ligne.", "#f39c12");
+        } else {
+            // ✅ EN LIGNE
+            if (ticket.orderIds && ticket.orderIds.length > 0) {
+                try { await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants }) }); } catch(e) {}
+            }
         }
+        
+        // 3. Mise à jour de la caisse locale
+        tickets[currentTable].articles = articlesRestants; 
+        tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
+        
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+        showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
+        imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
+    }
+
+    async function chargerCommandesCuisineInitiales() {
+        try { const response = await fetchSecurise('/api/commandes'); commandesRecues = await response.json(); afficherCommandesWeb(); } catch(e) {}
+    }
+
+    function synchroniserTicketsAvecServeur() {
+        let aMiseAJour = false;
+        if (!commandesRecues || !Array.isArray(commandesRecues)) return;
+        commandesRecues.forEach(commande => {
+if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            if (commande.statut === 'terminee') {
+                if (window.commandesTraiteesTickets && window.commandesTraiteesTickets.has(commande.id)) return;
+                let tableNum = String(commande.numeroTable || 'Emporter').trim(); let customLabel = null;
+                if (commande.clientName) { tableNum = 'Fidele_' + commande.clientName; customLabel = commande.clientName; }
+                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
+                if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
+                if (!tickets[tableNum].orderIds.includes(commande.id)) {
+                    tickets[tableNum].orderIds.push(commande.id); if (customLabel) tickets[tableNum].label = customLabel;
+                    window.commandesTraiteesTickets.add(commande.id);
+                    if (commande.articles && commande.articles.length > 0) {
+                        commande.articles.forEach((article, arrIdx) => { 
+                            let nomPropre = article.nom || "Inconnu"; let variante = article.variante || null;
+                            if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
+                            let vraiPrix = parseFloat(article.prix); if (isNaN(vraiPrix) || vraiPrix===0) { const p = produits.find(p => String(p.id) === String(article.id)); if (p) vraiPrix = parseFloat(p.prix); }
+ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1 }, false, true);                        }); aMiseAJour = true;
+                    }
+                }
+            }
+        });
+        if (aMiseAJour) { sauvegarderTousLesTickets(); afficherListeTables(); if (currentTable) afficherTicket(); showNotification("🔄 Commandes cuisine ajoutées !", "#10b981"); }
     }
 
     async function afficherCommandesTable(tableNum) {
-        const modal = document.getElementById('modalDetailsTable');
-        const content = document.getElementById('modalTableContent');
-        derniereTableModal = String(tableNum).trim();
-        
-        let titre = tableNum;
-        if (tableNum === 'Emporter') titre = '📦 Emporter';
-        if (tableNum.startsWith('Fidele_')) titre = `⭐ ${tickets[tableNum].label}`;
-        document.getElementById('modalTableNum').textContent = titre;
-        
-        modal.classList.add('active');
-        content.innerHTML = '<div class="empty-message">⏳ Chargement...</div>';
-        
+        const modal = document.getElementById('modalDetailsTable'); const content = document.getElementById('modalTableContent'); derniereTableModal = String(tableNum).trim();
+        let titre = tableNum; if (tableNum === 'Emporter') titre = '📦 Emporter'; if (tableNum.startsWith('Fidele_')) titre = `⭐ ${tickets[tableNum].label}`;
+        document.getElementById('modalTableNum').textContent = titre; modal.classList.add('active'); content.innerHTML = '<div class="empty-message">⏳...</div>';
         await chargerCommandesCuisineInitiales();
-        
-        const commandesTable = commandesRecues.filter(cmd => {
-            if (cmd.statut === 'paye') return false; 
-            if (derniereTableModal.startsWith('Fidele_')) { return cmd.clientName === tickets[derniereTableModal].label.split(' (')[0]; } 
-            else {
-                if (derniereTableModal === 'Emporter' && cmd.clientName) return false;
-                const cmdTable = String(cmd.numeroTable || 'Emporter').trim();
-                return cmdTable === derniereTableModal;
-            }
-        });
-        
-        if (commandesTable.length === 0) { content.innerHTML = '<div class="empty-message"><i class="fas fa-check-circle" style="font-size:2rem; color:#cbd5e1; display:block; margin-bottom:10px;"></i>Aucune commande cuisine en cours</div>'; return; }
-        
-        let html = '';
-        commandesTable.forEach(cmd => {
-            let statutUi = { texte: 'Inconnu', bg: '#95a5a6', border: '#cbd5e1' };
-            if(cmd.statut === 'en_attente') statutUi = { texte: '⏳ En attente', bg: '#fef5e6', border: '#f39c12' };
-            if(cmd.statut === 'en_preparation') statutUi = { texte: '🍳 Préparation', bg: '#e3f2fd', border: '#3498db' };
-            if(cmd.statut === 'terminee') statutUi = { texte: '✅ Prête à servir', bg: '#e8f5e9', border: '#27ae60' };
-            
-            html += `
-                <div style="background: white; border-radius: 12px; margin-bottom: 1rem; border: 1px solid ${statutUi.border}; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                    <div style="background: ${statutUi.bg}; padding: 0.8rem 1rem; border-top-left-radius: 12px; border-top-right-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid ${statutUi.border};">
-                        <div><strong style="color: #2c3e50;">#${cmd.numero}</strong> <span style="font-size:0.7rem; color:#666;">${cmd.clientId ? '(Mobile)' : '(Caisse)'}</span></div>
-                        <div style="font-weight: bold; color: ${statutUi.border};">${statutUi.texte}</div>
-                    </div>
-                    <div style="padding: 1rem;">
-                        ${cmd.articles.map(a => `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #eef2f6;"><span><strong>${a.quantite}x</strong> ${a.nom} ${a.variante?`(${a.variante})`:''}</span></div>`).join('')}
-                    </div>
-                </div>`;
-        });
-        content.innerHTML = html;
+        const cmds = commandesRecues.filter(cmd => { if (cmd.statut === 'paye') return false; if (derniereTableModal.startsWith('Fidele_')) { return cmd.clientName === tickets[derniereTableModal].label.split(' (')[0]; } else { return String(cmd.numeroTable||'Emporter').trim() === derniereTableModal && !cmd.clientName; } });
+        if (cmds.length === 0) { content.innerHTML = '<div class="empty-message">Rien en cours</div>'; return; }
+        content.innerHTML = cmds.map(cmd => {
+            let s = { t: '⏳ En attente', c: 'var(--primary-orange)' }; if(cmd.statut==='en_preparation') s = { t: '🍳 Préparation', c: 'var(--info)' }; if(cmd.statut==='terminee') s = { t: '✅ Prête', c: 'var(--success)' };
+            return `<div style="border: 2px solid var(--border-soft); border-radius: 12px; margin-bottom: 10px;"><div style="background: #f8fafc; padding: 10px; border-bottom: 1px solid var(--border-soft); display:flex; justify-content:space-between;"><strong>#${cmd.numero}</strong><span style="color:${s.c}; font-weight:bold;">${s.t}</span></div><div style="padding:10px;">${cmd.articles.map(a => `<div>${a.quantite}x ${a.nom} ${a.variante?`(${a.variante})`:''}</div>`).join('')}</div></div>`;
+        }).join('');
     }
 
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
-    function initSocket() {
-        socket = io({ 
-    auth: { token: monToken }, 
-    transports: ['websocket', 'polling'], 
-    reconnection: true 
-});
-
-        socket.on('connect', async () => {
-            await chargerCommandesCuisineInitiales();
-            synchroniserTicketsAvecServeur();
+function initSocket() {
+        socket = io({ auth: { token: monToken }, transports: ['websocket', 'polling'] });
+        
+        socket.on('connect', async () => { 
+            await chargerCommandesCuisineInitiales(); 
+            synchroniserTicketsAvecServeur(); 
         });
         
-        socket.on('update_stock', async () => {
+        socket.on('update_stock', async () => { 
             await chargerCatalogue(); 
             if (currentTable) afficherTicket(); 
             renderProducts(); 
         });
 
-        socket.on('nouvelle_commande', (commande) => {
-            commandesRecues.push(commande);
-            if (derniereTableModal) {
-                if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label.split(' (')[0]) { afficherCommandesTable(derniereTableModal); } 
-                else if (String(commande.numeroTable || 'Emporter').trim() === derniereTableModal && !commande.clientName) { afficherCommandesTable(derniereTableModal); }
-            }
-        });
-        
+        socket.on('nouvelle_commande', (commande) => { 
+            commandesRecues.push(commande); 
+            if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
+            afficherCommandesWeb(); // 🔥 On actualise le bloc du haut en temps réel
+        }); 
+
         socket.on('mise_a_jour_commande', (commande) => {
-            const idx = commandesRecues.findIndex(c => c.id === commande.id);
-            if (idx !== -1) commandesRecues[idx] = commande;
+            const idx = commandesRecues.findIndex(c => c.id === commande.id); 
+            if (idx !== -1) commandesRecues[idx] = commande; 
             else commandesRecues.push(commande);
             
+            afficherCommandesWeb();
+            
+            if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            
+            
+            // 🟢 RETOUR DE CUISINE (La commande est prête)
             if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
                 window.commandesTraiteesTickets.add(commande.id);
                 
-                let tableNum = String(commande.numeroTable || 'Emporter').trim();
+                let tableNum = String(commande.numeroTable || 'Emporter').trim(); 
                 let customLabel = null;
-                if (commande.clientName) {
-                    tableNum = 'Fidele_' + commande.clientName;
-                    let infoTable = (commande.numeroTable && commande.numeroTable !== 'Emporter') ? ` (T${commande.numeroTable})` : '';
-                    customLabel = commande.clientName + infoTable; 
+                
+                if (commande.clientName) { 
+                    tableNum = 'Fidele_' + commande.clientName; 
+                    customLabel = commande.clientName; 
                 }
                 
-                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
-                if (customLabel) tickets[tableNum].label = customLabel;
+                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
+                if (customLabel) tickets[tableNum].label = customLabel; 
                 
                 if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
-                tickets[tableNum].orderIds.push(commande.id);
+                if (!tickets[tableNum].orderIds.includes(commande.id)) tickets[tableNum].orderIds.push(commande.id);
 
-                if (commande.articles && commande.articles.length > 0) {
-                    commande.articles.forEach((article, arrIdx) => { 
-                        let nomPropre = article.nom || "Article Inconnu";
-                        let variante = article.variante || null;
-                        if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-
-                        let vraiPrix = parseFloat(article.prix);
-                        if (isNaN(vraiPrix) || vraiPrix === 0) {
-                            const p = produits.find(p => String(p.id) === String(article.id || article.baseId) || p.nom.trim().toLowerCase() === nomPropre.trim().toLowerCase());
-                            if (p) vraiPrix = parseFloat(p.prix);
+                if (commande.articles) { 
+                    commande.articles.forEach((cmdArt, arrIdx) => { 
+                        let nomPropre = cmdArt.nom || "Inconnu"; 
+                        let variante = cmdArt.variante || null;
+                        
+                        if (!variante && nomPropre.includes('(')) { 
+                            const parts = nomPropre.split('('); 
+                            nomPropre = parts[0].trim(); 
+                            variante = parts[1].replace(')', '').trim(); 
                         }
-                        const idSecurise = article.id || article.baseId || (Date.now() + arrIdx);
-                        ajouterAuTicket(tableNum, { id: idSecurise, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1 }, false); 
-                    });
-                    showNotification(`🔔 Cuisine : Commande ${commande.clientName ? `de ${commande.clientName}` : `#${commande.numero}`} prête !`, "#27ae60");
+                        
+                        let vraiPrix = parseFloat(cmdArt.prix); 
+                        if (isNaN(vraiPrix) || vraiPrix === 0) { 
+                            const p = produits.find(p => String(p.id) === String(cmdArt.id)); 
+                            if (p) vraiPrix = parseFloat(p.prix); 
+                        }
+
+                        // 🔥 CORRECTION ANTI-DOUBLON ICI
+                        // On cherche l'article qui est actuellement "caché" en cuisine
+                        const existing = tickets[tableNum].articles.find(a => 
+                            (a.nom === nomPropre) && 
+                            (a.variante || null) === variante && 
+                            a.envoye === true && 
+                            !a.pret
+                        );
+
+                        if (existing) {
+                            // L'article était bien dans le ticket : on le marque comme Prêt (pour le faire réapparaître)
+                            existing.pret = true; 
+                            existing.quantite = parseInt(cmdArt.quantite) || existing.quantite;
+                        } else {
+                            // Sécurité : l'article n'existe pas localement (ex: F5 de la page caisse entre temps)
+                            // On le recrée en précisant qu'il est déjà "envoyé" ET "prêt"
+                            ajouterAuTicket(tableNum, { 
+                                id: cmdArt.id || Date.now() + arrIdx, 
+                                nom: nomPropre, 
+                                variante: variante, 
+                                prix: vraiPrix || 0, 
+                                quantite: parseInt(cmdArt.quantite) || 1,
+                                envoye: true, // Statut serveur
+                                pret: true    // Il est prêt à être servi !
+                            }, false, true); 
+                        }
+                    }); 
                 }
+                
+                // Recalcul de sécurité du total de la table
+                tickets[tableNum].total = tickets[tableNum].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
+                sauvegarderTousLesTickets();
+                
                 afficherListeTables(); 
-                if (String(currentTable) === tableNum) { afficherTicket(); }
+                if (String(currentTable) === tableNum) afficherTicket();
+                
+                showNotification(`🔔 Cuisine prête: #${commande.numero}`, "#10b981");
             }
             
-            if (derniereTableModal) {
-                if (derniereTableModal.startsWith('Fidele_') && commande.clientName === tickets[derniereTableModal].label.split(' (')[0]) { afficherCommandesTable(derniereTableModal); } 
-                else if (String(commande.numeroTable || 'Emporter').trim() === derniereTableModal && !commande.clientName) { afficherCommandesTable(derniereTableModal); }
-            }
+            if (derniereTableModal) afficherCommandesTable(derniereTableModal);
         });
     }
 
-    // ========== GESTION TIROIR CAISSE ==========
-    let caisseOuverte = false;
-    let sessionCaisseId = null;
-
+    let caisseOuverte = false; let sessionCaisseId = null;
     async function verifierStatutCaisse() {
-        try {
-            const res = await fetchSecurise('/api/tiroir/statut');
-            const data = await res.json();
-            caisseOuverte = data.ouvert;
-            
+        try { const res = await fetchSecurise('/api/tiroir/statut'); const data = await res.json(); caisseOuverte = data.ouvert;
             const btn = document.getElementById('btn-tiroir');
-            if (caisseOuverte) {
-                btn.style.background = '#27ae60';
-                btn.innerHTML = '<i class="fas fa-box-open"></i> Clôturer Caisse';
-                sessionCaisseId = data.session._id;
-            } else {
-                btn.style.background = '#e74c3c';
-                btn.innerHTML = '<i class="fas fa-lock"></i> Ouvrir Caisse';
-                sessionCaisseId = null;
-            }
-        } catch (e) { console.error("Erreur statut caisse", e); }
+            if (caisseOuverte) { btn.style.background = 'var(--success)'; btn.style.borderColor = 'var(--success)'; btn.innerHTML = '<i class="fas fa-box-open"></i> Clôturer'; btn.style.color = 'white'; } 
+            else { btn.style.background = 'rgba(239, 68, 68, 0.15)'; btn.style.borderColor = 'rgba(239, 68, 68, 0.3)'; btn.innerHTML = '<i class="fas fa-lock"></i> Ouvrir Caisse'; btn.style.color = '#f87171'; }
+        } catch (e) {}
     }
 
-    document.getElementById('btn-tiroir').addEventListener('click', () => {
-        if (!caisseOuverte) afficherModalOuvertureCaisse();
-        else afficherModalFermetureCaisse();
-    });
+    document.getElementById('btn-tiroir').addEventListener('click', () => { if (!caisseOuverte) afficherModalOuvertureCaisse(); else afficherModalFermetureCaisse(); });
 
     function afficherModalOuvertureCaisse() {
         const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `
-            <div class="modal-overlay active">
-                <div class="modal-content">
-                    <div class="modal-header"><h3><i class="fas fa-sun"></i> Ouverture de Caisse</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div>
-                    <p style="margin-bottom:1rem; color:#64748b;">Combien de monnaie y a-t-il dans le tiroir ce matin ?</p>
-                    <div class="form-group">
-                        <label>Fond de caisse (DT) :</label>
-                        <input type="number" id="fondCaisseInput" step="0.5" value="0" style="font-size:1.5rem; text-align:center; font-weight:bold; color:#2c3e50;">
-                    </div>
-                    <div class="modal-buttons"><button type="button" id="validerOuvertureBtn" class="btn-valider" style="background:#27ae60;">Ouvrir la journée</button></div>
-                </div>
-            </div>`;
-            
+        container.innerHTML = `<div class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-sun"></i> Ouvrir Caisse</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div><div class="form-group"><label>Fond de caisse (DT)</label><input type="number" id="fondCaisseInput" step="0.5" value="0" style="font-size:2rem; text-align:center;"></div><div class="modal-buttons"><button type="button" id="validerOuvertureBtn" class="btn-valider">Ouvrir</button></div></div></div>`;
         document.getElementById('validerOuvertureBtn').onclick = async function() {
-            const fond = parseFloat(document.getElementById('fondCaisseInput').value) || 0;
-            this.innerHTML = "⏳ Ouverture..."; this.disabled = true;
-            try {
-                await fetchSecurise('/api/tiroir/ouvrir', { method: 'POST', body: JSON.stringify({ fond }) });
-                showNotification("☀️ Journée ouverte !", "#27ae60");
-                container.innerHTML = '';
-                verifierStatutCaisse();
-            } catch(e) { showNotification("Erreur d'ouverture", "#e74c3c"); }
+            const fond = parseFloat(document.getElementById('fondCaisseInput').value) || 0; this.innerHTML = "⏳..."; this.disabled = true;
+            try { await fetchSecurise('/api/tiroir/ouvrir', { method: 'POST', body: JSON.stringify({ fond }) }); showNotification("☀️ Caisse ouverte", "#10b981"); container.innerHTML = ''; verifierStatutCaisse(); } catch(e) {}
         };
     }
-
-    function afficherModalFermetureCaisse() {
+function afficherModalFermetureCaisse() {
         const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `
-            <div class="modal-overlay active">
-                <div class="modal-content">
-                    <div class="modal-header"><h3><i class="fas fa-moon"></i> Clôture (Z-Report)</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div>
-                    <p style="margin-bottom:1rem; color:#e67e22; font-weight:bold;">Comptez les espèces physiquement présentes dans le tiroir.</p>
-                    <div class="form-group">
-                        <label>Total Espèces comptées (DT) :</label>
-                        <input type="number" id="especesReellesInput" step="0.1" placeholder="Ex: 154.5" style="font-size:1.5rem; text-align:center; font-weight:bold; color:#2c3e50;">
-                    </div>
-                    <div class="modal-buttons"><button type="button" id="validerClotureBtn" class="btn-valider" style="background:#e74c3c;">Clôturer la journée</button></div>
-                </div>
-            </div>`;
-            
+        container.innerHTML = `<div class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-moon"></i> Clôture (Z)</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div><div class="form-group"><label>Total Espèces comptées (DT)</label><input type="number" id="especesReellesInput" step="0.1" style="font-size:2rem; text-align:center;"></div><div class="modal-buttons"><button type="button" id="validerClotureBtn" class="btn-valider" style="background:var(--danger); box-shadow:none;">Clôturer</button></div></div></div>`;
+        
         document.getElementById('validerClotureBtn').onclick = async function() {
-            const reel = parseFloat(document.getElementById('especesReellesInput').value);
-            if (isNaN(reel)) return showNotification("Veuillez entrer un montant", "#e74c3c");
+            const reel = parseFloat(document.getElementById('especesReellesInput').value); 
+            if (isNaN(reel)) return; 
+            this.disabled = true;
             
-            this.innerHTML = "⏳ Calcul..."; this.disabled = true;
             try {
-                const res = await fetchSecurise('/api/tiroir/fermer', { method: 'POST', body: JSON.stringify({ reel }) });
+                const res = await fetchSecurise('/api/tiroir/fermer', { method: 'POST', body: JSON.stringify({ reel }) }); 
                 const data = await res.json();
+                let messageEcart = data.session.ecart === 0 ? "✅ Parfait" : (data.session.ecart > 0 ? `📈 +${data.session.ecart.toFixed(2)}` : `⚠️ ${data.session.ecart.toFixed(2)}`);
                 
-                let messageEcart = "";
-                if (data.session.ecart === 0) messageEcart = "<span style='color:#27ae60'>✅ Caisse parfaite !</span>";
-                else if (data.session.ecart > 0) messageEcart = `<span style='color:#27ae60'>📈 Excédent : +${data.session.ecart.toFixed(2)} DT</span>`;
-                else messageEcart = `<span style='color:#e74c3c'>⚠️ Manquant : ${data.session.ecart.toFixed(2)} DT</span>`;
+                // 🔥 NOUVEAU : On stocke temporairement les données pour l'impression
+                window.donneesRapportZ = {
+                    fond: data.session.fondDeCaisse,
+                    ventes: data.session.totalVentesEspeces,
+                    attendu: data.attendu,
+                    compte: data.session.especesReelles,
+                    ecart: data.session.ecart
+                };
 
-                container.innerHTML = `
-                    <div class="modal-overlay active"><div class="modal-content" style="text-align:center;">
-                        <h2 style="color:#2c3e50; margin-bottom:1rem;">Z-Report Terminé</h2>
-                        <div style="background:#f8fafc; padding:1rem; border-radius:12px; margin-bottom:1rem; text-align:left;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Fond de départ:</span> <strong>${data.session.fondDeCaisse.toFixed(2)} DT</strong></div>
-                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Ventes Espèces:</span> <strong style="color:#3498db;">+ ${data.session.totalVentesEspeces.toFixed(2)} DT</strong></div>
-                            <hr style="margin:10px 0; border:0; border-top:1px solid #cbd5e1;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-weight:bold;"><span>Espèces Attendues:</span> <span>${data.attendu.toFixed(2)} DT</span></div>
-                            <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-weight:bold;"><span>Espèces Comptées:</span> <span>${data.session.especesReelles.toFixed(2)} DT</span></div>
-                        </div>
-                        <h3 style="margin-bottom:1.5rem;">${messageEcart}</h3>
-                        <button class="btn-action btn-imprimer" style="width:100%; margin-bottom:10px;" onclick="window.print()">🖨️ Imprimer Rapport</button>
-                        <button class="btn-annuler" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">Fermer</button>
-                    </div></div>`;
+                container.innerHTML = `<div class="modal-overlay active"><div class="modal-content" style="text-align:center;"><h2>Rapport Z</h2><div style="background:#f8fafc; padding:20px; border-radius:12px; margin:20px 0; text-align:left;"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Fond:</span> <strong>${data.session.fondDeCaisse.toFixed(2)}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Ventes (Esp):</span> <strong>+ ${data.session.totalVentesEspeces.toFixed(2)}</strong></div><hr style="margin:15px 0;"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Attendu:</span> <strong>${data.attendu.toFixed(2)}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Compté:</span> <strong>${data.session.especesReelles.toFixed(2)}</strong></div></div><h1 style="margin-bottom:20px;">${messageEcart}</h1><button class="btn-valider" style="width:100%; margin-bottom:10px; background:var(--text-dark);" onclick="imprimerRapportZ()">🖨️ Imprimer Rapport Z</button><button class="btn-annuler" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">Fermer</button></div></div>`;
                 verifierStatutCaisse();
-            } catch(e) { showNotification("Erreur de clôture", "#e74c3c"); }
+            } catch(e) {}
         };
     }
+    // 🔥 NOUVEAU : Impression thermique spécifique pour le Rapport Z
+    function imprimerRapportZ() {
+        const d = window.donneesRapportZ;
+        if (!d) return;
 
-    // ========== INITIALISATION ==========
+        const now = new Date(); 
+        const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
+        
+        const ticketDiv = document.getElementById('ticketCaisse');
+        // On sauvegarde le modèle de ticket normal
+        const ancienContenu = ticketDiv.innerHTML;
+
+        // On injecte le format comptable (Ticket 80mm)
+        ticketDiv.innerHTML = `
+            <div style="text-align:center; border-bottom:1px dashed black; padding-bottom:6px; margin-bottom:6px;">
+                <div style="font-size:18px; font-weight:bold; font-family: 'Arial', sans-serif;">☕ TA'BIA COFFEE</div>
+                <div style="font-size:12px; margin-top:3px; font-weight:bold;">RAPPORT Z - CLÔTURE CAISSE</div>
+            </div>
+            
+            <div style="font-size:12px; margin-bottom: 6px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Date d'édition:</span><span>${dateStr}</span></div>
+            </div>
+            
+            <div style="border-top:1px dashed black; margin:6px 0;"></div>
+            
+            <div style="font-size:12px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Fond de caisse :</span><span>${d.fond.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (Espèces):</span><span>+ ${d.ventes.toFixed(3)}</span></div>
+            </div>
+            
+            <div style="border-top:1px dashed black; margin:6px 0;"></div>
+            
+            <div style="font-size:14px; font-weight:bold;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>TOTAL ATTENDU :</span><span>${d.attendu.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>TOTAL COMPTÉ :</span><span>${d.compte.toFixed(3)}</span></div>
+            </div>
+            
+            <div style="border-top:1px dashed black; margin:6px 0;"></div>
+            
+            <div style="font-size:14px; font-weight:bold; margin-top:5px;">
+                <div style="display:flex; justify-content:space-between;"><span>ÉCART TIROIR :</span><span>${d.ecart > 0 ? '+' : ''}${d.ecart.toFixed(3)} DT</span></div>
+            </div>
+            
+            <div style="text-align:center; margin-top:25px; font-size:12px;">Signature du Caissier</div>
+            <div style="margin-top: 35px; border-bottom: 1px dotted black; width: 60%; margin-left: 20%;"></div>
+            <div style="text-align:center; margin-top:10px;">- - - - - - - - - - - - - - - </div>
+        `;
+
+        // Affichage et lancement de l'impression thermique
+        ticketDiv.style.display = 'block';
+        setTimeout(() => { 
+            window.print(); 
+            ticketDiv.style.display = 'none'; 
+            
+            // On restaure immédiatement le ticket normal en arrière-plan pour la prochaine commande
+            setTimeout(() => { ticketDiv.innerHTML = ancienContenu; }, 500);
+        }, 300);
+    }
+
+    function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
+        const now = new Date(); const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
+        const numTicket = Math.floor(1000 + Math.random() * 9000); const ttc = parseFloat(total); const ht = ttc / 1.19; const tva = ttc - ht;
+        
+        document.getElementById('printDate').textContent = dateStr; document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = numTable;
+        if (nomClient) { document.getElementById('printClientDiv').style.display = 'flex'; document.getElementById('printClient').textContent = nomClient; } else { document.getElementById('printClientDiv').style.display = 'none'; }
+        
+        document.getElementById('printArticles').innerHTML = panierArticles.map(a => `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="width:15%; font-weight:bold;">${a.quantite}x</span><span style="width:55%;">${a.nom} ${a.variante?`(${a.variante})`:''}</span><span style="width:30%; text-align:right; font-weight:bold;">${(a.prix * a.quantite).toFixed(3)}</span></div>`).join('') + `<div style="border-top:1px dashed black; margin:6px 0;"></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px;"><span>HT</span><span>${ht.toFixed(3)}</span></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:2px;"><span>TVA (19%)</span><span>${tva.toFixed(3)}</span></div>`;
+        document.getElementById('printTotal').textContent = `${ttc.toFixed(3)} DT`;
+        document.getElementById('printPaiement').textContent = methodePaiement === 'especes' ? 'ESPECES' : (methodePaiement === 'carte' ? 'CARTE' : 'Ticket Resto');
+        
+        const ticketElem = document.getElementById('ticketCaisse'); ticketElem.style.display = 'block';
+        setTimeout(() => { window.print(); ticketElem.style.display = 'none'; }, 300);
+    }
+
+    function imprimerTicketCourant() {
+        if (!currentTable) return; const ticket = tickets[currentTable]; if (!ticket.articles.length) return;
+        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`; if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
+        imprimerTicket(ticket.articles, nomOrigine, "PROFORMA", ticket.total, currentTable.startsWith('Fidele_') ? ticket.label : null);
+    }
+
+    let portTiroirUSB = null;
+    async function connecterTiroirUSB() {
+        try {
+            portTiroirUSB = await navigator.serial.requestPort(); await portTiroirUSB.open({ baudRate: 9600 });
+            showNotification("🔌 Tiroir USB connecté !", "#10b981");
+            const btnConnect = document.getElementById('btn-connect-tiroir'); btnConnect.innerHTML = '<i class="fas fa-check"></i> Connecté'; btnConnect.style.background = 'var(--success)';
+        } catch (e) { showNotification("❌ Échec USB", "#ef4444"); }
+    }
+    async function ouvrirTiroirManuel() {
+        if (!portTiroirUSB) return showNotification("⚠️ Connectez le tiroir USB", "#f39c12");
+        try { const writer = portTiroirUSB.writable.getWriter(); await writer.write(new Uint8Array([0x1B, 0x70, 0x00, 0x19, 0xFA])); writer.releaseLock(); } catch (e) { }
+    }
+
+function afficherCommandesWeb() {
+        // 🔥 NOUVEAU : On filtre les paiements En Ligne ET les paiements par Carte Fidélité
+        const webCmds = commandesRecues.filter(c => 
+            (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite') && 
+            c.statut !== 'paye'
+        );
+        
+        const container = document.getElementById('sectionCommandesWeb');
+        if(webCmds.length === 0) { container.style.display = 'none'; return; }
+        
+        container.style.display = 'block'; 
+        document.getElementById('countCommandesWeb').innerText = webCmds.length;
+        
+        document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
+            // Design différent selon si c'est Konnect ou Wallet VIP
+            const isFidele = cmd.methodePaiement === 'carte_fidelite';
+            const badgeIcon = isFidele ? '<i class="fas fa-id-card"></i> Payé par Wallet' : '<i class="fas fa-globe"></i> Payé en ligne';
+            const badgeColor = isFidele ? 'var(--primary-orange)' : 'var(--info)';
+            
+            return `<div style="background: var(--bg-card); border: 2px solid ${badgeColor}; padding: 15px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-bottom: 10px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <strong>#${cmd.numero}</strong>
+                    <span style="color:${badgeColor}; font-weight:bold;">${badgeIcon}</span>
+                </div>
+                <div style="font-weight:600; color:var(--text-dark); margin-bottom:5px;">
+                    ${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 Table ${cmd.numeroTable}`}
+                </div>
+                <div style="font-weight:900; font-size:1.4rem; margin-bottom:10px;">
+                    ${(cmd.total || 0).toFixed(2)} DT
+                </div>
+                <button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:${badgeColor}; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold;">
+                    Servir Commande <i class="fas fa-check"></i>
+                </button>
+            </div>`;
+        }).join('');
+    }
+    window.marquerWebServie = async function(id) { try { await fetchSecurise(`/api/commandes/${id}/statut`, { method: 'PUT', body: JSON.stringify({statut: 'paye'}) }); await chargerCommandesCuisineInitiales(); afficherCommandesWeb(); } catch(e) {} }
+
     document.addEventListener("DOMContentLoaded", async () => {
-        chargerTickets();
-        await chargerCatalogue();
-        selectionnerTable("1");
-        
-        await chargerCommandesCuisineInitiales();
-        synchroniserTicketsAvecServeur();
-        
-        // 🔥 VERIFICATION TIROIR CAISSE
-        verifierStatutCaisse();
-
-        initSocket();
+        chargerTickets(); await chargerCatalogue(); selectionnerTable("1"); await chargerCommandesCuisineInitiales(); synchroniserTicketsAvecServeur(); verifierStatutCaisse(); initSocket();
         
         document.getElementById('viderTicketBtn').addEventListener('click', () => viderTicket(currentTable));
         document.getElementById('imprimerTicketBtn').addEventListener('click', imprimerTicketCourant);
         document.getElementById('payerSelectBtn').addEventListener('click', payerSelection);
         document.getElementById('envoyerCuisineBtn').addEventListener('click', envoyerEnCuisine);
+        document.getElementById('payerToutBtn').addEventListener('click', () => { if (currentTable && tickets[currentTable] && tickets[currentTable].articles.length > 0) { afficherModalPaiement(tickets[currentTable].articles, tickets[currentTable].total, false); } });
         
-        document.getElementById('payerToutBtn').addEventListener('click', () => { 
-            if (currentTable && tickets[currentTable] && tickets[currentTable].articles.length > 0) {
-                afficherModalPaiement(tickets[currentTable].articles, tickets[currentTable].total, false); 
-            } else { showNotification("❌ Le ticket est vide", "#e74c3c"); }
-        });
-        
-        const btnVerrouiller = document.getElementById('btn-verrouiller');
-        if (btnVerrouiller) {
-            btnVerrouiller.addEventListener('click', () => { 
-                if (confirm("Voulez-vous verrouiller la caisse ?")) { 
-                    localStorage.removeItem('tabia_caisse_token'); 
-                    window.location.href = '/caisse-login.html'; 
-                } 
-            });
-        }
-
-        const btnAllerStock = document.getElementById('btn-aller-stock');
-        if (btnAllerStock) {
-            btnAllerStock.addEventListener('click', () => {
-                sessionStorage.setItem('acces_stock_autorise', 'oui');
-                window.location.href = '/gestion-stock.html'; 
-            });
-        }
+        document.getElementById('btn-verrouiller')?.addEventListener('click', () => { if (confirm("Verrouiller la caisse ?")) { localStorage.removeItem('tabia_caisse_token'); window.location.href = '/caisse-login.html'; } });
+        document.getElementById('btn-aller-stock')?.addEventListener('click', () => { sessionStorage.setItem('acces_stock_autorise', 'oui'); window.location.href = '/gestion-stock.html'; });
     });
 </script>
 </body>

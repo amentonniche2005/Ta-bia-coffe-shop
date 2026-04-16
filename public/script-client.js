@@ -1,30 +1,50 @@
-const socket = io(); // On se connecte au "Live"
+const socket = io(); 
 
 // 1. Si le stock change
 socket.on('update_stock', () => {
-    console.log("🔄 Le stock a bougé, je recharge la liste...");
-    chargerStock(); // Remplace par le nom de TA fonction qui affiche le stock
+    chargerCatalogue(); 
 });
 
-// 2. Si une nouvelle commande arrive (pour le Comptoir)
+// 2. Si une nouvelle commande arrive
 socket.on('nouvelle_commande', (data) => {
-    console.log("🔔 Nouveau ticket !");
-    chargerCommandes(); // Remplace par ta fonction qui affiche les tickets
+    chargerMesCommandes(); 
 });
 
-// 3. Si un statut change (ex: La cuisine a fini)
+// 3. Si un statut change 
 socket.on('mise_a_jour_commande', () => {
-    chargerCommandes(); 
+    chargerMesCommandes(); 
 });
+
 // ========== VARIABLES GLOBALES ==========
 let panier = [];
 let produits = []; 
 let categorieActuelle = "all";
 let clientId = null;
-let socketClient = null;
-const HISTORIQUE_EXPIRATION = 24 * 60 * 60 * 1000;
+// 🎵 MOTEUR AUDIO (Sons natifs sans fichiers)
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(type) {
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    
+    if(type === 'pop') { // Son d'ajout au panier
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    } else if(type === 'magic') { // Son VIP Gold
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(1400, audioCtx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+    }
+}
 
-// Configurations des Variantes par mots-clés
+const HISTORIQUE_EXPIRATION = 24 * 60 * 60 * 1000;
 const variantesConfig = [
     { mots: ['gazeuse', 'soda'], options: ['Coca-Cola', 'Coca Zéro', 'Boga Cidre', 'Fanta', 'Sprite'] },
     { mots: ['cafe', 'café', 'espresso', 'capucin', 'direct'], options: ['Normal', 'Serré', 'Allongé', 'Sans Sucre'] },
@@ -63,17 +83,116 @@ function getClientId() {
 
 // ========== CHARGEMENT ==========
 document.addEventListener("DOMContentLoaded", async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableUrl = urlParams.get('table');
+    const authUrl = urlParams.get('auth'); // Peut être le code Table OU le code Fidélité
+
+    // 1. GESTION DU SCAN (TABLE OU CARTE FIDÉLITÉ)
+    if (authUrl) {
+        // On stocke le code d'authentification immédiatement (Zéro-Clic)
+        sessionStorage.setItem('tabia_auth_qr', authUrl);
+        
+        // On vérifie si c'est un client fidèle pour récupérer son nom
+        try {
+            const resFid = await fetch(`/api/fidelite/identifier/${authUrl}`);
+            if (resFid.ok) {
+                const data = await resFid.json();
+                if (data.success) {
+                    sessionStorage.setItem('client_nom_premium', data.nomComplet);
+                    setTimeout(() => { 
+                        afficherNotification(`✨ Bienvenue ${data.nomComplet} !`, "success"); 
+                    }, 1000);
+                }
+            }
+        } catch(e) { 
+            console.log("Code table simple détecté ou erreur identification."); 
+        }
+    }
+
+    if (tableUrl) {
+        sessionStorage.setItem('tabia_table_qr', tableUrl);
+        setTimeout(() => { 
+            afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
+        }, 1500);
+    }
+
+    // On nettoie l'URL pour la discrétion
+    if (tableUrl || authUrl) {
+        window.history.replaceState({}, document.title, "/");
+    }
+
+    // 2. VÉRIFICATION DE SÉCURITÉ (GHOST SESSION)
+    const storedTable = sessionStorage.getItem('tabia_table_qr');
+    const storedAuth = sessionStorage.getItem('tabia_auth_qr');
+
+    if (storedTable && storedAuth && storedTable !== 'Emporter') {
+        try {
+            const resTables = await fetch('/api/numbers');
+            if (resTables.ok) {
+                const tables = await resTables.json();
+                const tableData = tables.find(t => parseInt(t.numero) === parseInt(storedTable));
+                
+                // Si c'est un code table (pas un client fidèle) et qu'il a changé
+                // On vérifie d'abord si ce n'est pas un client fidèle enregistré
+                const isFidele = sessionStorage.getItem('client_nom_premium');
+                
+                if (!isFidele && tableData && tableData.code !== String(storedAuth)) {
+                    sessionStorage.removeItem('tabia_table_qr');
+                    sessionStorage.removeItem('tabia_auth_qr');
+                    console.log("Ancienne session table expirée.");
+                }
+            }
+        } catch(e) { console.error("Erreur check session", e); }
+    }
+
+    // 3. Initialisation normale
     clientId = getClientId();
     await chargerCatalogue();
     chargerPanier();
     mettreAJourUIPanier();
     nettoyerCommandesExpirees();
-    chargerMesCommandes();
+    // On synchronise les commandes avec le serveur au lieu de juste charger
+    if (typeof synchroniserMesCommandesAvecServeur === "function") {
+        await synchroniserMesCommandesAvecServeur();
+    } else {
+        chargerMesCommandes();
+    }
     initClientSocket();
     configurerEvenements();
+    const btnEspace = document.getElementById('btnEspaceClient');
+    if (btnEspace) {
+        btnEspace.addEventListener('click', () => {
+            document.getElementById('clientModal').style.display = 'flex';
+            const savedCode = sessionStorage.getItem('tabia_auth_qr');
+            if (savedCode) {
+                document.getElementById('clientLoginCode').value = savedCode;
+                verifierCodeClient(true);
+            }
+        });
+        if (sessionStorage.getItem('client_nom_premium')) {
+            const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
+            btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
+        }
+    }
+    // 1. Masquer le Splash Screen après 1.5s
+    setTimeout(() => { document.getElementById('splashScreen').classList.add('splash-hidden'); }, 1500);
+
+    // 4. Initialisation du Dark Mode
+    const btnDark = document.getElementById('darkModeToggle');
+    if (localStorage.getItem('tabia_darkmode') === 'true') {
+        document.body.classList.add('dark-mode');
+        btnDark.classList.replace('fa-moon', 'fa-sun');
+    }
+    btnDark.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        localStorage.setItem('tabia_darkmode', isDark);
+        btnDark.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        if(navigator.vibrate) navigator.vibrate(15);
+    });
 });
 
-// ========== FETCH API STOCK (SÉCURISÉ & DYNAMIQUE) ==========
+// ========== FETCH API STOCK ==========
 async function chargerCatalogue() {
     try {
         const response = await fetch('/api/stock');
@@ -87,7 +206,7 @@ async function chargerCatalogue() {
             return;
         }
 
-        genererCategoriesDynamiques(); // Création automatique des boutons !
+        genererCategoriesDynamiques(); 
         afficherProduits();
     } catch (error) {
         const grille = document.getElementById("menuGrid");
@@ -99,12 +218,11 @@ function genererCategoriesDynamiques() {
     const container = document.getElementById('categoryTabs');
     if (!container) return;
     
-    // Extrait les catégories existantes depuis les produits du serveur
     const categoriesUniques = [...new Set(produits.map(p => p.categorie).filter(Boolean))];
     
     let html = `<button class="category-btn active" data-category="all">🍽️ Tout</button>`;
     categoriesUniques.forEach(cat => {
-        const label = categoryLabels[cat] || cat; // Utilise le texte avec icône, ou le nom brut
+        const label = categoryLabels[cat] || cat; 
         html += `<button class="category-btn" data-category="${cat}">${label}</button>`;
     });
     
@@ -121,11 +239,8 @@ function afficherProduits() {
         produitsAffiches = produits.filter(p => p.categorie === categorieActuelle);
     }
 
-    // Séparer en stock et rupture
     const enStock = produitsAffiches.filter(p => p.stock > 0 || p.stock === undefined);
     const enRupture = produitsAffiches.filter(p => p.stock <= 0 && p.stock !== undefined);
-    
-    // Concaténer (Ruptures à la fin)
     const produitsTries = [...enStock, ...enRupture];
 
     if (produitsTries.length === 0) {
@@ -137,7 +252,7 @@ function afficherProduits() {
         const rupture = p.stock <= 0 && p.stock !== undefined;
         const classeRupture = rupture ? 'sold-out' : '';
         const bouton = rupture 
-            ? `<button class="add-to-cart disabled" disabled style="background:#e2e8f0; color:#94a3b8; border-color:#cbd5e1; cursor:not-allowed;">Épuisé</button>`
+            ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
             : `<button class="add-to-cart" onclick="gererClicAjout(${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;
             
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
@@ -145,13 +260,12 @@ function afficherProduits() {
 
         return `
             <div class="menu-item ${classeRupture}">
-                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center; height:140px; position:relative;">
-                    ${rupture ? `<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.7); color:white; padding:5px 10px; border-radius:5px; font-weight:bold;">ÉPUISÉ</div>` : ''}
+                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center;">
                 </div>
-                <div class="item-info" style="padding:1rem; display:flex; flex-direction:column; flex:1; justify-content:space-between;">
+                <div class="item-info">
                     <div>
-                        <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.3rem;">${p.nom}</h3>
-                        <div class="price" style="color:#db800a; font-weight:800; font-size:1.1rem; margin-bottom:0.8rem;">${prixFormatte} DT</div>
+                        <h3>${p.nom}</h3>
+                        <div class="price">${prixFormatte} DT</div>
                     </div>
                     ${bouton}
                 </div>
@@ -161,24 +275,20 @@ function afficherProduits() {
 }
 
 // ========== GESTION DES VARIANTES (OPTIONS) ==========
-// ========== GESTION DES VARIANTES (OPTIONS) ==========
 function gererClicAjout(id) {
     const produit = produits.find(p => p.id === id);
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
     let optionsTrouvees = null;
 
-    // 🔥 NOUVEAU: Si on a explicitement forcé "aucun choix" dans le tableau de bord
     if (produit.typeChoix === 'aucun') {
         executerAjoutPanier(produit, null);
-        return; // On s'arrête là, le produit va direct au panier !
+        return; 
     }
 
-    // Sinon, on cherche s'il y a des variantes spécifiques écrites (ex: "Grand, Petit")
     if (produit.variantes && produit.variantes.trim() !== "") {
         optionsTrouvees = produit.variantes.split(',').map(v => v.trim());
     } 
-    // Sinon, on applique la règle automatique par mots-clés (si ça n'a pas été forcé sur 'aucun')
     else {
         const nomLower = (produit.nom || "").toLowerCase();
         for (let config of variantesConfig) {
@@ -201,14 +311,16 @@ function ouvrirModalOptions(produit, options) {
     document.getElementById("optionsTitle").textContent = produit.nom;
     document.getElementById("optionPriceDisplay").textContent = `(${parseFloat(produit.prix).toFixed(2)} DT)`;
     
-    // 🔥 NOUVELLE GESTION DE L'AFFICHAGE (UNIQUE OU MULTIPLE) 🔥
     let isMultiple = produit.typeChoix === 'multiple';
     let typeInput = isMultiple ? 'checkbox' : 'radio';
     
     const listHtml = options.map((opt, index) => `
-        <label style="display:flex; align-items:center; gap:15px; padding:12px; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:8px; cursor:pointer;">
-            <input type="${typeInput}" name="varianteOption" value="${opt}" style="width:22px; height:22px; accent-color:#db800a;" ${(!isMultiple && index === 0) ? 'checked' : ''}>
-            <span style="font-weight:600; font-size:1.1rem; color:#1e293b;">${opt}</span>
+        <label class="option-label">
+            <input type="${typeInput}" name="varianteOption" value="${opt}" class="option-input" ${(!isMultiple && index === 0) ? 'checked' : ''}>
+            <div class="option-box">
+                <span>${opt}</span>
+                <i class="fas fa-check-circle check-icon"></i>
+            </div>
         </label>
     `).join('');
     
@@ -307,57 +419,106 @@ function ouvrirFermerPanier() {
 
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
 
+// ========== AFFICHAGE DU PANIER MODERNE ==========
+// ========== AFFICHAGE DU PANIER MODERNE (NETTOYÉ) ==========
+
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
+    const checkoutBtn = document.getElementById("checkoutBtn");
+    
+    // --- 🔥 AJOUT ICI : GESTION DYNAMIQUE DU PAIEMENT VIP ---
+    const selectPaiement = document.getElementById('methodePaiementClient');
+    if (selectPaiement) {
+        let optionVIP = document.getElementById('optionPaiementVIP');
+        
+        // On vérifie si un client est connecté (via le nom stocké en session)
+        const clientConnecte = sessionStorage.getItem('client_nom_premium');
+        
+        if (clientConnecte) {
+            // Si le client est VIP, on ajoute l'option si elle n'existe pas déjà
+            if (!optionVIP) {
+                optionVIP = document.createElement('option');
+                optionVIP.id = 'optionPaiementVIP';
+                optionVIP.value = 'carte_fidelite';
+                selectPaiement.appendChild(optionVIP);
+            }
+            // On récupère le solde affiché dans la carte VIP
+            const soldeAffiche = document.getElementById('vipSolde')?.innerText || "0.00 DT";
+            optionVIP.textContent = `⭐ Payer avec mon Solde VIP `;
+            
+            // On force la sélection sur VIP par défaut pour lui faire plaisir
+            selectPaiement.value = 'carte_fidelite';
+        } else {
+            // Si pas de client connecté, on supprime l'option VIP
+            if (optionVIP) optionVIP.remove();
+            selectPaiement.value = 'especes';
+        }
+    }
+    // --- FIN DE L'AJOUT ---
 
     if (panier.length === 0) {
-        conteneur.innerHTML = "<p class='empty-message' style='margin-top:2rem; text-align:center;'>Votre panier est vide 😢</p>";
-        totalElement.textContent = "Total: 0.00 DT";
-        document.getElementById("checkoutBtn").disabled = true;
+        conteneur.innerHTML = `<div style='padding: 4rem 1rem; text-align: center; color: #94a3b8;'><i class='fas fa-shopping-bag fa-3x'></i><p>Votre panier est vide</p></div>`;
+        totalElement.textContent = "0.00 DT";
+        checkoutBtn.disabled = true;
         return;
     }
     
-    document.getElementById("checkoutBtn").disabled = false;
-
+    checkoutBtn.disabled = false;
     let total = 0;
     conteneur.innerHTML = panier.map(article => {
         total += article.prix * article.quantite;
-        const nomPropre = article.nom.split(' (')[0];
-        const varianteHTML = article.variante ? `<span class="cart-item-variant" style="font-size:0.8rem; color:#7f8c8d; display:block;">${article.variante}</span>` : '';
         return `
-            <div class="cart-item" style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0; border-bottom:1px solid #f1f5f9;">
-                <div class="cart-item-info">
-                    <h4 style="margin-bottom:0;">${nomPropre}</h4>
-                    ${varianteHTML}
-                    <div style="color:#db800a; font-weight:600;">${article.prix.toFixed(2)} DT</div>
+            <div class="modern-cart-item">
+                <div class="modern-cart-item-info">
+                    <h4>${article.nom}</h4>
+                    <div class="modern-cart-item-price">${article.prix.toFixed(2)} DT</div>
                 </div>
-                <div style="display:flex; align-items:center; gap:10px; background:#f8fafc; padding:5px; border-radius:20px;">
-                    <button style="background:white; border:none; width:30px; height:30px; border-radius:50%; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.05); cursor:pointer;" onclick="changerQuantite('${article.cartId}', -1)">-</button>
-                    <span style="font-weight:700; min-width:20px; text-align:center;">${article.quantite}</span>
-                    <button style="background:white; border:none; width:30px; height:30px; border-radius:50%; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.05); cursor:pointer;" onclick="changerQuantite('${article.cartId}', 1)">+</button>
+                <div class="modern-qty-control">
+                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', -1)"><i class="fas fa-minus"></i></button>
+                    <span class="modern-qty-val">${article.quantite}</span>
+                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', 1)"><i class="fas fa-plus"></i></button>
                 </div>
-            </div>
-        `;
+            </div>`;
     }).join('');
 
-    totalElement.textContent = `Total: ${total.toFixed(2)} DT`;
+    totalElement.textContent = `${total.toFixed(2)} DT`;
 }
 
 // ========== ENVOI COMMANDE ==========
+let clientFideleVerifie = null;
+
 function passerCommande() {
     if (panier.length === 0) return;
+
+    const tableEnMemoire = sessionStorage.getItem('tabia_table_qr');
+    const authEnMemoire = sessionStorage.getItem('tabia_auth_qr');
+
     fermerPanier();
-    afficherModalTable();
+
+    // CAS 1 : TABLE SCANNÉE (Zéro-Clic Total)
+    if (tableEnMemoire && authEnMemoire) {
+        validerCommande(tableEnMemoire, null, authEnMemoire);
+    } 
+    // CAS 2 : CLIENT FIDÈLE SCANNÉ (On demande juste la table)
+    else if (!tableEnMemoire && authEnMemoire) {
+        // On lance la fenêtre des tables en mode "VIP" (true)
+        afficherModalTable(true, authEnMemoire); 
+    }
+    // CAS 3 : NAVIGATION NORMALE (On demande table + code)
+    else {
+        // On lance la fenêtre des tables en mode "Normal" (false)
+        afficherModalTable(false, null); 
+    }
 }
 
-function afficherModalTable() {
-    const btns = Array.from({length: 20}, (_, i) => `<button class="table-btn" style="background:#f8fafc; border:1px solid #cbd5e1; padding:1rem; border-radius:12px; font-weight:bold; cursor:pointer;" data-table="${i+1}">${i+1}</button>`).join('');
+function afficherModalTable(isVip = false, authFidele = null) {
+    const btns = Array.from({length: 20}, (_, i) => `<button class="table-btn" data-table="${i+1}">${i+1}</button>`).join('');
     const modalHtml = `
-        <div id="tableModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:2000;">
-            <div style="background:white; border-radius:20px; padding:2rem; text-align:center; width:90%; max-width:400px;">
+        <div id="tableModal" class="table-modal">
+            <div class="table-modal-content">
                 <h3 style="margin-bottom:1rem; font-size:1.3rem;">Où êtes-vous installé ?</h3>
-                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; margin:1.5rem 0; max-height:250px; overflow-y:auto;">${btns}</div>
+                <div class="table-buttons">${btns}</div>
                 <button style="width:100%; background:#2c3e50; color:white; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer; margin-bottom:10px;" data-table="Emporter">🛍️ À Emporter</button>
                 <button id="cancelTableBtn" style="width:100%; background:#e2e8f0; color:#333; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer;">Annuler</button>
             </div>
@@ -368,13 +529,20 @@ function afficherModalTable() {
     const modal = document.getElementById("tableModal");
 
     modal.querySelector('#cancelTableBtn').onclick = () => modal.remove();
+    
     modal.querySelectorAll('button[data-table]').forEach(btn => {
         btn.onclick = () => {
             const numTable = btn.getAttribute('data-table');
-            modal.remove();
+            modal.remove(); // On ferme la fenêtre des tables
             
-            // 🔥 On affiche TOUJOURS la demande de code, même pour "Emporter"
-            afficherModalCode(numTable); 
+            // 🔥 LA MAGIE OPÈRE ICI
+            if (isVip) {
+                // Si c'est un VIP, on envoie la commande DIRECTEMENT avec son code fidélité
+                validerCommande(numTable, clientFideleVerifie, authFidele);
+            } else {
+                // Si c'est un visiteur normal, on le fait passer par l'étape du code
+                afficherModalCode(numTable); 
+            }
         };
     });
 }
@@ -382,13 +550,12 @@ function afficherModalTable() {
 function afficherModalCode(numTable) {
     const titre = numTable === 'Emporter' ? '🛍️ À Emporter' : `Table ${numTable}`;
     
-    // Le champ devient "text" pour accepter les lettres et les chiffres
     const modalHtml = `
-        <div id="codeModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:2000;">
-            <div style="background:white; border-radius:20px; padding:2rem; text-align:center; width:90%; max-width:400px;">
+        <div id="codeModal" class="table-modal">
+            <div class="table-modal-content">
                 <h3 style="margin-bottom:0.5rem; color: #143621;">${titre}</h3>
                 <p style="font-size:0.9rem; color:#64748b;">Code de la table ou Code Fidélité</p>
-                <input type="text" id="codeConfirmation" style="width:100%; padding:1rem; font-size:1.5rem; font-weight:bold; text-align:center; text-transform:uppercase; letter-spacing:4px; border:2px solid #e2e8f0; border-radius:12px; margin:1rem 0; outline:none; color:#db800a;" placeholder="•••••">
+                <input type="text" id="codeConfirmation" class="code-input" placeholder="•••••">
                 <button id="validerCodeBtn" style="width:100%; background:#db800a; color:white; padding:1rem; border-radius:12px; font-size:1.1rem; font-weight:bold; border:none; cursor:pointer; margin-bottom:10px;">Confirmer la commande</button>
                 <button id="annulerCodeBtn" style="width:100%; background:#e2e8f0; color:#333; padding:1rem; border-radius:12px; font-weight:bold; border:none; cursor:pointer;">Retour</button>
             </div>
@@ -416,7 +583,6 @@ function afficherModalCode(numTable) {
         let authValid = false;
         let clientData = null;
 
-        // 1. ON VÉRIFIE D'ABORD SI C'EST UN CLIENT FIDÈLE 
         try {
             const resFid = await fetch(`/api/customers/verify/${codeSaisi}`);
             if (resFid.ok) { 
@@ -428,7 +594,6 @@ function afficherModalCode(numTable) {
             }
         } catch(e) {}
 
-        // 2. SI CE N'EST PAS UN FIDÈLE ET QU'IL A CHOISI UNE TABLE, ON VÉRIFIE LE CODE TABLE
         if (!authValid && numTable !== 'Emporter') {
             try {
                 const resTables = await fetch('/api/numbers');
@@ -440,7 +605,6 @@ function afficherModalCode(numTable) {
             } catch(e) {}
         }
 
-        // 3. CODE MAÎTRE (00000 pour dépanner)
         if (codeSaisi === "00000") authValid = true;
 
         if (authValid) {
@@ -457,46 +621,93 @@ function afficherModalCode(numTable) {
 
 async function validerCommande(numTable, clientData, codeSaisi) {
     const checkoutBtn = document.getElementById("checkoutBtn");
-    if (checkoutBtn) { checkoutBtn.disabled = true; checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; }
+    if (checkoutBtn) { 
+        checkoutBtn.disabled = true; 
+        checkoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...'; 
+    }
 
     try {
-        let nomFidele = clientData ? `${clientData.prenom} ${clientData.nom}` : null;
-        let idFidele = clientData ? codeSaisi : clientId;
+        // PRIORITÉ : 1. Nom premium (depuis QR carte) > 2. Nom clientData (depuis vérif panier) > 3. Null
+        const nomPremium = sessionStorage.getItem('client_nom_premium');
+        let nomFidele = nomPremium || (clientData ? `${clientData.prenom} ${clientData.nom}` : null);
+        
+        // PRIORITÉ : Si client fidèle identifié, on utilise son codeAuth, sinon notre clientId d'appareil
+        let idFidele = (codeSaisi || sessionStorage.getItem('tabia_auth_qr')) || clientId;
         
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
         const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
+        const methodeChoisie = document.getElementById('methodePaiementClient').value;
         
         const response = await fetch('/api/commandes', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
                 numeroTable: tableFinale,
-                clientId: idFidele,
-                clientName: nomFidele, // 🔥 LA VIRGULE MANQUANTE ÉTAIT ICI !
-                total: totalCommande   // 🔥 ET ON ENVOIE LE TOTAL
+                clientId: idFidele, 
+                codeAuth: idFidele, // On envoie le code secret pour la vérification serveur (Session Fantôme)
+                clientName: nomFidele, 
+                total: totalCommande,
+                methodePaiement: methodeChoisie 
             })
         });
 
         if (response.ok) {
             const commande = await response.json();
-            if(typeof sauvegarderCommandeClient === 'function') sauvegarderCommandeClient(commande);
             
-            panier = []; sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier();
+            // 1. Sauvegarde et nettoyage
+            sauvegarderCommandeClient(commande);
+            panier = []; 
+            sauvegarderPanier(); 
+            mettreAJourUIPanier(); 
+            afficherContenuPanier();
+            await chargerCatalogue();
             
-            if (nomFidele) {
-                afficherNotification(`🎉 Merci ${nomFidele} ! Commande envoyée.`);
-            } else {
-                afficherNotification("🎉 Commande envoyée avec succès !");
+            // 2. Gestion du Paiement en Ligne
+            if (methodeChoisie === 'en_ligne' && commande.payUrl) {
+                afficherNotification("Redirection paiement sécurisé...", "success");
+                setTimeout(() => { window.location.href = commande.payUrl; }, 1500);
+                return; 
             }
             
-            if(typeof chargerCatalogue === 'function') await chargerCatalogue(); 
+            // 3. Notification de succès personnalisée
+            const messageSucces = nomFidele ? `🎉 Merci ${nomFidele} ! Commande envoyée.` : "🎉 Commande envoyée avec succès !";
+            afficherNotification(messageSucces);
+            
+            // 🔥 NOUVEAU : Affichage de la notification si un Bonus (Cashback) a été gagné !
+            if (commande.bonusInfo) {
+                setTimeout(() => {
+                    afficherNotification(commande.bonusInfo, "success");
+                    // Petite vibration de victoire pour marquer le coup 🎊
+                    if (navigator.vibrate) navigator.vibrate([200, 100, 200]); 
+                }, 3000); // 3 secondes de délai pour qu'il lise d'abord que sa commande est passée
+            }
+            
         } else { 
-            afficherNotification("❌ Erreur serveur", "error"); 
+            // GESTION DES ERREURS
+            const erreurData = await response.json();
+            
+            if (response.status === 403) {
+                // Erreur de sécurité (QR Code expiré ou Faux Code)
+                afficherNotification("❌ " + erreurData.error, "error");
+                sessionStorage.removeItem('tabia_table_qr');
+                sessionStorage.removeItem('tabia_auth_qr');
+                sessionStorage.removeItem('client_nom_premium'); 
+                setTimeout(() => { window.location.reload(); }, 2500);
+            } else if (response.status === 400) {
+                // 🔥 NOUVEAU : Erreur de paiement (ex: Solde insuffisant sur la carte)
+                afficherNotification("⚠️ " + erreurData.error, "error"); 
+            } else {
+                afficherNotification("❌ Erreur serveur", "error"); 
+            }
         }
     } catch (e) { 
         afficherNotification("❌ Erreur de connexion", "error"); 
     } finally {
-        if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; }
+        if (checkoutBtn) { 
+            checkoutBtn.disabled = false; 
+            checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; 
+        }
     }
 }
 
@@ -514,26 +725,60 @@ function chargerMesCommandes() {
     if(!conteneur) return;
     
     const hist = JSON.parse(localStorage.getItem(`tabia_mes_commandes_${clientId}`) || "[]");
-    const valides = hist.filter(c => c.expiration > Date.now());
     
-    if(!valides.length) { conteneur.innerHTML = "<p class='empty-message' style='text-align:center; color:#7f8c8d;'>Aucune commande en cours</p>"; return; }
+    // 🔥 MODIFICATION 1 : On ne garde que les commandes non expirées ET qui ne sont PAS payées
+    const valides = hist.filter(c => c.expiration > Date.now() && c.statut !== 'paye');
+    
+    if(!valides.length) { 
+        conteneur.innerHTML = `
+            <div style='padding: 2.5rem 1rem; text-align: center; color: #94a3b8; background: white; border-radius: 20px; border: 1px dashed #cbd5e1; box-shadow: 0 4px 6px rgba(0,0,0,0.02);'>
+                <i class="fas fa-receipt fa-2x" style="opacity: 0.4; margin-bottom: 10px;"></i>
+                <p style="margin: 0; font-weight: 600;">Aucune commande en cours</p>
+            </div>`; 
+        return; 
+    }
 
     conteneur.innerHTML = valides.map(cmd => {
-        let statusBadge = '';
-        if(cmd.statut === 'en_attente') statusBadge = '<span style="padding:4px 10px; border-radius:20px; font-size:0.75rem; color:white; font-weight:bold; background:#f39c12;">En attente</span>';
-        if(cmd.statut === 'en_preparation') statusBadge = '<span style="padding:4px 10px; border-radius:20px; font-size:0.75rem; color:white; font-weight:bold; background:#3498db;">Préparation</span>';
-        if(cmd.statut === 'terminee' || cmd.statut === 'paye') statusBadge = '<span style="padding:4px 10px; border-radius:20px; font-size:0.75rem; color:white; font-weight:bold; background:#27ae60;">Prête !</span>';
+        let statusClass = 'status-attente';
+        let statusText = 'En attente';
+        let statusIcon = '<i class="fas fa-clock"></i>';
+        
+        // 🔥 MODIFICATION 2 : Logique des badges avec icônes animées FontAwesome
+        if(cmd.statut === 'en_attente') { 
+            statusClass = 'status-attente'; 
+            statusText = 'En attente'; 
+            statusIcon = '<i class="fas fa-clock"></i>';
+        }
+        else if(cmd.statut === 'en_preparation') { 
+            statusClass = 'status-preparation'; 
+            statusText = 'Préparation'; 
+            statusIcon = '<i class="fas fa-fire fa-beat" style="--fa-animation-duration: 1.5s;"></i>';
+        }
+        else if(cmd.statut === 'terminee') { 
+            statusClass = 'status-termine'; 
+            statusText = 'C\'est Prêt !'; 
+            statusIcon = '<i class="fas fa-check-circle fa-bounce" style="--fa-animation-duration: 2s;"></i>';
+        }
+
+        const numCmd = cmd.numero ? `#${cmd.numero}` : 'en cours...';
 
         return `
-            <div style="background:white; border-radius:16px; padding:1rem; margin-bottom:1rem; box-shadow:0 2px 8px rgba(0,0,0,0.05); border:1px solid #e2e8f0;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem;">
-                    <span style="font-weight:800; color:#db800a;">Commande #${cmd.numero}</span>
-                    ${statusBadge}
+            <div class="historique-commande-card">
+                <div class="historique-commande-header">
+                    <span class="commande-numero" style="font-size: 1.1rem;">Commande ${numCmd}</span>
+                    <span class="status-badge ${statusClass}" style="display:flex; align-items:center; gap:6px; padding: 6px 12px; font-size: 0.8rem;">
+                        ${statusIcon} ${statusText}
+                    </span>
                 </div>
-                <div style="margin-bottom: 10px;">
-                    ${cmd.articles.map(a => `<div style="font-size:0.9rem; color:#7f8c8d; display:flex; justify-content:space-between; padding:3px 0;"><span>${a.quantite}x ${a.nom}</span> <span>${(a.prix*a.quantite).toFixed(2)} DT</span></div>`).join('')}
+                <div style="margin-bottom: 15px;">
+                    ${cmd.articles.map(a => `
+                        <div class="article-detail" style="padding: 5px 0;">
+                            <span><span style="font-weight:900; color:#1e293b;">${a.quantite}x</span> ${a.nom}</span> 
+                            <span style="font-weight:600; color:#475569;">${(a.prix*a.quantite).toFixed(2)} DT</span>
+                        </div>
+                    `).join('')}
                 </div>
-                <div style="font-weight:bold; text-align:right; border-top:1px solid #f1f5f9; padding-top:5px; color:#db800a;">
+                <div style="font-weight:900; text-align:right; border-top:2px dashed #e2e8f0; padding-top:12px; margin-top:8px; color:#143621; font-size:1.3rem;">
                     Total: ${(cmd.total || 0).toFixed(2)} DT
                 </div>
             </div>
@@ -545,10 +790,11 @@ function nettoyerCommandesExpirees() { chargerMesCommandes(); }
 
 function initClientSocket() {
     const socket = io({ 
-    query: { clientType: 'customer' }, 
-    transports: ['websocket', 'polling'], 
-    reconnection: true 
-});
+        query: { clientType: 'customer' }, 
+        transports: ['websocket', 'polling'], 
+        reconnection: true 
+    });
+    
     socket.on('mise_a_jour_commande', (commande) => {
         const key = `tabia_mes_commandes_${clientId}`;
         let hist = JSON.parse(localStorage.getItem(key) || "[]");
@@ -564,38 +810,116 @@ function initClientSocket() {
         }
     });
 }
+window.afficherNotification = function(msg, type = "success") {
+    // 1. On supprime l'ancienne notification s'il y en a une (pour éviter qu'elles se superposent)
+    const anciennes = document.querySelectorAll('.notification-premium');
+    anciennes.forEach(n => n.remove());
 
-function afficherNotification(msg, type = "success") {
+    // 2. On crée la nouvelle bulle
     const notif = document.createElement("div");
-    notif.className = `notification ${type === "error" ? "notification-error" : ""}`;
-    notif.style.cssText = `position:fixed; top:20px; left:50%; transform:translateX(-50%); background:${type === "error" ? "#e74c3c" : "#2c3e50"}; color:white; padding:1rem 2rem; border-radius:30px; font-weight:600; z-index:3000; animation:slideDown 0.3s ease; box-shadow:0 4px 15px rgba(0,0,0,0.2);`;
-    notif.textContent = msg;
-    document.body.appendChild(notif);
-    setTimeout(() => { notif.style.transform = "translate(-50%, -100px)"; notif.style.opacity = "0"; setTimeout(() => notif.remove(), 300); }, 3000);
-}
+    notif.className = "notification-premium";
+    
+    // 3. Design "Blindé" directement en JS (Infaillible)
+    notif.style.position = "fixed";
+    notif.style.top = "20px";
+    notif.style.left = "50%";
+    notif.style.transform = "translateX(-50%) translateY(-150px)"; // Cachée en haut au départ
+    notif.style.backgroundColor = type === "error" ? "#e74c3c" : "#143621"; // Rouge (Erreur) ou Vert (Succès)
+    notif.style.color = "white";
+    notif.style.padding = "16px 24px";
+    notif.style.borderRadius = "14px";
+    notif.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)";
+    notif.style.zIndex = "9999999"; // Toujours au premier plan
+    notif.style.display = "flex";
+    notif.style.flexDirection = "column";
+    notif.style.minWidth = "280px";
+    notif.style.maxWidth = "90%";
+    notif.style.transition = "transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease"; // Effet de rebond
+    notif.style.overflow = "hidden";
 
-const styleNotif = document.createElement('style');
-styleNotif.innerHTML = `@keyframes slideDown { from { top: -50px; } to { top: 20px; } }`;
-document.head.appendChild(styleNotif);
+    // 4. Le contenu avec la Barre de temps
+    const icone = type === "success" ? "fa-check-circle" : "fa-exclamation-circle";
+    const couleurIcone = type === "error" ? "#ffcccc" : "#a7f3d0"; // Icône légèrement plus claire
+
+    notif.innerHTML = `
+        <div style="display:flex; align-items:center; font-weight: 600; font-size: 1rem;">
+            <i class="fas ${icone}" style="margin-right: 12px; font-size: 1.3rem; color: ${couleurIcone};"></i> 
+            ${msg}
+        </div>
+        <div style="position: absolute; bottom: 0; left: 0; height: 4px; background: rgba(255,255,255,0.4); width: 100%; transition: width 3s linear;" id="notifBar"></div>
+    `;
+
+    document.body.appendChild(notif);
+
+    // 5. Animation d'entrée (Descente avec rebond)
+    setTimeout(() => {
+        notif.style.transform = "translateX(-50%) translateY(0)";
+        // Lancement de la barre de temps
+        setTimeout(() => { 
+            const barre = document.getElementById('notifBar');
+            if(barre) barre.style.width = "0%"; 
+        }, 50);
+    }, 10);
+
+    // 6. Animation de sortie après 3 secondes (Remontée et disparition)
+    setTimeout(() => { 
+        notif.style.transform = "translateX(-50%) translateY(-150px)"; 
+        notif.style.opacity = "0"; 
+        setTimeout(() => notif.remove(), 500); 
+    }, 3000);
+}
+// 🔥 NOUVEAU : SYNCHRONISATION DES COMMANDES AU DÉMARRAGE
+async function synchroniserMesCommandesAvecServeur() {
+    const key = `tabia_mes_commandes_${clientId}`;
+    let hist = JSON.parse(localStorage.getItem(key) || "[]");
+    
+    // On ne garde que les commandes récentes (moins de 24h) qui ne sont pas encore payées
+    let commandesActives = hist.filter(c => c.expiration > Date.now() && c.statut !== 'paye');
+    
+    if (commandesActives.length === 0) {
+        chargerMesCommandes(); // Affiche juste "Panier vide"
+        return;
+    }
+
+    try {
+        // On demande au serveur le statut de nos commandes actives
+        const response = await fetch(`/api/mes-commandes/${clientId}`);
+        if (response.ok) {
+            const vraiesCommandes = await response.json();
+            
+            // On met à jour notre historique local avec la vérité du serveur
+            hist = hist.map(cmdLocal => {
+                const cmdServeur = vraiesCommandes.find(c => c.id === cmdLocal.id);
+                if (cmdServeur) {
+                    return { ...cmdLocal, statut: cmdServeur.statut };
+                }
+                return cmdLocal;
+            });
+            
+            // On sauvegarde et on rafraîchit l'écran
+            localStorage.setItem(key, JSON.stringify(hist));
+            chargerMesCommandes();
+        }
+    } catch (e) {
+        console.error("Impossible de synchroniser les commandes", e);
+        chargerMesCommandes(); // Fallback sur les données locales
+    }
+}
 
 function configurerEvenements() {
     document.getElementById("closeCart").onclick = fermerPanier;
     document.getElementById("checkoutBtn").onclick = passerCommande;
     
-    // 🔥 NOUVELLE GESTION DE LA VALIDATION DES OPTIONS (UNIQUE ET MULTIPLE)
     document.getElementById("confirmOptionBtn")?.addEventListener("click", () => {
-        // On cherche toutes les cases qui ont été cochées par le client
         const checkedBoxes = document.querySelectorAll('input[name="varianteOption"]:checked');
         
         if (produitEnAttenteOption) {
             let valeursChoisies = "";
             
             if (checkedBoxes.length > 0) {
-                // S'il a coché des choses, on colle tout avec des virgules (ex: "Harissa, Fromage")
                 valeursChoisies = Array.from(checkedBoxes).map(cb => cb.value).join(', ');
             }
             
-            // On ajoute au panier avec les valeurs collées
             executerAjoutPanier(produitEnAttenteOption, valeursChoisies);
             document.getElementById("optionsModal").style.display = "none";
             produitEnAttenteOption = null;
@@ -611,7 +935,7 @@ function configurerEvenements() {
             document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
             e.target.classList.add("active");
             categorieActuelle = e.target.dataset.category;
-            if(typeof afficherProduits === 'function') afficherProduits();
+            afficherProduits();
         }
     });
     
@@ -619,4 +943,121 @@ function configurerEvenements() {
         if(e.target.id === 'cartModal') fermerPanier();
         if(e.target.id === 'optionsModal') document.getElementById("optionsModal").style.display = "none";
     }
+    
 }
+
+
+window.verifierCodeClient = async function(silencieux = false) {
+    const code = document.getElementById('clientLoginCode').value.trim();
+    if (!code) return;
+
+    try {
+        // 1. On récupère les règles du gérant
+        let pointsRequis = 100; 
+        let valeurCadeau = 5;
+        try {
+            const resConfig = await fetch('/api/settings/fidelite');
+            if (resConfig.ok) {
+                const config = await resConfig.json();
+                pointsRequis = parseFloat(config.pointsRequis) || 100;
+                valeurCadeau = parseFloat(config.valeurCredit) || 5;
+            }
+        } catch(e) {}
+
+        // 2. On récupère le client
+        const res = await fetch(`/api/customers/verify/${code}`);
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            const customer = data.customer;
+            const ptsClient = parseFloat(customer.points || 0);
+
+            // Textes basiques
+            document.getElementById('vipName').innerText = `${customer.prenom} ${customer.nom}`;
+            document.getElementById('vipCode').innerText = customer.codeFidelite;
+            document.getElementById('vipPoints').innerHTML = `${ptsClient.toFixed(1)} <i class="fas fa-star" style="color:#f1c40f;"></i>`;
+            document.getElementById('vipSolde').innerText = parseFloat(customer.solde || 0).toFixed(2) + ' DT';
+
+            // Affichage de la vue
+            document.getElementById('clientLoginSection').style.display = 'none';
+            document.getElementById('clientProfileSection').style.display = 'block';
+
+            // 3. LA JAUGE, L'OR ET LES CONFETTIS
+            const badge = document.getElementById('vipTierName');
+            const msg = document.getElementById('vipPointsLeft');
+            const bar = document.getElementById('vipProgressBar');
+            const carteVip = document.getElementById('vipCardElement');
+
+            if (bar && msg && badge) {
+                bar.style.width = "0%"; 
+                let pourcentage = (ptsClient / pointsRequis) * 100;
+                if (pourcentage > 100) pourcentage = 100;
+                
+                const estFini = ptsClient >= pointsRequis;
+
+                // Application du thème Gold
+                if (carteVip) {
+                    if (estFini) carteVip.classList.add('theme-gold');
+                    else carteVip.classList.remove('theme-gold');
+                }
+
+                badge.innerHTML = estFini ? `<i class="fas fa-gift"></i> Cadeau de ${valeurCadeau} DT` : `<i class="fas fa-medal"></i> Bronze`;
+                badge.style.background = estFini ? "#f1c40f" : "#cd7f32";
+                badge.style.color = estFini ? "#2c3e50" : "white";
+
+                setTimeout(() => {
+                    bar.style.width = `${pourcentage}%`;
+                    
+                    if (estFini) {
+                        bar.style.background = "linear-gradient(90deg, #10b981, #059669)"; 
+                        msg.innerHTML = `<span style="color:#10b981; font-weight:800;">🎉 Objectif atteint !</span>`;
+                        
+                        // Explosion de confettis
+                        if (typeof confetti === 'function') {
+confetti({ zIndex: 9999, particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#f1c40f', '#e67e22', '#2ecc71', '#3498db'] });                        }
+                    } else {
+                        bar.style.background = "linear-gradient(90deg, #db800a, #e65c00)";
+                        msg.innerHTML = `Encore <b>${(pointsRequis - ptsClient).toFixed(1)} pts</b> pour ${valeurCadeau} DT !`;
+                    }
+                }, 100);
+            }
+            
+            const btnEspace = document.getElementById('btnEspaceClient');
+            if (btnEspace) btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${customer.prenom}`;
+            
+            sessionStorage.setItem('tabia_auth_qr', code);
+            sessionStorage.setItem('client_nom_premium', `${customer.prenom} ${customer.nom}`);
+
+            if (!silencieux) afficherNotification(`✨ Profil chargé avec succès !`);
+        } else {
+            if (!silencieux) afficherNotification("❌ Code secret incorrect.", "error");
+        }
+    } catch (err) {
+        if (!silencieux) afficherNotification("❌ Erreur de connexion au serveur.", "error");
+    }
+};
+
+// 3. Fonctions pour fermer et se déconnecter
+window.fermerEspaceClient = function() {
+    document.getElementById('clientModal').style.display = 'none';
+};
+
+window.deconnecterClient = function() {
+    // 1. Nettoyage absolu et définitif de la mémoire du navigateur
+    sessionStorage.removeItem('tabia_auth_qr');
+    sessionStorage.removeItem('client_nom_premium');
+    localStorage.removeItem('tabia_auth_qr'); // Sécurité supplémentaire
+    
+    // 2. On ferme la fenêtre VIP
+    const modal = document.getElementById('clientModal');
+    if (modal) modal.style.display = 'none';
+    
+    // 3. On affiche le message de confirmation
+    afficherNotification("Vous êtes déconnecté. À bientôt !");
+
+    // 4. 🔥 L'ARME FATALE : On force le navigateur à recharger la page "à zéro"
+    // Cela détruit totalement le QR Code fantôme resté bloqué dans l'adresse URL
+    setTimeout(() => {
+        window.location.replace(window.location.pathname);
+    }, 800); // On attend 0.8 seconde pour que le client ait le temps de lire la notification
+};

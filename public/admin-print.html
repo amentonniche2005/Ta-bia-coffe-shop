@@ -2,9 +2,12 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Admin - Codes Tables | TA'BIA</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="/manifest-admin.json">
+    <meta name="theme-color" content="#143621">
+    <link rel="apple-touch-icon" href="/logo.jpg">
     <style>
         /* ========== VARIABLES & RESET ========== */
         :root {
@@ -55,8 +58,11 @@
         .result-area.visible { display: block; }
         
         .code-display-title { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 10px; }
-        .code-display-value { font-size: 3.5rem; font-weight: 900; letter-spacing: 8px; color: #db800a; margin-bottom: 1.5rem; background: white; border-radius: 12px; padding: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+        .code-display-value { font-size: 3.5rem; font-weight: 900; letter-spacing: 8px; color: #db800a; margin-bottom: 1rem; background: white; border-radius: 12px; padding: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); word-break: break-all; }
         
+        .ui-qr-container { margin: 0 auto 1.5rem auto; text-align: center; }
+        .ui-qr-img { width: 160px; height: 160px; border: 2px solid #e2e8f0; border-radius: 12px; padding: 8px; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+
         .action-row { display: flex; gap: 10px; }
         .btn-print { background: #27ae60; color: white; flex: 2; }
         .btn-print:hover { background: #219a52; }
@@ -64,14 +70,50 @@
         .btn-refresh:hover { background: #cbd5e1; }
 
         /* ========== NOTIFICATIONS ========== */
-        .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 1rem 2rem; border-radius: 30px; font-weight: 600; z-index: 3000; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s; opacity: 0; pointer-events: none;}
+        .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 1rem 2rem; border-radius: 30px; font-weight: 600; z-index: 3000; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s; opacity: 0; pointer-events: none; max-width: 90%; text-align: center;}
         .notification.show { transform: translate(-50%, 20px); opacity: 1; }
         .notification.error { background: #e74c3c; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* 🔥 NOUVEAU : RESPONSIVE DESIGN POUR MOBILE ET TABLETTE 🔥 */
+        @media (max-width: 600px) {
+            header { padding: 1rem; }
+            .logo-img { height: 45px; width: 45px; }
+            .logo h1 { font-size: 1.2rem; }
+            .logo .logo-subtext { font-size: 0.7rem; }
+
+            .main-container { 
+                padding: 1rem; 
+                align-items: flex-start; /* Evite de couper le haut si l'écran est très petit */
+                margin-top: 1rem;
+            }
+            .card { padding: 1.5rem; border-radius: 18px; }
+            .card-title { font-size: 1.3rem; }
+            
+            .code-display-value { 
+                font-size: 2.2rem; 
+                letter-spacing: 4px; 
+                padding: 5px; 
+            }
+            .ui-qr-img { 
+                width: 140px; 
+                height: 140px; 
+            }
+
+            /* On superpose les boutons pour éviter qu'ils soient trop petits au doigt */
+            .action-row { flex-direction: column; gap: 12px; }
+            .btn-print, .btn-refresh { width: 100%; flex: none; }
+        }
+
         /* ========== PRINT FORMAT (TICKET 80mm) ========== */
-        #printArea { display: none; }
+        #printArea { 
+            position: absolute; 
+            top: -9999px; 
+            left: -9999px; 
+            opacity: 1; 
+            pointer-events: none; 
+        }
         @media print {
             @page { size: 80mm auto; margin: 0; }
             body * { visibility: hidden; }
@@ -84,7 +126,6 @@
             .print-logo { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
             .print-table { font-size: 18px; font-weight: bold; padding: 5px; border: 1px solid black; display: inline-block; border-radius: 5px; margin-bottom: 15px;}
             
-            /* ZONE DU QR CODE (MODIFIÉE) */
             .print-qr-container { 
                 width: 140px; 
                 height: 140px; 
@@ -94,7 +135,7 @@
             .print-qr-img {
                 width: 100%;
                 height: 100%;
-                object-fit: contain; /* Assure que le QR n'est pas déformé */
+                object-fit: contain; 
             }
 
             .print-instruction { font-size: 13px; margin-bottom: 5px; font-weight: bold; }
@@ -138,6 +179,10 @@
                 <div class="code-display-title">Code pour la Table <span id="displayTableNum"></span></div>
                 <div class="code-display-value" id="ticketCodeValue">---</div>
                 
+                <div class="ui-qr-container">
+                    <img id="uiQrCode" class="ui-qr-img" src="" alt="QR Code" />
+                </div>
+
                 <div class="action-row">
                     <button id="printTicketBtn" class="btn btn-print">
                         <i class="fas fa-print"></i> Imprimer
@@ -163,7 +208,7 @@
         <div class="print-table">TABLE <span id="printTableNum"></span></div>
         
         <div class="print-qr-container">
-            <img src="QR.png" alt="Menu QR Code" class="print-qr-img">
+            <img id="printQrCode" src="" alt="Menu QR Code" class="print-qr-img">
         </div>
 
         <div class="print-instruction">1. Scannez le QR ci-dessus</div>
@@ -173,11 +218,11 @@
         <div style="font-size: 11px; margin-bottom:10px;">Conservez ce ticket pour payer à la caisse.</div>
         <div class="print-footer">Merci de votre visite !<br>Date: <span id="printDateNow"></span></div>
     </div>
-<script src="/socket.io/socket.io.js"></script>    
+    
+    <script src="/socket.io/socket.io.js"></script>    
     <script>
-        const socket = io(); // Connexion en temps réel
+        const socket = io(); 
         
-        // CORRECTION 1 : On utilise 'code' au lieu de 'id'
         let currentData = { numero: null, code: null, lastUpdated: null };
 
         function showNotif(message, isError = false) {
@@ -199,13 +244,20 @@
 
         function updateUI() {
             const resultArea = document.getElementById('resultArea');
-            if (currentData.code) { // CORRECTION 2 : On vérifie 'code'
+            if (currentData.code) { 
                 document.getElementById('displayTableNum').textContent = currentData.numero;
                 document.getElementById('ticketCodeValue').textContent = currentData.code;
                 document.getElementById('printCodeVal').textContent = currentData.code;
                 
                 const date = new Date(currentData.lastUpdated);
                 document.getElementById('lastUpdatedValue').textContent = date.toLocaleString('fr-FR');
+                
+                const urlClient = `https://tabia-coffe-shop.onrender.com/?table=${currentData.numero}&auth=${currentData.code}`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlClient)}`;
+                
+                document.getElementById('uiQrCode').src = qrUrl;
+                document.getElementById('printQrCode').src = qrUrl;
+
                 resultArea.classList.add('visible');
             } else {
                 resultArea.classList.remove('visible');
@@ -232,7 +284,6 @@
                     updateUI();
                     showNotif('Code récupéré avec succès');
                 } else {
-                    // CORRECTION 3 : Si la table n'a pas de code, on propose de le créer
                     if(confirm(`La Table ${numero} n'a pas encore de code. Voulez-vous en générer un maintenant ?`)) {
                         currentData.numero = numero;
                         handleRefreshId();
@@ -258,7 +309,6 @@
             btn.disabled = true;
 
             try {
-                // Cette route force la création d'un nouveau code dans MongoDB
                 const response = await fetch(`/api/numbers/refresh/${numero}`, { method: 'POST' });
                 if (!response.ok) throw new Error('Erreur lors du rafraîchissement');
                 
@@ -269,7 +319,7 @@
             } catch (error) {
                 showNotif(error.message, true);
             } finally {
-                btn.innerHTML = btnOriginal; // Remet l'icône originale
+                btn.innerHTML = btnOriginal;
                 btn.disabled = false;
             }
         }
@@ -278,7 +328,6 @@
             if (!currentData.code) return showNotif('Aucun code à imprimer', true);
 
             document.getElementById('printTableNum').textContent = currentData.numero;
-            document.getElementById('printCodeVal').textContent = currentData.code; // CORRECTION 4
             document.getElementById('printDateNow').textContent = new Date().toLocaleDateString('fr-FR') + ' ' + new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
 
             window.print();
@@ -298,12 +347,19 @@
             document.getElementById('printTicketBtn').addEventListener('click', imprimerTicket);
             document.getElementById('refreshBtn').addEventListener('click', handleRefreshId);
 
-            // CORRECTION 5 : Rafraîchissement automatique
             socket.on('tables_refresh', () => {
                 showNotif("🔄 Les codes ont été régénérés par le serveur !");
                 if (select.value) {
                     handleFetchId();
                 }
+            });
+        }
+        
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker activé sur cette application !'))
+                    .catch(err => console.log('Erreur Service Worker', err));
             });
         }
 
