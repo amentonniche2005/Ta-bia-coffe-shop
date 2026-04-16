@@ -172,6 +172,16 @@
         /* ========== IMPRESSION THERMIQUE ========== */
         .ticket-caisse { width: 80mm; max-width: 80mm; background: white; padding: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; display: none; margin: 0 auto; color: black;}
         @media print { @page { size: 80mm auto; margin: 0; } body * { visibility: hidden; } #ticketCaisse, #ticketCaisse * { visibility: visible; } #ticketCaisse { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 2mm 5mm; } }
+        @keyframes pulseGreen {
+    0% { transform: scale(1); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    50% { transform: scale(1.02); box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); border-color: #10b981; }
+    100% { transform: scale(1); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+}
+
+.animate-pulse-green {
+    animation: pulseGreen 2s infinite ease-in-out;
+    background-color: #f0fff4 !important; /* Fond très légèrement vert */
+}   
     </style>
 </head>
 <body>
@@ -1173,32 +1183,52 @@ function afficherCommandesWeb() {
         
         document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
             const isFidele = cmd.methodePaiement === 'carte_fidelite';
-            const badgeIcon = isFidele ? '<i class="fas fa-id-card"></i> Payé par Wallet' : '<i class="fas fa-globe"></i> Payé en ligne';
-            const badgeColor = isFidele ? 'var(--primary-orange)' : 'var(--info)';
+            const badgeIcon = isFidele ? '<i class="fas fa-id-card"></i> VIP Wallet' : '<i class="fas fa-globe"></i> Paiement Web';
+            const themeColor = isFidele ? '#f59e0b' : '#3b82f6'; // Orange pour VIP, Bleu pour Web
             
-            // 🔥 NOUVEAU : Le bouton "Intelligent" qui réagit à l'écran cuisine
-            let actionButton = '';
-            
+            // Résumé des articles (max 3 pour rester compact)
+            const articlesPreview = cmd.articles.slice(0, 3).map(a => 
+                `<div style="font-size:0.8rem; color:#64748b;">• ${a.quantite}x ${a.nom}</div>`
+            ).join('');
+            const pointsSuspension = cmd.articles.length > 3 ? '<div style="font-size:0.7rem; color:#94a3b8; padding-left:10px;">...et plus</div>' : '';
+
+            // Gestion des états du bouton et animations
+            let buttonHtml = '';
+            let cardClass = '';
+
             if (cmd.statut === 'en_attente') {
-                actionButton = `<button disabled style="width:100%; background:#f59e0b; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:not-allowed; opacity:0.8;">⏳ En attente cuisine</button>`;
-            } else if (cmd.statut === 'en_preparation') {
-                actionButton = `<button disabled style="width:100%; background:#3b82f6; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:not-allowed; opacity:0.8;">🍳 En préparation...</button>`;
-            } else if (cmd.statut === 'terminee') {
-                actionButton = `<button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:var(--success); color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);">✅ Servir au client</button>`;
+                buttonHtml = `<button disabled style="width:100%; background:#94a3b8; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; cursor:not-allowed;">⏳ ATTENTE CUISINE</button>`;
+            } 
+            else if (cmd.statut === 'en_preparation') {
+                buttonHtml = `<button disabled style="width:100%; background:#3b82f6; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; cursor:not-allowed;">🍳 EN PRÉPARATION...</button>`;
+            } 
+            else if (cmd.statut === 'terminee') {
+                // Animation "PULSE" quand c'est prêt
+                cardClass = 'animate-pulse-green';
+                buttonHtml = `<button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:#10b981; color:white; border:none; padding:12px; border-radius:10px; cursor:pointer; font-weight:800; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);">✅ SERVIR & ARCHIVER</button>`;
             }
 
-            return `<div style="background: var(--bg-card); border: 2px solid ${badgeColor}; padding: 15px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-bottom: 10px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <strong>#${cmd.numero}</strong>
-                    <span style="color:${badgeColor}; font-weight:bold; font-size:0.8rem;">${badgeIcon}</span>
+            return `
+            <div class="${cardClass}" style="background: white; border-left: 6px solid ${themeColor}; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 15px; transition: all 0.3s;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span style="font-size:1.1rem; font-weight:800; color:#1e293b;">#${cmd.numero}</span>
+                    <span style="background:${themeColor}22; color:${themeColor}; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold;">${badgeIcon}</span>
                 </div>
-                <div style="font-weight:600; color:var(--text-dark); margin-bottom:5px;">
-                    ${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 Table ${cmd.numeroTable}`}
+                
+                <div style="margin-bottom:10px;">
+                    <div style="font-weight:700; color:#334155; font-size:0.95rem;">${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 Table ${cmd.numeroTable}`}</div>
+                    <div style="margin-top:5px; background:#f8fafc; padding:8px; border-radius:8px; border:1px solid #e2e8f0;">
+                        ${articlesPreview}
+                        ${pointsSuspension}
+                    </div>
                 </div>
-                <div style="font-weight:900; font-size:1.4rem; margin-bottom:10px;">
-                    ${(cmd.total || 0).toFixed(2)} DT
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <span style="color:#94a3b8; font-size:0.8rem;">Total payé:</span>
+                    <span style="font-weight:900; font-size:1.3rem; color:#1e293b;">${(cmd.total || 0).toFixed(2)} <small>DT</small></span>
                 </div>
-                ${actionButton}
+
+                ${buttonHtml}
             </div>`;
         }).join('');
     }
