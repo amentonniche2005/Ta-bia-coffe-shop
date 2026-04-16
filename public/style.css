@@ -761,7 +761,7 @@ body.dark-mode ::-webkit-scrollbar-thumb:hover { background: #475569; }
 /* 1. GLASSMORPHISM SUR LE HEADER (Effet Verre Dépoli type iOS) */
 header {
     background: rgba(20, 54, 33, 1.12) !important; /* Le vert TA'BIA translucide */
-    backdrop-filter: blur(4px) !important; /* Le flou d'arrière-plan */
+    backdrop-filter: blur(7px) !important; /* Le flou d'arrière-plan */
     -webkit-backdrop-filter: blur(12px) !important;
     border-bottom: 1px solid rgba(227, 196, 150, 0.3) !important; /* Liseré doré subtil */
 }
@@ -805,4 +805,17 @@ button:hover:not(:disabled) {
 ::selection {
     background: #e3c496; /* Doré */
     color: #143621; /* Vert */
+}
+/* ========== ANIMATION VOL VERS PANIER (CLIENT) ========== */
+.fly-item {
+    position: fixed;
+    background: #e3c496; /* Doré TA'BIA */
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    z-index: 9999;
+    pointer-events: none;
+    transition: all 0.6s cubic-bezier(0.2, 1, 0.3, 1);
+    box-shadow: 0 4px 10px rgba(227, 196, 150, 0.6);
+    transform: translate(-50%, -50%);
 }

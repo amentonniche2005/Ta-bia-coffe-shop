@@ -251,9 +251,9 @@ function afficherProduits() {
     grille.innerHTML = produitsTries.map(p => {
         const rupture = p.stock <= 0 && p.stock !== undefined;
         const classeRupture = rupture ? 'sold-out' : '';
-        const bouton = rupture 
+const bouton = rupture 
             ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
-            : `<button class="add-to-cart" onclick="gererClicAjout(${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;
+            : `<button class="add-to-cart" onclick="gererClicAjout(event, ${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;
             
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
         const prixFormatte = parseFloat(p.prix || 0).toFixed(2);
@@ -283,6 +283,7 @@ function gererClicAjout(id) {
 
     if (produit.typeChoix === 'aucun') {
         executerAjoutPanier(produit, null);
+        animerVersPanierClient(event);
         return; 
     }
 
@@ -303,6 +304,7 @@ function gererClicAjout(id) {
         ouvrirModalOptions(produit, optionsTrouvees);
     } else {
         executerAjoutPanier(produit, null);
+        animerVersPanierClient(event);
     }
 }
 
@@ -910,7 +912,7 @@ function configurerEvenements() {
     document.getElementById("closeCart").onclick = fermerPanier;
     document.getElementById("checkoutBtn").onclick = passerCommande;
     
-    document.getElementById("confirmOptionBtn")?.addEventListener("click", () => {
+document.getElementById("confirmOptionBtn")?.addEventListener("click", (e) => { // <-- Ajout du 'e'
         const checkedBoxes = document.querySelectorAll('input[name="varianteOption"]:checked');
         
         if (produitEnAttenteOption) {
@@ -921,6 +923,7 @@ function configurerEvenements() {
             }
             
             executerAjoutPanier(produitEnAttenteOption, valeursChoisies);
+            animerVersPanierClient(e); // 🔥 L'animation part du bouton du modal !
             document.getElementById("optionsModal").style.display = "none";
             produitEnAttenteOption = null;
         }
@@ -945,7 +948,60 @@ function configurerEvenements() {
     }
     
 }
+// ========== ANIMATION FLY TO CART ==========
+function animerVersPanierClient(event) {
+    if (!event) return;
+    
+    // 1. Récupérer les coordonnées du clic (doigt ou souris)
+    const startX = event.clientX || (event.touches && event.touches[0].clientX);
+    const startY = event.clientY || (event.touches && event.touches[0].clientY);
 
+    // 2. Cible : Le panier flottant
+    const ciblePanier = document.getElementById('floatingCart'); 
+    
+    if (!ciblePanier || !startX || !startY) return;
+    
+    // Si le panier n'est pas encore visible, on force l'apparition pour calculer sa position
+    if (ciblePanier.style.display === "none" || ciblePanier.style.display === "") {
+        ciblePanier.style.display = "flex";
+        ciblePanier.style.opacity = "0"; // Invisible brièvement
+    }
+
+    const rectCible = ciblePanier.getBoundingClientRect();
+    
+    // On vise le petit badge avec le nombre d'articles
+    const badge = document.getElementById('conteurpanier');
+    const badgeRect = badge ? badge.getBoundingClientRect() : rectCible;
+    
+    const endX = badgeRect.left + (badgeRect.width / 2);
+    const endY = badgeRect.top + (badgeRect.height / 2);
+
+    // Rétablir le panier normal s'il était caché
+    if (ciblePanier.style.opacity === "0") {
+        ciblePanier.style.display = "none";
+        ciblePanier.style.opacity = "1";
+    }
+
+    // 3. Créer la pastille
+    const point = document.createElement('div');
+    point.className = 'fly-item';
+    point.style.left = `${startX}px`;
+    point.style.top = `${startY}px`;
+    document.body.appendChild(point);
+
+    // 4. Faire voler la pastille
+    requestAnimationFrame(() => {
+        point.style.left = `${endX}px`;
+        point.style.top = `${endY}px`;
+        point.style.transform = 'translate(-50%, -50%) scale(0.2)';
+        point.style.opacity = '0.5';
+    });
+
+    // 5. Nettoyer
+    setTimeout(() => {
+        point.remove();
+    }, 600); 
+}
 
 window.verifierCodeClient = async function(silencieux = false) {
     const code = document.getElementById('clientLoginCode').value.trim();
