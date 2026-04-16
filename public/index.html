@@ -4,20 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <title>TA'BIA COFFEE SHOP</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div id="splashScreen" class="splash-screen">
-        <img src="logo.jpg" alt="TA'BIA" class="splash-logo">
-        <div class="splash-loader"></div>
-    </div>
-    <header>
+<header>
         <div class="header-container">
             <div class="logo">
                 <img src="logo.jpg" alt="Logo Ta'Bia" class="logo-img">
@@ -26,11 +18,9 @@
                     <span class="logo-subtext">Coffee Shop</span>
                 </h1>
             </div>
-            
-<div style="display: flex; align-items: center; gap: 15px;">
-                <i class="fas fa-moon" id="darkModeToggle" style="color: white; font-size: 1.4rem; cursor: pointer;"></i>
-                <div class="user-badge" id="btnEspaceClient"><i class="fas fa-user-circle"></i> Client</div>
-            </div>    </header>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> Espace Client</div>
+        </div>
+    </header>
 
     <div class="hero">
         <div class="hero-content">
@@ -39,8 +29,9 @@
         </div>
     </div>
 
-    <div class="categories-wrapper">
-        <div class="categories" id="categoryTabs"></div>
+<div class="categories-wrapper">
+        <div class="categories" id="categoryTabs">
+            </div>
     </div>
 
     <div class="menu-section">
@@ -69,117 +60,29 @@
                 <button class="close-options" id="closeOptions">&times;</button>
             </div>
             <p style="color: #64748b; margin-bottom: 15px; font-size: 0.9rem;">Choisissez votre préférence :</p>
-            <div id="optionsList" class="options-list"></div>
+            <div id="optionsList" class="options-list">
+                </div>
             <button class="checkout-btn add-option-btn" id="confirmOptionBtn" style="margin-top: 15px; background: #db800a; color: white; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer;">
                 Ajouter <span id="optionPriceDisplay"></span>
             </button>
         </div>
     </div>
 
-<div class="cart-modal" id="cartModal" style="display: none;">
+    <div class="cart-modal" id="cartModal" style="display: none;">
         <div class="cart-content">
-            <div style="width: 40px; height: 5px; background: #cbd5e1; border-radius: 10px; margin: 0 auto 15px;"></div>
-            
             <div class="cart-header">
-                <h2><i class="fas fa-shopping-bag" style="color: var(--primary);"></i> Votre Panier</h2>
-                <button class="close-cart" id="closeCart"><i class="fas fa-times"></i></button>
+                <h2><i class="fas fa-shopping-basket"></i> Mon Panier</h2>
+                <button class="close-cart" id="closeCart">&times;</button>
             </div>
-            
-            <div id="cartItems" class="cart-items">
-                </div>
-            
-            <div class="checkout-section">
-
-                
-                <div style="position: relative; margin-bottom: 15px;">
-                    <i class="fas fa-credit-card sleek-icon" style="color: #143621; z-index: 10;"></i>
-                    <select id="methodePaiementClient" class="sleek-select">
-                        <option value="especes">Payer sur place (Espèces,Ticket Resto,Carte Bancaire)</option>
-                        <option value="en_ligne">Payer en ligne (D17,Flouci,Visa,MasterCard)</option>
-                    </select>
-                    <i class="fas fa-chevron-down" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;"></i>
-                </div>
-
-                <div class="cart-total-row">
-                    <span style="font-size: 1.1rem; color: #64748b; font-weight: 700;">Total</span>
-                    <span id="cartTotal">0.00 DT</span>
-                </div>
-
-                <button class="checkout-btn" id="checkoutBtn" style="background: linear-gradient(135deg, #db800a, #e65c00); color: white; width: 100%; padding: 16px; border: none; border-radius: 16px; font-size: 1.2rem; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 12px; box-shadow: 0 8px 20px rgba(219, 128, 10, 0.3); transition: transform 0.2s;">
-                    Valider la commande <i class="fas fa-arrow-right"></i>
-                </button>
-            </div>
-            
+            <div id="cartItems" class="cart-items"></div>
+            <div class="cart-total" id="cartTotal">Total: 0.00 DT</div>
+            <button class="checkout-btn" id="checkoutBtn" style="background: #db800a; color: white; width: 100%; padding: 1rem; border: none; border-radius: 15px; font-size: 1.1rem; font-weight: 700; cursor: pointer; display: flex; justify-content: center; gap: 10px;">
+                Valider la commande <i class="fas fa-arrow-right"></i>
+            </button>
         </div>
     </div>
-    <div id="clientModal" class="cart-modal" style="display: none;">
-        <div class="cart-content" style="max-width: 450px;">
-            <div class="cart-header">
-                <h2><i class="fas fa-user-circle"></i> Espace Privilège</h2>
-                <button class="close-cart" onclick="fermerEspaceClient()"><i class="fas fa-times"></i></button>
-            </div>
-            
-            <div class="cart-items" id="clientModalBody" style="padding-top: 0;">
-                
-<div id="clientLoginSection" style="text-align: center; padding: 20px 0;">
-    <div style="background: var(--surface-2); width: 80px; height: 80px; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px auto;">
-        <i class="fas fa-qrcode" style="font-size: 2.5rem; color: var(--primary);"></i>
-    </div>
-    <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 600;">Scannez votre carte physique ou entrez votre code secret.</p>
-    
-    <input type="text" 
-           id="clientLoginCode" 
-           class="code-input" 
-           placeholder="Code secret" 
-           style="text-align: center; font-size: 1.8rem; letter-spacing: 4px; width: 100%; max-width: 280px; margin-bottom: 15px;">
-    
-    <button class="auth-btn btn-login" onclick="verifierCodeClient()">
-        Accéder à mon espace <i class="fas fa-arrow-right"></i>
-    </button>
-</div>
-
-<div id="clientProfileSection" style="display: none;">
-                    <div class="vip-card" id="vipCardElement">
-                        <div class="vip-card-header">
-                            <span>TA'BIA Premium</span>
-                            <i class="fas fa-crown" style="color: #f1c40f; font-size: 1.2rem;"></i>
-                        </div>
-                        <div class="vip-card-body">
-                            <h3 id="vipName">Client Name</h3>
-                            <p class="vip-code" id="vipCode">****</p>
-                        </div>
-                        <div class="vip-card-footer">
-                            <div>
-                                <span class="vip-label">Points Fidélité</span>
-                                <span class="vip-value" id="vipPoints">0 <i class="fas fa-star" style="font-size: 0.9rem; color: #f1c40f;"></i></span>
-                            </div>
-                            <div style="text-align: right;">
-                                <span class="vip-label">Solde </span>
-                                <span class="vip-value" id="vipSolde">0.00 DT</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="gamification-container" style="margin-top: 15px; background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-                        <div class="gamification-header" style="display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; font-size: 0.9rem;">
-                            <span id="vipTierName" style="padding: 4px 10px; border-radius: 8px; background: #cd7f32; color: white;"><i class="fas fa-medal"></i> Bronze</span>
-                            <span id="vipPointsLeft" style="color: #64748b;">Calcul en cours...</span>
-                        </div>
-                        <div class="progress-bar-bg" style="width: 100%; height: 12px; background: #e2e8f0; border-radius: 10px; overflow: hidden;">
-                            <div id="vipProgressBar" style="height: 100%; width: 0%; background: var(--primary); transition: width 1s ease-in-out;"></div>
-                        </div>
-                    </div>
-                    
-                    <button class="auth-btn btn-logout" onclick="deconnecterClient()">
-                        <i class="fas fa-sign-out-alt"></i> Me déconnecter
-                    </button>                
-                </div>
-
-            </div>
-        </div>
-    </div>
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script-client.js"></script>
+    <script src="script-client.js?v=2"></script>
 </body>
 </html>

@@ -6,9 +6,6 @@
     <title>TA'BIA - Écran Cuisine</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <link rel="manifest" href="/manifest-comptoir.json">
-    <meta name="theme-color" content="#143621">
-    <link rel="apple-touch-icon" href="/logo.jpg">
     <style>
         /* ========== VARIABLES & RESET ========== */
         :root {
@@ -250,115 +247,6 @@
                 width: 95%;
             }
         }
-        /* ========== SLA (CHRONOMÈTRE DE CUISINE) ========== */
-        .ticket-time-container {
-            display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
-        }
-        .sla-badge {
-            padding: 4px 8px; border-radius: 8px; font-size: 0.75rem; font-weight: 800;
-            display: flex; align-items: center; gap: 5px; box-shadow: var(--card-shadow);
-        }
-        /* 🟢 0 à 5 min : Dans les temps */
-        .sla-good { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-        
-        /* 🟡 5 à 10 min : Attention */
-        .sla-warning { background: #fef08a; color: #854d0e; border: 1px solid #fde047; }
-        
-        /* 🔴 + de 10 min : En Retard (Clignotement) */
-        .sla-danger { 
-            background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; 
-            animation: pulseDanger 1.5s infinite; 
-        }
-        @keyframes pulseDanger { 
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 
-            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } 
-        }
-        /* ========== VUE SYNTHÈSE (PRODUCTION GROUPÉE) ========== */
-        .view-toggle { 
-            display: flex; background: #e2e8f0; border-radius: 10px; padding: 4px; gap: 4px; margin-left: 15px; 
-        }
-        .view-btn { 
-            border: none; background: transparent; padding: 8px 16px; border-radius: 8px; font-weight: 800; 
-            color: #64748b; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; font-size: 0.95rem;
-        }
-        .view-btn.active { 
-            background: white; color: var(--bg-header); box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-        }
-
-        .synthese-container {
-            display: none; padding: 2rem; flex: 1; overflow-y: auto; background: var(--bg-body);
-        }
-        .synthese-grid { 
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; 
-        }
-        .synthese-card { 
-            background: white; border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 20px; 
-            box-shadow: var(--card-shadow); border-left: 8px solid var(--col-preparation);
-            animation: modalIn 0.3s ease;
-        }
-        .synthese-qty { 
-            font-size: 3.5rem; font-weight: 900; color: white; background: var(--col-preparation); 
-            width: 90px; height: 90px; display: flex; justify-content: center; align-items: center; border-radius: 20px; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.1);
-        }
-        .synthese-name { font-size: 1.8rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
-        .synthese-variant { font-size: 1.1rem; color: #64748b; font-weight: 700; display: block; margin-top: 6px; }
-        /* ========== STYLE SPÉCIAL IMPRESSION TICKET ========== */
-@media print {
-    /* Cache tout le reste de la page */
-    body * { visibility: hidden; }
-    header, .kanban-board, .toolbar, .modal, #syntheseContainer, .notification { display: none !important; }
-
-    /* Affiche uniquement la zone de ticket */
-    #ticket-impression, #ticket-impression * { visibility: visible; }
-    #ticket-impression {
-        position: absolute;
-        left: 0; top: 0;
-        width: 80mm; /* Largeur standard imprimante thermique */
-        padding: 5mm;
-        color: black;
-        background: white;
-    }
-}
-
-/* Style visuel du bouton imprimer sur la carte */
-.btn-print {
-    background: #64748b;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: 0.2s;
-}
-.btn-print:hover { background: #475569; }
-/* ========== MODE SOMBRE (DARK MODE) ========== */
-        body.dark-mode {
-            --bg-body: #0f172a;
-            --bg-header: #020617;
-            --text-main: #f1f5f9;
-            background: var(--bg-body);
-            color: var(--text-main);
-        }
-        body.dark-mode .toolbar { background: #1e293b; border-bottom: 1px solid #334155; }
-        body.dark-mode .colonne { background: #020617; border: 1px solid #334155; }
-        body.dark-mode .ticket { background: #1e293b; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
-        body.dark-mode .ticket-id { color: #f8fafc; }
-        body.dark-mode .item-row { color: #cbd5e1; }
-        body.dark-mode .item-qty { background: #334155; color: #f8fafc; border-color: #475569; }
-        body.dark-mode .ticket-header { border-bottom-color: #334155; }
-        body.dark-mode .filtre-btn { background: #1e293b; color: #94a3b8; border-color: #334155; }
-        body.dark-mode .filtre-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
-        body.dark-mode .stat-item span { background: #334155; color: white; }
-        body.dark-mode .modal-content { background: #1e293b; color: white; border: 1px solid #334155; }
-        body.dark-mode .modal-header h2 { color: white; }
-        body.dark-mode .modal-header { border-bottom-color: #334155; }
-        body.dark-mode .close-btn { background: #334155; color: white; }
-        body.dark-mode .close-btn:hover { background: #475569; color: #ef4444; }
-        body.dark-mode .synthese-container { background: #0f172a; }
-        body.dark-mode .synthese-card { background: #1e293b; }
-        body.dark-mode .synthese-name { color: white; }
     </style>
 </head>
 <body>
@@ -373,9 +261,6 @@
             <div class="status-badge" style="background: rgba(255,255,255,0.1); color: white; padding: 0.5rem 1rem; border-radius: 30px; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.2);">
                 <span id="onlineStatus">🟢</span> Serveur
             </div>
-            <button class="btn-sync" onclick="toggleDarkMode()" style="background: transparent; color: #e3c496; border: 1px solid #e3c496; padding: 0.6rem 1rem; border-radius: 30px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <i class="fas fa-moon" id="iconDarkMode"></i>
-            </button>
             <button class="btn-sync" onclick="rafraichirCommandes()" style="background: #db800a; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 30px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                 <i class="fas fa-sync-alt"></i> Maj
             </button>
@@ -390,14 +275,9 @@
             <button class="filtre-btn" onclick="changerFiltre('comptoir')"><i class="fas fa-store"></i> Sur Place</button>
             <button class="filtre-btn" onclick="changerFiltre('fidele')"><i class="fas fa-star"></i> Fidèles</button>
         </div>
-<div class="stats-rapides" style="align-items: center;">
+        <div class="stats-rapides">
             <div class="stat-item"><i class="fas fa-hourglass-half" style="color:var(--col-attente)"></i> Attente: <span id="nbAttente">0</span></div>
             <div class="stat-item"><i class="fas fa-fire" style="color:var(--col-preparation)"></i> Prépa: <span id="nbPreparation">0</span></div>
-            
-            <div class="view-toggle">
-                <button id="btnVueCommandes" class="view-btn active" onclick="basculerVue('commandes')"><i class="fas fa-th-list"></i> Tickets</button>
-                <button id="btnVueSynthese" class="view-btn" onclick="basculerVue('synthese')"><i class="fas fa-layer-group"></i> Production</button>
-            </div>
         </div>
     </div>
 
@@ -419,8 +299,6 @@
         </div>
 
     </div>
-    <div id="syntheseContainer" class="synthese-container">
-        </div>
 
     <div id="modalDetails" class="modal" onclick="fermerModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
@@ -431,7 +309,6 @@
             <div id="modalBody" style="font-size: 1.1rem; line-height: 1.6; color: #334155;"></div>
         </div>
     </div>
-    <div id="ticket-impression" style="display:none;"></div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="comptoir.js"></script>
 </body>
