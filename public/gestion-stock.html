@@ -123,6 +123,58 @@
             #panel-ventes > div[style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
             #panel-ventes > div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
         }
+        /* ========================================================================= */
+/* 💎 PACK DESIGN PREMIUM TA'BIA (Global) 💎 */
+/* ========================================================================= */
+
+/* 1. GLASSMORPHISM SUR LE HEADER (Effet Verre Dépoli type iOS) */
+header {
+    background: rgba(20, 54, 33, 0.85) !important; /* Le vert TA'BIA translucide */
+    backdrop-filter: blur(12px) !important; /* Le flou d'arrière-plan */
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(227, 196, 150, 0.3) !important; /* Liseré doré subtil */
+}
+
+/* 2. OMBRES DOUCES ET ÉLÉGANTES (Soft Shadows) */
+/* S'applique aux tables, produits, tickets, modales et commandes cuisine */
+.card, .table-btn, .product-card, .ticket-card, .modal-content, .commande-card, .table-container {
+    box-shadow: 0 12px 35px rgba(20, 54, 33, 0.06) !important; /* Ombre très diffuse teintée de vert */
+    border: 1px solid rgba(227, 196, 150, 0.2) !important; /* Contour doré ultra fin */
+    border-radius: 16px !important; /* Arrondis modernes */
+}
+
+/* 3. ANIMATIONS FLUIDES AU SURVOL ET CLIC (Feedback tactile) */
+button, .product-card, .table-btn, .card, .commande-card {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+button:active, .product-card:active, .table-btn:active {
+    transform: scale(0.96) !important; /* Effet d'enfoncement physique */
+}
+button:hover:not(:disabled) {
+    filter: brightness(1.1); /* S'illumine légèrement au survol de la souris */
+}
+
+/* 4. SCROLLBAR PREMIUM (Barre de défilement discrète et élégante) */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(20, 54, 33, 0.15); /* Vert très clair */
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(227, 196, 150, 0.8); /* Devient doré quand on la manipule */
+}
+
+/* 5. SÉLECTION DE TEXTE AUX COULEURS DE LA MARQUE */
+::selection {
+    background: #e3c496; /* Doré */
+    color: #143621; /* Vert */
+}
     </style>
 </head>
 <body>
