@@ -1031,7 +1031,7 @@ function initSocket() {
     }
 function afficherModalFermetureCaisse() {
         const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `<div class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-moon"></i> Clôture (Z)</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div><div class="form-group"><label>Total Espèces comptées (DT)</label><input type="number" id="especesReellesInput" step="0.1" style="font-size:2rem; text-align:center;"></div><div class="modal-buttons"><button type="button" id="validerClotureBtn" class="btn-valider" style="background:var(--danger); box-shadow:none;">Clôturer</button></div></div></div>`;
+        container.innerHTML = `<div class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-moon"></i> Clôture (Z)</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div><div class="form-group"><label>Total Compté (Espèces + Reçus CB + Tickets Resto) en DT</label><input type="number" id="especesReellesInput" step="0.1" style="font-size:2rem; text-align:center;"></div><div class="modal-buttons"><button type="button" id="validerClotureBtn" class="btn-valider" style="background:var(--danger); box-shadow:none;">Clôturer</button></div></div></div>`;
         
         document.getElementById('validerClotureBtn').onclick = async function() {
             const reel = parseFloat(document.getElementById('especesReellesInput').value); 
@@ -1041,23 +1041,38 @@ function afficherModalFermetureCaisse() {
             try {
                 const res = await fetchSecurise('/api/tiroir/fermer', { method: 'POST', body: JSON.stringify({ reel }) }); 
                 const data = await res.json();
-                let messageEcart = data.session.ecart === 0 ? "✅ Parfait" : (data.session.ecart > 0 ? `📈 +${data.session.ecart.toFixed(2)}` : `⚠️ ${data.session.ecart.toFixed(2)}`);
+                let messageEcart = data.session.ecart === 0 ? "✅ Parfait" : (data.session.ecart > 0 ? `📈 Excédent: +${data.session.ecart.toFixed(3)}` : `⚠️ Déficit: ${data.session.ecart.toFixed(3)}`);
                 
-                // 🔥 NOUVEAU : On stocke temporairement les données pour l'impression
+                // 🔥 On stocke TOUTES les données pour l'impression
                 window.donneesRapportZ = {
                     fond: data.session.fondDeCaisse,
-                    ventes: data.session.totalVentesEspeces,
+                    ventesEsp: data.totalEspeces,
+                    ventesCb: data.totalCarte,
+                    ventesTr: data.totalTicketResto,
+                    sorties: data.totalSorties,
                     attendu: data.attendu,
                     compte: data.session.especesReelles,
                     ecart: data.session.ecart
                 };
 
-                container.innerHTML = `<div class="modal-overlay active"><div class="modal-content" style="text-align:center;"><h2>Rapport Z</h2><div style="background:#f8fafc; padding:20px; border-radius:12px; margin:20px 0; text-align:left;"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Fond:</span> <strong>${data.session.fondDeCaisse.toFixed(2)}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Ventes (Esp):</span> <strong>+ ${data.session.totalVentesEspeces.toFixed(2)}</strong></div><hr style="margin:15px 0;"><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Attendu:</span> <strong>${data.attendu.toFixed(2)}</strong></div><div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Compté:</span> <strong>${data.session.especesReelles.toFixed(2)}</strong></div></div><h1 style="margin-bottom:20px;">${messageEcart}</h1><button class="btn-valider" style="width:100%; margin-bottom:10px; background:var(--text-dark);" onclick="imprimerRapportZ()">🖨️ Imprimer Rapport Z</button><button class="btn-annuler" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">Fermer</button></div></div>`;
+                container.innerHTML = `<div class="modal-overlay active"><div class="modal-content" style="text-align:center;"><h2>Rapport Z</h2><div style="background:#f8fafc; padding:20px; border-radius:12px; margin:20px 0; text-align:left; font-size:0.95rem;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Fond de caisse:</span> <strong>${data.session.fondDeCaisse.toFixed(3)}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Ventes (Espèces):</span> <strong style="color:var(--success);">+ ${data.totalEspeces.toFixed(3)}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Ventes (Carte B.):</span> <strong style="color:var(--success);">+ ${data.totalCarte.toFixed(3)}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Ventes (T. Resto):</span> <strong style="color:var(--success);">+ ${data.totalTicketResto.toFixed(3)}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Sorties (Dépenses):</span> <strong style="color:var(--danger);">- ${data.totalSorties.toFixed(3)}</strong></div>
+                    <hr style="margin:15px 0;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Total Attendu:</span> <strong>${data.attendu.toFixed(3)}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Total Compté:</span> <strong>${data.session.especesReelles.toFixed(3)}</strong></div>
+                    </div><h1 style="margin-bottom:20px; font-size:1.5rem;">${messageEcart}</h1>
+                    <button class="btn-valider" style="width:100%; margin-bottom:10px; background:var(--text-dark);" onclick="imprimerRapportZ()">🖨️ Imprimer Rapport Z</button>
+                    <button class="btn-annuler" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">Fermer</button></div></div>`;
                 verifierStatutCaisse();
             } catch(e) {}
         };
     }
-    // 🔥 NOUVEAU : Impression thermique spécifique pour le Rapport Z
+
+    // 🔥 Impression thermique spécifique pour le Rapport Z
     function imprimerRapportZ() {
         const d = window.donneesRapportZ;
         if (!d) return;
@@ -1066,36 +1081,33 @@ function afficherModalFermetureCaisse() {
         const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
         
         const ticketDiv = document.getElementById('ticketCaisse');
-        // On sauvegarde le modèle de ticket normal
         const ancienContenu = ticketDiv.innerHTML;
 
-        // On injecte le format comptable (Ticket 80mm)
         ticketDiv.innerHTML = `
             <div style="text-align:center; border-bottom:1px dashed black; padding-bottom:6px; margin-bottom:6px;">
                 <div style="font-size:18px; font-weight:bold; font-family: 'Arial', sans-serif;">☕ TA'BIA COFFEE</div>
                 <div style="font-size:12px; margin-top:3px; font-weight:bold;">RAPPORT Z - CLÔTURE CAISSE</div>
             </div>
-            
             <div style="font-size:12px; margin-bottom: 6px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Date d'édition:</span><span>${dateStr}</span></div>
             </div>
-            
             <div style="border-top:1px dashed black; margin:6px 0;"></div>
             
             <div style="font-size:12px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Fond de caisse :</span><span>${d.fond.toFixed(3)}</span></div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (Espèces):</span><span>+ ${d.ventes.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (Espèces):</span><span>+ ${d.ventesEsp.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (Carte B.):</span><span>+ ${d.ventesCb.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (T. Resto):</span><span>+ ${d.ventesTr.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Sorties (Dépenses):</span><span>- ${d.sorties.toFixed(3)}</span></div>
             </div>
             
             <div style="border-top:1px dashed black; margin:6px 0;"></div>
-            
             <div style="font-size:14px; font-weight:bold;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>TOTAL ATTENDU :</span><span>${d.attendu.toFixed(3)}</span></div>
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>TOTAL COMPTÉ :</span><span>${d.compte.toFixed(3)}</span></div>
             </div>
             
             <div style="border-top:1px dashed black; margin:6px 0;"></div>
-            
             <div style="font-size:14px; font-weight:bold; margin-top:5px;">
                 <div style="display:flex; justify-content:space-between;"><span>ÉCART TIROIR :</span><span>${d.ecart > 0 ? '+' : ''}${d.ecart.toFixed(3)} DT</span></div>
             </div>
@@ -1105,13 +1117,10 @@ function afficherModalFermetureCaisse() {
             <div style="text-align:center; margin-top:10px;">- - - - - - - - - - - - - - - </div>
         `;
 
-        // Affichage et lancement de l'impression thermique
         ticketDiv.style.display = 'block';
         setTimeout(() => { 
             window.print(); 
             ticketDiv.style.display = 'none'; 
-            
-            // On restaure immédiatement le ticket normal en arrière-plan pour la prochaine commande
             setTimeout(() => { ticketDiv.innerHTML = ancienContenu; }, 500);
         }, 300);
     }

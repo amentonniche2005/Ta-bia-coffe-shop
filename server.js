@@ -588,28 +588,59 @@ app.post('/api/tiroir/ouvrir', verifierToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// 🔥 API : FERMER LA CAISSE (Rapport Z)
 app.post('/api/tiroir/fermer', verifierToken, async (req, res) => {
     try {
         const session = await CashRegister.findOne({ statut: 'ouvert' });
         if (!session) return res.status(400).json({ error: "Aucune caisse ouverte" });
 
+        // 1. Calcul des ENTRÉES (On inclut Espèces, Carte et Ticket Resto)
         const ventes = await Sale.find({ 
             timestamp: { $gte: session.timestampOuverture },
-            methodePaiement: 'especes'
+            methodePaiement: { $in: ['especes', 'carte', 'ticket_resto'] } // 🔥 Ajout CB et TR
         });
+
+        let totalEspeces = 0;
+        let totalCarte = 0;
+        let totalTicketResto = 0;
+
+        ventes.forEach(v => {
+            if (v.methodePaiement === 'carte') totalCarte += v.total;
+            else if (v.methodePaiement === 'ticket_resto') totalTicketResto += v.total;
+            else totalEspeces += v.total; // espèces par défaut
+        });
+
+        // 2. Calcul des SORTIES (Dépenses physiques depuis le tiroir)
+        const depenses = await Expense.find({
+            timestamp: { $gte: session.timestampOuverture },
+            modePaiement: 'especes'
+        });
+        const totalSorties = depenses.reduce((sum, d) => sum + (d.montantPaye || d.montant || 0), 0);
+
+        // 3. Calcul de l'attendu réel (Fond + TOUTES les ventes - Dépenses)
+        const totalEntrees = totalEspeces + totalCarte + totalTicketResto;
+        const attendu = session.fondDeCaisse + totalEntrees - totalSorties;
         
-        const totalEspeces = ventes.reduce((sum, v) => sum + v.total, 0);
-        const attendu = session.fondDeCaisse + totalEspeces;
+        // L'écart est calculé avec ce que le caissier a déclaré (Il doit compter l'argent + les tickets CB + les tickets resto)
         const ecart = req.body.reel - attendu;
 
         session.dateFermeture = new Date().toLocaleString('fr-FR');
-        session.totalVentesEspeces = totalEspeces;
+        session.totalVentesEspeces = totalEspeces; 
         session.especesReelles = req.body.reel;
         session.ecart = ecart;
         session.statut = 'ferme';
         await session.save();
 
-        res.json({ success: true, session, attendu });
+        // On renvoie tous les détails à la caisse
+        res.json({ 
+            success: true, 
+            session, 
+            attendu, 
+            totalSorties, 
+            totalEspeces, 
+            totalCarte, 
+            totalTicketResto 
+        });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
