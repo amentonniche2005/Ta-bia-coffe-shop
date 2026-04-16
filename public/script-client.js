@@ -253,8 +253,7 @@ function afficherProduits() {
         const classeRupture = rupture ? 'sold-out' : '';
 const bouton = rupture 
             ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
-            : `<button class="add-to-cart" onclick="gererClicAjout(event, ${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;
-            
+: `<button class="add-to-cart" onclick="gererClicAjout(event, ${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;            
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
         const prixFormatte = parseFloat(p.prix || 0).toFixed(2);
 
@@ -275,7 +274,7 @@ const bouton = rupture
 }
 
 // ========== GESTION DES VARIANTES (OPTIONS) ==========
-function gererClicAjout(id) {
+function gererClicAjout(event, id) {
     const produit = produits.find(p => p.id === id);
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
@@ -283,7 +282,7 @@ function gererClicAjout(id) {
 
     if (produit.typeChoix === 'aucun') {
         executerAjoutPanier(produit, null);
-        animerVersPanierClient(event);
+        animerVersPanierClient(event); // Déclenche l'animation
         return; 
     }
 
@@ -304,7 +303,7 @@ function gererClicAjout(id) {
         ouvrirModalOptions(produit, optionsTrouvees);
     } else {
         executerAjoutPanier(produit, null);
-        animerVersPanierClient(event);
+        animerVersPanierClient(event); // Déclenche l'animation
     }
 }
 
