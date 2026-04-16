@@ -760,7 +760,7 @@ body.dark-mode ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
 /* 1. GLASSMORPHISM SUR LE HEADER (Effet Verre Dépoli type iOS) */
 header {
-    background: rgba(20, 54, 33, 1,2) !important; /* Le vert TA'BIA translucide */
+    background: rgba(20, 54, 33, 1.5) !important; /* Le vert TA'BIA translucide */
     backdrop-filter: blur(4px) !important; /* Le flou d'arrière-plan */
     -webkit-backdrop-filter: blur(12px) !important;
     border-bottom: 1px solid rgba(227, 196, 150, 0.3) !important; /* Liseré doré subtil */
