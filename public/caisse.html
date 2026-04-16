@@ -1160,7 +1160,6 @@ function afficherModalFermetureCaisse() {
     }
 
 function afficherCommandesWeb() {
-        // 🔥 NOUVEAU : On filtre les paiements En Ligne ET les paiements par Carte Fidélité
         const webCmds = commandesRecues.filter(c => 
             (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite') && 
             c.statut !== 'paye'
@@ -1173,15 +1172,25 @@ function afficherCommandesWeb() {
         document.getElementById('countCommandesWeb').innerText = webCmds.length;
         
         document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
-            // Design différent selon si c'est Konnect ou Wallet VIP
             const isFidele = cmd.methodePaiement === 'carte_fidelite';
             const badgeIcon = isFidele ? '<i class="fas fa-id-card"></i> Payé par Wallet' : '<i class="fas fa-globe"></i> Payé en ligne';
             const badgeColor = isFidele ? 'var(--primary-orange)' : 'var(--info)';
             
+            // 🔥 NOUVEAU : Le bouton "Intelligent" qui réagit à l'écran cuisine
+            let actionButton = '';
+            
+            if (cmd.statut === 'en_attente') {
+                actionButton = `<button disabled style="width:100%; background:#f59e0b; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:not-allowed; opacity:0.8;">⏳ En attente cuisine</button>`;
+            } else if (cmd.statut === 'en_preparation') {
+                actionButton = `<button disabled style="width:100%; background:#3b82f6; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:not-allowed; opacity:0.8;">🍳 En préparation...</button>`;
+            } else if (cmd.statut === 'terminee') {
+                actionButton = `<button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:var(--success); color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);">✅ Servir au client</button>`;
+            }
+
             return `<div style="background: var(--bg-card); border: 2px solid ${badgeColor}; padding: 15px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-bottom: 10px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <strong>#${cmd.numero}</strong>
-                    <span style="color:${badgeColor}; font-weight:bold;">${badgeIcon}</span>
+                    <span style="color:${badgeColor}; font-weight:bold; font-size:0.8rem;">${badgeIcon}</span>
                 </div>
                 <div style="font-weight:600; color:var(--text-dark); margin-bottom:5px;">
                     ${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 Table ${cmd.numeroTable}`}
@@ -1189,9 +1198,7 @@ function afficherCommandesWeb() {
                 <div style="font-weight:900; font-size:1.4rem; margin-bottom:10px;">
                     ${(cmd.total || 0).toFixed(2)} DT
                 </div>
-                <button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:${badgeColor}; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold;">
-                    Servir Commande <i class="fas fa-check"></i>
-                </button>
+                ${actionButton}
             </div>`;
         }).join('');
     }
