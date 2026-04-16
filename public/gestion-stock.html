@@ -1586,10 +1586,12 @@ function ouvrirModalClient() {
                 ventesFiltrees.forEach(ticket => {
                     if(!ticket.articles) return;
                     ticket.articles.forEach(art => {
-                        const nomComplet = art.nom + (art.variante ? ` (${art.variante})` : '');
-                        if (!statsProds[nomComplet]) statsProds[nomComplet] = { qte: 0, ca: 0 };
-                        statsProds[nomComplet].qte += parseInt(art.quantite || 1);
-                        statsProds[nomComplet].ca += (parseFloat(art.prix || 0) * parseInt(art.quantite || 1));
+                        // 🔥 CORRECTION : On regroupe uniquement par le nom de base, en ignorant la variante
+                        const nomBase = art.nom; 
+                        
+                        if (!statsProds[nomBase]) statsProds[nomBase] = { qte: 0, ca: 0 };
+                        statsProds[nomBase].qte += parseInt(art.quantite || 1);
+                        statsProds[nomBase].ca += (parseFloat(art.prix || 0) * parseInt(art.quantite || 1));
                     });
                 });
 
