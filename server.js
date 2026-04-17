@@ -13,19 +13,28 @@ const io = socketIo(server, { cors: { origin: "*" } });
 
 const PORT = process.env.PORT || 3000;
 const CAISSE_TOKEN = process.env.CAISSE_TOKEN || '12345678';
+const SUPER_ADMIN_TOKEN = process.env.SUPER_ADMIN_TOKEN || 'SARBINI_BOSS_2026';
 
 // ========== 0. SÉCURITÉ WEBSOCKET & ISOLATION MULTI-CAFÉ ==========
-io.use((socket, next) => {
+io.use(async (socket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers['authorization'];
-    
-    // 🔥 SAAS : On extrait le cafeId depuis l'URL de connexion du Socket
     const host = socket.handshake.headers.host || '';
-    socket.cafeId = host.split('.')[0]; // ex: "tabia" depuis "tabia.sarbini.click"
+    socket.cafeId = host.split('.')[0]; 
 
-    if (token === CAISSE_TOKEN || socket.handshake.query.clientType === 'customer') {
-        next();
-    } else {
-        next(new Error("Accès WebSocket refusé. Token invalide."));
+    if (socket.handshake.query.clientType === 'customer') return next();
+
+    try {
+        // On cherche le vrai mot de passe de CE café dans la base
+        const config = await mongoose.model('StoreSettings').findOne({ cafeId: socket.cafeId, type: 'branding' });
+        const vraiMotDePasse = (config && config.caisseToken) ? config.caisseToken : '12345678'; // 12345678 par défaut
+
+        if (token === vraiMotDePasse) {
+            next();
+        } else {
+            next(new Error("Accès WebSocket refusé. Mauvais mot de passe."));
+        }
+    } catch(err) {
+        next(new Error("Erreur serveur lors de la vérification."));
     }
 });
 
@@ -117,7 +126,8 @@ const StoreSettings = mongoose.model('StoreSettings', new mongoose.Schema({
     nomCafe: String,
     sloganCafe: String,
     couleurPrincipale: String,
-    logoUrl: String
+    logoUrl: String,
+    caisseToken: String
 }));
 
 const Sale = mongoose.model('Sale', new mongoose.Schema({
@@ -158,53 +168,72 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-function verifierToken(req, res, next) {
+// 🔥 Le portier qui vérifie chaque action du caissier
+async function verifierToken(req, res, next) {
     const tokenFourni = req.headers['authorization'];
-    if (tokenFourni === CAISSE_TOKEN) {
-        next();
-    } else {
-        res.status(403).json({ error: "Accès refusé. Token invalide ou manquant." });
-    }
+    try {
+        const config = await StoreSettings.findOne({ cafeId: req.cafeId, type: 'branding' });
+        const vraiMotDePasse = (config && config.caisseToken) ? config.caisseToken : '12345678';
+
+        if (tokenFourni === vraiMotDePasse) {
+            next();
+        } else {
+            res.status(403).json({ error: "Accès refusé. Mot de passe caisse incorrect pour ce café." });
+        }
+    } catch(e) { res.status(500).json({ error: "Erreur de vérification" }); }
 }
 
+function verifierSuperAdmin(req, res, next) {
+    const tokenFourni = req.headers['authorization'];
+    if (tokenFourni === SUPER_ADMIN_TOKEN) { next(); } 
+    else { res.status(403).json({ error: "Accès refusé. Réservé à Sarbini." }); }
+}
+
+// 🔥 La route qui valide la connexion sur la page de login
+app.post('/api/caisse/verify', async (req, res) => {
+    try {
+        const config = await StoreSettings.findOne({ cafeId: req.cafeId, type: 'branding' });
+        const vraiMotDePasse = (config && config.caisseToken) ? config.caisseToken : '12345678';
+        
+        if (req.body.token === vraiMotDePasse) { 
+            res.json({ success: true, message: "Token accepté" }); 
+        } else { 
+            res.status(401).json({ success: false, message: "Token invalide pour " + req.cafeId }); 
+        }
+    } catch(e) { res.status(500).json({ success: false }); }
+});
 // =========================================================
 // ========== 4. ROUTES API PUBLIQUES ==================
 // =========================================================
 // =========================================================
 // 🔥 API BRANDING (DESIGN DU CAFÉ SAAS)
 // =========================================================
-
 app.get('/api/branding', async (req, res) => {
     try {
         let config = await StoreSettings.findOne({ cafeId: req.cafeId, type: 'branding' });
-        // Si le café n'a rien configuré, on lui donne le design TA'BIA par défaut
+        
+        // 🔥 NOUVEAU : Si le café n'existe pas en base de données, on bloque !
         if (!config) {
-            config = {
-                nomCafe: req.cafeId.toUpperCase(),
-                sloganCafe: "Coffee Shop",
-                couleurPrincipale: "#143621",
-                logoUrl: "logo.jpg"
-            };
+            return res.status(404).json({ introuvable: true, message: "Ce café n'existe pas." });
         }
+        
         res.json(config);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/branding', verifierToken, async (req, res) => {
+app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
     try {
-        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl } = req.body;
+        // On récupère le caisseToken envoyé par ton tableau de bord
+        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken } = req.body;
         const config = await StoreSettings.findOneAndUpdate(
             { cafeId: req.cafeId, type: 'branding' },
-            { nomCafe, sloganCafe, couleurPrincipale, logoUrl },
+            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken }, // On l'enregistre ici
             { new: true, upsert: true }
         );
         res.json({ success: true, config });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/caisse/verify', (req, res) => {
-    if (req.body.token === CAISSE_TOKEN) { res.json({ success: true, message: "Token accepté" }); } 
-    else { res.status(401).json({ success: false, message: "Token invalide" }); }
-});
+
 
 app.get('/api/stock', async (req, res) => {
     try { res.json(await Product.find({ cafeId: req.cafeId, actif: { $ne: false } }).sort({ id: 1 })); } catch (err) { res.status(500).json(err); }

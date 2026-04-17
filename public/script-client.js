@@ -217,37 +217,35 @@ document.addEventListener("DOMContentLoaded", async () => {
 async function appliquerBranding() {
     try {
         const response = await fetch('/api/branding');
+        if (!response.ok) return afficherErreur404(); // Fonction de blocage vue avant
+
         const config = await response.json();
 
-        // 1. Mise à jour du Logo (Image)
-        const logoImg = document.querySelector('.dynamic-logo');
-        if (logoImg && config.logoUrl) {
-            logoImg.src = config.logoUrl;
+        // 1. Mise à jour du Nom et Slogan
+        document.querySelectorAll('.dynamic-name').forEach(el => el.textContent = config.nomCafe || "TA'BIA");
+        document.querySelectorAll('.dynamic-subtext').forEach(el => el.textContent = config.sloganCafe || "Coffee Shop");
+
+        // 2. Mise à jour des images (Logos)
+        if (config.logoUrl) {
+            document.querySelectorAll('.dynamic-logo, .logo-img, .splash-logo').forEach(img => {
+                img.src = config.logoUrl;
+            });
         }
 
-        // 2. Mise à jour du Nom (ex: TA'BIA)
-        const nameEl = document.querySelector('.dynamic-name');
-        if (nameEl && config.nomCafe) {
-            nameEl.textContent = config.nomCafe;
-        }
-
-        // 3. Mise à jour du Slogan (ex: Coffee Shop)
-        const subtextEl = document.querySelector('.dynamic-subtext');
-        if (subtextEl && config.sloganCafe) {
-            subtextEl.textContent = config.sloganCafe;
-        }
-
-        // 4. Mise à jour de la couleur (comme avant)
+        // 3. LA MAGIE DES COULEURS
+        // Si config.couleurPrincipale existe, on l'applique, sinon on reste sur le vert par défaut
         if (config.couleurPrincipale) {
             document.documentElement.style.setProperty('--primary', config.couleurPrincipale);
+            
+            // On met aussi à jour la barre d'adresse du téléphone (Chrome Android)
+            const metaTheme = document.querySelector('meta[name="theme-color"]');
+            if (metaTheme) metaTheme.setAttribute("content", config.couleurPrincipale);
         }
 
-    } catch (err) {
-        console.error("Erreur de branding:", err);
+    } catch (e) {
+        console.error("Erreur de branding:", e);
     }
 }
-
-document.addEventListener('DOMContentLoaded', appliquerBranding);
 
 // Lancer la fonction dès que la page s'ouvre
 document.addEventListener('DOMContentLoaded', appliquerBranding);

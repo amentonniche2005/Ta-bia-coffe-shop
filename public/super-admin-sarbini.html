@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Sarbini SaaS - Master Control</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #2c3e50; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .admin-box { background: #34495e; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { text-align: center; color: #e74c3c; margin-top: 0; }
+        label { display: block; margin-top: 15px; font-size: 0.9em; color: #bdc3c7; }
+        input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: none; background: #ecf0f1; box-sizing: border-box; }
+        input[type="color"] { padding: 0; height: 40px; cursor: pointer; }
+        button { width: 100%; padding: 12px; margin-top: 25px; background: #e74c3c; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1.1em; transition: 0.3s; }
+        button:hover { background: #c0392b; }
+        #resultat { margin-top: 15px; text-align: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="admin-box">
+    <h2>👑 MASTER CONTROL</h2>
+    
+    <label>Clé Secrète (Sarbini)</label>
+    <input type="password" id="masterKey" placeholder="Entrez la clé maîtresse...">
+
+    <label>ID du Café (ex: elpadrino, lecoin, tabia)</label>
+    <input type="text" id="cafeId" placeholder="Sous-domaine (sans espaces ni majuscules)">
+
+    <label>Nom Affiché</label>
+    <input type="text" id="nomCafe" placeholder="Ex: El Padrino">
+
+    <label>Slogan</label>
+    <input type="text" id="sloganCafe" placeholder="Ex: Le Parrain du Café">
+    <label>Mot de Passe de la Caisse 🔒</label>
+    <input type="text" id="caisseToken" placeholder="Ex: tabia2026, padrino_secret...">
+
+    <label>Couleur Principale</label>
+    <input type="color" id="couleur" value="#c0392b">
+
+    <label>Lien du Logo (URL)</label>
+    <input type="text" id="logoUrl" placeholder="https://lien-vers-image.jpg">
+
+    <button onclick="creerCafe()">Déployer le Café 🚀</button>
+
+    <div id="resultat"></div>
+</div>
+
+<script>
+    async function creerCafe() {
+        const key = document.getElementById('masterKey').value;
+        const cafeId = document.getElementById('cafeId').value.toLowerCase();
+const data = {
+            nomCafe: document.getElementById('nomCafe').value,
+            sloganCafe: document.getElementById('sloganCafe').value,
+            couleurPrincipale: document.getElementById('couleur').value,
+            logoUrl: document.getElementById('logoUrl').value,
+            // 🔥 NOUVEAU : On envoie le mot de passe au serveur
+            caisseToken: document.getElementById('caisseToken').value || '12345678'
+        };
+
+        document.getElementById('resultat').innerHTML = "Création en cours...";
+        document.getElementById('resultat').style.color = "white";
+
+        try {
+            // L'astuce SaaS : on envoie la requête sur le sous-domaine qu'on veut créer !
+            const response = await fetch(`http://${cafeId}.sarbini.click/api/branding`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'authorization': key // Ta clé secrète
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            
+            if (response.ok) {
+                document.getElementById('resultat').innerHTML = `✅ Café ${data.nomCafe} créé avec succès !`;
+                document.getElementById('resultat').style.color = "#2ecc71";
+            } else {
+                document.getElementById('resultat').innerHTML = `❌ Erreur : ${result.error}`;
+                document.getElementById('resultat').style.color = "#e74c3c";
+            }
+        } catch(e) {
+            document.getElementById('resultat').innerHTML = "❌ Impossible de joindre le serveur. As-tu bien mis le nom de domaine complet ?";
+            document.getElementById('resultat').style.color = "#e74c3c";
+        }
+    }
+</script>
+</body>
+</html>
