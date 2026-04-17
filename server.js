@@ -7,6 +7,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const axios = require('axios');
 
+
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: "*" } });
@@ -15,61 +17,49 @@ const PORT = process.env.PORT || 3000;
 const CAISSE_TOKEN = process.env.CAISSE_TOKEN || '12345678';
 const SUPER_ADMIN_TOKEN = process.env.SUPER_ADMIN_TOKEN || 'SARBINI_BOSS_2026';
 
-// ========== 0. SÉCURITÉ WEBSOCKET & ISOLATION MULTI-CAFÉ ==========
+// 🔐 A. SÉCURITÉ WEBSOCKET (Pour la caisse temps réel)
 io.use(async (socket, next) => {
-    const token = socket.handshake.auth.token || socket.handshake.headers['authorization'];
     const host = socket.handshake.headers.host || '';
-// 🛡️ LE GARDE-BARRIÈRE (Middleware de vérification)
+    const subdomain = host.split('.')[0];
+    socket.cafeId = subdomain;
+
+    if (socket.handshake.query.clientType === 'customer') return next();
+
+    const token = socket.handshake.auth.token || socket.handshake.headers['authorization'];
+    try {
+        const config = await mongoose.model('StoreSettings').findOne({ cafeId: subdomain, type: 'branding' });
+        const vraiMdp = (config && config.caisseToken) ? config.caisseToken : '12345678';
+        if (token === vraiMdp) next();
+        else next(new Error("Accès refusé."));
+    } catch(err) { next(new Error("Erreur serveur.")); }
+});
+
+// 🛡️ B. LE GARDE-BARRIÈRE (Pour bloquer les faux sites web)
 const verifierExistenceCafe = async (req, res, next) => {
-    const host = req.headers.host; // ex: fathi.sarbini.click
+    const host = req.headers.host || ''; 
     const subdomain = host.split('.')[0];
 
-    // 1. On laisse passer si c'est le domaine principal ou le www
     if (host === 'sarbini.click' || subdomain === 'www') {
+        req.cafeId = 'sarbini';
         return next();
     }
 
-    // 2. On vérifie si ce café existe dans la base de données
     try {
-        const cafeExistant = await StoreSettings.findOne({ cafeId: subdomain, type: 'branding' });
-
+        const cafeExistant = await mongoose.model('StoreSettings').findOne({ cafeId: subdomain, type: 'branding' });
         if (!cafeExistant) {
-            // ❌ LE CAFE N'EXISTE PAS
-            // On renvoie un 404 avec une page totalement vide
-            return res.status(404).send(`
-                <html>
-                    <head><title>404 Not Found</title></head>
-                    <body style="background:#000; color:#000;"></body>
-                </html>
-            `);
+            // ❌ CAFE INEXISTANT : Page noire totale
+            return res.status(404).send('<html><body style="background:#000;"></body></html>');
         }
-
-        // ✅ LE CAFE EXISTE, on continue
         req.cafeId = subdomain;
         next();
-    } catch (err) {
-        res.status(500).send("Erreur serveur");
-    }
+    } catch (err) { res.status(500).send("Erreur validation"); }
 };
 
-// 🚀 APPLIQUER LE GARDE-BARRIÈRE À TOUTES LES REQUÊTES
-app.use(verifierExistenceCafe);
-    if (socket.handshake.query.clientType === 'customer') return next();
-
-    try {
-        // On cherche le vrai mot de passe de CE café dans la base
-        const config = await mongoose.model('StoreSettings').findOne({ cafeId: socket.cafeId, type: 'branding' });
-        const vraiMotDePasse = (config && config.caisseToken) ? config.caisseToken : '12345678'; // 12345678 par défaut
-
-        if (token === vraiMotDePasse) {
-            next();
-        } else {
-            next(new Error("Accès WebSocket refusé. Mauvais mot de passe."));
-        }
-    } catch(err) {
-        next(new Error("Erreur serveur lors de la vérification."));
-    }
-});
+// Activation des middlewares dans le bon ordre
+app.use(cors());
+app.use(express.json());
+app.use(verifierExistenceCafe); // 🔥 Doit être AVANT express.static
+app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', (socket) => {
     // 🔥 SAAS : On enferme ce client/caissier dans la chambre de son propre café
@@ -191,13 +181,8 @@ const OpenTicket = mongoose.model('OpenTicket', new mongoose.Schema({
 app.use(cors());
 app.use(express.json());
 
-// 🔥 SAAS : L'AIGUILLEUR (Détecte le café d'après l'URL)
-app.use((req, res, next) => {
-    const host = req.headers.host || ''; 
-    const subdomain = host.split('.')[0]; 
-    req.cafeId = subdomain || 'demo'; // Sécurité fallback
-    next();
-});
+// 🚀 ON ACTIVE LE GARDE-BARRIÈRE
+app.use(verifierExistenceCafe);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
