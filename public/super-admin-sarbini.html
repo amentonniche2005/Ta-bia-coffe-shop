@@ -65,74 +65,114 @@
 </div>
 
 <script>
-    const MASTER_URL = "sarbini.click";
+const MASTER_URL = "sarbini.click";
+    const PROTO = window.location.protocol; // S'adapte automatiquement en http ou https !
 
     async function chargerCafes() {
         const key = document.getElementById('masterKey').value;
         const container = document.getElementById('liste');
-        container.innerHTML = "Chargement...";
+        container.innerHTML = "Chargement des données en cours...";
 
         try {
-            const res = await fetch(`http://tabia.${MASTER_URL}/api/admin/cafes`, {
+            // Utilisation du chemin relatif (beaucoup plus sûr !)
+            const res = await fetch('/api/admin/cafes', {
                 headers: { 'authorization': key }
             });
+            
+            // Si le serveur répond avec une erreur (ex: route introuvable)
+            if (!res.ok) {
+                container.innerHTML = `<span style="color:#e74c3c; font-weight:bold;">Erreur ${res.status} : Le serveur ne trouve pas la route. As-tu bien sauvegardé server.js et tapé "pm2 restart all" ?</span>`;
+                return;
+            }
+
             const cafes = await res.json();
+            
+            if (cafes.length === 0) {
+                container.innerHTML = "<div style='padding:20px; text-align:center; color:#bdc3c7;'><i class='fas fa-info-circle fa-2x' style='margin-bottom:10px;'></i><br>Aucun café configuré. La base est vierge !</div>";
+                return;
+            }
             
             container.innerHTML = "";
             cafes.forEach(c => {
                 const div = document.createElement('div');
                 div.className = "cafe-item";
-                div.style.borderLeftColor = c.couleurPrincipale;
+                div.style.borderLeftColor = c.couleurPrincipale || '#34495e';
                 div.innerHTML = `
                     <div class="cafe-info">
-                        <img src="${c.logoUrl || 'logo.jpg'}" class="cafe-logo">
+                        <img src="${c.logoUrl || 'https://via.placeholder.com/50'}" class="cafe-logo">
                         <div class="cafe-details">
-                            <h3>${c.nomCafe} <span class="cafe-badge">${c.cafeId}.${MASTER_URL}</span></h3>
+                            <h3>${c.nomCafe || 'Sans Nom'} <span class="cafe-badge">${c.cafeId}.${MASTER_URL}</span></h3>
                             <p>${c.sloganCafe || 'Sans slogan'}</p>
-                            <p style="font-size:0.7rem">Mots de passe : <b>${c.caisseToken || '12345678'}</b></p>
+                            <p style="font-size:0.75rem; color:#f1c40f;">Mot de passe Caisse : <b>${c.caisseToken || '12345678'}</b></p>
                         </div>
                     </div>
                     <button class="btn-delete" onclick="supprimerCafe('${c.cafeId}')"><i class="fas fa-trash"></i></button>
                 `;
                 container.appendChild(div);
             });
-        } catch(e) { container.innerHTML = "Erreur de chargement. Vérifie ta clé Master."; }
+        } catch(e) { 
+            container.innerHTML = "<span style='color:#e74c3c;'>❌ Impossible de joindre le serveur. Vérifie ta connexion.</span>"; 
+        }
     }
 
     async function creerCafe() {
         const key = document.getElementById('masterKey').value;
-        const cafeId = document.getElementById('cafeId').value.toLowerCase();
+        const cafeId = document.getElementById('cafeId').value.toLowerCase().trim();
+        const btn = document.querySelector('.btn-deploy');
+        const originalText = btn.innerHTML;
+        
+        if(!cafeId) return alert("⚠️ Il faut un ID / Sous-domaine !");
+        
+        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Déploiement...";
+        btn.disabled = true;
+
         const data = {
-            nomCafe: document.getElementById('nomCafe').value,
-            caisseToken: document.getElementById('caisseToken').value,
+            nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
+            caisseToken: document.getElementById('caisseToken').value || '12345678',
             couleurPrincipale: document.getElementById('couleur').value,
             logoUrl: document.getElementById('logoUrl').value,
             sloganCafe: "Coffee Shop"
         };
 
-        const res = await fetch(`http://${cafeId}.${MASTER_URL}/api/branding`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'authorization': key },
-            body: JSON.stringify(data)
-        });
+        try {
+            // Requête vers le nouveau café
+            const res = await fetch(`${PROTO}//${cafeId}.${MASTER_URL}/api/branding`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'authorization': key },
+                body: JSON.stringify(data)
+            });
 
-        if(res.ok) { alert("Café déployé !"); chargerCafes(); }
-        else { alert("Erreur lors du déploiement."); }
+            if(res.ok) { 
+                alert("✅ Le café a été déployé avec succès sur " + cafeId + "." + MASTER_URL); 
+                document.getElementById('cafeId').value = "";
+                document.getElementById('nomCafe').value = "";
+                chargerCafes(); 
+            } else { 
+                const err = await res.json();
+                alert("❌ Erreur : " + (err.error || "Refusé")); 
+            }
+        } catch(e) {
+            alert("❌ Le sous-domaine ne répond pas. Si tu viens de créer le DNS, attends quelques minutes.");
+        }
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 
     async function supprimerCafe(id) {
-        if(!confirm(`Voulez-vous vraiment supprimer TOUTES les données de ${id} ?`)) return;
-        const key = document.getElementById('masterKey').value;
+        if(!confirm(`⚠️ DANGER ABSOLU : Voulez-vous vraiment supprimer TOUTES les données (ventes, clients, stock, design) du café "${id}" ?`)) return;
         
-        const res = await fetch(`http://tabia.${MASTER_URL}/api/admin/cafes/${id}`, {
-            method: 'DELETE',
-            headers: { 'authorization': key }
-        });
+        const key = document.getElementById('masterKey').value;
+        try {
+            const res = await fetch(`/api/admin/cafes/${id}`, {
+                method: 'DELETE',
+                headers: { 'authorization': key }
+            });
 
-        if(res.ok) { chargerCafes(); }
+            if(res.ok) { chargerCafes(); }
+            else { alert("❌ Erreur lors de la suppression."); }
+        } catch(e) { alert("❌ Erreur réseau."); }
     }
 
-    // Charger la liste au démarrage
     window.onload = chargerCafes;
 </script>
 </body>
