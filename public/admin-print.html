@@ -301,11 +301,11 @@ button:hover:not(:disabled) {
                 document.getElementById('ticketCodeValue').textContent = currentData.code;
                 document.getElementById('printCodeVal').textContent = currentData.code;
                 
-                const date = new Date(currentData.lastUpdated);
-                document.getElementById('lastUpdatedValue').textContent = date.toLocaleString('fr-FR');
-                
-                const urlClient = `https://tabia-coffe-shop.onrender.com/?table=${currentData.numero}&auth=${currentData.code}`;
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlClient)}`;
+const date = new Date(currentData.lastUpdated);
+document.getElementById('lastUpdatedValue').textContent = date.toLocaleString('fr-FR');
+
+const urlClient = `https://tabia-coffe-shop.onrender.com/?table=${currentData.numero}&auth=${currentData.code}`;
+const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlClient)}`;
                 
                 document.getElementById('uiQrCode').src = qrUrl;
                 document.getElementById('printQrCode').src = qrUrl;
