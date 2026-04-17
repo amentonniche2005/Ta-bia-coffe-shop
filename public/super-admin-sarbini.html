@@ -2,14 +2,12 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Sarbini SaaS - Master Control v2</title>
+    <title>Sarbini SaaS - Master Control</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --primary: #2c3e50; --danger: #e74c3c; --success: #2ecc71; --bg: #1a252f; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; padding: 20px; }
         .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
-        
-        /* Formulaire */
         .card { background: #2c3e50; padding: 20px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
         h2 { margin-top: 0; color: #ecf0f1; border-bottom: 1px solid #3e5871; padding-bottom: 10px; font-size: 1.2rem; }
         label { display: block; margin-top: 15px; font-size: 0.85em; color: #bdc3c7; }
@@ -17,15 +15,12 @@
         .btn { width: 100%; padding: 12px; margin-top: 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         .btn-deploy { background: var(--success); color: white; }
         .btn-refresh { background: #3498db; color: white; margin-bottom: 20px; }
-
-        /* Liste des Cafés */
         .cafe-list { display: grid; gap: 15px; }
         .cafe-item { background: #34495e; padding: 15px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; border-left: 5px solid transparent; }
         .cafe-info { display: flex; align-items: center; gap: 15px; }
         .cafe-logo { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; background: #2c3e50; }
         .cafe-details h3 { margin: 0; font-size: 1rem; }
         .cafe-details p { margin: 2px 0 0; font-size: 0.8rem; color: #bdc3c7; }
-        .cafe-badge { font-size: 0.7rem; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
         .btn-delete { background: var(--danger); color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
@@ -38,59 +33,40 @@
         <h2><i class="fas fa-plus-circle"></i> Nouveau Café</h2>
         <label>Clé Master</label>
         <input type="password" id="masterKey" value="SARBINI_BOSS_2026">
-        
         <label>ID / Sous-domaine</label>
-        <input type="text" id="cafeId" placeholder="ex: lecoin">
-
+        <input type="text" id="cafeId" placeholder="ex: tabia">
         <label>Nom du Café</label>
-        <input type="text" id="nomCafe" placeholder="Ex: Le Coin">
-
+        <input type="text" id="nomCafe" placeholder="Ex: TA'BIA Coffee">
         <label>Mot de Passe Caisse 🔒</label>
-        <input type="text" id="caisseToken" placeholder="ex: 12345678">
-
+        <input type="text" id="caisseToken" placeholder="ex: tabia2026">
         <label>Couleur</label>
-        <input type="color" id="couleur" value="#c0392b" style="height:40px; padding:0;">
-
+        <input type="color" id="couleur" value="#143621" style="height:40px; padding:0;">
         <label>URL du Logo</label>
-        <input type="text" id="logoUrl" placeholder="https://...">
-
+        <input type="text" id="logoUrl" placeholder="logo.jpg">
         <button class="btn btn-deploy" onclick="creerCafe()">DÉPLOYER 🚀</button>
     </div>
 
     <div>
-        <button class="btn btn-refresh" onclick="chargerCafes()"><i class="fas fa-sync"></i> Actualiser la liste</button>
-        <div id="liste" class="cafe-list">
-            </div>
+        <button class="btn btn-refresh" onclick="chargerCafes()"><i class="fas fa-sync"></i> Actualiser</button>
+        <div id="liste" class="cafe-list"></div>
     </div>
 </div>
 
 <script>
-const MASTER_URL = "sarbini.click";
-    const PROTO = window.location.protocol; // S'adapte automatiquement en http ou https !
+    // UNE SEULE déclaration pour éviter les bugs
+    const MASTER_URL = "sarbini.click";
 
     async function chargerCafes() {
         const key = document.getElementById('masterKey').value;
         const container = document.getElementById('liste');
-        container.innerHTML = "Chargement des données en cours...";
+        container.innerHTML = "Chargement...";
 
         try {
-            // Utilisation du chemin relatif (beaucoup plus sûr !)
-            const res = await fetch('/api/admin/cafes', {
-                headers: { 'authorization': key }
-            });
+            const res = await fetch('/api/admin/cafes', { headers: { 'authorization': key } });
+            if (!res.ok) return container.innerHTML = `<span style="color:#e74c3c;">Erreur ${res.status}. Serveur injoignable.</span>`;
             
-            // Si le serveur répond avec une erreur (ex: route introuvable)
-            if (!res.ok) {
-                container.innerHTML = `<span style="color:#e74c3c; font-weight:bold;">Erreur ${res.status} : Le serveur ne trouve pas la route. As-tu bien sauvegardé server.js et tapé "pm2 restart all" ?</span>`;
-                return;
-            }
-
             const cafes = await res.json();
-            
-            if (cafes.length === 0) {
-                container.innerHTML = "<div style='padding:20px; text-align:center; color:#bdc3c7;'><i class='fas fa-info-circle fa-2x' style='margin-bottom:10px;'></i><br>Aucun café configuré. La base est vierge !</div>";
-                return;
-            }
+            if (cafes.length === 0) return container.innerHTML = "<div style='color:#bdc3c7; text-align:center;'>La base est 100% vierge !</div>";
             
             container.innerHTML = "";
             cafes.forEach(c => {
@@ -99,35 +75,29 @@ const MASTER_URL = "sarbini.click";
                 div.style.borderLeftColor = c.couleurPrincipale || '#34495e';
                 div.innerHTML = `
                     <div class="cafe-info">
-                        <img src="${c.logoUrl || 'https://via.placeholder.com/50'}" class="cafe-logo">
+                        <img src="${c.logoUrl || 'logo.jpg'}" class="cafe-logo">
                         <div class="cafe-details">
-                            <h3>${c.nomCafe || 'Sans Nom'} <span class="cafe-badge">${c.cafeId}.${MASTER_URL}</span></h3>
-                            <p>${c.sloganCafe || 'Sans slogan'}</p>
-                            <p style="font-size:0.75rem; color:#f1c40f;">Mot de passe Caisse : <b>${c.caisseToken || '12345678'}</b></p>
+                            <h3>${c.nomCafe || 'Sans Nom'} <span style="font-size:0.7rem; background:#000; padding:2px 5px; border-radius:3px;">${c.cafeId}.${MASTER_URL}</span></h3>
+                            <p style="color:#f1c40f; font-size:0.8rem;">MDP: <b>${c.caisseToken || '12345678'}</b></p>
                         </div>
                     </div>
                     <button class="btn-delete" onclick="supprimerCafe('${c.cafeId}')"><i class="fas fa-trash"></i></button>
                 `;
                 container.appendChild(div);
             });
-        } catch(e) { 
-            container.innerHTML = "<span style='color:#e74c3c;'>❌ Impossible de joindre le serveur. Vérifie ta connexion.</span>"; 
-        }
+        } catch(e) { container.innerHTML = "<span style='color:#e74c3c;'>Erreur réseau.</span>"; }
     }
 
-async function creerCafe() {
+    async function creerCafe() {
         const key = document.getElementById('masterKey').value;
-        const cafeId = document.getElementById('cafeId').value.toLowerCase().trim();
+        const cafeId = document.getElementById('cafeId').value.toLowerCase().trim().replace('.', ''); // Enlève les points par sécurité
+        if(!cafeId) return alert("Il faut un ID !");
+        
         const btn = document.querySelector('.btn-deploy');
-        const originalText = btn.innerHTML;
-        
-        if(!cafeId) return alert("⚠️ Il faut un ID / Sous-domaine !");
-        
-        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Déploiement...";
-        btn.disabled = true;
+        btn.innerHTML = "Déploiement..."; btn.disabled = true;
 
         const data = {
-            targetCafeId: cafeId, // 🔥 On dit au serveur local quel café on cible !
+            targetCafeId: cafeId, // Permet de créer un café sans changer de domaine URL
             nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
             caisseToken: document.getElementById('caisseToken').value || '12345678',
             couleurPrincipale: document.getElementById('couleur').value,
@@ -136,42 +106,26 @@ async function creerCafe() {
         };
 
         try {
-            // 🔥 Requête locale : Plus besoin d'attendre le DNS ou le SSL !
-            const res = await fetch(`/api/branding`, {
+            const res = await fetch('/api/branding', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'authorization': key },
                 body: JSON.stringify(data)
             });
 
             if(res.ok) { 
-                alert("✅ Le café a été déployé avec succès sur " + cafeId + "." + MASTER_URL); 
-                document.getElementById('cafeId').value = "";
-                document.getElementById('nomCafe').value = "";
+                document.getElementById('cafeId').value = ""; document.getElementById('nomCafe').value = "";
                 chargerCafes(); 
-            } else { 
-                const err = await res.json();
-                alert("❌ Erreur : " + (err.error || "Refusé")); 
-            }
-        } catch(e) {
-            alert("❌ Erreur de connexion au serveur local.");
-        }
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+            } else { alert("Erreur serveur."); }
+        } catch(e) { alert("Erreur réseau."); }
+        
+        btn.innerHTML = "DÉPLOYER 🚀"; btn.disabled = false;
     }
 
     async function supprimerCafe(id) {
-        if(!confirm(`⚠️ DANGER ABSOLU : Voulez-vous vraiment supprimer TOUTES les données (ventes, clients, stock, design) du café "${id}" ?`)) return;
-        
+        if(!confirm(`Supprimer TOUT le café ${id} ?`)) return;
         const key = document.getElementById('masterKey').value;
-        try {
-            const res = await fetch(`/api/admin/cafes/${id}`, {
-                method: 'DELETE',
-                headers: { 'authorization': key }
-            });
-
-            if(res.ok) { chargerCafes(); }
-            else { alert("❌ Erreur lors de la suppression."); }
-        } catch(e) { alert("❌ Erreur réseau."); }
+        await fetch(`/api/admin/cafes/${id}`, { method: 'DELETE', headers: { 'authorization': key } });
+        chargerCafes();
     }
 
     window.onload = chargerCafes;
