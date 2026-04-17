@@ -216,35 +216,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 async function appliquerBranding() {
     try {
-        // 1. On récupère les réglages depuis ton API /api/branding
         const response = await fetch('/api/branding');
         const config = await response.json();
 
         if (config) {
-            // 2. Mise à jour du Nom du café
             document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
-
-            // 3. Mise à jour du Slogan (Coffee Shop, Bar, etc.)
             document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
-
-            // 4. Mise à jour du Logo
-            if (config.logoUrl) {
-                document.getElementById('dynamicLogo').src = config.logoUrl;
-            }
-
-            // 5. TOUCHE FINALE : Appliquer la couleur du café au texte
-            if (config.couleurPrincipale) {
-                document.getElementById('dynamicName').style.color = config.couleurPrincipale;
-            }
+            if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
         }
-        const splash = document.getElementById('splash-screen');
-        if (splash) {
-            splash.classList.add('splash-hidden'); // Lance le fondu transparent
-            
-            setTimeout(() => {
-                splash.style.display = 'none'; // Supprime complètement l'élément
-            }, 800); // 800ms c'est un peu plus vif et dynamique que 1000ms
-        }
+
+        // ⏳ LA PAUSE DE 3 SECONDES EST ICI
+        setTimeout(() => {
+            const splash = document.getElementById('splash-screen');
+            if (splash) {
+                splash.classList.add('splash-hidden'); // Démarre le fondu
+                
+                setTimeout(() => {
+                    splash.style.display = 'none'; // Supprime après le fondu
+                }, 800);
+            }
+        }, 3000); // <-- 3000ms = Laisse l'animation premium jouer 3 secondes !
+
     } catch (error) {
         console.error("Erreur lors du chargement du branding:", error);
         const splash = document.getElementById('splash-screen');
@@ -252,7 +244,6 @@ async function appliquerBranding() {
     }
 }
 
-// Lancer la fonction au chargement de la page
 window.onload = appliquerBranding;
 // ========== FETCH API STOCK ==========
 async function chargerCatalogue() {

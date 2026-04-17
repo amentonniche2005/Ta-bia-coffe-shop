@@ -144,10 +144,7 @@ async function appliquerBranding() {
                 document.getElementById('dynamicLogo').src = config.logoUrl;
             }
 
-            // 5. TOUCHE FINALE : Appliquer la couleur du café au texte
-            if (config.couleurPrincipale) {
-                document.getElementById('dynamicName').style.color = config.couleurPrincipale;
-            }
+
         }
     } catch (error) {
         console.error("Erreur lors du chargement du branding:", error);

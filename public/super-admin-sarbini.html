@@ -121,10 +121,6 @@
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
             <div class="input-group">
-                <label>Couleur Marque</label>
-                <input type="color" id="couleur" value="#143621">
-            </div>
-            <div class="input-group">
                 <label>Nom du fichier Logo</label>
                 <input type="text" id="logoUrl" placeholder="logo.jpg" value="logo.jpg">
             </div>
@@ -244,7 +240,6 @@
         document.getElementById('nomCafe').value = cafe.nomCafe || '';
         document.getElementById('sloganCafe').value = cafe.sloganCafe || 'Coffee Shop';
         document.getElementById('caisseToken').value = cafe.caisseToken || '';
-        document.getElementById('couleur').value = cafe.couleurPrincipale || '#143621';
         document.getElementById('logoUrl').value = cafe.logoUrl || 'logo.jpg';
 
         // On change le bouton pour le mode "Mise à jour"
@@ -272,7 +267,6 @@
             nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
             sloganCafe: document.getElementById('sloganCafe').value || "Coffee Shop",
             caisseToken: document.getElementById('caisseToken').value || '12345678',
-            couleurPrincipale: document.getElementById('couleur').value,
             logoUrl: document.getElementById('logoUrl').value
         };
 
