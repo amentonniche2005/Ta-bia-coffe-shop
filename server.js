@@ -202,6 +202,26 @@ app.post('/api/caisse/verify', async (req, res) => {
         }
     } catch(e) { res.status(500).json({ success: false }); }
 });
+// 🔥 LISTER TOUS LES CAFÉS (Réservé à Sarbini)
+app.get('/api/admin/cafes', verifierSuperAdmin, async (req, res) => {
+    try {
+        const cafes = await StoreSettings.find({ type: 'branding' });
+        res.json(cafes);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 🔥 SUPPRIMER UN CAFÉ ET TOUTES SES DONNÉES
+app.delete('/api/admin/cafes/:targetId', verifierSuperAdmin, async (req, res) => {
+    try {
+        const target = req.params.targetId;
+        // On nettoie TOUT ce qui appartient à ce café
+        await StoreSettings.deleteMany({ cafeId: target });
+        await Product.deleteMany({ cafeId: target });
+        await Order.deleteMany({ cafeId: target });
+        await LoyalCustomer.deleteMany({ cafeId: target });
+        res.json({ success: true, message: `Le café ${target} a été supprimé.` });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 // =========================================================
 // ========== 4. ROUTES API PUBLIQUES ==================
 // =========================================================

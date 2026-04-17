@@ -2,90 +2,138 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Sarbini SaaS - Master Control</title>
+    <title>Sarbini SaaS - Master Control v2</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #2c3e50; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .admin-box { background: #34495e; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h2 { text-align: center; color: #e74c3c; margin-top: 0; }
-        label { display: block; margin-top: 15px; font-size: 0.9em; color: #bdc3c7; }
+        :root { --primary: #2c3e50; --danger: #e74c3c; --success: #2ecc71; --bg: #1a252f; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+        
+        /* Formulaire */
+        .card { background: #2c3e50; padding: 20px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        h2 { margin-top: 0; color: #ecf0f1; border-bottom: 1px solid #3e5871; padding-bottom: 10px; font-size: 1.2rem; }
+        label { display: block; margin-top: 15px; font-size: 0.85em; color: #bdc3c7; }
         input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: none; background: #ecf0f1; box-sizing: border-box; }
-        input[type="color"] { padding: 0; height: 40px; cursor: pointer; }
-        button { width: 100%; padding: 12px; margin-top: 25px; background: #e74c3c; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1.1em; transition: 0.3s; }
-        button:hover { background: #c0392b; }
-        #resultat { margin-top: 15px; text-align: center; font-weight: bold; }
+        .btn { width: 100%; padding: 12px; margin-top: 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-deploy { background: var(--success); color: white; }
+        .btn-refresh { background: #3498db; color: white; margin-bottom: 20px; }
+
+        /* Liste des Cafés */
+        .cafe-list { display: grid; gap: 15px; }
+        .cafe-item { background: #34495e; padding: 15px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; border-left: 5px solid transparent; }
+        .cafe-info { display: flex; align-items: center; gap: 15px; }
+        .cafe-logo { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; background: #2c3e50; }
+        .cafe-details h3 { margin: 0; font-size: 1rem; }
+        .cafe-details p { margin: 2px 0 0; font-size: 0.8rem; color: #bdc3c7; }
+        .cafe-badge { font-size: 0.7rem; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
+        .btn-delete { background: var(--danger); color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="admin-box">
-    <h2>👑 MASTER CONTROL</h2>
-    
-    <label>Clé Secrète (Sarbini)</label>
-    <input type="password" id="masterKey" placeholder="Entrez la clé maîtresse...">
+<h1 style="text-align:center;"><i class="fas fa-crown"></i> SARBINI SAAS MASTER</h1>
 
-    <label>ID du Café (ex: elpadrino, lecoin, tabia)</label>
-    <input type="text" id="cafeId" placeholder="Sous-domaine (sans espaces ni majuscules)">
+<div class="container">
+    <div class="card">
+        <h2><i class="fas fa-plus-circle"></i> Nouveau Café</h2>
+        <label>Clé Master</label>
+        <input type="password" id="masterKey" value="SARBINI_BOSS_2026">
+        
+        <label>ID / Sous-domaine</label>
+        <input type="text" id="cafeId" placeholder="ex: lecoin">
 
-    <label>Nom Affiché</label>
-    <input type="text" id="nomCafe" placeholder="Ex: El Padrino">
+        <label>Nom du Café</label>
+        <input type="text" id="nomCafe" placeholder="Ex: Le Coin">
 
-    <label>Slogan</label>
-    <input type="text" id="sloganCafe" placeholder="Ex: Le Parrain du Café">
-    <label>Mot de Passe de la Caisse 🔒</label>
-    <input type="text" id="caisseToken" placeholder="Ex: tabia2026, padrino_secret...">
+        <label>Mot de Passe Caisse 🔒</label>
+        <input type="text" id="caisseToken" placeholder="ex: 12345678">
 
-    <label>Couleur Principale</label>
-    <input type="color" id="couleur" value="#c0392b">
+        <label>Couleur</label>
+        <input type="color" id="couleur" value="#c0392b" style="height:40px; padding:0;">
 
-    <label>Lien du Logo (URL)</label>
-    <input type="text" id="logoUrl" placeholder="https://lien-vers-image.jpg">
+        <label>URL du Logo</label>
+        <input type="text" id="logoUrl" placeholder="https://...">
 
-    <button onclick="creerCafe()">Déployer le Café 🚀</button>
+        <button class="btn btn-deploy" onclick="creerCafe()">DÉPLOYER 🚀</button>
+    </div>
 
-    <div id="resultat"></div>
+    <div>
+        <button class="btn btn-refresh" onclick="chargerCafes()"><i class="fas fa-sync"></i> Actualiser la liste</button>
+        <div id="liste" class="cafe-list">
+            </div>
+    </div>
 </div>
 
 <script>
+    const MASTER_URL = "sarbini.click";
+
+    async function chargerCafes() {
+        const key = document.getElementById('masterKey').value;
+        const container = document.getElementById('liste');
+        container.innerHTML = "Chargement...";
+
+        try {
+            const res = await fetch(`http://tabia.${MASTER_URL}/api/admin/cafes`, {
+                headers: { 'authorization': key }
+            });
+            const cafes = await res.json();
+            
+            container.innerHTML = "";
+            cafes.forEach(c => {
+                const div = document.createElement('div');
+                div.className = "cafe-item";
+                div.style.borderLeftColor = c.couleurPrincipale;
+                div.innerHTML = `
+                    <div class="cafe-info">
+                        <img src="${c.logoUrl || 'logo.jpg'}" class="cafe-logo">
+                        <div class="cafe-details">
+                            <h3>${c.nomCafe} <span class="cafe-badge">${c.cafeId}.${MASTER_URL}</span></h3>
+                            <p>${c.sloganCafe || 'Sans slogan'}</p>
+                            <p style="font-size:0.7rem">Mots de passe : <b>${c.caisseToken || '12345678'}</b></p>
+                        </div>
+                    </div>
+                    <button class="btn-delete" onclick="supprimerCafe('${c.cafeId}')"><i class="fas fa-trash"></i></button>
+                `;
+                container.appendChild(div);
+            });
+        } catch(e) { container.innerHTML = "Erreur de chargement. Vérifie ta clé Master."; }
+    }
+
     async function creerCafe() {
         const key = document.getElementById('masterKey').value;
         const cafeId = document.getElementById('cafeId').value.toLowerCase();
-const data = {
+        const data = {
             nomCafe: document.getElementById('nomCafe').value,
-            sloganCafe: document.getElementById('sloganCafe').value,
+            caisseToken: document.getElementById('caisseToken').value,
             couleurPrincipale: document.getElementById('couleur').value,
             logoUrl: document.getElementById('logoUrl').value,
-            // 🔥 NOUVEAU : On envoie le mot de passe au serveur
-            caisseToken: document.getElementById('caisseToken').value || '12345678'
+            sloganCafe: "Coffee Shop"
         };
 
-        document.getElementById('resultat').innerHTML = "Création en cours...";
-        document.getElementById('resultat').style.color = "white";
+        const res = await fetch(`http://${cafeId}.${MASTER_URL}/api/branding`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'authorization': key },
+            body: JSON.stringify(data)
+        });
 
-        try {
-            // L'astuce SaaS : on envoie la requête sur le sous-domaine qu'on veut créer !
-            const response = await fetch(`http://${cafeId}.sarbini.click/api/branding`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'authorization': key // Ta clé secrète
-                },
-                body: JSON.stringify(data)
-            });
-
-            const result = await response.json();
-            
-            if (response.ok) {
-                document.getElementById('resultat').innerHTML = `✅ Café ${data.nomCafe} créé avec succès !`;
-                document.getElementById('resultat').style.color = "#2ecc71";
-            } else {
-                document.getElementById('resultat').innerHTML = `❌ Erreur : ${result.error}`;
-                document.getElementById('resultat').style.color = "#e74c3c";
-            }
-        } catch(e) {
-            document.getElementById('resultat').innerHTML = "❌ Impossible de joindre le serveur. As-tu bien mis le nom de domaine complet ?";
-            document.getElementById('resultat').style.color = "#e74c3c";
-        }
+        if(res.ok) { alert("Café déployé !"); chargerCafes(); }
+        else { alert("Erreur lors du déploiement."); }
     }
+
+    async function supprimerCafe(id) {
+        if(!confirm(`Voulez-vous vraiment supprimer TOUTES les données de ${id} ?`)) return;
+        const key = document.getElementById('masterKey').value;
+        
+        const res = await fetch(`http://tabia.${MASTER_URL}/api/admin/cafes/${id}`, {
+            method: 'DELETE',
+            headers: { 'authorization': key }
+        });
+
+        if(res.ok) { chargerCafes(); }
+    }
+
+    // Charger la liste au démarrage
+    window.onload = chargerCafes;
 </script>
 </body>
 </html>
