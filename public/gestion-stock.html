@@ -1892,25 +1892,49 @@ async function ouvrirModalConfigFidelite() {
         }
 
         // 🔥 NOUVELLE FONCTION : Sauvegarder les paramètres
+// 🔥 FONCTION RÉPARÉE : Sauvegarder les paramètres de fidélité
 async function sauvegarderConfigFidelite() {
-            const points = parseFloat(document.getElementById('configPoints').value);
-            const credit = parseFloat(document.getElementById('configCredit').value);
+    const btn = document.querySelector('.modal-buttons .btn-primary');
+    const originalText = btn.innerHTML;
+    
+    // Animation de chargement sur le bouton
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
+    btn.disabled = true;
 
-            if(!points || points <= 0 || !credit || credit < 0) return showNotification("Valeurs invalides", "var(--danger)");
+    const points = parseFloat(document.getElementById('configPoints').value);
+    const credit = parseFloat(document.getElementById('configCredit').value);
 
-            try {
-                const res = await fetchSecurise('/api/settings/fidelite', {
-                    method: 'POST',
-                    body: JSON.stringify({ pointsRequis: points, valeurCredit: credit })
-                });
+    if(!points || points <= 0 || !credit || credit < 0) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        return showNotification("Valeurs invalides", "var(--danger)", "fa-exclamation-triangle");
+    }
 
-                if (res.ok) {
-                    showNotification("✅ Règles de fidélité mises à jour !", "var(--success)");
-                    fermerModal();
-                    chargerClients();
-                }
-            } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
+    try {
+        const res = await fetchSecurise('/api/settings/fidelite', {
+            method: 'POST',
+            body: JSON.stringify({ pointsRequis: points, valeurCredit: credit })
+        });
+
+        // Si le serveur répond OK (200)
+        if (res.ok) {
+            showNotification("✅ Règles de fidélité mises à jour !", "var(--success)", "fa-check-circle");
+            fermerModal();
+            chargerClients();
+        } else {
+            // Si le serveur refuse (ex: Token expiré)
+            const erreur = await res.json();
+            showNotification("❌ " + (erreur.error || "Erreur de sauvegarde"), "var(--danger)", "fa-times");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
         }
+    } catch(e) { 
+        // S'il n'y a plus d'internet ou que le serveur PM2 est éteint
+        showNotification("❌ Impossible de joindre le serveur", "var(--danger)", "fa-wifi");
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
 // ============================================================================
         // 🔥 MODULE ANALYTICS & GRAPHIQUES (Chart.js)
         // ============================================================================
