@@ -42,7 +42,7 @@
         <label>Couleur</label>
         <input type="color" id="couleur" value="#143621" style="height:40px; padding:0;">
         <label>URL du Logo</label>
-        <input type="text" id="logoUrl" placeholder="logo.jpg">
+        <input type="text" id="logoUrl" placeholder="logoo.jpg">
         <button class="btn btn-deploy" onclick="creerCafe()">DÉPLOYER 🚀</button>
     </div>
 
@@ -75,7 +75,7 @@
                 div.style.borderLeftColor = c.couleurPrincipale || '#34495e';
                 div.innerHTML = `
                     <div class="cafe-info">
-                        <img src="${c.logoUrl || 'logo.jpg'}" class="cafe-logo">
+                        <img src="${c.logoUrl || 'logoo.jpg'}" class="cafe-logo">
                         <div class="cafe-details">
                             <h3>${c.nomCafe || 'Sans Nom'} <span style="font-size:0.7rem; background:#000; padding:2px 5px; border-radius:3px;">${c.cafeId}.${MASTER_URL}</span></h3>
                             <p style="color:#f1c40f; font-size:0.8rem;">MDP: <b>${c.caisseToken || '12345678'}</b></p>
