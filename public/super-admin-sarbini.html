@@ -115,7 +115,7 @@ const MASTER_URL = "sarbini.click";
         }
     }
 
-    async function creerCafe() {
+async function creerCafe() {
         const key = document.getElementById('masterKey').value;
         const cafeId = document.getElementById('cafeId').value.toLowerCase().trim();
         const btn = document.querySelector('.btn-deploy');
@@ -127,6 +127,7 @@ const MASTER_URL = "sarbini.click";
         btn.disabled = true;
 
         const data = {
+            targetCafeId: cafeId, // 🔥 On dit au serveur local quel café on cible !
             nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
             caisseToken: document.getElementById('caisseToken').value || '12345678',
             couleurPrincipale: document.getElementById('couleur').value,
@@ -135,8 +136,8 @@ const MASTER_URL = "sarbini.click";
         };
 
         try {
-            // Requête vers le nouveau café
-            const res = await fetch(`${PROTO}//${cafeId}.${MASTER_URL}/api/branding`, {
+            // 🔥 Requête locale : Plus besoin d'attendre le DNS ou le SSL !
+            const res = await fetch(`/api/branding`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'authorization': key },
                 body: JSON.stringify(data)
@@ -152,7 +153,7 @@ const MASTER_URL = "sarbini.click";
                 alert("❌ Erreur : " + (err.error || "Refusé")); 
             }
         } catch(e) {
-            alert("❌ Le sous-domaine ne répond pas. Si tu viens de créer le DNS, attends quelques minutes.");
+            alert("❌ Erreur de connexion au serveur local.");
         }
         btn.innerHTML = originalText;
         btn.disabled = false;

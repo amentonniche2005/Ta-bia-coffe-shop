@@ -243,11 +243,14 @@ app.get('/api/branding', async (req, res) => {
 
 app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
     try {
-        // On récupère le caisseToken envoyé par ton tableau de bord
-        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken } = req.body;
+        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, targetCafeId } = req.body;
+        
+        // 🔥 L'ASTUCE ULTIME : Si le Super Admin donne un "targetCafeId", on l'utilise !
+        const cafeCible = targetCafeId ? targetCafeId : req.cafeId;
+
         const config = await StoreSettings.findOneAndUpdate(
-            { cafeId: req.cafeId, type: 'branding' },
-            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken }, // On l'enregistre ici
+            { cafeId: cafeCible, type: 'branding' },
+            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken }, 
             { new: true, upsert: true }
         );
         res.json({ success: true, config });
