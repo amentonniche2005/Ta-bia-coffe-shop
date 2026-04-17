@@ -584,7 +584,37 @@ header {
     opacity: 0;
     pointer-events: none;
 }
+/* --- LA SIGNATURE CREATED BY --- */
+.sarbini-footer-lux {
+    position: absolute;
+    bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    opacity: 0;
+    /* Apparaît doucement après 2 secondes */
+    animation: fadeUpFooter 1.5s ease-out forwards 2s; 
+}
 
+.sarbini-footer-lux span {
+    color: #555555; /* Gris discret et classe */
+}
+
+.sarbini-footer-lux strong {
+    color: #bf953f; /* Or premium */
+    font-weight: 600;
+    letter-spacing: 4px;
+    text-shadow: 0 0 10px rgba(191, 149, 63, 0.2);
+}
+
+@keyframes fadeUpFooter {
+    0% { opacity: 0; transform: translateY(15px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
 /* 3. BARRE DE TEMPS SUR LES NOTIFICATIONS */
 .notification { position: relative; overflow: hidden; padding-bottom: 12px; }
 .notif-progress {
