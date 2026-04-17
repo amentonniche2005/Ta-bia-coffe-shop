@@ -13,44 +13,33 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-<div id="splash-screen">
-    <div class="splash-content">
-<svg class="sarbini-logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<div id="splash-screen" class="sarbini-premium-splash">
+    <div class="splash-center">
+        <svg class="sarbini-lux-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
             <defs>
-                <linearGradient id="sarbiniGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#00F2FE" />
-                    <stop offset="100%" stop-color="#4FACFE" />
-                </linearGradient>
-                <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="rgba(255,255,255,0.08)" />
-                    <stop offset="100%" stop-color="rgba(255,255,255,0.01)" />
+                <linearGradient id="luxGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#bf953f" />
+                    <stop offset="50%" stop-color="#fcf6ba" />
+                    <stop offset="100%" stop-color="#b38728" />
                 </linearGradient>
             </defs>
-            
-            <path d="M 50 5 L 89 27.5 L 89 72.5 L 50 95 L 11 72.5 L 11 27.5 Z" fill="url(#bgGradient)" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
-            
-            <path d="M 65 35 A 15 15 0 0 0 50 25 A 15 15 0 0 0 35 40 C 35 60, 65 55, 65 70 A 15 15 0 0 1 50 85 A 15 15 0 0 1 30 70" fill="none" stroke="url(#sarbiniGradient)" stroke-width="8" stroke-linecap="round"/>
-            
-            <circle cx="65" cy="35" r="3.5" fill="#FFFFFF" />
-            <circle cx="30" cy="70" r="3.5" fill="#FFFFFF" />
+            <path class="s-path" d="M 75 30 C 75 10, 25 10, 25 30 C 25 55, 75 45, 75 70 C 75 90, 25 90, 25 70" 
+                  fill="none" stroke="url(#luxGradient)" stroke-width="4" stroke-linecap="round"/>
         </svg>
 
-        <h1 class="splash-title">SARBINI.CLICK</h1>
-        <p class="splash-subtitle">Préparation de votre espace...</p>
-        <div class="splash-loader"></div>
-    </div>
-
-    <div class="splash-footer">
-        <p>Created by <strong>Sarbini.click</strong></p>
+        <h1 class="sarbini-title">SARBINI.CLICK</h1>
+        <div class="sarbini-subtitle">
+            <span class="tracking-in">SYSTEM ENGINE</span>
+        </div>
     </div>
 </div>
     <header>
         <div class="header-container">
 <div class="logo">
-    <img src="logo.jpg" alt="Logo" class="logo-img dynamic-logo">
+    <img src="logo.jpg" alt="Logo" id="dynamicLogo" class="logo-img dynamic-logo">
     <h1>
-        <span class="dynamic-name">TA'BIA</span>
-        <span class="logo-subtext dynamic-subtext">Coffee Shop</span>
+        <span id="dynamicName" class="dynamic-name">CHARGEMENT...</span>
+        <span id="dynamicSlogan" class="logo-subtext dynamic-subtext">...</span>
     </h1>
 </div>
             

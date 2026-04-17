@@ -181,10 +181,10 @@ button:hover:not(:disabled) {
     <header>
         <div class="header-container">
 <div class="logo">
-    <img src="logo.jpg" alt="Logo" class="logo-img dynamic-logo">
+    <img src="logo.jpg" alt="Logo" id="dynamicLogo" class="logo-img dynamic-logo">
     <h1>
-        <span class="dynamic-name">T....</span>
-        <span class="logo-subtext dynamic-subtext">.....</span>
+        <span id="dynamicName" class="dynamic-name">CHARGEMENT...</span>
+        <span id="dynamicSlogan" class="logo-subtext dynamic-subtext">...</span>
     </h1>
 </div>
             <div class="nav-right">
@@ -800,40 +800,36 @@ function afficherStockDOM(produits) {
                 </tr>`;
             }).join('');
         }
-        async function appliquerBranding() {
+async function appliquerBranding() {
     try {
+        // 1. On récupère les réglages depuis ton API /api/branding
         const response = await fetch('/api/branding');
         const config = await response.json();
 
-        // 1. Mise à jour du Logo (Image)
-        const logoImg = document.querySelector('.dynamic-logo');
-        if (logoImg && config.logoUrl) {
-            logoImg.src = config.logoUrl;
-        }
+        if (config) {
+            // 2. Mise à jour du Nom du café
+            document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
 
-        // 2. Mise à jour du Nom (ex: TA'BIA)
-        const nameEl = document.querySelector('.dynamic-name');
-        if (nameEl && config.nomCafe) {
-            nameEl.textContent = config.nomCafe;
-        }
+            // 3. Mise à jour du Slogan (Coffee Shop, Bar, etc.)
+            document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
 
-        // 3. Mise à jour du Slogan (ex: Coffee Shop)
-        const subtextEl = document.querySelector('.dynamic-subtext');
-        if (subtextEl && config.sloganCafe) {
-            subtextEl.textContent = config.sloganCafe;
-        }
+            // 4. Mise à jour du Logo
+            if (config.logoUrl) {
+                document.getElementById('dynamicLogo').src = config.logoUrl;
+            }
 
-        // 4. Mise à jour de la couleur (comme avant)
-        if (config.couleurPrincipale) {
-            document.documentElement.style.setProperty('--primary', config.couleurPrincipale);
+            // 5. TOUCHE FINALE : Appliquer la couleur du café au texte
+            if (config.couleurPrincipale) {
+                document.getElementById('dynamicName').style.color = config.couleurPrincipale;
+            }
         }
-
-    } catch (err) {
-        console.error("Erreur de branding:", err);
+    } catch (error) {
+        console.error("Erreur lors du chargement du branding:", error);
     }
 }
 
-document.addEventListener('DOMContentLoaded', appliquerBranding);
+// Lancer la fonction au chargement de la page
+window.onload = appliquerBranding;
         async function chargerCategories() {
             try {
                 const res = await fetchSecurise('/api/stock');

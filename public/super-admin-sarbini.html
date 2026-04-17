@@ -73,6 +73,7 @@
         .action-btns { display: flex; gap: 10px; }
         .btn-icon { background: rgba(255,255,255,0.1); color: white; border: none; width: 35px; height: 35px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { background: rgba(255,255,255,0.2); }
+        .btn-edit:hover { background: #f1c40f; color: #000; }
         .btn-delete:hover { background: var(--danger); color: white; }
         .btn-copy:hover { background: var(--primary); color: #000; }
 
@@ -91,7 +92,7 @@
 
 <div class="container">
     <div class="card">
-        <h2><i class="fas fa-rocket" style="color: var(--primary);"></i> Déployer un Instance</h2>
+        <h2><i class="fas fa-rocket" style="color: var(--primary);"></i> Instance Client</h2>
         
         <div class="input-group">
             <label>Clé Master d'Authentification</label>
@@ -109,6 +110,11 @@
         </div>
         
         <div class="input-group">
+            <label>Slogan (Ex: Bar, Fast-Food...)</label>
+            <input type="text" id="sloganCafe" placeholder="Ex: Coffee Shop">
+        </div>
+
+        <div class="input-group">
             <label>Mot de Passe Système Caisse 🔒</label>
             <input type="text" id="caisseToken" placeholder="ex: tabia2026">
         </div>
@@ -120,7 +126,7 @@
             </div>
             <div class="input-group">
                 <label>Nom du fichier Logo</label>
-                <input type="text" id="logoUrl" value="logoo.jpg">
+                <input type="text" id="logoUrl" placeholder="logo.jpg" value="logo.jpg">
             </div>
         </div>
 
@@ -150,26 +156,24 @@
 
 <script>
     const MASTER_URL = "sarbini.click";
-    let cafesData = []; // Pour la recherche
+    let cafesData = []; 
 
-    // Système de Notification Toast
+    // --- Système de Notification ---
     function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         toast.className = 'toast';
-        toast.style.borderLeftColor = type === 'error' ? 'var(--danger)' : 'var(--primary)';
-        toast.innerHTML = `<i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
+        toast.style.borderLeftColor = type === 'error' ? 'var(--danger)' : (type === 'warning' ? '#f1c40f' : 'var(--primary)');
+        toast.innerHTML = `<i class="fas ${type === 'error' ? 'fa-exclamation-circle' : (type === 'warning' ? 'fa-pen' : 'fa-check-circle')}"></i> ${message}`;
         container.appendChild(toast);
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     }
 
-    // Copier dans le presse papier
     function copyPassword(pwd) {
-        navigator.clipboard.writeText(pwd).then(() => {
-            showToast("Mot de passe copié !");
-        });
+        navigator.clipboard.writeText(pwd).then(() => showToast("Mot de passe copié !"));
     }
 
+    // --- Chargement des Cafés ---
     async function chargerCafes() {
         const key = document.getElementById('masterKey').value;
         const container = document.getElementById('liste');
@@ -188,10 +192,11 @@
 
         } catch(e) { 
             showToast('Serveur injoignable', 'error');
-            container.innerHTML = "<span style='color:var(--danger);'>Erreur de connexion au serveur.</span>"; 
+            container.innerHTML = "<span style='color:var(--danger);'>Erreur de connexion.</span>"; 
         }
     }
 
+    // --- Affichage ---
     function afficherListe(liste) {
         const container = document.getElementById('liste');
         if (liste.length === 0) return container.innerHTML = "<div style='color:var(--text-muted); text-align:center; padding: 30px;'><i class='fas fa-box-open fa-2x'></i><br>Aucun café déployé.</div>";
@@ -206,13 +211,14 @@
                 <div class="cafe-info">
                     <img src="${c.logoUrl || 'https://via.placeholder.com/50'}" class="cafe-logo" onerror="this.src='https://via.placeholder.com/50/000/FFF?text=IMG'">
                     <div class="cafe-details">
-                        <h3>${c.nomCafe || 'Sans Nom'}</h3>
+                        <h3>${c.nomCafe || 'Sans Nom'} <span style="font-size:0.7rem; color:#94a3b8; font-weight:normal;">- ${c.sloganCafe || 'Coffee Shop'}</span></h3>
                         <a href="${siteUrl}" target="_blank" class="domain"><i class="fas fa-external-link-alt"></i> ${c.cafeId}.${MASTER_URL}</a>
                     </div>
                 </div>
                 <div class="action-btns">
-                    <button class="btn-icon btn-copy" onclick="copyPassword('${c.caisseToken || '12345678'}')" title="Copier le MDP Caisse"><i class="fas fa-key"></i></button>
-                    <button class="btn-icon btn-delete" onclick="supprimerCafe('${c.cafeId}')" title="Détruire l'instance"><i class="fas fa-trash-alt"></i></button>
+                    <button class="btn-icon btn-edit" onclick="editerCafe('${c.cafeId}')" title="Modifier le Design"><i class="fas fa-paint-brush"></i></button>
+                    <button class="btn-icon btn-copy" onclick="copyPassword('${c.caisseToken || '12345678'}')" title="Copier le MDP"><i class="fas fa-key"></i></button>
+                    <button class="btn-icon btn-delete" onclick="supprimerCafe('${c.cafeId}')" title="Détruire"><i class="fas fa-trash-alt"></i></button>
                 </div>
             `;
             container.appendChild(div);
@@ -225,21 +231,49 @@
         afficherListe(filtres);
     }
 
+    // --- LA FONCTION ÉDITER ---
+    function editerCafe(id) {
+        const cafe = cafesData.find(c => c.cafeId === id);
+        if (!cafe) return;
+
+        // On remplit le formulaire
+        document.getElementById('cafeId').value = cafe.cafeId;
+        document.getElementById('cafeId').readOnly = true; // On empêche de changer l'URL
+        document.getElementById('cafeId').style.opacity = "0.5";
+        
+        document.getElementById('nomCafe').value = cafe.nomCafe || '';
+        document.getElementById('sloganCafe').value = cafe.sloganCafe || 'Coffee Shop';
+        document.getElementById('caisseToken').value = cafe.caisseToken || '';
+        document.getElementById('couleur').value = cafe.couleurPrincipale || '#143621';
+        document.getElementById('logoUrl').value = cafe.logoUrl || 'logo.jpg';
+
+        // On change le bouton pour le mode "Mise à jour"
+        const btn = document.getElementById('deployBtn');
+        btn.innerHTML = "<i class='fas fa-sync'></i> METTRE À JOUR LE DESIGN";
+        btn.style.background = "linear-gradient(45deg, #f39c12, #e67e22)";
+        btn.style.color = "#000";
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        showToast(`Mode édition pour le café : ${id}`, 'warning');
+    }
+
+    // --- Créer ou Mettre à jour ---
     async function creerCafe() {
         const key = document.getElementById('masterKey').value;
-        const cafeId = document.getElementById('cafeId').value.toLowerCase().trim().replace(/[^a-z0-9]/g, ''); // Nettoyage strict
+        const cafeId = document.getElementById('cafeId').value.toLowerCase().trim().replace(/[^a-z0-9]/g, ''); 
         if(!cafeId) return showToast("Le sous-domaine est obligatoire !", "error");
         
         const btn = document.getElementById('deployBtn');
-        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> CREATION..."; btn.disabled = true;
+        const isUpdate = btn.innerText.includes("METTRE À JOUR");
+        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> TRAITEMENT..."; btn.disabled = true;
 
         const data = {
             targetCafeId: cafeId,
             nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
+            sloganCafe: document.getElementById('sloganCafe').value || "Coffee Shop",
             caisseToken: document.getElementById('caisseToken').value || '12345678',
             couleurPrincipale: document.getElementById('couleur').value,
-            logoUrl: document.getElementById('logoUrl').value,
-            sloganCafe: "Coffee Shop"
+            logoUrl: document.getElementById('logoUrl').value
         };
 
         try {
@@ -250,19 +284,29 @@
             });
 
             if(res.ok) { 
-                showToast(`Instance ${cafeId} déployée avec succès !`);
+                showToast(isUpdate ? `Design mis à jour avec succès !` : `Instance déployée avec succès !`);
+                
+                // Réinitialiser le formulaire
                 document.getElementById('cafeId').value = ""; 
+                document.getElementById('cafeId').readOnly = false;
+                document.getElementById('cafeId').style.opacity = "1";
                 document.getElementById('nomCafe').value = "";
+                document.getElementById('sloganCafe').value = "";
                 document.getElementById('caisseToken').value = "";
+                
+                // Remettre le bouton normal
+                btn.innerHTML = "<i class='fas fa-cloud-upload-alt'></i> INITIALISER LE CAFÉ";
+                btn.style.background = ""; // Remet le CSS par défaut
+                
                 chargerCafes(); 
-            } else { showToast("Erreur lors de la création.", "error"); }
+            } else { showToast("Erreur lors de l'opération.", "error"); }
         } catch(e) { showToast("Erreur réseau.", "error"); }
         
-        btn.innerHTML = "<i class='fas fa-cloud-upload-alt'></i> INITIALISER LE CAFÉ"; btn.disabled = false;
+        btn.disabled = false;
     }
 
     async function supprimerCafe(id) {
-        if(!confirm(`ATTENTION : Êtes-vous sûr de vouloir supprimer définitivement l'instance "${id}" et toutes ses données (Ventes, Stock, Clients) ?`)) return;
+        if(!confirm(`ATTENTION : Voulez-vous détruire l'instance "${id}" et TOUTES ses données ?`)) return;
         
         const key = document.getElementById('masterKey').value;
         try {

@@ -508,98 +508,81 @@ header {
 /* 🚀 PACK ULTRA-PREMIUM : SENSORIEL & IMMERSION           */
 /* ======================================================= */
 
-/* --- SPLASH SCREEN SARBINI SAAS --- */
-#splash-screen {
+/* --- SARBINI PREMIUM SPLASH SCREEN --- */
+.sarbini-premium-splash {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background-color: #0b1120; /* Bleu nuit très profond (esthétique codeur/SaaS) */
+    background-color: #050505; /* Noir absolu, façon écran OLED */
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 99999;
+    z-index: 999999;
+    transition: opacity 0.8s cubic-bezier(0.8, 0, 0.2, 1); /* Disparition très douce */
 }
 
-.splash-content {
-    text-align: center;
+.splash-center {
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-/* Effet de lévitation et reflet néon */
-.sarbini-logo-svg {
-    width: 110px;
-    height: 110px;
+/* Le Logo SVG avec effet de tracé animé */
+.sarbini-lux-logo {
+    width: 80px;
+    height: 80px;
     margin-bottom: 20px;
-    filter: drop-shadow(0 0 15px rgba(0, 242, 254, 0.4));
-    animation: floatLogo 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 10px rgba(191, 149, 63, 0.3)); /* Léger halo doré */
 }
 
-.splash-title {
+.s-path {
+    stroke-dasharray: 200; /* Longueur de la ligne */
+    stroke-dashoffset: 200; /* Masque la ligne au début */
+    animation: drawPath 2s ease-in-out forwards, floatLogo 3s ease-in-out infinite alternate 2s;
+}
+
+/* Le texte SARBINI */
+.sarbini-title {
     color: #ffffff;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: 6px;
-    margin: 0;
-    text-transform: uppercase;
+    font-family: 'Inter', sans-serif;
+    font-size: 24px;
+    font-weight: 300; /* Texte fin, très classe */
+    letter-spacing: 12px; /* Très espacé, code du luxe */
+    margin: 0 0 5px 0;
+    margin-right: -12px; /* Compense le letter-spacing pour le centrage */
+    opacity: 0;
+    animation: fadeIn 1s ease-out forwards 1s; /* Apparaît après le dessin du logo */
 }
 
-.splash-subtitle {
-    color: #64748b; /* Gris-bleu subtil */
-    font-size: 15px;
-    margin-top: 8px;
-    margin-bottom: 40px;
-    font-weight: 500;
+/* Le sous-titre SYSTEM ENGINE */
+.sarbini-subtitle {
+    color: #bf953f; /* Couleur Or */
+    font-family: monospace;
+    font-size: 10px;
+    letter-spacing: 4px;
+    opacity: 0;
+    animation: fadeIn 1s ease-out forwards 1.5s;
 }
 
-/* Spinner modernisé façon trait de chargement tech */
-.splash-loader {
-    width: 50px;
-    height: 4px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 4px;
-    overflow: hidden;
-    position: relative;
+/* --- ANIMATIONS CLÉS --- */
+@keyframes drawPath {
+    0% { stroke-dashoffset: 200; }
+    100% { stroke-dashoffset: 0; }
 }
 
-.splash-loader::after {
-    content: '';
-    position: absolute;
-    left: -50px;
-    top: 0;
-    height: 100%;
-    width: 50px;
-    background: linear-gradient(90deg, transparent, #00F2FE, transparent);
-    animation: scanSarbini 1.5s infinite linear;
-}
-
-.splash-footer {
-    position: absolute;
-    bottom: 30px;
-    color: #475569;
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
-
-.splash-footer strong {
-    color: #00F2FE;
-    font-weight: bold;
-    letter-spacing: 2px;
-}
-
-/* Animations */
 @keyframes floatLogo {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-12px); }
-    100% { transform: translateY(0px); }
+    0% { transform: translateY(0); filter: drop-shadow(0 0 10px rgba(191,149,63,0.3)); }
+    100% { transform: translateY(-5px); filter: drop-shadow(0 0 20px rgba(191,149,63,0.6)); }
 }
 
-@keyframes scanSarbini {
-    0% { left: -50px; }
-    100% { left: 100%; }
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Classe pour cacher le splash screen en douceur via JS */
+.splash-hidden {
+    opacity: 0;
+    pointer-events: none;
 }
 
 /* 3. BARRE DE TEMPS SUR LES NOTIFICATIONS */

@@ -216,39 +216,44 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 async function appliquerBranding() {
     try {
+        // 1. On récupère les réglages depuis ton API /api/branding
         const response = await fetch('/api/branding');
-        if (!response.ok) return afficherErreur404(); // Fonction de blocage vue avant
-
         const config = await response.json();
 
-        // 1. Mise à jour du Nom et Slogan
-        document.querySelectorAll('.dynamic-name').forEach(el => el.textContent = config.nomCafe || "TA'BIA");
-        document.querySelectorAll('.dynamic-subtext').forEach(el => el.textContent = config.sloganCafe || "Coffee Shop");
+        if (config) {
+            // 2. Mise à jour du Nom du café
+            document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
 
-        // 2. Mise à jour des images (Logos)
-        if (config.logoUrl) {
-            document.querySelectorAll('.dynamic-logo, .logo-img, .splash-logo').forEach(img => {
-                img.src = config.logoUrl;
-            });
+            // 3. Mise à jour du Slogan (Coffee Shop, Bar, etc.)
+            document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
+
+            // 4. Mise à jour du Logo
+            if (config.logoUrl) {
+                document.getElementById('dynamicLogo').src = config.logoUrl;
+            }
+
+            // 5. TOUCHE FINALE : Appliquer la couleur du café au texte
+            if (config.couleurPrincipale) {
+                document.getElementById('dynamicName').style.color = config.couleurPrincipale;
+            }
         }
-
-        // 3. LA MAGIE DES COULEURS
-        // Si config.couleurPrincipale existe, on l'applique, sinon on reste sur le vert par défaut
-        if (config.couleurPrincipale) {
-            document.documentElement.style.setProperty('--primary', config.couleurPrincipale);
+        const splash = document.getElementById('splash-screen');
+        if (splash) {
+            splash.classList.add('splash-hidden'); // Lance le fondu transparent
             
-            // On met aussi à jour la barre d'adresse du téléphone (Chrome Android)
-            const metaTheme = document.querySelector('meta[name="theme-color"]');
-            if (metaTheme) metaTheme.setAttribute("content", config.couleurPrincipale);
+            setTimeout(() => {
+                splash.style.display = 'none'; // Supprime complètement l'élément
+            }, 800); // 800ms c'est un peu plus vif et dynamique que 1000ms
         }
-
-    } catch (e) {
-        console.error("Erreur de branding:", e);
+    } catch (error) {
+        console.error("Erreur lors du chargement du branding:", error);
+        const splash = document.getElementById('splash-screen');
+        if (splash) splash.style.display = 'none';
     }
 }
 
-// Lancer la fonction dès que la page s'ouvre
-document.addEventListener('DOMContentLoaded', appliquerBranding);
+// Lancer la fonction au chargement de la page
+window.onload = appliquerBranding;
 // ========== FETCH API STOCK ==========
 async function chargerCatalogue() {
     try {
