@@ -191,7 +191,43 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(navigator.vibrate) navigator.vibrate(15);
     });
 });
+async function appliquerBranding() {
+    try {
+        const response = await fetch('/api/branding');
+        const config = await response.json();
 
+        // 1. Mise à jour du Logo (Image)
+        const logoImg = document.querySelector('.dynamic-logo');
+        if (logoImg && config.logoUrl) {
+            logoImg.src = config.logoUrl;
+        }
+
+        // 2. Mise à jour du Nom (ex: TA'BIA)
+        const nameEl = document.querySelector('.dynamic-name');
+        if (nameEl && config.nomCafe) {
+            nameEl.textContent = config.nomCafe;
+        }
+
+        // 3. Mise à jour du Slogan (ex: Coffee Shop)
+        const subtextEl = document.querySelector('.dynamic-subtext');
+        if (subtextEl && config.sloganCafe) {
+            subtextEl.textContent = config.sloganCafe;
+        }
+
+        // 4. Mise à jour de la couleur (comme avant)
+        if (config.couleurPrincipale) {
+            document.documentElement.style.setProperty('--primary', config.couleurPrincipale);
+        }
+
+    } catch (err) {
+        console.error("Erreur de branding:", err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', appliquerBranding);
+
+// Lancer la fonction dès que la page s'ouvre
+document.addEventListener('DOMContentLoaded', appliquerBranding);
 // ========== FETCH API STOCK ==========
 async function chargerCatalogue() {
     try {

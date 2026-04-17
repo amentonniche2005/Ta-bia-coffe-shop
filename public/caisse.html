@@ -239,10 +239,13 @@ button:hover:not(:disabled) {
 <body>
 
 <header>
-    <div class="logo">
-        <img src="logo.jpg" class="logo-img" alt="Logo Ta'Bia" onerror="this.src='https://via.placeholder.com/70/143621/e3c496?text=TB'">
-        <h1>TA'BIA <span class="logo-subtext">Caisse POS</span></h1>
-    </div>
+<div class="logo">
+    <img src="logo.jpg" alt="Logo" class="logo-img dynamic-logo">
+    <h1>
+        <span class="dynamic-name">......</span>
+        <span class="logo-subtext dynamic-subtext">.....</span>
+    </h1>
+</div>
     <div class="nav-right">
         <div class="caisse-badge">
             <i class="fas fa-circle" style="font-size: 8px; animation: pulse 2s infinite;"></i> En Ligne
@@ -609,7 +612,40 @@ async function viderTicket(tableNum, confirmDialogue = true) {
     }
 
     function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
+    async function appliquerBranding() {
+    try {
+        const response = await fetch('/api/branding');
+        const config = await response.json();
 
+        // 1. Mise à jour du Logo (Image)
+        const logoImg = document.querySelector('.dynamic-logo');
+        if (logoImg && config.logoUrl) {
+            logoImg.src = config.logoUrl;
+        }
+
+        // 2. Mise à jour du Nom (ex: TA'BIA)
+        const nameEl = document.querySelector('.dynamic-name');
+        if (nameEl && config.nomCafe) {
+            nameEl.textContent = config.nomCafe;
+        }
+
+        // 3. Mise à jour du Slogan (ex: Coffee Shop)
+        const subtextEl = document.querySelector('.dynamic-subtext');
+        if (subtextEl && config.sloganCafe) {
+            subtextEl.textContent = config.sloganCafe;
+        }
+
+        // 4. Mise à jour de la couleur (comme avant)
+        if (config.couleurPrincipale) {
+            document.documentElement.style.setProperty('--primary', config.couleurPrincipale);
+        }
+
+    } catch (err) {
+        console.error("Erreur de branding:", err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', appliquerBranding);
 async function envoyerEnCuisine() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444");
         const ticket = tickets[currentTable];
