@@ -7,17 +7,36 @@ const http = require('http');
 const socketIo = require('socket.io');
 const axios = require('axios');
 
-
-
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: "*" } });
 
 const PORT = process.env.PORT || 3000;
-const CAISSE_TOKEN = process.env.CAISSE_TOKEN || '12345678';
 const SUPER_ADMIN_TOKEN = process.env.SUPER_ADMIN_TOKEN || 'SARBINI_BOSS_2026';
 
-// 🔐 A. SÉCURITÉ WEBSOCKET (Pour la caisse temps réel)
+// 🛡️ 1. LE GARDE-BARRIÈRE (Définition globale)
+const verifierExistenceCafe = async (req, res, next) => {
+    const host = req.headers.host || ''; 
+    const subdomain = host.split('.')[0];
+
+    if (host === 'sarbini.click' || subdomain === 'www') {
+        req.cafeId = 'sarbini';
+        return next();
+    }
+
+    try {
+        const cafeExistant = await mongoose.model('StoreSettings').findOne({ cafeId: subdomain, type: 'branding' });
+        if (!cafeExistant) {
+            return res.status(404).send('<html><body style="background:#000;"></body></html>');
+        }
+        req.cafeId = subdomain;
+        next();
+    } catch (err) {
+        res.status(500).send("Erreur validation");
+    }
+};
+
+// 🔐 2. SÉCURITÉ WEBSOCKET (Indépendante)
 io.use(async (socket, next) => {
     const host = socket.handshake.headers.host || '';
     const subdomain = host.split('.')[0];
@@ -34,38 +53,14 @@ io.use(async (socket, next) => {
     } catch(err) { next(new Error("Erreur serveur.")); }
 });
 
-// 🛡️ B. LE GARDE-BARRIÈRE (Pour bloquer les faux sites web)
-const verifierExistenceCafe = async (req, res, next) => {
-    const host = req.headers.host || ''; 
-    const subdomain = host.split('.')[0];
-
-    if (host === 'sarbini.click' || subdomain === 'www') {
-        req.cafeId = 'sarbini';
-        return next();
-    }
-
-    try {
-        const cafeExistant = await mongoose.model('StoreSettings').findOne({ cafeId: subdomain, type: 'branding' });
-        if (!cafeExistant) {
-            // ❌ CAFE INEXISTANT : Page noire totale
-            return res.status(404).send('<html><body style="background:#000;"></body></html>');
-        }
-        req.cafeId = subdomain;
-        next();
-    } catch (err) { res.status(500).send("Erreur validation"); }
-};
-
-// Activation des middlewares dans le bon ordre
+// 🚀 3. ACTIVATION DES MIDDLEWARES (Dans le bon ordre)
 app.use(cors());
 app.use(express.json());
-app.use(verifierExistenceCafe); // 🔥 Doit être AVANT express.static
+app.use(verifierExistenceCafe); // 🔥 Doit être ici pour protéger les pages web
 app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', (socket) => {
-    // 🔥 SAAS : On enferme ce client/caissier dans la chambre de son propre café
-    if (socket.cafeId) {
-        socket.join(socket.cafeId);
-    }
+    if (socket.cafeId) socket.join(socket.cafeId);
 });
 
 // ========== 1. CONNEXION MONGODB ATLAS ==========
