@@ -19,8 +19,41 @@ const SUPER_ADMIN_TOKEN = process.env.SUPER_ADMIN_TOKEN || 'SARBINI_BOSS_2026';
 io.use(async (socket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers['authorization'];
     const host = socket.handshake.headers.host || '';
-    socket.cafeId = host.split('.')[0]; 
+// 🛡️ LE GARDE-BARRIÈRE (Middleware de vérification)
+const verifierExistenceCafe = async (req, res, next) => {
+    const host = req.headers.host; // ex: fathi.sarbini.click
+    const subdomain = host.split('.')[0];
 
+    // 1. On laisse passer si c'est le domaine principal ou le www
+    if (host === 'sarbini.click' || subdomain === 'www') {
+        return next();
+    }
+
+    // 2. On vérifie si ce café existe dans la base de données
+    try {
+        const cafeExistant = await StoreSettings.findOne({ cafeId: subdomain, type: 'branding' });
+
+        if (!cafeExistant) {
+            // ❌ LE CAFE N'EXISTE PAS
+            // On renvoie un 404 avec une page totalement vide
+            return res.status(404).send(`
+                <html>
+                    <head><title>404 Not Found</title></head>
+                    <body style="background:#000; color:#000;"></body>
+                </html>
+            `);
+        }
+
+        // ✅ LE CAFE EXISTE, on continue
+        req.cafeId = subdomain;
+        next();
+    } catch (err) {
+        res.status(500).send("Erreur serveur");
+    }
+};
+
+// 🚀 APPLIQUER LE GARDE-BARRIÈRE À TOUTES LES REQUÊTES
+app.use(verifierExistenceCafe);
     if (socket.handshake.query.clientType === 'customer') return next();
 
     try {
