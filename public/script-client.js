@@ -20,6 +20,29 @@ let panier = [];
 let produits = []; 
 let categorieActuelle = "all";
 let clientId = null;
+// =========================================================
+// 🔥 GESTION DE LA CONNEXION VIP PERMANENTE (SAAS)
+// =========================================================
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const authCode = urlParams.get('auth'); // Récupère le code dans l'URL (?auth=1234)
+
+    // 1. Si le client arrive via son lien VIP
+    if (authCode) {
+        // On sauvegarde son code à vie dans son téléphone !
+        localStorage.setItem('tabia_auth_qr', authCode);
+        
+        // Magie : on efface le "?auth=1234" de la barre d'adresse pour que ça fasse plus "Pro"
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // 2. Vérification automatique à chaque ouverture du site
+    const codeSauvegarde = localStorage.getItem('tabia_auth_qr');
+    if (codeSauvegarde) {
+        console.log("Client VIP reconnu automatiquement !");
+
+    }
+});
 // 🎵 MOTEUR AUDIO (Sons natifs sans fichiers)
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(type) {
