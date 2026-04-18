@@ -899,3 +899,86 @@ button:hover:not(:disabled) {
     transform: scale(1.05); /* Grossit légèrement */
     box-shadow: 0 6px 15px rgba(20, 54, 33, 0.2);
 }
+/* --- FOOTER PUB SARBINI --- */
+.sarbini-powered-footer {
+    background: transparent;
+    padding: 30px 15px 40px 15px; /* De l'espace en bas de page */
+    margin-top: 20px;
+    font-family: 'Inter', sans-serif;
+}
+
+.sarbini-footer-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 500px;
+    margin: 0 auto;
+    background: #0a0a0a; /* Fond très noir */
+    padding: 15px;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    border: 1px solid rgba(191, 149, 63, 0.15); /* Bordure or très subtile */
+    text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sarbini-footer-card:active {
+    transform: scale(0.98);
+}
+
+/* Le petit logo Éclair doré */
+.sarbini-badge {
+    background: linear-gradient(135deg, #bf953f, #b38728);
+    min-width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #000;
+    font-size: 18px;
+    box-shadow: 0 0 15px rgba(191, 149, 63, 0.3);
+}
+
+/* La typographie */
+.sarbini-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    flex-grow: 1;
+    margin-left: 15px;
+}
+
+.sarbini-text .powered {
+    color: #777;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.sarbini-text .brand {
+    color: #fff;
+    font-size: 15px;
+    letter-spacing: 3px;
+    margin: 3px 0;
+}
+
+.sarbini-text .cta {
+    color: #bf953f;
+    font-size: 10px;
+    font-style: italic;
+    opacity: 0.9;
+}
+
+/* Le faux bouton Contact */
+.sarbini-btn-contact {
+    background: rgba(191, 149, 63, 0.1);
+    color: #bf953f;
+    border: 1px solid rgba(191, 149, 63, 0.3);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
