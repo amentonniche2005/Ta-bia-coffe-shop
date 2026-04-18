@@ -1183,3 +1183,36 @@ window.deconnecterClient = function() {
             }
         }, 1500); 
     });
+
+// ==========================================
+// 🚀 LIEN DIRECT VERS PROFIL VIP (?profil=XXXX)
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const codeProfil = urlParams.get('profil');
+
+    if (codeProfil) {
+        // 1. On sauvegarde le code du client en mémoire
+        sessionStorage.setItem('tabia_auth_qr', codeProfil);
+        localStorage.setItem('tabia_auth_qr', codeProfil);
+        
+        // 2. On nettoie l'URL (le "?profil=1234" disparaît pour faire propre)
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // 3. On attend la fin du magnifique Splash Screen noir (5.2s) pour afficher la carte
+        setTimeout(() => {
+            const modal = document.getElementById('clientModal');
+            const inputCode = document.getElementById('clientLoginCode');
+            
+            if (modal && inputCode) {
+                modal.style.display = 'flex'; // Ouvre la fenêtre client
+                inputCode.value = codeProfil; // Injecte le code secrètement
+                
+                // On lance la fonction qui vérifie les points et affiche le beau design Gold
+                if (typeof window.verifierCodeClient === 'function') {
+                    window.verifierCodeClient(false); 
+                }
+            }
+        }, 5300); // 5.3 secondes de délai
+    }
+});
