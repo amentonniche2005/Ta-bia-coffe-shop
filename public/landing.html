@@ -59,7 +59,7 @@
                     <div class="w-10 h-10 rounded-full bg-sarbini-card border border-sarbini-neon/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,242,254,0.3)]">
                         <i class="fas fa-bolt text-sarbini-neon text-xl"></i>
                     </div>
-                    <span class="font-black text-2xl tracking-wider">SARBINI<span class="text-sarbini-neon">.</span></span>
+                    <span class="font-black text-2xl tracking-wider">SARBINI<span class="text-sarbini-neon">.<span class="font-black text-2xl tracking-wider">CLICK</span></span></span>
                 </div>
                 <div class="hidden md:flex space-x-10 items-center font-semibold text-slate-300">
                     <a href="#solutions" class="hover:text-sarbini-neon transition">Nos Modules</a>
@@ -338,25 +338,58 @@
                     <p class="text-slate-400 text-lg">Remplissez ce formulaire. Notre équipe créera et déploiera l'instance de votre restaurant en moins de 24 heures.</p>
                 </div>
 
-                <form class="space-y-6 relative z-10">
+<form id="formLead" class="space-y-6 relative z-10">
                     <div class="grid md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Nom de l'établissement</label>
-                            <input type="text" class="w-full bg-slate-900/80 border border-slate-600 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-sarbini-neon focus:ring-1 focus:ring-sarbini-neon transition shadow-inner" placeholder="Ex: Ta'bia Coffee Shop">
+                            <input type="text" id="leadCafe" class="w-full bg-slate-900/80 border border-slate-600 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-sarbini-neon focus:ring-1 focus:ring-sarbini-neon transition shadow-inner" placeholder="Ex: Ta'bia Coffee Shop" required>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Votre Nom (Gérant)</label>
-                            <input type="text" class="w-full bg-slate-900/80 border border-slate-600 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-sarbini-neon focus:ring-1 focus:ring-sarbini-neon transition shadow-inner" placeholder="Ex: Ahmed">
+                            <input type="text" id="leadNom" class="w-full bg-slate-900/80 border border-slate-600 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-sarbini-neon focus:ring-1 focus:ring-sarbini-neon transition shadow-inner" placeholder="Ex: Ahmed" required>
                         </div>
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Numéro de téléphone / WhatsApp</label>
-                        <input type="tel" class="w-full bg-slate-900/80 border border-slate-600 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-sarbini-neon focus:ring-1 focus:ring-sarbini-neon transition shadow-inner" placeholder="+216 ...">
+                        <input type="tel" id="leadTel" class="w-full bg-slate-900/80 border border-slate-600 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-sarbini-neon focus:ring-1 focus:ring-sarbini-neon transition shadow-inner" placeholder="+216 ..." required>
                     </div>
-                    <button type="button" onclick="alert('Demande envoyée ! Le déploiement de votre instance va commencer.')" class="w-full bg-sarbini-neon text-black font-black py-5 rounded-2xl text-xl glow-button mt-6 flex items-center justify-center gap-3">
-                        Créer mon Système Sarbini <i class="fas fa-paper-plane"></i>
+
+                    <div id="leadMessage" class="hidden text-center font-bold p-3 rounded-xl"></div>
+
+                    <button type="button" onclick="envoyerSurWhatsApp()" class="w-full bg-sarbini-neon text-black font-black py-5 rounded-2xl text-xl glow-button mt-6 flex items-center justify-center gap-3">
+                        Créer mon Système Sarbini <i class="fab fa-whatsapp text-2xl ml-1"></i>
                     </button>
                 </form>
+
+                <script>
+                    function envoyerSurWhatsApp() {
+                        const msgDiv = document.getElementById('leadMessage');
+                        const cafe = document.getElementById('leadCafe').value.trim();
+                        const nom = document.getElementById('leadNom').value.trim();
+                        const tel = document.getElementById('leadTel').value.trim();
+
+                        // Vérification que les champs sont remplis
+                        if (!cafe || !tel) {
+                            msgDiv.textContent = "⚠️ Veuillez remplir le nom du café et votre téléphone.";
+                            msgDiv.className = "text-red-400 bg-red-400/10 text-center font-bold p-3 rounded-xl block mt-4";
+                            return;
+                        }
+
+                        // Construction du message WhatsApp propre
+                        const monNumero = "21654567939";
+                        const message = `🚀 *NOUVELLE DEMANDE SARBINI SYSTEM* 🚀\n\n🏢 *Café:* ${cafe}\n👤 *Gérant:* ${nom || "Non précisé"}\n📞 *Téléphone:* ${tel}\n\nBonjour, je souhaite déployer le système Sarbini pour mon établissement.`;
+                        
+                        // Encodage du texte pour l'URL
+                        const urlWhatsApp = `https://wa.me/${monNumero}?text=${encodeURIComponent(message)}`;
+
+                        // Affiche un petit message sur le site
+                        msgDiv.innerHTML = "✅ <b>Redirection vers WhatsApp en cours...</b>";
+                        msgDiv.className = "text-emerald-400 bg-emerald-400/10 text-center font-bold p-4 rounded-xl block mt-4";
+
+                        // Ouvre WhatsApp dans un nouvel onglet
+                        window.open(urlWhatsApp, '_blank');
+                    }
+                </script>
             </div>
         </div>
     </section>
