@@ -21,38 +21,54 @@ let produits = [];
 let categorieActuelle = "all";
 let clientId = null;
 // =========================================================
-// 🔥 LE SCANNER STRICT (FONCTIONNEMENT RENDER ORIGINAL)
+// 🔥 LE SCANNER STRICT (VERSION BLINDÉE 100%)
 // =========================================================
 document.addEventListener("DOMContentLoaded", async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const authUrl = urlParams.get('auth');
+    
+    // 💡 CORRECTION 1 : Accepte les majuscules et les minuscules (?auth= ou ?AUTH=)
+    const authUrl = urlParams.get('auth') || urlParams.get('AUTH') || urlParams.get('Auth');
     const tableUrl = urlParams.get('table');
 
     // 1. LIEN VIP AVEC CODE DIRECT (?auth=1234)
     if (authUrl && !tableUrl) {
+        
+        // 💡 CORRECTION 2 : On t'affiche un message tout de suite pour te prouver que ça marche !
+        setTimeout(() => {
+            if (typeof afficherNotification === 'function') {
+                afficherNotification("✨ Accès VIP détecté !", "success");
+            }
+        }, 1000);
+
         localStorage.setItem('tabia_auth_qr', authUrl);
         sessionStorage.setItem('tabia_auth_qr', authUrl);
-        window.history.replaceState({}, document.title, "/");
+        
+        // Nettoyage de l'URL
+        window.history.replaceState({}, document.title, window.location.pathname);
 
-        // On ouvre la carte VIP directement après l'écran noir (5.3s)
+        // 💡 CORRECTION 3 : On attend 5.5s (pour être SÛR que l'écran noir a disparu)
         setTimeout(() => {
             const modal = document.getElementById('clientModal');
             const inputCode = document.getElementById('clientLoginCode');
+            
             if (modal && inputCode) {
-                modal.style.display = 'flex';
-                inputCode.value = authUrl;
+                modal.style.display = 'flex'; // Ouvre la fenêtre de force
+                inputCode.value = authUrl; // Rentre le code
+                
                 if (typeof window.verifierCodeClient === 'function') {
-                    window.verifierCodeClient(false); // Charge et affiche la carte VIP
+                    window.verifierCodeClient(false); // Lance la vérification
                 }
+            } else {
+                console.error("Erreur : Impossible de trouver la fenêtre clientModal");
             }
-        }, 5300);
+        }, 5500); 
     }
 
     // 2. LIEN DE TABLE SCANNÉ (?table=4)
     if (tableUrl) {
         sessionStorage.setItem('tabia_table_qr', tableUrl);
         if (authUrl) sessionStorage.setItem('tabia_auth_qr', authUrl);
-        window.history.replaceState({}, document.title, "/");
+        window.history.replaceState({}, document.title, window.location.pathname);
         
         setTimeout(() => { 
             if (typeof afficherNotification === 'function') afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
@@ -85,14 +101,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             const savedCode = sessionStorage.getItem('tabia_auth_qr') || localStorage.getItem('tabia_auth_qr');
             
             if (savedCode) {
-                // S'il a déjà un code, on vérifie et on affiche sa carte
                 document.getElementById('clientLoginCode').value = savedCode;
                 if (typeof window.verifierCodeClient === 'function') window.verifierCodeClient(true);
             } else {
-                // SINON : ON AFFICHE LA PARTIE POUR ÉCRIRE LE CODE (Comme avant !)
                 document.getElementById('clientLoginSection').style.display = 'block';
                 document.getElementById('clientProfileSection').style.display = 'none';
-                document.getElementById('clientLoginCode').value = ""; // Vide la case
+                document.getElementById('clientLoginCode').value = ""; 
             }
         });
 
@@ -200,7 +214,7 @@ async function appliquerBranding() {
                     splash.style.display = 'none'; // Supprime après le fondu
                 }, 800);
             }
-        }, 5200); 
+        }, 4000); 
 
     } catch (error) {
         console.error("Erreur lors du chargement du branding:", error);
