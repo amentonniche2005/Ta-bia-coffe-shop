@@ -239,7 +239,6 @@ app.use(express.json());
 // 🚀 ON ACTIVE LE GARDE-BARRIÈRE
 app.use(verifierExistenceCafe);
 
-app.use(express.static(path.join(__dirname, 'public')));
 
 // 🔥 Le portier qui vérifie chaque action du caissier
 async function verifierToken(req, res, next) {
