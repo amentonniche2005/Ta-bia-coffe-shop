@@ -21,23 +21,20 @@ let produits = [];
 let categorieActuelle = "all";
 let clientId = null;
 // =========================================================
-// 🔥 LE SEUL ET UNIQUE SCANNER (SANS AUCUN DOUBLON)
+// 🔥 LE SCANNER STRICT (FONCTIONNEMENT RENDER ORIGINAL)
 // =========================================================
 document.addEventListener("DOMContentLoaded", async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const authUrl = urlParams.get('auth');
     const tableUrl = urlParams.get('table');
 
-    // 1. SI LE LIEN CONTIENT UN CODE VIP (ex: ?auth=1234)
+    // 1. LIEN VIP AVEC CODE DIRECT (?auth=1234)
     if (authUrl && !tableUrl) {
-        // Enregistre dans le téléphone
         localStorage.setItem('tabia_auth_qr', authUrl);
         sessionStorage.setItem('tabia_auth_qr', authUrl);
-
-        // Nettoie la barre d'adresse
         window.history.replaceState({}, document.title, "/");
 
-        // L'ORDRE D'OUVRIR LA FENÊTRE VIP : on attend 5.3s que ton splash screen finisse
+        // On ouvre la carte VIP directement après l'écran noir (5.3s)
         setTimeout(() => {
             const modal = document.getElementById('clientModal');
             const inputCode = document.getElementById('clientLoginCode');
@@ -45,24 +42,24 @@ document.addEventListener("DOMContentLoaded", async () => {
                 modal.style.display = 'flex';
                 inputCode.value = authUrl;
                 if (typeof window.verifierCodeClient === 'function') {
-                    window.verifierCodeClient(false); 
+                    window.verifierCodeClient(false); // Charge et affiche la carte VIP
                 }
             }
         }, 5300);
     }
 
-    // 2. SI C'EST UN QR CODE DE TABLE (ex: ?table=4)
+    // 2. LIEN DE TABLE SCANNÉ (?table=4)
     if (tableUrl) {
         sessionStorage.setItem('tabia_table_qr', tableUrl);
         if (authUrl) sessionStorage.setItem('tabia_auth_qr', authUrl);
-        
         window.history.replaceState({}, document.title, "/");
+        
         setTimeout(() => { 
             if (typeof afficherNotification === 'function') afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
         }, 5300);
     }
 
-    // 3. SUITE DU CHARGEMENT NORMAL
+    // 3. CHARGEMENT NORMAL DU RESTE DE L'APPLICATION
     clientId = getClientId();
     await chargerCatalogue();
     chargerPanier();
@@ -78,24 +75,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     initClientSocket();
     configurerEvenements();
     
-    // Bouton Espace Client
+    // 4. LE BOUTON ESPACE CLIENT (C'EST ICI QUE TOUT SE JOUE)
     const btnEspace = document.getElementById('btnEspaceClient');
     if (btnEspace) {
         btnEspace.addEventListener('click', () => {
-            document.getElementById('clientModal').style.display = 'flex';
+            const modal = document.getElementById('clientModal');
+            modal.style.display = 'flex'; // Ouvre la fenêtre
+            
             const savedCode = sessionStorage.getItem('tabia_auth_qr') || localStorage.getItem('tabia_auth_qr');
+            
             if (savedCode) {
+                // S'il a déjà un code, on vérifie et on affiche sa carte
                 document.getElementById('clientLoginCode').value = savedCode;
                 if (typeof window.verifierCodeClient === 'function') window.verifierCodeClient(true);
+            } else {
+                // SINON : ON AFFICHE LA PARTIE POUR ÉCRIRE LE CODE (Comme avant !)
+                document.getElementById('clientLoginSection').style.display = 'block';
+                document.getElementById('clientProfileSection').style.display = 'none';
+                document.getElementById('clientLoginCode').value = ""; // Vide la case
             }
         });
+
+        // Si on connaît déjà son nom, on l'affiche sur le bouton
         if (sessionStorage.getItem('client_nom_premium')) {
             const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
             btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
         }
     }
 
-    // Dark Mode
+    // 5. DARK MODE
     const btnDark = document.getElementById('darkModeToggle');
     if (localStorage.getItem('tabia_darkmode') === 'true') {
         document.body.classList.add('dark-mode');
