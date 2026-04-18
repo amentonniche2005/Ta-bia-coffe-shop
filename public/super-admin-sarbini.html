@@ -1,362 +1,412 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sarbini SaaS - Control Center</title>
+    <title>Sarbini SaaS | COMMAND CENTER</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'], mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'] },
+                    colors: {
+                        deep: '#030712', surface: '#111827', surface2: '#1f2937', 
+                        neon: '#00F2FE', alert: '#f43f5e', warning: '#f59e0b', success: '#10b981'
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        :root { 
-            --bg-dark: #0b1120; 
-            --card-bg: #111827; 
-            --primary: #00F2FE; 
-            --secondary: #4FACFE; 
-            --danger: #ef4444; 
-            --text-main: #f8fafc; 
-            --text-muted: #94a3b8;
-            --border: rgba(255, 255, 255, 0.05);
-        }
+        body { background-color: #030712; color: #f8fafc; overflow-x: hidden; }
+        /* Effet Grille "War Room" en fond */
+        .bg-grid { background-size: 40px 40px; background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px); }
         
-        body { 
-            font-family: 'Outfit', sans-serif; 
-            background: var(--bg-dark); 
-            color: var(--text-main); 
-            margin: 0; 
-            padding: 20px; 
-            background-image: radial-gradient(circle at top right, rgba(0, 242, 254, 0.05), transparent 40%);
-        }
+        /* Composants Glassmorphism */
+        .glass-panel { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .input-tech { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; transition: all 0.3s; }
+        .input-tech:focus { border-color: #00F2FE; box-shadow: 0 0 15px rgba(0, 242, 254, 0.2); outline: none; }
+        
+        /* Animations LED */
+        .led-green { box-shadow: 0 0 10px #10b981, inset 0 0 5px #10b981; animation: pulse-green 2s infinite; }
+        .led-red { box-shadow: 0 0 10px #f43f5e, inset 0 0 5px #f43f5e; animation: pulse-red 1s infinite; }
+        @keyframes pulse-green { 0% { opacity: 0.7; } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0.7; } }
+        @keyframes pulse-red { 0% { opacity: 0.5; } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.5; } }
 
-        .header { text-align: center; margin-bottom: 40px; }
-        .header h1 { font-weight: 800; font-size: 2.5rem; letter-spacing: 2px; margin-bottom: 5px; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .header p { color: var(--text-muted); margin: 0; font-size: 1rem; }
+        /* Scrollbar tech */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #030712; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00F2FE; }
 
-        .container { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 380px 1fr; gap: 30px; }
-        
-        @media (max-width: 800px) { .container { grid-template-columns: 1fr; } }
-
-        .card { 
-            background: var(--card-bg); padding: 25px; border-radius: 16px; 
-            border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
-        }
-
-        h2 { margin-top: 0; color: #fff; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
-        
-        .input-group { margin-top: 15px; }
-        .input-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-        .input-group input { width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; box-sizing: border-box; font-family: 'Outfit', sans-serif; transition: 0.3s; }
-        .input-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 10px rgba(0, 242, 254, 0.2); }
-        .input-group input[type="color"] { height: 45px; padding: 2px; cursor: pointer; }
-
-        .btn { width: 100%; padding: 14px; margin-top: 25px; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .btn:active { transform: scale(0.98); }
-        
-        .btn-deploy { background: linear-gradient(45deg, var(--primary), var(--secondary)); color: #000; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3); }
-        .btn-deploy:hover { box-shadow: 0 6px 20px rgba(0, 242, 254, 0.5); }
-        
-        .stats-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: var(--card-bg); padding: 15px 20px; border-radius: 12px; border: 1px solid var(--border); }
-        .search-box { background: rgba(0,0,0,0.2); border: 1px solid var(--border); padding: 8px 15px; border-radius: 20px; color: white; font-family: 'Outfit'; outline: none; width: 200px;}
-        
-        .cafe-list { display: grid; gap: 15px; max-height: 70vh; overflow-y: auto; padding-right: 5px; }
-        .cafe-list::-webkit-scrollbar { width: 6px; }
-        .cafe-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
-
-        .cafe-item { background: rgba(255,255,255,0.03); padding: 18px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid var(--primary); transition: 0.2s; border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-        .cafe-item:hover { background: rgba(255,255,255,0.06); transform: translateX(5px); }
-        
-        .cafe-info { display: flex; align-items: center; gap: 15px; }
-        .cafe-logo { width: 55px; height: 55px; border-radius: 12px; object-fit: cover; background: #000; border: 2px solid rgba(255,255,255,0.1); }
-        .cafe-details h3 { margin: 0 0 5px 0; font-size: 1.1rem; }
-        .cafe-details .domain { font-size: 0.75rem; color: var(--primary); background: rgba(0, 242, 254, 0.1); padding: 3px 8px; border-radius: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
-        .cafe-details .domain:hover { background: rgba(0, 242, 254, 0.2); }
-        
-        .action-btns { display: flex; gap: 10px; }
-        .btn-icon { background: rgba(255,255,255,0.1); color: white; border: none; width: 35px; height: 35px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
-        .btn-icon:hover { background: rgba(255,255,255,0.2); }
-        .btn-edit:hover { background: #f1c40f; color: #000; }
-        .btn-delete:hover { background: var(--danger); color: white; }
-        .btn-copy:hover { background: var(--primary); color: #000; }
-
-        /* Toast Notifications */
-        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
-        .toast { background: var(--card-bg); border-left: 4px solid var(--primary); color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-size: 0.9rem; animation: slideIn 0.3s ease-out forwards; display: flex; align-items: center; gap: 10px; }
+        /* Custom Toast */
+        .toast-enter { animation: slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
-<body>
+<body class="bg-grid min-h-screen pb-10">
 
-<div class="header">
-    <h1>SARBINI SAAS</h1>
-    <p>Centre de Déploiement & Cloud Control</p>
-</div>
+    <nav class="glass-panel sticky top-0 z-50 border-b border-slate-800">
+        <div class="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <i class="fas fa-satellite-dish text-neon text-2xl animate-pulse"></i>
+                <div>
+                    <h1 class="font-black text-xl tracking-widest leading-none">SARBINI<span class="text-neon">.CLICK</span></h1>
+                    <span class="text-[0.65rem] text-slate-400 font-mono tracking-[0.2em] uppercase">Global Control Center</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-slate-800">
+                    <i class="fas fa-key text-slate-500 text-sm"></i>
+                    <input type="password" id="masterKey" class="bg-transparent border-none text-slate-300 text-sm w-40 focus:outline-none font-mono placeholder-slate-600" placeholder="Master Key...">
+                </div>
+                <div class="flex items-center gap-2 text-xs font-mono bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20">
+                    <div class="w-2 h-2 rounded-full bg-emerald-500 led-green"></div>
+                    SYSTEM ONLINE
+                </div>
+            </div>
+        </div>
+    </nav>
 
-<div class="container">
-    <div class="card">
-        <h2><i class="fas fa-rocket" style="color: var(--primary);"></i> Instance Client</h2>
+    <div class="max-w-[1400px] mx-auto px-6 mt-8">
         
-        <div class="input-group">
-            <label>Clé Master d'Authentification</label>
-            <input type="password" id="masterKey" value="SARBINI_BOSS_2026">
-        </div>
-        
-        <div class="input-group">
-            <label>Sous-domaine (ID Unique)</label>
-            <input type="text" id="cafeId" placeholder="ex: tabia">
-        </div>
-        
-        <div class="input-group">
-            <label>Nom Public de l'Établissement</label>
-            <input type="text" id="nomCafe" placeholder="Ex: TA'BIA Coffee">
-        </div>
-        
-        <div class="input-group">
-            <label>Slogan (Ex: Bar, Fast-Food...)</label>
-            <input type="text" id="sloganCafe" placeholder="Ex: Coffee Shop">
-        </div>
-
-        <div class="input-group">
-            <label>Mot de Passe Système Caisse 🔒</label>
-            <input type="text" id="caisseToken" placeholder="ex: tabia2026">
-        </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-            <div class="input-group">
-                <label>Nom du fichier Logo</label>
-                <input type="text" id="logoUrl" placeholder="logo.jpg" value="logo.jpg">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-neon flex items-center justify-between">
+                <div>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Instances Déployées</p>
+                    <h3 class="text-3xl font-black text-white" id="kpi-total">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-neon/10 flex items-center justify-center text-neon text-xl"><i class="fas fa-server"></i></div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-success flex items-center justify-between">
+                <div>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Abonnements Actifs</p>
+                    <h3 class="text-3xl font-black text-success" id="kpi-actifs">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center text-success text-xl"><i class="fas fa-check-circle"></i></div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-alert flex items-center justify-between">
+                <div>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Impayés / Suspendus</p>
+                    <h3 class="text-3xl font-black text-alert" id="kpi-suspendus">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-alert/10 flex items-center justify-center text-alert text-xl"><i class="fas fa-lock"></i></div>
             </div>
         </div>
 
-        <button class="btn btn-deploy" onclick="creerCafe()" id="deployBtn">
-            <i class="fas fa-cloud-upload-alt"></i> INITIALISER LE CAFÉ
-        </button>
-    </div>
-
-    <div>
-        <div class="stats-bar">
-            <div>
-                <span style="color: var(--text-muted); font-size: 0.9rem;">Clients Actifs :</span>
-                <strong style="font-size: 1.2rem; margin-left: 5px; color: var(--primary);" id="totalCafes">0</strong>
-            </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="searchCafe" class="search-box" placeholder="Rechercher un café..." onkeyup="filtrerCafes()">
-                <button class="btn-icon" onclick="chargerCafes()" title="Rafraîchir"><i class="fas fa-sync-alt"></i></button>
-            </div>
-        </div>
-
-        <div id="liste" class="cafe-list">
-            </div>
-    </div>
-</div>
-
-<div id="toast-container"></div>
-
-<script>
-    const MASTER_URL = "sarbini.click";
-    let cafesData = []; 
-
-    // --- Système de Notification ---
-    function showToast(message, type = 'success') {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.style.borderLeftColor = type === 'error' ? 'var(--danger)' : (type === 'warning' ? '#f1c40f' : 'var(--primary)');
-        toast.innerHTML = `<i class="fas ${type === 'error' ? 'fa-exclamation-circle' : (type === 'warning' ? 'fa-pen' : 'fa-check-circle')}"></i> ${message}`;
-        container.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
-    }
-
-    function copyPassword(pwd) {
-        navigator.clipboard.writeText(pwd).then(() => showToast("Mot de passe copié !"));
-    }
-
-async function chargerCafes() {
-        const key = document.getElementById('masterKey').value;
-        const container = document.getElementById('liste');
-        container.innerHTML = "<div style='text-align:center; padding: 20px;'><i class='fas fa-spinner fa-spin fa-2x' style='color:var(--primary);'></i></div>";
-
-        try {
-            // 🔥 CORRECTION : On désactive le cache et on ajoute un "Time Stamp" pour forcer la mise à jour !
-            const res = await fetch('/api/admin/cafes?t=' + Date.now(), { 
-                headers: { 'authorization': key },
-                cache: 'no-store' 
-            });
+        <div class="grid lg:grid-cols-12 gap-8">
             
-            if (!res.ok) {
-                showToast(`Erreur d'authentification`, 'error');
-                return container.innerHTML = `<span style="color:var(--danger);">Accès refusé. Vérifiez la clé Master.</span>`;
-            }
-            
-            cafesData = await res.json();
-            document.getElementById('totalCafes').innerText = cafesData.length;
-            afficherListe(cafesData);
+            <div class="lg:col-span-4">
+                <div class="glass-panel rounded-3xl p-6 relative overflow-hidden" id="formContainer">
+                    <div class="absolute -top-20 -right-20 w-64 h-64 bg-neon/5 rounded-full blur-[50px] pointer-events-none"></div>
+                    
+                    <h2 class="text-xl font-black mb-6 flex items-center gap-3">
+                        <i class="fas fa-rocket text-neon"></i> Console de Déploiement
+                    </h2>
 
-        } catch(e) { 
-            showToast('Serveur injoignable', 'error');
-            container.innerHTML = "<span style='color:var(--danger);'>Erreur de connexion.</span>"; 
-        }
-    }
-
-// --- L'AFFICHAGE DE LA LISTE MIS À JOUR ---
-    function afficherListe(liste) {
-        const container = document.getElementById('liste');
-        if (liste.length === 0) return container.innerHTML = "<div style='color:var(--text-muted); text-align:center; padding: 30px;'><i class='fas fa-box-open fa-2x'></i><br>Aucun café déployé.</div>";
-        
-        container.innerHTML = "";
-        liste.forEach(c => {
-            const siteUrl = `https://${c.cafeId}.${MASTER_URL}`;
-            const estSuspendu = c.statutAbonnement === 'suspendu';
-            
-            // Design conditionnel selon le statut
-            const badgeCouleur = estSuspendu ? '#e74c3c' : '#2ecc71';
-            const badgeTexte = estSuspendu ? 'SUSPENDU' : 'ACTIF';
-            const btnPowerIcon = estSuspendu ? 'fa-play' : 'fa-pause';
-            const btnPowerColor = estSuspendu ? '#2ecc71' : '#e67e22';
-            const btnPowerTitle = estSuspendu ? 'Réactiver le café' : 'Suspendre (Impayé)';
-
-            const div = document.createElement('div');
-            div.className = "cafe-item";
-            div.style.borderLeftColor = c.couleurPrincipale || 'var(--primary)';
-            div.style.opacity = estSuspendu ? "0.6" : "1"; // Grise un peu la carte si suspendu
-            
-            div.innerHTML = `
-                <div class="cafe-info">
-                    <img src="${c.logoUrl || 'https://via.placeholder.com/50'}" class="cafe-logo" onerror="this.src='https://via.placeholder.com/50/000/FFF?text=IMG'">
-                    <div class="cafe-details">
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <h3>${c.nomCafe || 'Sans Nom'}</h3>
-                            <span style="background: ${badgeCouleur}20; color: ${badgeCouleur}; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem; font-weight: bold; border: 1px solid ${badgeCouleur}50;">${badgeTexte}</span>
+                    <div class="space-y-5 relative z-10">
+                        <div class="p-4 bg-black/30 rounded-2xl border border-slate-800/50">
+                            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">1. Configuration Réseau</h3>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-300 mb-1">Sous-domaine (ID) <span class="text-alert">*</span></label>
+                                <div class="flex">
+                                    <input type="text" id="cafeId" class="input-tech rounded-l-xl px-4 py-3 w-full text-neon font-mono" placeholder="ex: lorient">
+                                    <span class="bg-surface2 border border-l-0 border-white/10 rounded-r-xl px-3 py-3 text-slate-400 text-sm flex items-center font-mono">.sarbini.click</span>
+                                </div>
+                            </div>
                         </div>
-                        <a href="${siteUrl}" target="_blank" class="domain"><i class="fas fa-external-link-alt"></i> ${c.cafeId}.${MASTER_URL}</a>
+
+                        <div class="p-4 bg-black/30 rounded-2xl border border-slate-800/50">
+                            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">2. Identité Client</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-300 mb-1">Nom de l'établissement</label>
+                                    <input type="text" id="nomCafe" class="input-tech rounded-xl px-4 py-3 w-full" placeholder="Ex: L'Orient Café">
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-300 mb-1">Slogan</label>
+                                        <input type="text" id="sloganCafe" class="input-tech rounded-xl px-4 py-3 w-full" placeholder="Coffee Shop">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-300 mb-1">Logo (Fichier)</label>
+                                        <input type="text" id="logoUrl" class="input-tech rounded-xl px-4 py-3 w-full" placeholder="logo.jpg" value="logo.jpg">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 bg-black/30 rounded-2xl border border-slate-800/50">
+                            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">3. Accès & Sécurité</h3>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-300 mb-1">Mot de Passe Caisse <i class="fas fa-lock text-slate-500"></i></label>
+                                <input type="text" id="caisseToken" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-warning" placeholder="ex: lorient2026">
+                            </div>
+                        </div>
+
+                        <button id="deployBtn" onclick="creerCafe()" class="w-full bg-neon text-black font-black py-4 rounded-xl text-sm tracking-wide shadow-[0_0_20px_rgba(0,242,254,0.3)] hover:shadow-[0_0_30px_rgba(0,242,254,0.5)] transition hover:scale-[1.02] flex items-center justify-center gap-2 uppercase mt-4">
+                            <i class="fas fa-cloud-upload-alt"></i> Créer / Mettre à jour l'instance
+                        </button>
                     </div>
                 </div>
-                <div class="action-btns">
-                    <button class="btn-icon" onclick="basculerStatut('${c.cafeId}', '${estSuspendu ? 'actif' : 'suspendu'}')" title="${btnPowerTitle}" style="color: ${btnPowerColor};"><i class="fas ${btnPowerIcon}"></i></button>
+            </div>
+
+            <div class="lg:col-span-8">
+                <div class="glass-panel rounded-3xl p-6 h-full flex flex-col">
                     
-                    <button class="btn-icon btn-edit" onclick="editerCafe('${c.cafeId}')" title="Modifier le Design"><i class="fas fa-paint-brush"></i></button>
-                    <button class="btn-icon btn-copy" onclick="copyPassword('${c.caisseToken || '12345678'}')" title="Copier le MDP"><i class="fas fa-key"></i></button>
-                    <button class="btn-icon btn-delete" onclick="supprimerCafe('${c.cafeId}')" title="Détruire (Irréversible)"><i class="fas fa-trash-alt"></i></button>
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                        <h2 class="text-xl font-black flex items-center gap-3">
+                            <i class="fas fa-network-wired text-slate-400"></i> Serveurs Actifs
+                        </h2>
+                        <div class="flex items-center gap-3 w-full md:w-auto">
+                            <div class="relative w-full md:w-64">
+                                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                                <input type="text" id="searchCafe" onkeyup="filtrerCafes()" class="input-tech rounded-full pl-10 pr-4 py-2.5 w-full text-sm" placeholder="Rechercher une instance...">
+                            </div>
+                            <button onclick="chargerCafes()" class="bg-surface2 border border-slate-700 hover:border-neon hover:text-neon text-slate-300 w-11 h-11 rounded-full flex items-center justify-center transition shadow-lg">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="liste" class="flex-1 overflow-y-auto pr-2 space-y-4" style="max-height: calc(100vh - 300px);">
+                        </div>
+
                 </div>
-            `;
-            container.appendChild(div);
+            </div>
+
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3"></div>
+
+    <script>
+        const MASTER_URL = "sarbini.click";
+        let cafesData = []; 
+
+        // Initialisation de la clé Master au chargement
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem('sarbini_master_key');
+            if (savedKey) document.getElementById('masterKey').value = savedKey;
+
+            // Sauvegarde auto quand on tape
+            document.getElementById('masterKey').addEventListener('input', (e) => {
+                localStorage.setItem('sarbini_master_key', e.target.value);
+            });
+
+            chargerCafes();
         });
-    }
 
-    // --- LA NOUVELLE FONCTION POUR SUSPENDRE/RÉACTIVER ---
-    async function basculerStatut(id, nouveauStatut) {
-        const action = nouveauStatut === 'suspendu' ? "suspendre" : "réactiver";
-        if(!confirm(`Voulez-vous vraiment ${action} le café "${id}" ?`)) return;
-        
-        const key = document.getElementById('masterKey').value;
-        try {
-            const res = await fetch(`/api/admin/cafes/${id}/statut`, { 
-                method: 'PUT', 
-                headers: { 'Content-Type': 'application/json', 'authorization': key },
-                body: JSON.stringify({ statut: nouveauStatut })
-            });
+        // --- Système de Notification ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
             
-            if(res.ok) {
-                showToast(`Instance ${id} ${nouveauStatut}.`);
-                chargerCafes(); // Recharge la liste pour mettre à jour les couleurs
-            } else {
-                showToast("Échec de l'opération.", "error");
+            let color = type === 'error' ? 'border-alert text-alert' : (type === 'warning' ? 'border-warning text-warning' : 'border-neon text-neon');
+            let icon = type === 'error' ? 'fa-times-circle' : (type === 'warning' ? 'fa-exclamation-triangle' : 'fa-check-circle');
+            let bg = type === 'error' ? 'bg-alert/10' : (type === 'warning' ? 'bg-warning/10' : 'bg-neon/10');
+
+            toast.className = `toast-enter glass-panel px-5 py-4 rounded-xl border-l-4 ${color} ${bg} shadow-lg flex items-center gap-3 w-80`;
+            toast.innerHTML = `<i class="fas ${icon} text-xl"></i> <span class="font-semibold text-sm text-white">${message}</span>`;
+            
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all 0.3s'; setTimeout(() => toast.remove(), 300); }, 4000);
+        }
+
+        function copyPassword(pwd) {
+            navigator.clipboard.writeText(pwd).then(() => showToast("Mot de passe caisse copié !", "success"));
+        }
+
+        async function chargerCafes() {
+            const key = document.getElementById('masterKey').value;
+            const container = document.getElementById('liste');
+            container.innerHTML = `<div class="flex flex-col items-center justify-center h-40 text-neon"><i class="fas fa-circle-notch fa-spin fa-3x mb-4"></i><p class="font-mono text-sm tracking-widest uppercase">Connexion aux serveurs...</p></div>`;
+
+            try {
+                const res = await fetch('/api/admin/cafes?t=' + Date.now(), { headers: { 'authorization': key }, cache: 'no-store' });
+                if (!res.ok) {
+                    showToast(`Clé Master invalide`, 'error');
+                    return container.innerHTML = `<div class="p-4 bg-alert/10 border border-alert/30 rounded-xl text-alert text-center font-bold"><i class="fas fa-lock mb-2 text-2xl"></i><br>Accès Refusé. Vérifiez la Master Key.</div>`;
+                }
+                cafesData = await res.json();
+                mettreAJourKPIs(cafesData);
+                afficherListe(cafesData);
+            } catch(e) { 
+                showToast('Serveur injoignable', 'error');
+                container.innerHTML = `<div class="text-center text-alert font-bold p-10"><i class="fas fa-wifi fa-2x mb-3"></i><br>Erreur de communication avec le cluster.</div>`; 
             }
-        } catch(e) { showToast("Erreur réseau.", "error"); }
-    }
+        }
 
-    function filtrerCafes() {
-        const text = document.getElementById('searchCafe').value.toLowerCase();
-        const filtres = cafesData.filter(c => c.nomCafe.toLowerCase().includes(text) || c.cafeId.toLowerCase().includes(text));
-        afficherListe(filtres);
-    }
+        function mettreAJourKPIs(liste) {
+            document.getElementById('kpi-total').innerText = liste.length;
+            const actifs = liste.filter(c => c.statutAbonnement !== 'suspendu').length;
+            document.getElementById('kpi-actifs').innerText = actifs;
+            document.getElementById('kpi-suspendus').innerText = liste.length - actifs;
+        }
 
-    // --- LA FONCTION ÉDITER ---
-    function editerCafe(id) {
-        const cafe = cafesData.find(c => c.cafeId === id);
-        if (!cafe) return;
+        function afficherListe(liste) {
+            const container = document.getElementById('liste');
+            if (liste.length === 0) return container.innerHTML = `<div class="text-center p-10 text-slate-500 border border-dashed border-slate-700 rounded-2xl"><i class="fas fa-server fa-3x mb-3 opacity-50"></i><p>Aucune instance détectée dans le cluster.</p></div>`;
+            
+            container.innerHTML = "";
+            liste.forEach(c => {
+                const siteUrl = `https://${c.cafeId}.${MASTER_URL}`;
+                const estSuspendu = c.statutAbonnement === 'suspendu';
+                
+                const cardClass = estSuspendu ? 'border-alert/30 bg-alert/5 opacity-80 grayscale-[50%]' : 'border-slate-700/50 bg-black/40 hover:border-neon/50';
+                const ledClass = estSuspendu ? 'bg-alert led-red' : 'bg-success led-green';
+                const statusText = estSuspendu ? 'Bloqué (Impayé)' : 'En Ligne';
+                const statusColor = estSuspendu ? 'text-alert' : 'text-success';
 
-        // On remplit le formulaire
-        document.getElementById('cafeId').value = cafe.cafeId;
-        document.getElementById('cafeId').readOnly = true; // On empêche de changer l'URL
-        document.getElementById('cafeId').style.opacity = "0.5";
-        
-        document.getElementById('nomCafe').value = cafe.nomCafe || '';
-        document.getElementById('sloganCafe').value = cafe.sloganCafe || 'Coffee Shop';
-        document.getElementById('caisseToken').value = cafe.caisseToken || '';
-        document.getElementById('logoUrl').value = cafe.logoUrl || 'logo.jpg';
-
-        // On change le bouton pour le mode "Mise à jour"
-        const btn = document.getElementById('deployBtn');
-        btn.innerHTML = "<i class='fas fa-sync'></i> METTRE À JOUR LE DESIGN";
-        btn.style.background = "linear-gradient(45deg, #f39c12, #e67e22)";
-        btn.style.color = "#000";
-
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        showToast(`Mode édition pour le café : ${id}`, 'warning');
-    }
-
-    // --- Créer ou Mettre à jour ---
-    async function creerCafe() {
-        const key = document.getElementById('masterKey').value;
-        const cafeId = document.getElementById('cafeId').value.toLowerCase().trim().replace(/[^a-z0-9]/g, ''); 
-        if(!cafeId) return showToast("Le sous-domaine est obligatoire !", "error");
-        
-        const btn = document.getElementById('deployBtn');
-        const isUpdate = btn.innerText.includes("METTRE À JOUR");
-        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> TRAITEMENT..."; btn.disabled = true;
-
-        const data = {
-            targetCafeId: cafeId,
-            nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
-            sloganCafe: document.getElementById('sloganCafe').value || "Coffee Shop",
-            caisseToken: document.getElementById('caisseToken').value || '12345678',
-            logoUrl: document.getElementById('logoUrl').value
-        };
-
-        try {
-            const res = await fetch('/api/branding', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'authorization': key },
-                body: JSON.stringify(data)
+                const div = document.createElement('div');
+                div.className = `p-5 rounded-2xl border transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${cardClass}`;
+                
+                div.innerHTML = `
+                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                        <div class="relative">
+                            <img src="${c.logoUrl || 'logo.jpg'}" class="w-14 h-14 rounded-xl object-cover bg-surface2 border border-white/10" onerror="this.src='https://via.placeholder.com/100/1f2937/00F2FE?text=IMG'">
+                            <div class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full ${ledClass} border-2 border-[#030712]"></div>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <h3 class="font-black text-lg leading-tight text-white">${c.nomCafe || c.cafeId.toUpperCase()}</h3>
+                                <span class="text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-white/5 border border-white/10 ${statusColor}">${statusText}</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <a href="${siteUrl}" target="_blank" class="text-xs font-mono text-neon hover:text-white transition flex items-center gap-1 bg-neon/10 px-2 py-0.5 rounded border border-neon/20">
+                                    <i class="fas fa-link"></i> ${c.cafeId}.${MASTER_URL}
+                                </a>
+                                <span class="text-xs font-mono text-slate-500"><i class="fas fa-key"></i> ${c.caisseToken || '12345678'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button onclick="copyPassword('${c.caisseToken || '12345678'}')" class="w-10 h-10 rounded-xl bg-surface2 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition flex items-center justify-center" title="Copier Mot de Passe">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button onclick="editerCafe('${c.cafeId}')" class="w-10 h-10 rounded-xl bg-surface2 border border-slate-700 text-warning hover:bg-warning/20 hover:border-warning/50 transition flex items-center justify-center" title="Modifier la config">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button onclick="basculerStatut('${c.cafeId}', '${estSuspendu ? 'actif' : 'suspendu'}')" class="w-10 h-10 rounded-xl bg-surface2 border border-slate-700 ${estSuspendu ? 'text-success hover:bg-success/20 hover:border-success/50' : 'text-alert hover:bg-alert/20 hover:border-alert/50'} transition flex items-center justify-center" title="${estSuspendu ? 'Réactiver le service' : 'Couper le service'}">
+                            <i class="fas ${estSuspendu ? 'fa-play' : 'fa-power-off'}"></i>
+                        </button>
+                        <button onclick="supprimerCafe('${c.cafeId}')" class="w-10 h-10 rounded-xl bg-surface2 border border-slate-700 text-slate-500 hover:text-alert hover:bg-alert/20 hover:border-alert/50 transition flex items-center justify-center ml-2" title="Détruire (Irréversible)">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
             });
+        }
 
-            if(res.ok) { 
-                showToast(isUpdate ? `Design mis à jour avec succès !` : `Instance déployée avec succès !`);
+        async function basculerStatut(id, nouveauStatut) {
+            const action = nouveauStatut === 'suspendu' ? "couper l'accès à" : "réactiver";
+            if(!confirm(`⚠️ CONFIRMATION\nVoulez-vous vraiment ${action} l'instance "${id}" ?`)) return;
+            
+            const key = document.getElementById('masterKey').value;
+            try {
+                const res = await fetch(`/api/admin/cafes/${id}/statut`, { 
+                    method: 'PUT', headers: { 'Content-Type': 'application/json', 'authorization': key }, body: JSON.stringify({ statut: nouveauStatut })
+                });
                 
-                // Réinitialiser le formulaire
-                document.getElementById('cafeId').value = ""; 
-                document.getElementById('cafeId').readOnly = false;
-                document.getElementById('cafeId').style.opacity = "1";
-                document.getElementById('nomCafe').value = "";
-                document.getElementById('sloganCafe').value = "";
-                document.getElementById('caisseToken').value = "";
-                
-                // Remettre le bouton normal
-                btn.innerHTML = "<i class='fas fa-cloud-upload-alt'></i> INITIALISER LE CAFÉ";
-                btn.style.background = ""; // Remet le CSS par défaut
-                
-                chargerCafes(); 
-            } else { showToast("Erreur lors de l'opération.", "error"); }
-        } catch(e) { showToast("Erreur réseau.", "error"); }
-        
-        btn.disabled = false;
-    }
+                if(res.ok) {
+                    showToast(`Instance [${id}] : ${nouveauStatut.toUpperCase()}`, nouveauStatut === 'suspendu' ? 'warning' : 'success');
+                    chargerCafes(); 
+                } else { showToast("Accès refusé ou erreur serveur.", "error"); }
+            } catch(e) { showToast("Erreur réseau.", "error"); }
+        }
 
-    async function supprimerCafe(id) {
-        if(!confirm(`ATTENTION : Voulez-vous détruire l'instance "${id}" et TOUTES ses données ?`)) return;
-        
-        const key = document.getElementById('masterKey').value;
-        try {
-            const res = await fetch(`/api/admin/cafes/${id}`, { method: 'DELETE', headers: { 'authorization': key } });
-            if(res.ok) {
-                showToast(`Instance ${id} détruite.`);
-                chargerCafes();
-            } else {
-                showToast("Échec de la suppression.", "error");
-            }
-        } catch(e) { showToast("Erreur réseau.", "error"); }
-    }
+        function filtrerCafes() {
+            const text = document.getElementById('searchCafe').value.toLowerCase();
+            const filtres = cafesData.filter(c => (c.nomCafe || '').toLowerCase().includes(text) || c.cafeId.toLowerCase().includes(text));
+            afficherListe(filtres);
+        }
 
-    window.onload = chargerCafes;
-</script>
+        function editerCafe(id) {
+            const cafe = cafesData.find(c => c.cafeId === id);
+            if (!cafe) return;
+
+            document.getElementById('cafeId').value = cafe.cafeId;
+            document.getElementById('cafeId').readOnly = true; 
+            document.getElementById('cafeId').classList.add('opacity-50', 'cursor-not-allowed');
+            
+            document.getElementById('nomCafe').value = cafe.nomCafe || '';
+            document.getElementById('sloganCafe').value = cafe.sloganCafe || 'Coffee Shop';
+            document.getElementById('caisseToken').value = cafe.caisseToken || '';
+            document.getElementById('logoUrl').value = cafe.logoUrl || 'logo.jpg';
+
+            const btn = document.getElementById('deployBtn');
+            btn.innerHTML = `<i class="fas fa-sync-alt fa-spin mr-2"></i> METTRE À JOUR [${id}]`;
+            btn.className = "w-full bg-warning text-black font-black py-4 rounded-xl text-sm tracking-wide shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] transition hover:scale-[1.02] flex items-center justify-center gap-2 uppercase mt-4";
+
+            document.getElementById('formContainer').classList.add('border-warning/50');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast(`Mode édition activé pour [${id}]`, 'warning');
+        }
+
+        async function creerCafe() {
+            const key = document.getElementById('masterKey').value;
+            const cafeId = document.getElementById('cafeId').value.toLowerCase().trim().replace(/[^a-z0-9]/g, ''); 
+            if(!cafeId) return showToast("Le sous-domaine (ID) est obligatoire.", "error");
+            
+            const btn = document.getElementById('deployBtn');
+            const isUpdate = btn.innerText.includes("METTRE À JOUR");
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> TRANSMISSION...`; 
+            btn.disabled = true;
+
+            const data = {
+                targetCafeId: cafeId,
+                nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
+                sloganCafe: document.getElementById('sloganCafe').value || "Coffee Shop",
+                caisseToken: document.getElementById('caisseToken').value || '12345678',
+                logoUrl: document.getElementById('logoUrl').value
+            };
+
+            try {
+                const res = await fetch('/api/branding', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'authorization': key }, body: JSON.stringify(data)
+                });
+
+                if(res.ok) { 
+                    showToast(isUpdate ? `Instance [${cafeId}] mise à jour.` : `Instance [${cafeId}] déployée avec succès.`, 'success');
+                    
+                    document.getElementById('cafeId').value = ""; 
+                    document.getElementById('cafeId').readOnly = false;
+                    document.getElementById('cafeId').classList.remove('opacity-50', 'cursor-not-allowed');
+                    document.getElementById('nomCafe').value = "";
+                    document.getElementById('sloganCafe').value = "";
+                    document.getElementById('caisseToken').value = "";
+                    
+                    btn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> Créer / Mettre à jour l'instance`;
+                    btn.className = "w-full bg-neon text-black font-black py-4 rounded-xl text-sm tracking-wide shadow-[0_0_20px_rgba(0,242,254,0.3)] hover:shadow-[0_0_30px_rgba(0,242,254,0.5)] transition hover:scale-[1.02] flex items-center justify-center gap-2 uppercase mt-4";
+                    document.getElementById('formContainer').classList.remove('border-warning/50');
+                    
+                    chargerCafes(); 
+                } else { showToast("Accès refusé ou ID existant.", "error"); btn.innerHTML = originalText; }
+            } catch(e) { showToast("Erreur réseau.", "error"); btn.innerHTML = originalText; }
+            
+            btn.disabled = false;
+        }
+
+        async function supprimerCafe(id) {
+            if(!confirm(`⚠️ DESTRUCTION CRITIQUE\n\nVoulez-vous DÉTRUIRE l'instance "${id}" ?\nTOUTES les commandes, clients, et produits seront effacés DÉFINITIVEMENT.`)) return;
+            
+            const key = document.getElementById('masterKey').value;
+            try {
+                const res = await fetch(`/api/admin/cafes/${id}`, { method: 'DELETE', headers: { 'authorization': key } });
+                if(res.ok) {
+                    showToast(`Instance [${id}] effacée du cluster.`, 'success');
+                    chargerCafes();
+                } else { showToast("Échec de la suppression.", "error"); }
+            } catch(e) { showToast("Erreur réseau.", "error"); }
+        }
+    </script>
 </body>
 </html>

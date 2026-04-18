@@ -907,118 +907,178 @@ button:hover:not(:disabled) {
     transform: scale(1.05); /* Grossit légèrement */
     box-shadow: 0 6px 15px rgba(20, 54, 33, 0.2);
 }
-/* --- FOOTER PUB SARBINI (100% RESPONSIVE) --- */
+/* ========================================================= */
+/* ⚡ FOOTER PUBLICITAIRE SARBINI (ADAPTATIF 100%)           */
+/* ========================================================= */
+
 .sarbini-powered-footer {
-    background: transparent;
-    padding: 30px 15px 40px 15px; 
-    margin-top: 20px;
-    font-family: 'Inter', sans-serif;
+    padding: 20px 15px 30px 15px;
+    margin-top: 40px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box; /* Empêche le débordement global */
 }
 
+/* La Carte Principale */
 .sarbini-footer-card {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    max-width: 500px;
-    margin: 0 auto;
-    background: #0a0a0a; 
-    padding: 15px;
-    border-radius: 16px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-    border: 1px solid rgba(191, 149, 63, 0.15); 
+    gap: 12px;
+    background: rgba(11, 17, 33, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 242, 254, 0.2);
+    border-radius: 20px;
+    padding: 10px 12px 10px 10px;
     text-decoration: none;
-    transition: transform 0.2s, box-shadow 0.2s;
-    gap: 12px; /* Garde une distance de sécurité entre les éléments */
+    width: 100%;
+    max-width: 450px; /* Taille max pour tablettes/PC */
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
-.sarbini-footer-card:active {
-    transform: scale(0.98);
+.sarbini-footer-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(0, 242, 254, 0.5);
+    box-shadow: 0 8px 25px rgba(0, 242, 254, 0.15);
 }
 
-/* Le petit logo Éclair doré */
+/* Le Badge Éclair */
 .sarbini-badge {
-    background: linear-gradient(135deg, #bf953f, #b38728);
-    min-width: 40px;
-    height: 40px;
-    border-radius: 12px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(0, 242, 254, 0.1);
+    border: 1px solid rgba(0, 242, 254, 0.3);
     display: flex;
     justify-content: center;
     align-items: center;
-    color: #000;
-    font-size: 18px;
-    box-shadow: 0 0 15px rgba(191, 149, 63, 0.3);
-    flex-shrink: 0; /* Empêche l'icône de s'écraser sur petit écran */
+    flex-shrink: 0;
 }
 
-/* La typographie */
+.sarbini-badge i {
+    color: #00F2FE;
+    font-size: 18px;
+    filter: drop-shadow(0 0 5px rgba(0, 242, 254, 0.5));
+}
+
+/* Les Textes (Sécurisés contre les écrans étroits) */
 .sarbini-text {
+    flex: 1;
+    min-width: 0; /* CRUCIAL : Permet au texte de se réduire au lieu de casser la boîte */
     display: flex;
     flex-direction: column;
-    text-align: left;
-    flex-grow: 1;
-    overflow: hidden; /* Empêche le texte de casser la carte */
+    justify-content: center;
 }
 
 .sarbini-text .powered {
-    color: #777;
     font-size: 9px;
+    color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis; /* Ajoute "..." si l'écran est trop petit */
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    margin-bottom: 2px;
 }
 
 .sarbini-text .brand {
-    color: #fff;
     font-size: 15px;
-    letter-spacing: 2px;
-    margin: 3px 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: #ffffff;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+    font-family: 'Outfit', sans-serif;
+    white-space: nowrap; /* Le nom de la marque reste sur une ligne */
+}
+
+.sarbini-text .brand .neon-dot {
+    color: #00F2FE;
 }
 
 .sarbini-text .cta {
-    color: #bf953f;
     font-size: 10px;
-    font-style: italic;
-    opacity: 0.9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: #64748b;
+    line-height: 1.3;
+    font-weight: 500;
+    white-space: normal; /* Permet à la phrase de passer sur 2 lignes si besoin */
 }
 
-/* Le faux bouton Contact */
+/* Le Bouton Contact WhatsApp */
 .sarbini-btn-contact {
-    background: rgba(191, 149, 63, 0.1);
-    color: #bf953f;
-    border: 1px solid rgba(191, 149, 63, 0.3);
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    flex-shrink: 0; /* Empêche le bouton de s'écraser */
+    background: rgba(0, 242, 254, 0.05);
+    color: #00F2FE;
+    border: 1px solid rgba(0, 242, 254, 0.2);
+    padding: 6px 10px;
+    border-radius: 14px;
+    font-size: 10px;
+    font-weight: 800;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
 }
 
-/* 🔥 ADAPTATION POUR LES TRÈS PETITS TÉLÉPHONES (ex: iPhone SE) */
+.sarbini-btn-contact i {
+    font-size: 15px;
+    margin-bottom: 3px;
+}
+
+.sarbini-footer-card:hover .sarbini-btn-contact {
+    background: #00F2FE;
+    color: #0b1121;
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
+}
+
+/* ========================================================= */
+/* 📱 ADAPTATION POUR LES PETITS ÉCRANS (Responsive Design)  */
+/* ========================================================= */
+
+/* Téléphones normaux et petits (iPhone 12/13 mini, SE, etc.) */
 @media (max-width: 380px) {
     .sarbini-footer-card {
-        padding: 12px 10px; /* Réduit un peu les marges internes */
-        gap: 8px;
+        gap: 8px; /* On réduit l'espace entre les éléments */
+        padding: 8px;
     }
     .sarbini-badge {
-        min-width: 35px;
+        width: 35px;
         height: 35px;
-        font-size: 16px;
+    }
+    .sarbini-badge i {
+        font-size: 14px;
     }
     .sarbini-text .brand {
-        font-size: 13px; /* Réduit légèrement la police */
+        font-size: 13px; /* Police légèrement plus petite */
+    }
+    .sarbini-text .cta {
+        font-size: 9px;
     }
     .sarbini-btn-contact {
-        padding: 6px 8px;
+        padding: 5px 8px;
         font-size: 9px;
+    }
+    .sarbini-btn-contact i {
+        font-size: 13px;
+    }
+}
+
+/* Très petits téléphones (Galaxy Fold écran avant, anciens mobiles) */
+@media (max-width: 320px) {
+    .sarbini-text .cta {
+        display: none; /* On cache la phrase pour ne pas surcharger */
+    }
+    .sarbini-btn-contact span {
+        display: none; /* On cache le numéro, on ne garde que l'icône WhatsApp */
+    }
+    .sarbini-btn-contact {
+        padding: 10px;
+        border-radius: 50%; /* Le bouton devient tout rond avec juste le logo WhatsApp */
+    }
+    .sarbini-btn-contact i {
+        margin-bottom: 0;
+        font-size: 18px;
     }
 }

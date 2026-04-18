@@ -64,12 +64,12 @@ const verifierExistenceCafe = async (req, res, next) => {
                     <div class="promo-card">
                         <div class="logo-container"><i class="fas fa-bolt logo-icon"></i></div>
                         <h1>SARBINI<span class="neon-text">.CLICK</span></h1>
-                        <p>Le futur de votre établissement commence ici. Point de vente ultra-rapide (POS), Écran Cuisine, Menu QR et Fidélité VIP. Prenez le contrôle total de votre activité.</p>
+                        <p>Le futur de votre établissement commence ici. Point de vente ultra-rapide (POS), Écran Cuisine, Menu QR, Fidélité VIP, Caisse,Gestion de stock et Comptabilite. Prenez le contrôle total de votre activité.</p>
                         
                         <div class="pricing">
-                            <div class="plan"><span>1 Mois</span><strong>99 DT</strong></div>
-                            <div class="plan" style="border-color: #00F2FE; background: rgba(0, 242, 254, 0.1);"><span>3 Mois</span><strong>270 DT</strong></div>
-                            <div class="plan"><span>1 An</span><strong>990 DT</strong></div>
+                            <div class="plan"><span>1 Mois</span><strong>109 DT</strong></div>
+                            <div class="plan" style="border-color: #00F2FE; background: rgba(0, 242, 254, 0.1);"><span>3 Mois</span><strong>299 DT</strong></div>
+                            <div class="plan"><span>1 An</span><strong>1199 DT</strong></div>
                         </div>
 
                         <a href="https://wa.me/21654567939?text=Je%20veux%20lancer%20mon%20système%20Sarbini" class="btn-whatsapp">
