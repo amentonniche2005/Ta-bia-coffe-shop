@@ -899,10 +899,10 @@ button:hover:not(:disabled) {
     transform: scale(1.05); /* Grossit légèrement */
     box-shadow: 0 6px 15px rgba(20, 54, 33, 0.2);
 }
-/* --- FOOTER PUB SARBINI --- */
+/* --- FOOTER PUB SARBINI (100% RESPONSIVE) --- */
 .sarbini-powered-footer {
     background: transparent;
-    padding: 30px 15px 40px 15px; /* De l'espace en bas de page */
+    padding: 30px 15px 40px 15px; 
     margin-top: 20px;
     font-family: 'Inter', sans-serif;
 }
@@ -913,13 +913,14 @@ button:hover:not(:disabled) {
     justify-content: space-between;
     max-width: 500px;
     margin: 0 auto;
-    background: #0a0a0a; /* Fond très noir */
+    background: #0a0a0a; 
     padding: 15px;
     border-radius: 16px;
     box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-    border: 1px solid rgba(191, 149, 63, 0.15); /* Bordure or très subtile */
+    border: 1px solid rgba(191, 149, 63, 0.15); 
     text-decoration: none;
     transition: transform 0.2s, box-shadow 0.2s;
+    gap: 12px; /* Garde une distance de sécurité entre les éléments */
 }
 
 .sarbini-footer-card:active {
@@ -938,6 +939,7 @@ button:hover:not(:disabled) {
     color: #000;
     font-size: 18px;
     box-shadow: 0 0 15px rgba(191, 149, 63, 0.3);
+    flex-shrink: 0; /* Empêche l'icône de s'écraser sur petit écran */
 }
 
 /* La typographie */
@@ -946,21 +948,27 @@ button:hover:not(:disabled) {
     flex-direction: column;
     text-align: left;
     flex-grow: 1;
-    margin-left: 15px;
+    overflow: hidden; /* Empêche le texte de casser la carte */
 }
 
 .sarbini-text .powered {
     color: #777;
     font-size: 9px;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Ajoute "..." si l'écran est trop petit */
 }
 
 .sarbini-text .brand {
     color: #fff;
     font-size: 15px;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
     margin: 3px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sarbini-text .cta {
@@ -968,6 +976,9 @@ button:hover:not(:disabled) {
     font-size: 10px;
     font-style: italic;
     opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Le faux bouton Contact */
@@ -981,4 +992,25 @@ button:hover:not(:disabled) {
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 1px;
+    flex-shrink: 0; /* Empêche le bouton de s'écraser */
+}
+
+/* 🔥 ADAPTATION POUR LES TRÈS PETITS TÉLÉPHONES (ex: iPhone SE) */
+@media (max-width: 380px) {
+    .sarbini-footer-card {
+        padding: 12px 10px; /* Réduit un peu les marges internes */
+        gap: 8px;
+    }
+    .sarbini-badge {
+        min-width: 35px;
+        height: 35px;
+        font-size: 16px;
+    }
+    .sarbini-text .brand {
+        font-size: 13px; /* Réduit légèrement la police */
+    }
+    .sarbini-btn-contact {
+        padding: 6px 8px;
+        font-size: 9px;
+    }
 }
