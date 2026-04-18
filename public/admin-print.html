@@ -14,7 +14,6 @@
             --primary: #143621;
             --primary-light: #1e4d30;
             --accent: #e3c496;
-            --accent-dark: #c5a370;
             --bg-body: #f4f7f6;
             --text-main: #2c3e50;
             --text-muted: #7f8c8d;
@@ -24,7 +23,7 @@
         body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg-body); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
 
         /* ========== HEADER ========== */
-        header { background: var(--primary); padding: 1.2rem 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        header { background: rgba(20, 54, 33, 0.89); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(227, 196, 150, 0.3); padding: 1.2rem 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .header-container { max-width: 1000px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
         .logo { display: flex; align-items: center; gap: 15px; }
         .logo-img { height: 60px; width: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
@@ -33,7 +32,7 @@
 
         /* ========== MAIN CONTAINER ========== */
         .main-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 2rem; }
-        .card { background: white; border-radius: 24px; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.08); max-width: 500px; width: 100%; text-align: center; border: 1px solid #e2e8f0; }
+        .card { background: white; border-radius: 24px; padding: 2.5rem; box-shadow: 0 12px 35px rgba(20, 54, 33, 0.06); max-width: 500px; width: 100%; text-align: center; border: 1px solid rgba(227, 196, 150, 0.2); }
         
         .card-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--primary); }
         .card-subtitle { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 2rem; }
@@ -41,17 +40,20 @@
         /* ========== FORM & BUTTONS ========== */
         .form-group { margin-bottom: 1.5rem; text-align: left; }
         .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; color: var(--text-main); }
+        
+        input[type="text"], select { width: 100%; padding: 1rem; font-size: 1.1rem; border: 2px solid #e2e8f0; border-radius: 12px; background: #f8fafc; color: var(--text-main); outline: none; font-weight: bold; transition: all 0.2s; }
+        input[type="text"]:focus, select:focus { border-color: var(--primary); background: white; }
+        
         .select-wrapper { position: relative; }
-        select { width: 100%; padding: 1rem; font-size: 1.1rem; border: 2px solid #e2e8f0; border-radius: 12px; background: #f8fafc; color: var(--text-main); outline: none; cursor: pointer; transition: all 0.2s; appearance: none; font-weight: bold; }
-        select:focus { border-color: var(--primary); background: white; }
+        select { cursor: pointer; appearance: none; }
         .select-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
 
         .btn { width: 100%; padding: 1rem; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .btn:active { transform: scale(0.98); }
+        .btn:active { transform: scale(0.96); }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         
         .btn-primary { background: var(--primary); color: white; margin-bottom: 1.5rem; }
-        .btn-primary:hover:not(:disabled) { background: var(--primary-light); }
+        .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
         
         /* ========== RESULT AREA ========== */
         .result-area { background: #f8fafc; border-radius: 16px; padding: 2rem 1.5rem; margin-top: 1rem; border: 2px dashed #cbd5e1; display: none; animation: fadeIn 0.3s ease; }
@@ -76,145 +78,60 @@
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 🔥 NOUVEAU : RESPONSIVE DESIGN POUR MOBILE ET TABLETTE 🔥 */
         @media (max-width: 600px) {
             header { padding: 1rem; }
             .logo-img { height: 45px; width: 45px; }
             .logo h1 { font-size: 1.2rem; }
             .logo .logo-subtext { font-size: 0.7rem; }
-
-            .main-container { 
-                padding: 1rem; 
-                align-items: flex-start; /* Evite de couper le haut si l'écran est très petit */
-                margin-top: 1rem;
-            }
+            .main-container { padding: 1rem; align-items: flex-start; margin-top: 1rem; }
             .card { padding: 1.5rem; border-radius: 18px; }
-            .card-title { font-size: 1.3rem; }
-            
-            .code-display-value { 
-                font-size: 2.2rem; 
-                letter-spacing: 4px; 
-                padding: 5px; 
-            }
-            .ui-qr-img { 
-                width: 140px; 
-                height: 140px; 
-            }
-
-            /* On superpose les boutons pour éviter qu'ils soient trop petits au doigt */
+            .code-display-value { font-size: 2.2rem; letter-spacing: 4px; padding: 5px; }
+            .ui-qr-img { width: 140px; height: 140px; }
             .action-row { flex-direction: column; gap: 12px; }
             .btn-print, .btn-refresh { width: 100%; flex: none; }
         }
 
         /* ========== PRINT FORMAT (TICKET 80mm) ========== */
-        #printArea { 
-            position: absolute; 
-            top: -9999px; 
-            left: -9999px; 
-            opacity: 1; 
-            pointer-events: none; 
-        }
+        #printArea { position: absolute; top: -9999px; left: -9999px; opacity: 1; pointer-events: none; }
         @media print {
             @page { size: 80mm auto; margin: 0; }
             body * { visibility: hidden; }
             #printArea, #printArea * { visibility: visible; }
-            #printArea { 
-                display: block; position: absolute; top: 0; left: 0; width: 100%; 
-                padding: 5mm; text-align: center; color: black; font-family: 'Arial', sans-serif;
-            }
+            #printArea { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 5mm; text-align: center; color: black; font-family: 'Arial', sans-serif; }
             .print-header { border-bottom: 2px dashed black; padding-bottom: 10px; margin-bottom: 15px; }
             .print-logo { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
             .print-table { font-size: 18px; font-weight: bold; padding: 5px; border: 1px solid black; display: inline-block; border-radius: 5px; margin-bottom: 15px;}
-            
-            .print-qr-container { 
-                width: 140px; 
-                height: 140px; 
-                margin: 15px auto; 
-                display: block;
-            }
-            .print-qr-img {
-                width: 100%;
-                height: 100%;
-                object-fit: contain; 
-            }
-
+            .print-qr-container { width: 140px; height: 140px; margin: 15px auto; display: block; }
+            .print-qr-img { width: 100%; height: 100%; object-fit: contain; }
             .print-instruction { font-size: 13px; margin-bottom: 5px; font-weight: bold; }
             .print-code { font-size: 32px; font-weight: 900; letter-spacing: 5px; margin: 5px 0 10px 0; padding: 10px; border: 2px solid black; display: inline-block;}
-            
             .print-footer { font-size: 10px; margin-top: 20px; border-top: 1px dashed black; padding-top: 10px; }
         }
-        /* ========================================================================= */
-/* 💎 PACK DESIGN PREMIUM TA'BIA (Global) 💎 */
-/* ========================================================================= */
-
-/* 1. GLASSMORPHISM SUR LE HEADER (Effet Verre Dépoli type iOS) */
-header {
-    background: rgba(20, 54, 33, 0.89) !important; /* Le vert TA'BIA translucide */
-    backdrop-filter: blur(12px) !important; /* Le flou d'arrière-plan */
-    -webkit-backdrop-filter: blur(12px) !important;
-    border-bottom: 1px solid rgba(227, 196, 150, 0.3) !important; /* Liseré doré subtil */
-}
-
-/* 2. OMBRES DOUCES ET ÉLÉGANTES (Soft Shadows) */
-/* S'applique aux tables, produits, tickets, modales et commandes cuisine */
-.card, .table-btn, .product-card, .ticket-card, .modal-content, .commande-card, .table-container {
-    box-shadow: 0 12px 35px rgba(20, 54, 33, 0.06) !important; /* Ombre très diffuse teintée de vert */
-    border: 1px solid rgba(227, 196, 150, 0.2) !important; /* Contour doré ultra fin */
-    border-radius: 16px !important; /* Arrondis modernes */
-}
-
-/* 3. ANIMATIONS FLUIDES AU SURVOL ET CLIC (Feedback tactile) */
-button, .product-card, .table-btn, .card, .commande-card {
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-button:active, .product-card:active, .table-btn:active {
-    transform: scale(0.96) !important; /* Effet d'enfoncement physique */
-}
-button:hover:not(:disabled) {
-    filter: brightness(1.1); /* S'illumine légèrement au survol de la souris */
-}
-
-/* 4. SCROLLBAR PREMIUM (Barre de défilement discrète et élégante) */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-::-webkit-scrollbar-thumb {
-    background: rgba(20, 54, 33, 0.15); /* Vert très clair */
-    border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(227, 196, 150, 0.8); /* Devient doré quand on la manipule */
-}
-
-/* 5. SÉLECTION DE TEXTE AUX COULEURS DE LA MARQUE */
-::selection {
-    background: #e3c496; /* Doré */
-    color: #143621; /* Vert */
-}
     </style>
 </head>
 <body>
 
     <header>
         <div class="header-container">
-<div class="logo">
-    <img src="logo.jpg" alt="Logo" id="dynamicLogo" class="logo-img dynamic-logo">
-    <h1>
-        <span id="dynamicName" class="dynamic-name">CHARGEMENT...</span>
-        <span id="dynamicSlogan" class="logo-subtext dynamic-subtext">...</span>
-    </h1>
-</div>
+            <div class="logo">
+                <img src="logo.jpg" alt="Logo" id="dynamicLogo" class="logo-img dynamic-logo">
+                <h1>
+                    <span id="dynamicName" class="dynamic-name">CHARGEMENT...</span>
+                    <span id="dynamicSlogan" class="logo-subtext dynamic-subtext">...</span>
+                </h1>
+            </div>
         </div>
     </header>
 
     <div class="main-container">
         <div class="card">
-            <div class="card-title"><i class="fas fa-qrcode"></i> Codes Secrets</div>
-            <div class="card-subtitle">Générez et imprimez les accès pour les tables</div>
+            <div class="card-title"><i class="fas fa-qrcode"></i> Codes Tables</div>
+            <div class="card-subtitle">Générez et imprimez les accès QR</div>
+
+            <div class="form-group">
+                <label>Domaine du café (Vérifiez-le) :</label>
+                <input type="text" id="cafeDomainInput" placeholder="ex: titos.sarbini.click">
+            </div>
 
             <div class="form-group">
                 <label>Sélectionnez une table :</label>
@@ -277,35 +194,24 @@ button:hover:not(:disabled) {
     <script src="/socket.io/socket.io.js"></script>    
     <script>
         const socket = io(); 
-        
         let currentData = { numero: null, code: null, lastUpdated: null };
-async function appliquerBranding() {
-    try {
-        // 1. On récupère les réglages depuis ton API /api/branding
-        const response = await fetch('/api/branding');
-        const config = await response.json();
 
-        if (config) {
-            // 2. Mise à jour du Nom du café
-            document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
-
-            // 3. Mise à jour du Slogan (Coffee Shop, Bar, etc.)
-            document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
-
-            // 4. Mise à jour du Logo
-            if (config.logoUrl) {
-                document.getElementById('dynamicLogo').src = config.logoUrl;
+        async function appliquerBranding() {
+            try {
+                const response = await fetch('/api/branding');
+                const config = await response.json();
+                if (config) {
+                    document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
+                    document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
+                    if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
+                }
+            } catch (error) {
+                console.error("Erreur lors du chargement du branding:", error);
             }
-
-
         }
-    } catch (error) {
-        console.error("Erreur lors du chargement du branding:", error);
-    }
-}
 
-// Lancer la fonction au chargement de la page
-window.onload = appliquerBranding;
+        window.onload = appliquerBranding;
+
         function showNotif(message, isError = false) {
             const toast = document.getElementById('toastNotif');
             toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
@@ -330,13 +236,16 @@ window.onload = appliquerBranding;
                 document.getElementById('ticketCodeValue').textContent = currentData.code;
                 document.getElementById('printCodeVal').textContent = currentData.code;
                 
-const date = new Date(currentData.lastUpdated);
-document.getElementById('lastUpdatedValue').textContent = date.toLocaleString('fr-FR');
+                const date = new Date(currentData.lastUpdated);
+                document.getElementById('lastUpdatedValue').textContent = date.toLocaleString('fr-FR');
 
-const domaineActuel = window.location.origin; 
-const urlClient = `${domaineActuel}/?table=${currentData.numero}&auth=${currentData.code}`;
+                // 🔥 CORRECTION 2 : Utilisation du domaine exact affiché dans la case
+                let domaineActuel = document.getElementById('cafeDomainInput').value.trim();
+                if (!domaineActuel.startsWith('http')) domaineActuel = 'https://' + domaineActuel;
 
-const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlClient)}`;
+                const urlClient = `${domaineActuel}/?table=${currentData.numero}&auth=${currentData.code}`;
+
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlClient)}`;
                 
                 document.getElementById('uiQrCode').src = qrUrl;
                 document.getElementById('printQrCode').src = qrUrl;
@@ -362,16 +271,18 @@ const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${e
                 const tables = await response.json();
                 
                 const found = tables.find(n => parseInt(n.numero) === parseInt(numero));
-                if (found) {
+                
+                // 🔥 CORRECTION 3 : Si la table est trouvée mais que le code est VIDE, on en génère un d'office !
+                if (found && found.code && found.code.trim() !== "") {
                     currentData = found;
                     updateUI();
                     showNotif('Code récupéré avec succès');
                 } else {
-                    if(confirm(`La Table ${numero} n'a pas encore de code. Voulez-vous en générer un maintenant ?`)) {
+                    if(confirm(`La Table ${numero} n'a pas encore de code actif. Voulez-vous en générer un maintenant ?`)) {
                         currentData.numero = numero;
-                        handleRefreshId();
+                        await handleRefreshId();
                     } else {
-                        throw new Error('Table introuvable dans la base');
+                        throw new Error('Génération annulée');
                     }
                 }
             } catch (error) {
@@ -430,6 +341,10 @@ const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${e
             document.getElementById('printTicketBtn').addEventListener('click', imprimerTicket);
             document.getElementById('refreshBtn').addEventListener('click', handleRefreshId);
 
+            // Remplir automatiquement le domaine du café
+            const domainInput = document.getElementById('cafeDomainInput');
+            domainInput.value = window.location.hostname; // ex: titos.sarbini.click
+
             socket.on('tables_refresh', () => {
                 showNotif("🔄 Les codes ont été régénérés par le serveur !");
                 if (select.value) {
@@ -441,7 +356,6 @@ const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${e
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('Service Worker activé sur cette application !'))
                     .catch(err => console.log('Erreur Service Worker', err));
             });
         }
