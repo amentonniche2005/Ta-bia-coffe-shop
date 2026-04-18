@@ -27,9 +27,53 @@ const verifierExistenceCafe = async (req, res, next) => {
     try {
         const cafeExistant = await mongoose.model('StoreSettings').findOne({ cafeId: subdomain, type: 'branding' });
         
-        // ❌ 1. CAFE INEXISTANT OU SUPPRIMÉ : Page noire totale
-        if (!cafeExistant) {
-            return res.status(404).send('<html><body style="background:#000;"></body></html>');
+if (!cafeExistant) {
+            return res.status(404).send(`
+                <!DOCTYPE html>
+                <html lang="fr">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Sarbini SaaS - Créez votre Menu</title>
+                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+                    <style>
+                        body { background: #050505; color: #fff; font-family: 'Inter', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
+                        .promo-card { background: #0b1120; border: 1px solid rgba(191, 149, 63, 0.3); padding: 40px 20px; border-radius: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+                        .logo-s { font-size: 50px; color: #bf953f; margin-bottom: 10px; }
+                        h1 { font-size: 28px; letter-spacing: 4px; margin: 10px 0; color: #fff; }
+                        p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 30px; }
+                        
+                        .pricing { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 30px; }
+                        .plan { background: rgba(255,255,255,0.03); padding: 15px 5px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+                        .plan span { display: block; font-size: 10px; color: #777; text-transform: uppercase; }
+                        .plan strong { display: block; font-size: 16px; color: #bf953f; margin: 5px 0; }
+                        
+                        .btn-whatsapp { display: inline-flex; align-items: center; gap: 10px; background: #bf953f; color: #000; padding: 15px 30px; border-radius: 12px; text-decoration: none; font-weight: bold; transition: 0.3s; }
+                        .btn-whatsapp:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(191, 149, 63, 0.4); }
+                        .footer-text { margin-top: 25px; font-size: 11px; color: #475569; letter-spacing: 2px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="promo-card">
+                        <div class="logo-s"><i class="fas fa-bolt"></i></div>
+                        <h1>SARBINI SAAS</h1>
+                        <p>Ce domaine est disponible ! Lancez votre propre menu digital QR Code aujourd'hui avec la technologie la plus rapide du marché.</p>
+                        
+                        <div class="pricing">
+                            <div class="plan"><span>1 Mois</span><strong>29 DT</strong></div>
+                            <div class="plan" style="border-color: #bf953f;"><span>3 Mois</span><strong>79 DT</strong></div>
+                            <div class="plan"><span>1 An</span><strong>250 DT</strong></div>
+                        </div>
+
+                        <a href="https://wa.me/21654567939?text=Je%20veux%20lancer%20mon%20menu%20Sarbini" class="btn-whatsapp">
+                            <i class="fab fa-whatsapp"></i> DEMANDER MON MENU
+                        </a>
+
+                        <div class="footer-text">SYTEM ENGINE ONLINE</div>
+                    </div>
+                </body>
+                </html>
+            `);
         }
 
         // ⚠️ 2. ABONNEMENT SUSPENDU : Page d'avertissement Sarbini
