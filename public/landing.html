@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarbini System Engine | Le futur de la gestion de café</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
+                    colors: {
+                        sarbini: { dark: '#0b1121', card: '#161f33', neon: '#00F2FE', neonHover: '#33f5ff', gold: '#e3c496' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0b1121; color: white; }
+        .glass-nav { background: rgba(11, 17, 33, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .text-gradient { background: linear-gradient(135deg, #00F2FE 0%, #4facfe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .text-gold { background: linear-gradient(135deg, #e3c496 0%, #c5a370 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .card-hover { transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
+        .card-hover:hover { transform: translateY(-8px); border-color: rgba(0, 242, 254, 0.4); box-shadow: 0 20px 40px rgba(0, 242, 254, 0.1); }
+        
+        .glow-button { box-shadow: 0 0 20px rgba(0, 242, 254, 0.3); transition: all 0.3s ease; }
+        .glow-button:hover { box-shadow: 0 0 30px rgba(0, 242, 254, 0.6); transform: scale(1.03); }
+        
+        /* Scrollbar Premium */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0b1121; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00F2FE; }
+
+        /* Animation Jauge VIP */
+        @keyframes progress-stripe {
+            0% { background-position: 0 0; }
+            100% { background-position: 30px 0; }
+        }
+        .animate-stripes {
+            background-image: linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent);
+            background-size: 30px 30px;
+            animation: progress-stripe 1.5s linear infinite;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-sarbini-neon selection:text-black">
+
+    <nav class="fixed w-full z-50 glass-nav transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <div class="flex items-center gap-3 cursor-pointer" onclick="window.scrollTo(0,0)">
+                    <div class="w-10 h-10 rounded-full bg-sarbini-card border border-sarbini-neon/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,242,254,0.3)]">
+                        <i class="fas fa-bolt text-sarbini-neon text-xl"></i>
+                    </div>
+                    <span class="font-black text-2xl tracking-wider">SARBINI<span class="text-sarbini-neon">.</span></span>
+                </div>
+                <div class="hidden md:flex space-x-10 items-center font-semibold text-slate-300">
+                    <a href="#solutions" class="hover:text-sarbini-neon transition">Nos Modules</a>
+                    <a href="#vip" class="hover:text-sarbini-neon transition">Technologie VIP</a>
+                    <a href="#tarifs" class="hover:text-sarbini-neon transition">Tarifs</a>
+                </div>
+                <div class="hidden md:flex items-center gap-5">
+                    <a href="#" class="text-sm font-bold text-slate-300 hover:text-white transition">Espace Client</a>
+                    <a href="#contact" class="bg-sarbini-neon text-black px-6 py-2.5 rounded-full font-black tracking-wide glow-button">
+                        Démarrer l'essai
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+        <div class="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-sarbini-neon/10 rounded-full blur-[100px] -z-10"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] -z-10"></div>
+
+        <div class="max-w-7xl mx-auto px-4 flex flex-col items-center text-center">
+            <div class="inline-flex items-center gap-3 px-5 py-2 rounded-full border border-sarbini-neon/30 bg-sarbini-neon/5 text-sm font-bold mb-8 text-sarbini-neon backdrop-blur-sm">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sarbini-neon opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-sarbini-neon"></span>
+                </span>
+                Le système d'exploitation ultime pour Restaurants
+            </div>
+            
+            <h1 class="text-5xl md:text-7xl lg:text-[5rem] font-black tracking-tight mb-8 leading-[1.1]">
+                Gérez votre établissement <br>
+                <span class="text-gradient">à la vitesse de la lumière.</span>
+            </h1>
+            
+            <p class="mt-4 max-w-2xl text-lg md:text-xl text-slate-400 mb-12 font-light leading-relaxed">
+                Oubliez les tickets papier et les erreurs de caisse. Sarbini System Engine connecte instantanément <b>vos tables, vos serveurs, votre cuisine et vos stocks</b> dans un écosystème 100% digital.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row justify-center gap-5 w-full sm:w-auto">
+                <a href="#contact" class="bg-sarbini-neon hover:bg-sarbini-neonHover text-black px-8 py-4 rounded-2xl font-black text-lg glow-button flex items-center justify-center gap-3 transition">
+                    Déployer mon système <i class="fas fa-rocket"></i>
+                </a>
+                <a href="#solutions" class="px-8 py-4 rounded-2xl font-bold text-lg border border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-slate-500 transition flex items-center justify-center gap-3">
+                    Explorer les modules <i class="fas fa-chevron-down"></i>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section id="solutions" class="py-24 border-t border-slate-800/50 bg-sarbini-card/30 relative">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="text-center mb-20">
+                <h2 class="text-3xl md:text-5xl font-black mb-6">6 Modules, <span class="text-gradient">Une Machine Parfaite</span></h2>
+                <p class="text-slate-400 max-w-3xl mx-auto text-lg font-light">Chaque détail de votre métier a été analysé et digitalisé. Une architecture SaaS robuste pour fluidifier le service et exploser votre rentabilité.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-sarbini-card border border-slate-700/50 rounded-3xl p-8 card-hover relative overflow-hidden group">
+                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-sarbini-neon/5 rounded-full blur-2xl group-hover:bg-sarbini-neon/10 transition"></div>
+                    <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl text-sarbini-neon mb-8 border border-slate-700 shadow-lg shadow-sarbini-neon/10">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Commande (Zéro-Clic)</h3>
+                    <p class="text-slate-400 mb-6 text-sm leading-relaxed">Le client scanne le QR code de sa table. Le menu interactif s'ouvre sans aucune application à télécharger. La commande part instantanément.</p>
+                    <ul class="space-y-3 text-sm text-slate-300 font-medium">
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-sarbini-neon mt-0.5"></i> Design "Glassmorphism" ultra-rapide</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-sarbini-neon mt-0.5"></i> Gestion des options (Serré, Sans Sucre)</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-sarbini-neon mt-0.5"></i> Suivi du statut de la commande en direct</li>
+                    </ul>
+                </div>
+
+                <div class="bg-sarbini-card border border-slate-700/50 rounded-3xl p-8 card-hover relative overflow-hidden group">
+                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition"></div>
+                    <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl text-purple-400 mb-8 border border-slate-700 shadow-lg shadow-purple-500/10">
+                        <i class="fas fa-cash-register"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Caisse Intelligente</h3>
+                    <p class="text-slate-400 mb-6 text-sm leading-relaxed">Une interface de facturation conçue pour la vitesse extrême. Encaissez, divisez les additions et gérez les files d'attente sans stress.</p>
+                    <ul class="space-y-3 text-sm text-slate-300 font-medium">
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-purple-400 mt-0.5"></i> Multi-Paiements (Espèce, CB, VIP)</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-purple-400 mt-0.5"></i> Séparation d'additions en 1 clic</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-purple-400 mt-0.5"></i> Gestion express des commandes "À emporter"</li>
+                    </ul>
+                </div>
+
+                <div class="bg-sarbini-card border border-slate-700/50 rounded-3xl p-8 card-hover relative overflow-hidden group">
+                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-orange-500/5 rounded-full blur-2xl group-hover:bg-orange-500/10 transition"></div>
+                    <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl text-orange-400 mb-8 border border-slate-700 shadow-lg shadow-orange-500/10">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Écran Cuisine (KDS)</h3>
+                    <p class="text-slate-400 mb-6 text-sm leading-relaxed">La fin des tickets illisibles. Dès qu'une table valide, la cuisine sonne. Tout est trié, clair, et prêt à être préparé.</p>
+                    <ul class="space-y-3 text-sm text-slate-300 font-medium">
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-orange-400 mt-0.5"></i> Technologie WebSocket (Temps Réel absolu)</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-orange-400 mt-0.5"></i> Tri chronologique automatique</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-orange-400 mt-0.5"></i> Bouton "Prêt" qui notifie le serveur</li>
+                    </ul>
+                </div>
+
+                <div class="bg-sarbini-card border border-slate-700/50 rounded-3xl p-8 card-hover relative overflow-hidden group">
+                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-pink-500/5 rounded-full blur-2xl group-hover:bg-pink-500/10 transition"></div>
+                    <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl text-pink-400 mb-8 border border-slate-700 shadow-lg shadow-pink-500/10">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Gestion des Stocks</h3>
+                    <p class="text-slate-400 mb-6 text-sm leading-relaxed">Chaque article vendu déduit instantanément votre inventaire. Maîtrisez vos coûts de revient et évitez les vols ou les ruptures surprises.</p>
+                    <ul class="space-y-3 text-sm text-slate-300 font-medium">
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-pink-400 mt-0.5"></i> Mise "Épuisé" automatique sur le menu</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-pink-400 mt-0.5"></i> Alertes de seuils critiques</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-pink-400 mt-0.5"></i> Traçabilité totale des consommations</li>
+                    </ul>
+                </div>
+
+                <div class="bg-sarbini-card border border-slate-700/50 rounded-3xl p-8 card-hover relative overflow-hidden group">
+                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition"></div>
+                    <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl text-blue-400 mb-8 border border-slate-700 shadow-lg shadow-blue-500/10">
+                        <i class="fas fa-qrcode"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Sécurité & QR Tables</h3>
+                    <p class="text-slate-400 mb-6 text-sm leading-relaxed">Bloquez les commandes fantômes. Le générateur Admin-Print crée des codes uniques pour vos tables, imprimables instantanément.</p>
+                    <ul class="space-y-3 text-sm text-slate-300 font-medium">
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-blue-400 mt-0.5"></i> Impression optimisée pour tickets 80mm</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-blue-400 mt-0.5"></i> Renouvellement de codes (Anti-Fraude)</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-blue-400 mt-0.5"></i> Configuration dynamique du domaine</li>
+                    </ul>
+                </div>
+
+                <div class="bg-sarbini-card border border-slate-700/50 rounded-3xl p-8 card-hover relative overflow-hidden group">
+                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition"></div>
+                    <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl text-emerald-400 mb-8 border border-slate-700 shadow-lg shadow-emerald-500/10">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-4">Data & Comptabilité</h3>
+                    <p class="text-slate-400 mb-6 text-sm leading-relaxed">La salle de contrôle de votre business. Surveillez votre chiffre d'affaires et simplifiez drastiquement le travail de votre comptable.</p>
+                    <ul class="space-y-3 text-sm text-slate-300 font-medium">
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-emerald-400 mt-0.5"></i> Calcul instantané : TTC, HT, TVA</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-emerald-400 mt-0.5"></i> Statistiques des "Best-Sellers"</li>
+                        <li class="flex items-start gap-3"><i class="fas fa-check-circle text-emerald-400 mt-0.5"></i> Exports comptables propres et clairs</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="vip" class="py-24 relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row items-center gap-16">
+            <div class="lg:w-1/2">
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-sarbini-gold/50 bg-sarbini-gold/10 text-sarbini-gold text-sm font-bold mb-6 shadow-[0_0_15px_rgba(227,196,150,0.15)]">
+                    <i class="fas fa-crown"></i> L'ARME DE FIDÉLISATION
+                </div>
+                <h2 class="text-4xl md:text-6xl font-black mb-6 leading-tight">La Carte de Fidélité <br><span class="text-gold">Black/Gold.</span></h2>
+                <p class="text-slate-400 text-lg mb-10 font-light leading-relaxed">
+                    Arrêtez de distribuer des cartes en carton. Sarbini System intègre un moteur VIP prestigieux directement dans le téléphone de vos meilleurs clients. Donnez-leur l'impression d'être exclusifs.
+                </p>
+                <ul class="space-y-5 mb-8">
+                    <li class="flex items-center gap-4 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+                        <div class="w-10 h-10 rounded-full bg-sarbini-gold/20 flex items-center justify-center text-sarbini-gold flex-shrink-0"><i class="fas fa-link"></i></div>
+                        <span class="font-medium text-slate-200">Reconnaissance Automatique via un Lien Secret (Ex: ?auth=8888)</span>
+                    </li>
+                    <li class="flex items-center gap-4 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+                        <div class="w-10 h-10 rounded-full bg-sarbini-gold/20 flex items-center justify-center text-sarbini-gold flex-shrink-0"><i class="fas fa-wallet"></i></div>
+                        <span class="font-medium text-slate-200">Paiement en 1 clic grâce au Solde Digital de la carte</span>
+                    </li>
+                    <li class="flex items-center gap-4 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+                        <div class="w-10 h-10 rounded-full bg-sarbini-gold/20 flex items-center justify-center text-sarbini-gold flex-shrink-0"><i class="fas fa-gift"></i></div>
+                        <span class="font-medium text-slate-200">Jauge de points dynamique avec Cashback automatisé</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="lg:w-1/2 flex justify-center relative w-full">
+                <div class="absolute inset-0 bg-sarbini-gold/20 blur-[100px] rounded-full -z-10 w-[80%] mx-auto"></div>
+                
+                <div class="w-full max-w-md rounded-[2rem] p-8 border border-slate-600 relative overflow-hidden transition-transform hover:scale-105 duration-500" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%); box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.1);">
+                    <div class="flex justify-between items-center mb-10">
+                        <h3 class="font-black text-2xl tracking-widest text-slate-200 uppercase">Café de Paris</h3>
+                        <span class="bg-gradient-to-r from-[#e3c496] to-[#c5a370] text-black text-xs font-black px-4 py-1.5 rounded-lg shadow-lg shadow-sarbini-gold/20">MEMBER GOLD</span>
+                    </div>
+                    <div class="text-3xl font-bold mb-2 text-white tracking-wide">Ahmed B.</div>
+                    <div class="text-slate-400 font-mono text-sm mb-10 tracking-[0.2em]">VIP • 8888</div>
+                    
+                    <div class="flex justify-between items-end mb-4">
+                        <div>
+                            <div class="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Solde Actuel</div>
+                            <div class="text-4xl font-black text-sarbini-gold drop-shadow-[0_0_10px_rgba(227,196,150,0.3)]">14.50 <span class="text-xl">DT</span></div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Objectif</div>
+                            <div class="text-2xl font-bold text-white">200 <span class="text-sm text-slate-400">pts</span></div>
+                        </div>
+                    </div>
+                    <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden mt-4 shadow-inner">
+                        <div class="h-full w-[75%] bg-gradient-to-r from-[#e3c496] to-[#fcd34d] animate-stripes"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="tarifs" class="py-24 border-t border-slate-800 bg-slate-900/50 relative overflow-hidden">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-sarbini-neon/50 to-transparent"></div>
+
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-black mb-6">Un tarif simple, <span class="text-gradient">Zéro bridage.</span></h2>
+                <p class="text-slate-400 max-w-2xl mx-auto text-lg">Chez Sarbini, pas de comptes "bridés". <b>Tous nos modules (Caisse, Cuisine, VIP, QR) sont inclus dans 100% de nos offres.</b> Choisissez simplement votre durée d'engagement.</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto items-center">
+                
+                <div class="bg-sarbini-card border border-slate-700/50 rounded-3xl p-8 flex flex-col h-full card-hover">
+                    <h3 class="text-2xl font-bold text-white mb-2">Mensuel</h3>
+                    <p class="text-sm text-slate-400 mb-6">Sans engagement. Idéal pour tester la puissance du système.</p>
+                    <div class="mb-8 border-b border-slate-700/50 pb-8">
+                        <span class="text-5xl font-black text-white">109 <span class="text-2xl">DT</span></span>
+                        <span class="text-slate-500 font-medium">/ mois</span>
+                    </div>
+                    <ul class="space-y-4 mb-8 flex-1 text-sm font-medium">
+                        <li class="flex items-center text-slate-300"><i class="fas fa-check text-sarbini-neon mr-3"></i> Tous les 6 modules inclus</li>
+                        <li class="flex items-center text-slate-300"><i class="fas fa-check text-sarbini-neon mr-3"></i> Tables & Commandes illimitées</li>
+                        <li class="flex items-center text-slate-300"><i class="fas fa-check text-sarbini-neon mr-3"></i> Sous-domaine personnalisé</li>
+                        <li class="flex items-center text-slate-300"><i class="fas fa-check text-sarbini-neon mr-3"></i> Support technique standard</li>
+                    </ul>
+                    <a href="#contact" class="w-full py-4 rounded-xl border border-slate-600 font-bold text-center hover:bg-slate-800 hover:border-slate-400 transition">Commencer</a>
+                </div>
+
+                <div class="bg-[#161f33] border-2 border-sarbini-neon rounded-3xl p-10 flex flex-col h-[105%] transform shadow-[0_0_50px_rgba(0,242,254,0.15)] relative z-10">
+                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-sarbini-neon text-black px-5 py-1.5 rounded-full text-xs font-black tracking-widest shadow-lg shadow-sarbini-neon/30">
+                        LE CHOIX MALIN
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-2 mt-2">Trimestriel</h3>
+                    <p class="text-sm text-slate-300 mb-6">Prenez le temps de rentabiliser le système sur une saison entière.</p>
+                    <div class="mb-8 border-b border-slate-700/50 pb-8">
+                        <span class="text-5xl font-black text-white drop-shadow-md">299 <span class="text-2xl">DT</span></span>
+                        <span class="text-slate-400 font-medium">/ 3 mois</span>
+                        <div class="text-sarbini-neon text-sm font-bold mt-2">Soit 99 DT / mois !</div>
+                    </div>
+                    <ul class="space-y-4 mb-8 flex-1 text-sm font-medium">
+                        <li class="flex items-center text-white"><i class="fas fa-check text-sarbini-neon mr-3"></i> <b>Tous les 6 modules inclus</b></li>
+                        <li class="flex items-center text-white"><i class="fas fa-check text-sarbini-neon mr-3"></i> <b>Tables & Commandes illimitées</b></li>
+                        <li class="flex items-center text-white"><i class="fas fa-check text-sarbini-neon mr-3"></i> Sous-domaine personnalisé</li>
+                        <li class="flex items-center text-white"><i class="fas fa-check text-sarbini-neon mr-3"></i> Support technique prioritaire</li>
+                    </ul>
+                    <a href="#contact" class="w-full py-4 rounded-xl bg-sarbini-neon text-black font-black text-center text-lg glow-button">Déployer ce pack</a>
+                </div>
+
+                <div class="bg-sarbini-card border border-sarbini-gold/30 rounded-3xl p-8 flex flex-col h-full card-hover relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-sarbini-gold/10 rounded-bl-full -z-10"></div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Annuel</h3>
+                    <p class="text-sm text-slate-400 mb-6">Pour les visionnaires. Gérez l'esprit tranquille toute l'année.</p>
+                    <div class="mb-8 border-b border-slate-700/50 pb-8">
+                        <span class="text-5xl font-black text-sarbini-gold">1199 <span class="text-2xl text-white">DT</span></span>
+                        <span class="text-slate-500 font-medium">/ an</span>
+                        <div class="text-sarbini-gold text-sm font-bold mt-2">🎁 1 MOIS OFFERTS (99.5 DT/m)</div>
+                    </div>
+                    <ul class="space-y-4 mb-8 flex-1 text-sm font-medium">
+                        <li class="flex items-center text-slate-300"><i class="fas fa-star text-sarbini-gold mr-3"></i> Tous les 6 modules inclus</li>
+                        <li class="flex items-center text-slate-300"><i class="fas fa-star text-sarbini-gold mr-3"></i> Tables & Commandes illimitées</li>
+                        <li class="flex items-center text-slate-300"><i class="fas fa-star text-sarbini-gold mr-3"></i> Sauvegarde Cloud sécurisée</li>
+                        <li class="flex items-center text-slate-300"><i class="fas fa-star text-sarbini-gold mr-3"></i> Intervention sur place (selon zone)</li>
+                    </ul>
+                    <a href="#contact" class="w-full py-4 rounded-xl border border-sarbini-gold text-sarbini-gold font-bold text-center hover:bg-sarbini-gold hover:text-black transition">Réserver cette offre</a>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <section id="contact" class="py-24 border-t border-slate-800">
+        <div class="max-w-4xl mx-auto px-4">
+            <div class="bg-gradient-to-br from-slate-800 to-sarbini-card border border-slate-700 rounded-[2.5rem] p-8 md:p-14 shadow-2xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-sarbini-neon/5 rounded-full blur-[80px] -z-10"></div>
+                
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl md:text-4xl font-black mb-4">Passez à la vitesse supérieure.</h2>
+                    <p class="text-slate-400 text-lg">Remplissez ce formulaire. Notre équipe créera et déploiera l'instance de votre restaurant en moins de 24 heures.</p>
+                </div>
+
+                <form class="space-y-6 relative z-10">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Nom de l'établissement</label>
+                            <input type="text" class="w-full bg-slate-900/80 border border-slate-600 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-sarbini-neon focus:ring-1 focus:ring-sarbini-neon transition shadow-inner" placeholder="Ex: Ta'bia Coffee Shop">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Votre Nom (Gérant)</label>
+                            <input type="text" class="w-full bg-slate-900/80 border border-slate-600 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-sarbini-neon focus:ring-1 focus:ring-sarbini-neon transition shadow-inner" placeholder="Ex: Ahmed">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wide">Numéro de téléphone / WhatsApp</label>
+                        <input type="tel" class="w-full bg-slate-900/80 border border-slate-600 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-sarbini-neon focus:ring-1 focus:ring-sarbini-neon transition shadow-inner" placeholder="+216 ...">
+                    </div>
+                    <button type="button" onclick="alert('Demande envoyée ! Le déploiement de votre instance va commencer.')" class="w-full bg-sarbini-neon text-black font-black py-5 rounded-2xl text-xl glow-button mt-6 flex items-center justify-center gap-3">
+                        Créer mon Système Sarbini <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-black py-12 border-t border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-sarbini-card border border-sarbini-neon/50 flex items-center justify-center">
+                        <i class="fas fa-bolt text-sarbini-neon"></i>
+                    </div>
+                    <span class="font-black text-2xl tracking-wider text-slate-200">SARBINI<span class="text-sarbini-neon">.</span></span>
+                </div>
+                
+                <div class="flex gap-6 text-slate-400">
+                    <a href="#" class="hover:text-sarbini-neon transition transform hover:scale-110"><i class="fab fa-facebook fa-xl"></i></a>
+                    <a href="#" class="hover:text-sarbini-neon transition transform hover:scale-110"><i class="fab fa-instagram fa-xl"></i></a>
+                    <a href="#" class="hover:text-sarbini-neon transition transform hover:scale-110"><i class="fab fa-linkedin fa-xl"></i></a>
+                </div>
+            </div>
+            
+            <div class="border-t border-slate-800 mt-10 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500 font-medium">
+                <p>&copy; 2026 Sarbini System Engine. Construit avec passion pour la restauration moderne.</p>
+                <div class="flex gap-6 mt-4 md:mt-0">
+                    <a href="#" class="hover:text-slate-300 transition">Mentions légales</a>
+                    <a href="#" class="hover:text-slate-300 transition">Confidentialité</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

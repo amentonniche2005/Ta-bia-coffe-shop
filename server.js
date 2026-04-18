@@ -117,8 +117,7 @@ io.use(async (socket, next) => {
 app.use(cors());
 app.use(express.json());
 app.use(verifierExistenceCafe); // 🔥 Doit être ici pour protéger les pages web
-app.use(express.static(path.join(__dirname, 'public')));
-
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 io.on('connection', (socket) => {
     if (socket.cafeId) socket.join(socket.cafeId);
 });
@@ -881,7 +880,21 @@ app.post('/api/customers/recharge', verifierToken, async (req, res) => {
         res.json({ success: true, solde: client.solde });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
+// ========== AIGUILLAGE DU DOMAINE PRINCIPAL ==========
+app.get('/', verifierExistenceCafe, (req, res) => {
+    
+    // Si l'utilisateur tape "sarbini.click" ou "www.sarbini.click"
+    if (req.cafeId === 'sarbini') {
+        // On lui envoie la belle Landing Page SaaS
+        res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+    } 
+    // Si c'est un sous-domaine de client (ex: titos.sarbini.click)
+    else {
+        // On lui envoie l'application de commande du café (Menu/Panier/Scanner)
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+    
+});
 // ========== 6. INITIALISATION ==========
 async function seedDatabase() {
     try {
