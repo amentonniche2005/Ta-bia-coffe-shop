@@ -1134,17 +1134,3 @@ window.deconnecterClient = function() {
         window.location.replace(window.location.pathname);
     }, 800); // On attend 0.8 seconde pour que le client ait le temps de lire la notification
 };
-// Disparition du Splash Screen après le chargement
-    window.addEventListener('load', () => {
-        // On laisse l'écran affiché au moins 1.5 secondes pour que le client profite de l'animation
-        setTimeout(() => {
-            const splash = document.getElementById('splash-screen');
-            if (splash) {
-                splash.style.opacity = '0'; // Commence le fondu transparent
-                splash.style.visibility = 'hidden'; // Désactive les clics dessus
-                
-                // Optionnel : on le supprime complètement du code après 1 seconde pour alléger la page
-                setTimeout(() => splash.remove(), 1000); 
-            }
-        }, 1500); 
-    });
