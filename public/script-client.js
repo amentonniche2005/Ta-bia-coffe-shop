@@ -103,59 +103,49 @@ function getClientId() {
     }
     return id;
 }
-// ========== CHARGEMENT & SCANNER INTELLIGENT ==========
+// =========================================================
+// 🔥 INITIALISATION PRINCIPALE (ANCIEN FONCTIONNEMENT RESTAURÉ)
+// =========================================================
 document.addEventListener("DOMContentLoaded", async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const tableUrl = urlParams.get('table');
     const authUrl = urlParams.get('auth'); 
-    const profilUrl = urlParams.get('profil'); 
 
-    let doitOuvrirProfil = false;
-    let codeVipDirect = profilUrl || authUrl;
-
-    // 1. GESTION DU LIEN VIP DIRECT (?auth=1234 sans table)
-    if (codeVipDirect && !tableUrl) {
-        // Sauvegarde du VIP pour qu'il soit reconnu sur le bouton plus tard
-        localStorage.setItem('tabia_auth_qr', codeVipDirect);
-        sessionStorage.setItem('tabia_auth_qr', codeVipDirect);
+    // 1. 🌟 GESTION DU LIEN VIP (Si le lien contient ?auth= mais pas de table)
+    if (authUrl && !tableUrl) {
+        // On sauvegarde son code
+        localStorage.setItem('tabia_auth_qr', authUrl);
+        sessionStorage.setItem('tabia_auth_qr', authUrl);
         
-        // 🔥 L'ordre d'ouvrir la fenêtre automatiquement EST DONNÉ UNIQUEMENT ICI !
-        doitOuvrirProfil = true;
-        
-        // Nettoyage de l'URL
+        // On efface l'URL pour faire "Pro"
         window.history.replaceState({}, document.title, "/");
+
+        // L'ANCIEN FONCTIONNEMENT : On ouvre la fenêtre VIP automatiquement !
+        setTimeout(() => {
+            const modal = document.getElementById('clientModal');
+            const inputCode = document.getElementById('clientLoginCode');
+            if (modal && inputCode) {
+                modal.style.display = 'flex';
+                inputCode.value = authUrl;
+                if (typeof window.verifierCodeClient === 'function') {
+                    window.verifierCodeClient(false);
+                }
+            }
+        }, 5300); // 5.3s = On laisse passer ton bel écran noir Sarbini avant d'ouvrir
     }
 
-    // 2. GESTION DE LA TABLE (?table=4)
+    // 2. 🍽️ GESTION DU QR CODE DE LA TABLE (?table=X)
     if (tableUrl) {
         sessionStorage.setItem('tabia_table_qr', tableUrl);
-        if (authUrl) sessionStorage.setItem('tabia_auth_qr', authUrl); 
+        if (authUrl) sessionStorage.setItem('tabia_auth_qr', authUrl);
         
         setTimeout(() => { 
             if (typeof afficherNotification === 'function') afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
         }, 5300);
-
         window.history.replaceState({}, document.title, "/");
     }
 
-    // 3. 🌟 OUVERTURE AUTOMATIQUE (STRICTEMENT RÉSERVÉ AU CLIC SUR LE LIEN VIP)
-    if (doitOuvrirProfil) {
-        setTimeout(() => {
-            const modal = document.getElementById('clientModal');
-            const inputCode = document.getElementById('clientLoginCode');
-            
-            if (modal && inputCode) {
-                modal.style.display = 'flex'; // Ouvre la fenêtre VIP
-                inputCode.value = codeVipDirect; // Injecte le code
-                
-                if (typeof window.verifierCodeClient === 'function') {
-                    window.verifierCodeClient(false); 
-                }
-            }
-        }, 5300); // Juste après l'écran noir
-    }
-
-    // 4. SUITE DE L'INITIALISATION DE L'APPLICATION
+    // 3. SUITE DU CHARGEMENT NORMAL DU SITE
     clientId = getClientId();
     await chargerCatalogue();
     chargerPanier();
@@ -171,26 +161,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     initClientSocket();
     configurerEvenements();
     
-    // Configuration du bouton "Espace Client" en haut à droite
+    // Le bouton "Espace VIP" en haut à droite
     const btnEspace = document.getElementById('btnEspaceClient');
     if (btnEspace) {
         btnEspace.addEventListener('click', () => {
             document.getElementById('clientModal').style.display = 'flex';
-            // S'il clique manuellement, on cherche s'il a un code sauvegardé
             const savedCode = sessionStorage.getItem('tabia_auth_qr') || localStorage.getItem('tabia_auth_qr');
             if (savedCode) {
                 document.getElementById('clientLoginCode').value = savedCode;
                 if (typeof window.verifierCodeClient === 'function') window.verifierCodeClient(true);
             }
         });
-        // S'il a déjà été reconnu avant, on affiche son prénom sur le bouton
         if (sessionStorage.getItem('client_nom_premium')) {
             const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
             btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
         }
     }
 
-    // 5. Configuration du Dark Mode
+    // Le Dark Mode
     const btnDark = document.getElementById('darkModeToggle');
     if (localStorage.getItem('tabia_darkmode') === 'true') {
         document.body.classList.add('dark-mode');
