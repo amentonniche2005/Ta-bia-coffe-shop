@@ -20,119 +20,6 @@ let panier = [];
 let produits = []; 
 let categorieActuelle = "all";
 let clientId = null;
-// =========================================================
-// 🔥 LE SCANNER STRICT (VERSION BLINDÉE 100%)
-// =========================================================
-document.addEventListener("DOMContentLoaded", async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    // 💡 CORRECTION 1 : Accepte les majuscules et les minuscules (?auth= ou ?AUTH=)
-    const authUrl = urlParams.get('auth') || urlParams.get('AUTH') || urlParams.get('Auth');
-    const tableUrl = urlParams.get('table');
-
-    // 1. LIEN VIP AVEC CODE DIRECT (?auth=1234)
-    if (authUrl && !tableUrl) {
-        
-        // 💡 CORRECTION 2 : On t'affiche un message tout de suite pour te prouver que ça marche !
-        setTimeout(() => {
-            if (typeof afficherNotification === 'function') {
-                afficherNotification("✨ Accès VIP détecté !", "success");
-            }
-        }, 1000);
-
-        localStorage.setItem('tabia_auth_qr', authUrl);
-        sessionStorage.setItem('tabia_auth_qr', authUrl);
-        
-        // Nettoyage de l'URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-
-        // 💡 CORRECTION 3 : On attend 5.5s (pour être SÛR que l'écran noir a disparu)
-        setTimeout(() => {
-            const modal = document.getElementById('clientModal');
-            const inputCode = document.getElementById('clientLoginCode');
-            
-            if (modal && inputCode) {
-                modal.style.display = 'flex'; // Ouvre la fenêtre de force
-                inputCode.value = authUrl; // Rentre le code
-                
-                if (typeof window.verifierCodeClient === 'function') {
-                    window.verifierCodeClient(false); // Lance la vérification
-                }
-            } else {
-                console.error("Erreur : Impossible de trouver la fenêtre clientModal");
-            }
-        }, 5500); 
-    }
-
-    // 2. LIEN DE TABLE SCANNÉ (?table=4)
-    if (tableUrl) {
-        sessionStorage.setItem('tabia_table_qr', tableUrl);
-        if (authUrl) sessionStorage.setItem('tabia_auth_qr', authUrl);
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        setTimeout(() => { 
-            if (typeof afficherNotification === 'function') afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
-        }, 5300);
-    }
-
-    // 3. CHARGEMENT NORMAL DU RESTE DE L'APPLICATION
-    clientId = getClientId();
-    await chargerCatalogue();
-    chargerPanier();
-    mettreAJourUIPanier();
-    nettoyerCommandesExpirees();
-    
-    if (typeof synchroniserMesCommandesAvecServeur === "function") {
-        await synchroniserMesCommandesAvecServeur();
-    } else {
-        chargerMesCommandes();
-    }
-    
-    initClientSocket();
-    configurerEvenements();
-    
-    // 4. LE BOUTON ESPACE CLIENT (C'EST ICI QUE TOUT SE JOUE)
-    const btnEspace = document.getElementById('btnEspaceClient');
-    if (btnEspace) {
-        btnEspace.addEventListener('click', () => {
-            const modal = document.getElementById('clientModal');
-            modal.style.display = 'flex'; // Ouvre la fenêtre
-            
-            const savedCode = sessionStorage.getItem('tabia_auth_qr') || localStorage.getItem('tabia_auth_qr');
-            
-            if (savedCode) {
-                document.getElementById('clientLoginCode').value = savedCode;
-                if (typeof window.verifierCodeClient === 'function') window.verifierCodeClient(true);
-            } else {
-                document.getElementById('clientLoginSection').style.display = 'block';
-                document.getElementById('clientProfileSection').style.display = 'none';
-                document.getElementById('clientLoginCode').value = ""; 
-            }
-        });
-
-        // Si on connaît déjà son nom, on l'affiche sur le bouton
-        if (sessionStorage.getItem('client_nom_premium')) {
-            const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
-            btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
-        }
-    }
-
-    // 5. DARK MODE
-    const btnDark = document.getElementById('darkModeToggle');
-    if (localStorage.getItem('tabia_darkmode') === 'true') {
-        document.body.classList.add('dark-mode');
-        if (btnDark) btnDark.classList.replace('fa-moon', 'fa-sun');
-    }
-    if (btnDark) {
-        btnDark.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            localStorage.setItem('tabia_darkmode', isDark);
-            btnDark.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
-            if(navigator.vibrate) navigator.vibrate(15);
-        });
-    }
-});
 // 🎵 MOTEUR AUDIO (Sons natifs sans fichiers)
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(type) {
@@ -184,7 +71,100 @@ const categoryLabels = {
     'sale': '🥪 Salé & Snack',
     'chicha': '💨 Chichas'
 };
+// ========== CHARGEMENT ==========
+document.addEventListener("DOMContentLoaded", async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableUrl = urlParams.get('table');
+    const authUrl = urlParams.get('auth'); // Peut être le code Table OU le code Fidélité
 
+    // 1. GESTION DU SCAN (TABLE OU CARTE FIDÉLITÉ)
+    if (authUrl) {
+        // On stocke le code d'authentification immédiatement (Zéro-Clic)
+        sessionStorage.setItem('tabia_auth_qr', authUrl);
+        
+        // On vérifie si c'est un client fidèle pour récupérer son nom
+        try {
+            const resFid = await fetch(`/api/fidelite/identifier/${authUrl}`);
+            if (resFid.ok) {
+                const data = await resFid.json();
+                if (data.success) {
+                    sessionStorage.setItem('client_nom_premium', data.nomComplet);
+                    setTimeout(() => { 
+                        afficherNotification(`✨ Bienvenue ${data.nomComplet} !`, "success"); 
+                    }, 1000);
+                }
+            }
+        } catch(e) { 
+            console.log("Code table simple détecté ou erreur identification."); 
+        }
+    }
+
+    if (tableUrl) {
+        sessionStorage.setItem('tabia_table_qr', tableUrl);
+        setTimeout(() => { 
+            afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
+        }, 1500);
+    }
+
+    // On nettoie l'URL pour la discrétion
+    if (tableUrl || authUrl) {
+        window.history.replaceState({}, document.title, "/");
+    }
+
+    // 2. VÉRIFICATION DE SÉCURITÉ (GHOST SESSION)
+    const storedTable = sessionStorage.getItem('tabia_table_qr');
+    const storedAuth = sessionStorage.getItem('tabia_auth_qr');
+
+    if (storedTable && storedAuth && storedTable !== 'Emporter') {
+        try {
+            const resTables = await fetch('/api/numbers');
+            if (resTables.ok) {
+                const tables = await resTables.json();
+                const tableData = tables.find(t => parseInt(t.numero) === parseInt(storedTable));
+                
+                // Si c'est un code table (pas un client fidèle) et qu'il a changé
+                // On vérifie d'abord si ce n'est pas un client fidèle enregistré
+                const isFidele = sessionStorage.getItem('client_nom_premium');
+                
+                if (!isFidele && tableData && tableData.code !== String(storedAuth)) {
+                    sessionStorage.removeItem('tabia_table_qr');
+                    sessionStorage.removeItem('tabia_auth_qr');
+                    console.log("Ancienne session table expirée.");
+                }
+            }
+        } catch(e) { console.error("Erreur check session", e); }
+    }
+
+    // 3. Initialisation normale
+    clientId = getClientId();
+    await chargerCatalogue();
+    chargerPanier();
+    mettreAJourUIPanier();
+    nettoyerCommandesExpirees();
+    // On synchronise les commandes avec le serveur au lieu de juste charger
+    if (typeof synchroniserMesCommandesAvecServeur === "function") {
+        await synchroniserMesCommandesAvecServeur();
+    } else {
+        chargerMesCommandes();
+    }
+    initClientSocket();
+    configurerEvenements();
+    const btnEspace = document.getElementById('btnEspaceClient');
+    if (btnEspace) {
+        btnEspace.addEventListener('click', () => {
+            document.getElementById('clientModal').style.display = 'flex';
+            const savedCode = sessionStorage.getItem('tabia_auth_qr');
+            if (savedCode) {
+                document.getElementById('clientLoginCode').value = savedCode;
+                verifierCodeClient(true);
+            }
+        });
+        if (sessionStorage.getItem('client_nom_premium')) {
+            const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
+            btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
+        }
+    }
+});
 function getClientId() {
     let id = localStorage.getItem('tabia_client_id');
     if (!id) {
