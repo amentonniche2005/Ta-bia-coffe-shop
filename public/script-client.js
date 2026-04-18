@@ -235,7 +235,7 @@ async function appliquerBranding() {
                     splash.style.display = 'none'; // Supprime après le fondu
                 }, 800);
             }
-        }, 10000); // <-- 3000ms = Laisse l'animation premium jouer 3 secondes !
+        }, 4200); 
 
     } catch (error) {
         console.error("Erreur lors du chargement du branding:", error);

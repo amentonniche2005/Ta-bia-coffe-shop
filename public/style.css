@@ -537,7 +537,7 @@ header {
 .s-path {
     stroke-dasharray: 200; /* Longueur de la ligne */
     stroke-dashoffset: 200; /* Masque la ligne au début */
-    animation: drawPath 2s ease-in-out forwards, floatLogo 3s ease-in-out infinite alternate 2s;
+    animation: drawPath 1.2s ease-in-out forwards, floatLogo 3s ease-in-out infinite alternate 2s;
 }
 
 /* Le texte SARBINI */
@@ -550,7 +550,7 @@ header {
     margin: 0 0 5px 0;
     margin-right: -12px; /* Compense le letter-spacing pour le centrage */
     opacity: 0;
-    animation: fadeIn 1s ease-out forwards 1s; /* Apparaît après le dessin du logo */
+    animation: fadeIn 0.8s ease-out forwards 0.8s; /* Apparaît après le dessin du logo */
 }
 
 /* Le sous-titre SYSTEM ENGINE */
@@ -560,7 +560,7 @@ header {
     font-size: 10px;
     letter-spacing: 4px;
     opacity: 0;
-    animation: fadeIn 1s ease-out forwards 1.5s;
+    animation: fadeIn 0.8s ease-out forwards 1.2s;
 }
 
 /* --- ANIMATIONS CLÉS --- */
@@ -597,9 +597,8 @@ header {
     letter-spacing: 2px;
     opacity: 0;
     /* Apparaît doucement après 2 secondes */
-    animation: fadeUpFooter 1.5s ease-out forwards 2s; 
+    animation: fadeUpFooter 1s ease-out forwards 1.5s;
 }
-
 .sarbini-footer-lux span {
     color: #555555; /* Gris discret et classe */
 }
