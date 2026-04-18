@@ -56,17 +56,17 @@ if (!cafeExistant) {
                 <body>
                     <div class="promo-card">
                         <div class="logo-s"><i class="fas fa-bolt"></i></div>
-                        <h1>SARBINI SAAS</h1>
-                        <p>Ce domaine est disponible ! Lancez votre propre menu digital QR Code aujourd'hui avec la technologie la plus rapide du marché.</p>
+                        <h1>SARBINI.CLICK</h1>
+                        <p>Votre futur empire digital commence ici. Sarbini SaaS n'est pas qu'un menu, c'est le cœur de votre établissement : Point de vente (POS) ultra-rapide, synchronisation des stocks à la seconde, et gestion fluide du comptoir. Prenez le contrôle total de votre activité.</p>
                         
                         <div class="pricing">
-                            <div class="plan"><span>1 Mois</span><strong>29 DT</strong></div>
-                            <div class="plan" style="border-color: #bf953f;"><span>3 Mois</span><strong>79 DT</strong></div>
-                            <div class="plan"><span>1 An</span><strong>250 DT</strong></div>
+                            <div class="plan"><span>1 Mois</span><strong>99 DT</strong></div>
+                            <div class="plan" style="border-color: #bf953f;"><span>3 Mois</span><strong>270DT</strong></div>
+                            <div class="plan"><span>1 An</span><strong>990 DT</strong></div>
                         </div>
 
                         <a href="https://wa.me/21654567939?text=Je%20veux%20lancer%20mon%20menu%20Sarbini" class="btn-whatsapp">
-                            <i class="fab fa-whatsapp"></i> DEMANDER MON MENU
+                            <i class="fab fa-whatsapp"></i> CONTACTER POUR PLUS D'INFO
                         </a>
 
                         <div class="footer-text">SYTEM ENGINE ONLINE</div>
