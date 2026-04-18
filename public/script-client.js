@@ -103,74 +103,111 @@ function getClientId() {
     }
     return id;
 }
-
-// =========================================================
-// 🔥 DÉTECTION VIP & TABLE (UNIFIÉ)
-// =========================================================
+// ========== CHARGEMENT & SCANNER INTELLIGENT ==========
 document.addEventListener("DOMContentLoaded", async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const authUrl = urlParams.get('auth');    // Le code VIP (ex: ?auth=1234)
-    const tableUrl = urlParams.get('table');  // Le numéro de table
-    
+    const tableUrl = urlParams.get('table');
+    const authUrl = urlParams.get('auth'); 
+
     let doitOuvrirProfil = false;
 
-    // 1. GESTION DU CODE VIP (Lien direct ou QR Table)
-    if (authUrl) {
-        // On enregistre le code pour que le système s'en rappelle
+    // 1. GESTION DU CODE VIP (Si le lien contient ?auth= mais PAS de table)
+    if (authUrl && !tableUrl) {
+        // Sauvegarde du VIP à vie (localStorage) et pour la session (sessionStorage)
         localStorage.setItem('tabia_auth_qr', authUrl);
         sessionStorage.setItem('tabia_auth_qr', authUrl);
+        doitOuvrirProfil = true;
         
-        // Si c'est un lien VIP pur (pas de table), on marquera pour ouvrir le profil
-        if (!tableUrl) {
-            doitOuvrirProfil = true;
-        }
-        
-        // Nettoyage de l'URL pour la discrétion
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // Nettoyage de l'URL
+        window.history.replaceState({}, document.title, "/");
     }
 
-    // 2. GESTION DE LA TABLE
+    // 2. GESTION DE LA TABLE (Si le client scanne le QR code collé sur la table)
     if (tableUrl) {
         sessionStorage.setItem('tabia_table_qr', tableUrl);
-        // Notification après l'animation (5.3s)
-        setTimeout(() => {
-            if (typeof afficherNotification === 'function') {
-                afficherNotification(`📍 Table ${tableUrl} connectée`, "success");
-            }
-        }, 5300);
+        if (authUrl) sessionStorage.setItem('tabia_auth_qr', authUrl); // Mot de passe de la table
+        
+        setTimeout(() => { 
+            if (typeof afficherNotification === 'function') afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
+        }, 5300); // Notification après l'écran noir
+
+        window.history.replaceState({}, document.title, "/");
     }
 
-    // 3. 🌟 OUVERTURE AUTOMATIQUE DU PROFIL VIP (Comme avant)
-    // On attend que ton Splash Screen de 5.2s se termine
-    if (doitOuvrirProfil || (localStorage.getItem('tabia_auth_qr') && !tableUrl)) {
-        const codeAChecker = authUrl || localStorage.getItem('tabia_auth_qr');
+    // 3. 🌟 OUVERTURE AUTOMATIQUE DE LA CARTE VIP
+    const codeSauvegarde = localStorage.getItem('tabia_auth_qr');
+    // Si on vient de cliquer sur le lien VIP, OU s'il a déjà été VIP avant
+    if (doitOuvrirProfil || (codeSauvegarde && !tableUrl)) {
+        const codeClient = authUrl || codeSauvegarde;
         
+        // On attend la fin de la belle animation Sarbini (5.3 secondes)
         setTimeout(() => {
             const modal = document.getElementById('clientModal');
             const inputCode = document.getElementById('clientLoginCode');
             
             if (modal && inputCode) {
-                // On affiche la fenêtre
-                modal.style.display = 'flex';
-                // On remplit le code
-                inputCode.value = codeAChecker;
+                modal.style.display = 'flex'; // Affiche la fenêtre
+                inputCode.value = codeClient; // Rempli le code secret
                 
-                // On lance la vérification pour afficher les points et le nom Gold
-                if (typeof verifierCodeClient === 'function') {
-                    verifierCodeClient(false); 
+                // On simule le clic pour afficher les points et la carte Gold
+                if (typeof window.verifierCodeClient === 'function') {
+                    window.verifierCodeClient(false); 
                 }
             }
-        }, 5300); // Délai juste après l'animation Sarbini
+        }, 5300);
     }
 
-    // --- RESTE DE TON INITIALISATION (Catalogue, Panier, etc.) ---
+    // 4. SUITE DE L'INITIALISATION DE L'APPLICATION
     clientId = getClientId();
     await chargerCatalogue();
     chargerPanier();
     mettreAJourUIPanier();
+    nettoyerCommandesExpirees();
+    
+    if (typeof synchroniserMesCommandesAvecServeur === "function") {
+        await synchroniserMesCommandesAvecServeur();
+    } else {
+        chargerMesCommandes();
+    }
+    
     initClientSocket();
     configurerEvenements();
+    
+    // Configuration du bouton "Espace Client" en haut à droite
+    const btnEspace = document.getElementById('btnEspaceClient');
+    if (btnEspace) {
+        btnEspace.addEventListener('click', () => {
+            document.getElementById('clientModal').style.display = 'flex';
+            const savedCode = sessionStorage.getItem('tabia_auth_qr') || localStorage.getItem('tabia_auth_qr');
+            if (savedCode) {
+                document.getElementById('clientLoginCode').value = savedCode;
+                if (typeof window.verifierCodeClient === 'function') window.verifierCodeClient(true);
+            }
+        });
+        // Affiche le prénom si on le connaît déjà
+        if (sessionStorage.getItem('client_nom_premium')) {
+            const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
+            btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
+        }
+    }
+
+    // 5. Configuration du Dark Mode
+    const btnDark = document.getElementById('darkModeToggle');
+    if (localStorage.getItem('tabia_darkmode') === 'true') {
+        document.body.classList.add('dark-mode');
+        if (btnDark) btnDark.classList.replace('fa-moon', 'fa-sun');
+    }
+    if (btnDark) {
+        btnDark.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('tabia_darkmode', isDark);
+            btnDark.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+            if(navigator.vibrate) navigator.vibrate(15);
+        });
+    }
 });
+
 async function appliquerBranding() {
     try {
         const response = await fetch('/api/branding');
