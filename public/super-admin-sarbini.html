@@ -169,14 +169,18 @@
         navigator.clipboard.writeText(pwd).then(() => showToast("Mot de passe copié !"));
     }
 
-    // --- Chargement des Cafés ---
-    async function chargerCafes() {
+async function chargerCafes() {
         const key = document.getElementById('masterKey').value;
         const container = document.getElementById('liste');
         container.innerHTML = "<div style='text-align:center; padding: 20px;'><i class='fas fa-spinner fa-spin fa-2x' style='color:var(--primary);'></i></div>";
 
         try {
-            const res = await fetch('/api/admin/cafes', { headers: { 'authorization': key } });
+            // 🔥 CORRECTION : On désactive le cache et on ajoute un "Time Stamp" pour forcer la mise à jour !
+            const res = await fetch('/api/admin/cafes?t=' + Date.now(), { 
+                headers: { 'authorization': key },
+                cache: 'no-store' 
+            });
+            
             if (!res.ok) {
                 showToast(`Erreur d'authentification`, 'error');
                 return container.innerHTML = `<span style="color:var(--danger);">Accès refusé. Vérifiez la clé Master.</span>`;

@@ -252,16 +252,21 @@ app.delete('/api/admin/cafes/:targetId', verifierSuperAdmin, async (req, res) =>
         res.json({ success: true, message: `Le café ${target} a été supprimé.` });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-// 🔥 SUSPENDRE OU RÉACTIVER UN CAFÉ
+// 🔥 SUSPENDRE OU RÉACTIVER UN CAFÉ (VERSION CORRIGÉE)
 app.put('/api/admin/cafes/:targetId/statut', verifierSuperAdmin, async (req, res) => {
     try {
         const { statut } = req.body; // 'actif' ou 'suspendu'
-        await StoreSettings.findOneAndUpdate(
+        
+        // 🔥 CORRECTION : On utilise $set pour forcer l'écriture dans MongoDB
+        await StoreSettings.updateOne(
             { cafeId: req.params.targetId, type: 'branding' },
-            { statutAbonnement: statut }
+            { $set: { statutAbonnement: statut } }
         );
+        
         res.json({ success: true, message: `Le café est maintenant ${statut}.` });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 // =========================================================
 // ========== 4. ROUTES API PUBLIQUES ==================
