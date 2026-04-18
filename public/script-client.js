@@ -235,7 +235,7 @@ async function appliquerBranding() {
                     splash.style.display = 'none'; // Supprime après le fondu
                 }, 800);
             }
-        }, 4200); 
+        }, 5200); 
 
     } catch (error) {
         console.error("Erreur lors du chargement du branding:", error);
