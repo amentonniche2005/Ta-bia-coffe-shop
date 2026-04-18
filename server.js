@@ -161,7 +161,8 @@ const StoreSettings = mongoose.model('StoreSettings', new mongoose.Schema({
     sloganCafe: String,
     couleurPrincipale: String,
     logoUrl: String,
-    caisseToken: String
+    caisseToken: String,
+    statutAbonnement: { type: String, default: 'actif' }
 }));
 
 const Sale = mongoose.model('Sale', new mongoose.Schema({
