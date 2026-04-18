@@ -21,26 +21,94 @@ let produits = [];
 let categorieActuelle = "all";
 let clientId = null;
 // =========================================================
-// 🔥 GESTION DE LA CONNEXION VIP PERMANENTE (SAAS)
+// 🔥 LE SEUL ET UNIQUE SCANNER (SANS AUCUN DOUBLON)
 // =========================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const authCode = urlParams.get('auth'); // Récupère le code dans l'URL (?auth=1234)
+    const authUrl = urlParams.get('auth');
+    const tableUrl = urlParams.get('table');
 
-    // 1. Si le client arrive via son lien VIP
-    if (authCode) {
-        // On sauvegarde son code à vie dans son téléphone !
-        localStorage.setItem('tabia_auth_qr', authCode);
-        
-        // Magie : on efface le "?auth=1234" de la barre d'adresse pour que ça fasse plus "Pro"
-        window.history.replaceState({}, document.title, window.location.pathname);
+    // 1. SI LE LIEN CONTIENT UN CODE VIP (ex: ?auth=1234)
+    if (authUrl && !tableUrl) {
+        // Enregistre dans le téléphone
+        localStorage.setItem('tabia_auth_qr', authUrl);
+        sessionStorage.setItem('tabia_auth_qr', authUrl);
+
+        // Nettoie la barre d'adresse
+        window.history.replaceState({}, document.title, "/");
+
+        // L'ORDRE D'OUVRIR LA FENÊTRE VIP : on attend 5.3s que ton splash screen finisse
+        setTimeout(() => {
+            const modal = document.getElementById('clientModal');
+            const inputCode = document.getElementById('clientLoginCode');
+            if (modal && inputCode) {
+                modal.style.display = 'flex';
+                inputCode.value = authUrl;
+                if (typeof window.verifierCodeClient === 'function') {
+                    window.verifierCodeClient(false); 
+                }
+            }
+        }, 5300);
     }
 
-    // 2. Vérification automatique à chaque ouverture du site
-    const codeSauvegarde = localStorage.getItem('tabia_auth_qr');
-    if (codeSauvegarde) {
-        console.log("Client VIP reconnu automatiquement !");
+    // 2. SI C'EST UN QR CODE DE TABLE (ex: ?table=4)
+    if (tableUrl) {
+        sessionStorage.setItem('tabia_table_qr', tableUrl);
+        if (authUrl) sessionStorage.setItem('tabia_auth_qr', authUrl);
+        
+        window.history.replaceState({}, document.title, "/");
+        setTimeout(() => { 
+            if (typeof afficherNotification === 'function') afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
+        }, 5300);
+    }
 
+    // 3. SUITE DU CHARGEMENT NORMAL
+    clientId = getClientId();
+    await chargerCatalogue();
+    chargerPanier();
+    mettreAJourUIPanier();
+    nettoyerCommandesExpirees();
+    
+    if (typeof synchroniserMesCommandesAvecServeur === "function") {
+        await synchroniserMesCommandesAvecServeur();
+    } else {
+        chargerMesCommandes();
+    }
+    
+    initClientSocket();
+    configurerEvenements();
+    
+    // Bouton Espace Client
+    const btnEspace = document.getElementById('btnEspaceClient');
+    if (btnEspace) {
+        btnEspace.addEventListener('click', () => {
+            document.getElementById('clientModal').style.display = 'flex';
+            const savedCode = sessionStorage.getItem('tabia_auth_qr') || localStorage.getItem('tabia_auth_qr');
+            if (savedCode) {
+                document.getElementById('clientLoginCode').value = savedCode;
+                if (typeof window.verifierCodeClient === 'function') window.verifierCodeClient(true);
+            }
+        });
+        if (sessionStorage.getItem('client_nom_premium')) {
+            const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
+            btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
+        }
+    }
+
+    // Dark Mode
+    const btnDark = document.getElementById('darkModeToggle');
+    if (localStorage.getItem('tabia_darkmode') === 'true') {
+        document.body.classList.add('dark-mode');
+        if (btnDark) btnDark.classList.replace('fa-moon', 'fa-sun');
+    }
+    if (btnDark) {
+        btnDark.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('tabia_darkmode', isDark);
+            btnDark.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+            if(navigator.vibrate) navigator.vibrate(15);
+        });
     }
 });
 // 🎵 MOTEUR AUDIO (Sons natifs sans fichiers)
@@ -103,83 +171,6 @@ function getClientId() {
     }
     return id;
 }
-// =========================================================
-// 🔥 INITIALISATION PRINCIPALE (ANCIEN FONCTIONNEMENT RESTAURÉ)
-// ========== CHARGEMENT & SCANNER INTELLIGENT (VERSION FIXE) ==========
-document.addEventListener("DOMContentLoaded", async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const authUrl = urlParams.get('auth');    // Le code VIP (ex: ?auth=1234)
-    const tableUrl = urlParams.get('table');  // Le numéro de table
-    
-    let doitOuvrirProfilAutomatiquement = false;
-
-    // 1. DÉTECTION ET ENREGISTREMENT PRIORITAIRE
-    if (authUrl) {
-        // FORCE l'enregistrement immédiat dans le téléphone
-        localStorage.setItem('tabia_auth_qr', authUrl);
-        sessionStorage.setItem('tabia_auth_qr', authUrl);
-        
-        // On décide d'ouvrir le profil UNIQUEMENT si c'est un lien VIP direct (pas de table)
-        if (!tableUrl) {
-            doitOuvrirProfilAutomatiquement = true;
-        }
-        
-        console.log("✅ Auth détectée et enregistrée :", authUrl);
-    }
-
-    // 2. NETTOYAGE DE L'URL (On attend 100ms pour être sûr que le stockage est fait)
-    if (authUrl || tableUrl) {
-        setTimeout(() => {
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }, 100);
-    }
-
-    // 3. GESTION DE LA TABLE
-    if (tableUrl) {
-        sessionStorage.setItem('tabia_table_qr', tableUrl);
-        setTimeout(() => {
-            if (typeof afficherNotification === 'function') {
-                afficherNotification(`📍 Table ${tableUrl} connectée`, "success");
-            }
-        }, 5300);
-    }
-
-    // 4. 🌟 OUVERTURE DU PROFIL (Lien VIP uniquement)
-    if (doitOuvrirProfilAutomatiquement) {
-        setTimeout(() => {
-            const modal = document.getElementById('clientModal');
-            const inputCode = document.getElementById('clientLoginCode');
-            
-            if (modal && inputCode) {
-                modal.style.display = 'flex';
-                inputCode.value = authUrl;
-                // On lance la vérification pour charger le NOM et les POINTS
-                if (typeof window.verifierCodeClient === 'function') {
-                    window.verifierCodeClient(false); 
-                }
-            }
-        }, 5300); 
-    }
-
-    // 5. RECONNAISSANCE AUTOMATIQUE (Pour le bouton en haut)
-    // Si un code existe en mémoire (déjà venu avant), on pré-remplit sans ouvrir
-    const codeExistant = localStorage.getItem('tabia_auth_qr');
-    if (codeExistant && !doitOuvrirProfilAutomatiquement) {
-        // On récupère les infos en silence pour mettre le nom sur le bouton
-        if (typeof window.verifierCodeClient === 'function') {
-            window.verifierCodeClient(true); // true = silencieux (n'ouvre pas le modal)
-        }
-    }
-
-    // --- INITIALISATION TECHNIQUE ---
-    clientId = getClientId();
-    await chargerCatalogue();
-    chargerPanier();
-    mettreAJourUIPanier();
-    initClientSocket();
-    configurerEvenements();
-});
-
 async function appliquerBranding() {
     try {
         const response = await fetch('/api/branding');
