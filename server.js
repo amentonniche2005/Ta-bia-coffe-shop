@@ -14,7 +14,7 @@ const io = socketIo(server, { cors: { origin: "*" } });
 const PORT = process.env.PORT || 3000;
 const SUPER_ADMIN_TOKEN = process.env.SUPER_ADMIN_TOKEN || 'SARBINI_BOSS_2026';
 
-// 🛡️ 1. LE GARDE-BARRIÈRE (Définition globale)
+// 🛡️ B. LE GARDE-BARRIÈRE (Bloque les faux sites ET les abonnements impayés)
 const verifierExistenceCafe = async (req, res, next) => {
     const host = req.headers.host || ''; 
     const subdomain = host.split('.')[0];
@@ -26,14 +26,30 @@ const verifierExistenceCafe = async (req, res, next) => {
 
     try {
         const cafeExistant = await mongoose.model('StoreSettings').findOne({ cafeId: subdomain, type: 'branding' });
+        
+        // ❌ 1. CAFE INEXISTANT OU SUPPRIMÉ : Page noire totale
         if (!cafeExistant) {
             return res.status(404).send('<html><body style="background:#000;"></body></html>');
         }
+
+        // ⚠️ 2. ABONNEMENT SUSPENDU : Page d'avertissement Sarbini
+        if (cafeExistant.statutAbonnement === 'suspendu') {
+            return res.status(403).send(`
+                <html>
+                <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+                <body style="background:#0b1120; color:#fff; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; margin:0; padding:20px;">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#f39c12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    <h1 style="margin:0 0 10px 0; font-size:24px;">Service Suspendu</h1>
+                    <p style="color:#94a3b8; max-width:400px; line-height:1.5;">L'abonnement de cet établissement a expiré. Veuillez contacter l'administration Sarbini SaaS pour réactiver vos services.</p>
+                    <div style="margin-top:30px; font-size:12px; color:#475569; letter-spacing:2px;">POWERED BY SARBINI</div>
+                </body>
+                </html>
+            `);
+        }
+
         req.cafeId = subdomain;
         next();
-    } catch (err) {
-        res.status(500).send("Erreur validation");
-    }
+    } catch (err) { res.status(500).send("Erreur validation"); }
 };
 
 // 🔐 2. SÉCURITÉ WEBSOCKET (Indépendante)
@@ -233,6 +249,17 @@ app.delete('/api/admin/cafes/:targetId', verifierSuperAdmin, async (req, res) =>
         await Order.deleteMany({ cafeId: target });
         await LoyalCustomer.deleteMany({ cafeId: target });
         res.json({ success: true, message: `Le café ${target} a été supprimé.` });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+// 🔥 SUSPENDRE OU RÉACTIVER UN CAFÉ
+app.put('/api/admin/cafes/:targetId/statut', verifierSuperAdmin, async (req, res) => {
+    try {
+        const { statut } = req.body; // 'actif' ou 'suspendu'
+        await StoreSettings.findOneAndUpdate(
+            { cafeId: req.params.targetId, type: 'branding' },
+            { statutAbonnement: statut }
+        );
+        res.json({ success: true, message: `Le café est maintenant ${statut}.` });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 // =========================================================
