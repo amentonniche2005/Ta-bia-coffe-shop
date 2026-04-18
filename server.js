@@ -19,7 +19,8 @@ const verifierExistenceCafe = async (req, res, next) => {
     const host = req.headers.host || ''; 
     const subdomain = host.split('.')[0];
 
-    if (host === 'sarbini.click' || subdomain === 'www') {
+    // On inclut localhost pour que tu puisses faire tes tests sur ton ordinateur !
+    if (host === 'sarbini.click' || subdomain === 'www' || host.includes('localhost')) {
         req.cafeId = 'sarbini';
         return next();
     }
@@ -27,49 +28,55 @@ const verifierExistenceCafe = async (req, res, next) => {
     try {
         const cafeExistant = await mongoose.model('StoreSettings').findOne({ cafeId: subdomain, type: 'branding' });
         
-if (!cafeExistant) {
+        // ⚠️ 1. SOUS-DOMAINE INTROUVABLE : Page de Vente SARBINI.CLICK
+        if (!cafeExistant) {
             return res.status(404).send(`
                 <!DOCTYPE html>
                 <html lang="fr">
                 <head>
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Sarbini SaaS - Créez votre Menu</title>
+                    <title>Créez votre Menu | SARBINI.CLICK</title>
                     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+                    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap" rel="stylesheet">
                     <style>
-                        body { background: #050505; color: #fff; font-family: 'Inter', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
-                        .promo-card { background: #0b1120; border: 1px solid rgba(191, 149, 63, 0.3); padding: 40px 20px; border-radius: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-                        .logo-s { font-size: 50px; color: #bf953f; margin-bottom: 10px; }
-                        h1 { font-size: 28px; letter-spacing: 4px; margin: 10px 0; color: #fff; }
-                        p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 30px; }
+                        body { background: #0b1121; color: #fff; font-family: 'Outfit', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
+                        .promo-card { background: #161f33; border: 1px solid rgba(0, 242, 254, 0.2); padding: 40px 30px; border-radius: 30px; max-width: 500px; width: 90%; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 242, 254, 0.05); position: relative; overflow: hidden; }
+                        .promo-card::before { content: ''; position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: rgba(0, 242, 254, 0.15); border-radius: 50%; filter: blur(40px); }
+                        .logo-container { width: 75px; height: 75px; background: #0b1121; border: 2px solid rgba(0, 242, 254, 0.5); border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px; box-shadow: 0 0 20px rgba(0, 242, 254, 0.3); }
+                        .logo-icon { font-size: 30px; color: #00F2FE; filter: drop-shadow(0 0 8px #00F2FE); }
+                        h1 { font-size: 28px; font-weight: 900; letter-spacing: 3px; margin: 0 0 15px 0; }
+                        .neon-text { color: #00F2FE; text-shadow: 0 0 10px rgba(0, 242, 254, 0.4); }
+                        p { color: #94a3b8; font-size: 15px; line-height: 1.6; margin-bottom: 30px; font-weight: 300; }
                         
-                        .pricing { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 30px; }
-                        .plan { background: rgba(255,255,255,0.03); padding: 15px 5px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
-                        .plan span { display: block; font-size: 10px; color: #777; text-transform: uppercase; }
-                        .plan strong { display: block; font-size: 16px; color: #bf953f; margin: 5px 0; }
+                        .pricing { display: flex; gap: 10px; margin-bottom: 30px; }
+                        .plan { flex: 1; background: rgba(0, 242, 254, 0.05); padding: 15px 5px; border-radius: 16px; border: 1px solid rgba(0, 242, 254, 0.2); transition: 0.3s; }
+                        .plan:hover { transform: translateY(-5px); border-color: #00F2FE; box-shadow: 0 10px 20px rgba(0, 242, 254, 0.15); }
+                        .plan span { display: block; font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
+                        .plan strong { display: block; font-size: 22px; color: #fff; margin-top: 5px; font-weight: 900; }
                         
-                        .btn-whatsapp { display: inline-flex; align-items: center; gap: 10px; background: #bf953f; color: #000; padding: 15px 30px; border-radius: 12px; text-decoration: none; font-weight: bold; transition: 0.3s; }
-                        .btn-whatsapp:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(191, 149, 63, 0.4); }
-                        .footer-text { margin-top: 25px; font-size: 11px; color: #475569; letter-spacing: 2px; }
+                        .btn-whatsapp { display: inline-flex; align-items: center; justify-content: center; gap: 10px; background: #00F2FE; color: #000; padding: 18px 30px; border-radius: 16px; text-decoration: none; font-weight: 900; font-size: 16px; transition: 0.3s; box-shadow: 0 0 20px rgba(0, 242, 254, 0.4); width: 100%; box-sizing: border-box; }
+                        .btn-whatsapp:hover { transform: scale(1.03); box-shadow: 0 0 30px rgba(0, 242, 254, 0.6); }
+                        .footer-text { margin-top: 25px; font-size: 11px; color: #475569; letter-spacing: 3px; font-weight: 700; }
                     </style>
                 </head>
                 <body>
                     <div class="promo-card">
-                        <div class="logo-s"><i class="fas fa-bolt"></i></div>
-                        <h1>SARBINI.CLICK</h1>
-                        <p>Votre futur empire digital commence ici.SARBINI.CLICK n'est pas qu'un menu, c'est le cœur de votre établissement : Point de vente (POS) ultra-rapide, synchronisation des stocks à la seconde, et gestion fluide du comptoir. Prenez le contrôle total de votre activité.</p>
+                        <div class="logo-container"><i class="fas fa-bolt logo-icon"></i></div>
+                        <h1>SARBINI<span class="neon-text">.CLICK</span></h1>
+                        <p>Le futur de votre établissement commence ici. Point de vente ultra-rapide (POS), Écran Cuisine, Menu QR et Fidélité VIP. Prenez le contrôle total de votre activité.</p>
                         
                         <div class="pricing">
-                            <div class="plan" style="border-color: #bf953f;"><span>1 Mois</span><strong>99 DT</strong></div>
-                            <div class="plan" style="border-color: #bf953f;"><span>3 Mois</span><strong>270DT</strong></div>
-                            <div class="plan" style="border-color: #bf953f;"><span>1 An</span><strong>990 DT</strong></div>
+                            <div class="plan"><span>1 Mois</span><strong>99 DT</strong></div>
+                            <div class="plan" style="border-color: #00F2FE; background: rgba(0, 242, 254, 0.1);"><span>3 Mois</span><strong>270 DT</strong></div>
+                            <div class="plan"><span>1 An</span><strong>990 DT</strong></div>
                         </div>
 
-                        <a href="https://wa.me/21654567939?text=Je%20veux%20lancer%20mon%20menu%20Sarbini" class="btn-whatsapp">
-                            <i class="fab fa-whatsapp"></i> CONTACTER POUR PLUS D'INFO
+                        <a href="https://wa.me/21654567939?text=Je%20veux%20lancer%20mon%20système%20Sarbini" class="btn-whatsapp">
+                            <i class="fab fa-whatsapp text-xl"></i> CONTACTER POUR DÉPLOYER
                         </a>
 
-                        <div class="footer-text">SYTEM ENGINE ONLINE</div>
+                        <div class="footer-text">SYSTEM ENGINE ONLINE</div>
                     </div>
                 </body>
                 </html>
@@ -79,13 +86,36 @@ if (!cafeExistant) {
         // ⚠️ 2. ABONNEMENT SUSPENDU : Page d'avertissement Sarbini
         if (cafeExistant.statutAbonnement === 'suspendu') {
             return res.status(403).send(`
-                <html>
-                <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-                <body style="background:#0b1120; color:#fff; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; margin:0; padding:20px;">
-                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#f39c12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    <h1 style="margin:0 0 10px 0; font-size:24px;">Service Suspendu</h1>
-                    <p style="color:#94a3b8; max-width:400px; line-height:1.5;">L'abonnement de cet établissement a expiré. Veuillez contacter l'administration Sarbini SaaS pour réactiver vos services.</p>
-                    <div style="margin-top:30px; font-size:12px; color:#475569; letter-spacing:2px;">POWERED BY SARBINI</div>
+                <!DOCTYPE html>
+                <html lang="fr">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Service Suspendu | SARBINI.CLICK</title>
+                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+                    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap" rel="stylesheet">
+                    <style>
+                        body { background: #0b1121; color: #fff; font-family: 'Outfit', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
+                        .suspend-card { background: #161f33; border: 1px solid rgba(244, 63, 94, 0.3); padding: 40px 30px; border-radius: 30px; max-width: 450px; width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.6), inset 0 0 20px rgba(244, 63, 94, 0.05); position: relative; overflow: hidden; }
+                        .suspend-card::before { content: ''; position: absolute; top: -50px; left: -50px; width: 150px; height: 150px; background: rgba(244, 63, 94, 0.15); border-radius: 50%; filter: blur(40px); }
+                        .icon-container { width: 80px; height: 80px; background: rgba(244, 63, 94, 0.1); border: 2px solid rgba(244, 63, 94, 0.5); border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px; box-shadow: 0 0 20px rgba(244, 63, 94, 0.2); }
+                        .icon-container i { font-size: 35px; color: #f43f5e; }
+                        h1 { font-size: 26px; font-weight: 900; margin: 0 0 15px 0; color: #fff; letter-spacing: 1px; }
+                        p { color: #94a3b8; font-size: 15px; line-height: 1.6; margin-bottom: 30px; font-weight: 300; }
+                        .footer-text { margin-top: 30px; font-size: 11px; color: #475569; letter-spacing: 3px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px;}
+                        .neon-dot { color: #00F2FE; }
+                    </style>
+                </head>
+                <body>
+                    <div class="suspend-card">
+                        <div class="icon-container"><i class="fas fa-lock"></i></div>
+                        <h1>Système Suspendu</h1>
+                        <p>L'abonnement de cet établissement a expiré ou a été mis en pause.<br><br>Veuillez contacter l'administration de <b>SARBINI.CLICK</b> pour réactiver vos services instantanément.</p>
+                        
+                        <div class="footer-text">
+                            <i class="fas fa-bolt neon-dot"></i> POWERED BY SARBINI<span class="neon-dot">.CLICK</span>
+                        </div>
+                    </div>
                 </body>
                 </html>
             `);
@@ -93,7 +123,9 @@ if (!cafeExistant) {
 
         req.cafeId = subdomain;
         next();
-    } catch (err) { res.status(500).send("Erreur validation"); }
+    } catch (err) { 
+        res.status(500).send("Erreur de validation système."); 
+    }
 };
 
 // 🔐 2. SÉCURITÉ WEBSOCKET (Indépendante)
