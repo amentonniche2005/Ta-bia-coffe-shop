@@ -740,7 +740,7 @@ function afficherTicket() {
 
     function renderCategories() {
         const container = document.getElementById('categoriesContainer');
-        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", chicha: "💨 Chichas" }; const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
+        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", sandwish: "🥪 Sandwiches",chicha: "💨 Chichas",Ma9loub: "🌮 ma9loub",Pizza: "🍕 Pizza",BagetteFarci: "🥖 Bagette Farci",Tacos: "🌯 Tacos",Burger: "🍔 Burger",Crepes: "🦪Crepes",plats: "🍽 Plats",Pasta: "🍝 Pasta",Libanai: "🌯 Libanai" }; const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
         let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
         Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });
         container.innerHTML = html;

@@ -64,12 +64,22 @@ const defaultImages = {
     'sale': 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
 };
 const categoryLabels = {
-    'cafe': '☕ Cafés',
-    'the': '🫖 Thés & Infusions',
-    'boissons': '🍹 Boissons',
-    'dessert': '🍰 Pâtisseries',
-    'sale': '🥪 Salé & Snack',
-    'chicha': '💨 Chichas'
+'cafe': '☕ Cafés',
+ 'the': '🫖 Thés',
+  'boissons': '🥤 Boissons',
+   'dessert': '🍰 Pâtisseries',
+    'sale': '🥪 Salé',
+     'sandwish': '🥪 Sandwiches',
+     'chicha': '💨 Chichas',
+     'Ma9loub': '🌮 ma9loub',
+     'Pizza': '🍕 Pizza',
+     'BagetteFarci': '🥖 Bagette Farci',
+     'Tacos': '🌯 Tacos',
+     'Burger': '🍔 Burger',
+     'Crepes': '🦪Crepes',
+     'plats': '🍽 Plats',
+     'Pasta': '🍝 Pasta',
+     'Libanai': '🌯 Libanai'
 };
 // ========== CHARGEMENT ==========
 document.addEventListener("DOMContentLoaded", async () => {

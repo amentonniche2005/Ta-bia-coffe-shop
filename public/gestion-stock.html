@@ -632,7 +632,7 @@ button:hover:not(:disabled) {
         };
 
         const formatMoney = (amount) => parseFloat(amount || 0).toFixed(3) + " DT";
-        const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches', 'pd': '🥐 Pâtisseries', 'plat': '🍝 Plats', 'chicha': '💨 Chichas' }; return dict[cat] || cat; };        
+        const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches','chicha': '💨 Chichas','Ma9loub': '🌮 ma9loub','Pizza': '🍕 Pizza','BagetteFarci': '🥖 Bagette Farci','Tacos': '🌯 Tacos','Burger': '🍔 Burger','Crepes': '🦪Crepes','plats': '🍽 Plats','Pasta': '🍝 Pasta','Libanai': '🌯 Libanai' }; return dict[cat] || cat; };        
         
         function fermerModal() { document.getElementById('modalContainer').innerHTML = ''; }
 
@@ -864,7 +864,9 @@ window.onload = appliquerBranding;
 
                         <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="newProdImage" placeholder="Collez le lien .jpg ici"></div>
                         <div class="form-group"><label>Catégorie :</label><select id="newProdCat">
-                            <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="chicha">💨 Chicha</option>
+                            <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="sandwish">🥪 Sandwiches</option><option value="chicha">💨 Chicha</option><option value="Ma9loub">🌮 ma9loub</option><option value="Pizza">🍕 Pizza</option><option value="BagetteFarci">🥖 Bagette Farci</option><option value="Tacos">🌯 Tacos</option><option value="Burger">🍔 Burger</option><option value="Crepes">🦪Crepes</option><option value="plats">🍽 Plats</option><option value="Pasta">🍝 Pasta</option><option value="Libanai">🌯 Libanai</option>
+
+
                         </select></div>
                         <div style="display:flex; gap:10px;">
                             <div class="form-group" style="flex:1;"><label>Prix Achat (DT):</label><input type="number" id="newProdPrixAchat" step="0.01" placeholder="1.0"></div>
@@ -930,7 +932,17 @@ function ouvrirModalEdition(id) {
                             <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
                             <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
                             <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
+                            <option value="sandwish" ${p.categorie==='sandwish'?'selected':''}>🥪 Sandwiches</option>
                             <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option>
+                            <option value="Ma9louba" ${p.categorie==='Ma9loub'?'selected':''}>🌮 ma9loub</option>
+                            <option value="Pizza" ${p.categorie==='Pizza'?'selected':''}>🍕 Pizza</option>
+                            <option value="BagetteFarci" ${p.categorie==='BagetteFarci'?'selected':''}>🥖 Bagette Farci</option>
+                            <option value="Tacos" ${p.categorie==='Tacos'?'selected':''}>🌯 Tacos</option>
+                            <option value="Burger" ${p.categorie==='Burger'?'selected':''}>🍔 Burger</option>
+                            <option value="Crepes" ${p.categorie==='Crepes'?'selected':''}>🦪Crepe</option>
+                            <option value="plats" ${p.categorie==='plats'?'selected':''}>🍽 Plats</option>
+                            <option value="Pasta" ${p.categorie==='Pasta'?'selected':''}>🍝 Pasta</option>
+                            <option value="Libanai" ${p.categorie==='Libanai'?'selected':''}>🌯 Libanai</option>
                         </select></div>
                         
                         <div style="display:flex; gap:10px;">
