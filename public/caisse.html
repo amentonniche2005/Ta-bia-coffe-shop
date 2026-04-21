@@ -1025,77 +1025,67 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
     }
 
 function synchroniserTicketsAvecServeur() {
-        let aMiseAJour = false;
-        if (!commandesRecues || !Array.isArray(commandesRecues)) return;
-        
-        commandesRecues.forEach(commande => {
-            // 1. On ignore les commandes terminées (déjà payées)
-            if (commande.statut === 'paye') return;
+    let aMiseAJour = false;
+    if (!commandesRecues || !Array.isArray(commandesRecues)) return;
+    
+    commandesRecues.forEach(commande => {
+        if (commande.statut === 'paye') return; // Ignorer les commandes payées
+        if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return; // VIP va à gauche
 
-            // 2. On ignore les commandes Web/VIP qui vont dans le panneau latéral gauche
-            if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;
+        const tableNum = String(commande.numeroTable || '').trim();
+        const num = parseInt(tableNum);
+        const isTableNormale = !isNaN(num) && num > 0 && num <= NB_TABLES_MAX;
+
+        // Si ce n'est PAS une table normale (c'est donc Emporter), on ignore ici
+        if (!isTableNormale) return;
+
+        // === C'EST UNE TABLE NORMALE (1, 2, 3...) ===
+        if (window.commandesTraiteesTickets && window.commandesTraiteesTickets.has(commande.id)) return;
+
+        if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: tableNum };
+        if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
+
+        if (!tickets[tableNum].orderIds.includes(commande.id)) {
+            tickets[tableNum].orderIds.push(commande.id);
+            window.commandesTraiteesTickets.add(commande.id);
             
-            // 3. On traite les commandes 'sur_place' (tables numérotées)
-            if (commande.methodePaiement === 'sur_place') {
-                const tableNum = String(commande.numeroTable || '').trim();
-                
-                // Si c'est "À Emporter", ça doit aller dans le panneau latéral (Commandes Web), on l'ignore ici
-                if (tableNum === 'Emporter') return;
-
-                // Si la commande a déjà été injectée dans ce ticket, on ne la remet pas
-                if (window.commandesTraiteesTickets && window.commandesTraiteesTickets.has(commande.id)) return;
-
-                // Si le ticket de cette table n'existe pas encore, on le crée
-                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: tableNum };
-                if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
-
-                // On associe l'ID de la commande au ticket
-                if (!tickets[tableNum].orderIds.includes(commande.id)) {
-                    tickets[tableNum].orderIds.push(commande.id);
-                    window.commandesTraiteesTickets.add(commande.id);
+            if (commande.articles && commande.articles.length > 0) {
+                commande.articles.forEach((article, arrIdx) => { 
+                    let nomPropre = article.nom || "Inconnu"; let variante = article.variante || null;
+                    if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
+                    let vraiPrix = parseFloat(article.prix); if (isNaN(vraiPrix) || vraiPrix===0) { const p = produits.find(p => String(p.id) === String(article.id)); if (p) vraiPrix = parseFloat(p.prix); }
                     
-                    // On ajoute les articles
-                    if (commande.articles && commande.articles.length > 0) {
-                        commande.articles.forEach((article, arrIdx) => { 
-                            let nomPropre = article.nom || "Inconnu"; let variante = article.variante || null;
-                            if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-                            let vraiPrix = parseFloat(article.prix); if (isNaN(vraiPrix) || vraiPrix===0) { const p = produits.find(p => String(p.id) === String(article.id)); if (p) vraiPrix = parseFloat(p.prix); }
-                            
-                            // On ajoute l'article (déjà envoyé en cuisine car venant du web)
-                            ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1, envoye: true }, false, true); 
-                        }); 
-                        aMiseAJour = true;
-                    }
-                }
-                
-                // Mettre à jour le statut "Prêt" si la cuisine l'a terminée
-                if (commande.statut === 'terminee') {
-                    if (commande.articles) { 
-                        commande.articles.forEach((cmdArt) => { 
-                            let nomPropre = cmdArt.nom || "Inconnu"; let variante = cmdArt.variante || null;
-                            if (!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-                            
-                            const existing = tickets[tableNum].articles.find(a => (a.nom === nomPropre) && (a.variante || null) === variante && a.envoye === true && !a.pret);
-                            if (existing) existing.pret = true;
-                        });
-                    }
-                    showNotification(`🔔 Cuisine prête: Table ${tableNum}`, "#10b981");
-                    aMiseAJour = true;
-                }
+                    ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1, envoye: true }, false, true); 
+                }); 
+                aMiseAJour = true;
             }
-        });
-
-        if (aMiseAJour) { 
-            // Recalcul de sécurité de tous les totaux
-            Object.keys(tickets).forEach(k => {
-                if (tickets[k].articles) tickets[k].total = tickets[k].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
-            });
-            sauvegarderTousLesTickets(); 
-            afficherListeTables(); 
-            if (currentTable) afficherTicket(); 
-            showNotification("🔄 Caisse synchronisée avec le Web", "#3b82f6"); 
         }
+        
+        // Mettre à jour si la cuisine a terminé
+        if (commande.statut === 'terminee') {
+            if (commande.articles) { 
+                commande.articles.forEach((cmdArt) => { 
+                    let nomPropre = cmdArt.nom || "Inconnu"; let variante = cmdArt.variante || null;
+                    if (!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
+                    const existing = tickets[tableNum].articles.find(a => (a.nom === nomPropre) && (a.variante || null) === variante && a.envoye === true && !a.pret);
+                    if (existing) existing.pret = true;
+                });
+            }
+            showNotification(`🔔 Cuisine prête: Table ${tableNum}`, "#10b981");
+            aMiseAJour = true;
+        }
+    });
+
+    if (aMiseAJour) { 
+        // Sécurité : recalcul de tous les totaux
+        Object.keys(tickets).forEach(k => {
+            if (tickets[k].articles) tickets[k].total = tickets[k].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
+        });
+        sauvegarderTousLesTickets(); 
+        afficherListeTables(); 
+        if (currentTable) afficherTicket(); 
     }
+}
 
     async function afficherCommandesTable(tableNum) {
         const modal = document.getElementById('modalDetailsTable'); const content = document.getElementById('modalTableContent'); derniereTableModal = String(tableNum).trim();
@@ -1126,18 +1116,20 @@ function initSocket() {
             renderProducts(); 
         });
 
-        socket.on('nouvelle_commande', (commande) => { 
+socket.on('nouvelle_commande', (commande) => { 
             commandesRecues.push(commande); 
             
-            // 1. Si c'est une commande "À Emporter" ou "En Ligne/VIP", ça va dans le panneau latéral gauche
-            if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite' || commande.numeroTable === 'Emporter') {
+            const tableNum = String(commande.numeroTable || '').trim();
+            const num = parseInt(tableNum);
+            const isTableNormale = !isNaN(num) && num > 0 && num <= NB_TABLES_MAX;
+            const isWebPay = commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite';
+
+            // 1. Si c'est Web/VIP OU "Emporter" (Pas une table normale)
+            if (isWebPay || !isTableNormale) {
                 afficherCommandesWeb(); 
             } 
-            // 2. Si c'est une commande normale "Sur Place" depuis une table (ex: Table 4), on l'injecte dans le ticket de la table
-            else if (commande.methodePaiement === 'sur_place') {
-                const tableNum = String(commande.numeroTable).trim();
-                
-                // Si la table est valide
+            // 2. C'EST UNE TABLE NORMALE (1, 2, 3...)
+            else {
                 if (tableNum && tickets[tableNum]) {
                     if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
                     if (!tickets[tableNum].orderIds.includes(commande.id)) {
@@ -1151,7 +1143,7 @@ function initSocket() {
                                 variante: a.variante || null,
                                 prix: parseFloat(a.prix) || 0,
                                 quantite: parseInt(a.quantite) || 1,
-                                envoye: true // Venant du web, c'est déjà en cuisine
+                                envoye: true 
                             }, false, true);
                         });
                         
@@ -1159,9 +1151,10 @@ function initSocket() {
                         sauvegarderTousLesTickets();
                         afficherListeTables();
                         if (currentTable === tableNum) afficherTicket();
-                        showNotification(`🛒 Commande web reçue sur Table ${tableNum}`, "#0284c7");
+                        showNotification(`🛒 Commande reçue sur Table ${tableNum}`, "#0284c7");
                     }
                 }
+                afficherCommandesWeb(); // Rafraîchir au cas où
             }
             
             if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
@@ -1404,23 +1397,22 @@ function afficherModalFermetureCaisse() {
     }
 
 function afficherCommandesWeb() {
-    // 1. Filtre ultra-robuste pour attraper les commandes Internet
+    // 1. Filtre BLINDÉ pour attraper les commandes Internet
     const webCmds = commandesRecues.filter(c => {
         if (c.statut === 'paye') return false; // On ignore ce qui est déjà payé
         
         // On affiche toujours si c'est payé d'avance (Web / VIP)
         if (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite') return true;
         
-        // Si c'est "À payer sur place", on vérifie si c'est une table normale ou "À Emporter"
-        if (c.methodePaiement === 'sur_place') {
-            const num = parseInt(c.numeroTable);
-            const isTableNormale = !isNaN(num) && num > 0 && num <= NB_TABLES_MAX;
-            
-            // Si ce n'est PAS une table normale (c'est donc "Emporter", "EMP-Karim", etc.), on l'affiche ici !
-            if (!isTableNormale) return true; 
-        }
+        // Vérification de la table
+        const tableNum = String(c.numeroTable || '').trim();
+        const num = parseInt(tableNum);
+        const isTableNormale = !isNaN(num) && num > 0 && num <= NB_TABLES_MAX;
         
-        return false;
+        // Si ce n'est PAS une table normale (ex: Emporter), on l'affiche à gauche !
+        if (!isTableNormale) return true; 
+        
+        return false; // Sinon (Table 1, 2...), on le cache d'ici, ça va dans la grille centrale
     });
     
     const container = document.getElementById('sectionCommandesWeb');
@@ -1431,9 +1423,7 @@ function afficherCommandesWeb() {
     
     document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
         const isFidele = cmd.methodePaiement === 'carte_fidelite';
-        
-        // 🔥 LE SECRET EST ICI : Si la commande est en "sur_place", c'est qu'elle doit être encaissée !
-        const isNonPaye = cmd.methodePaiement === 'sur_place';
+        const isNonPaye = cmd.methodePaiement !== 'en_ligne' && cmd.methodePaiement !== 'carte_fidelite';
         
         let badgeIcon = '<i class="fas fa-globe"></i> Web';
         let themeColor = '#3b82f6'; 
@@ -1447,12 +1437,9 @@ function afficherCommandesWeb() {
         let buttonHtml = '';
         let cardClass = '';
 
-        // 2. Gestion des boutons dynamiques
         if (isNonPaye) {
-            // LE CLIENT DOIT PAYER À LA CAISSE
             buttonHtml = `<button onclick="chargerCommandeWebPourPaiement('${cmd.id}')" style="width:100%; background:var(--primary-orange); color:white; border:none; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; box-shadow: 0 4px 12px rgba(230, 126, 34, 0.4);">💳 OUVRIR POUR ENCAISSER</button>`;
         } else {
-            // LE CLIENT A DÉJÀ PAYÉ EN LIGNE OU EN VIP
             if (cmd.statut === 'en_attente' || cmd.statut === 'en_preparation') {
                 buttonHtml = `<button disabled style="width:100%; background:#94a3b8; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; cursor:not-allowed;">⏳ EN CUISINE...</button>`;
             } else if (cmd.statut === 'terminee') {
@@ -1469,10 +1456,7 @@ function afficherCommandesWeb() {
             </div>
             <div style="margin-bottom:10px;">
                 <div style="font-weight:700; color:#334155; font-size:0.95rem;">${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 À Emporter`}</div>
-                <div style="margin-top:5px; background:#f8fafc; padding:8px; border-radius:8px;">
-                    ${articlesPreview}
-                    ${pointsSuspension}
-                </div>
+                <div style="margin-top:5px; background:#f8fafc; padding:8px; border-radius:8px;">${articlesPreview}${pointsSuspension}</div>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <span style="color:#94a3b8; font-size:0.8rem;">Total:</span>
