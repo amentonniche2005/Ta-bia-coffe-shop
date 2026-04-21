@@ -442,23 +442,31 @@ async function sauvegarderTousLesTickets() {
             try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: tickets[currentTable] }) }); } catch (e) {}
         }
     }    
-
-async function chargerTickets() {
-        try {
-            const res = await fetchSecurise('/api/tickets-ouverts');
-            const ticketsSauves = await res.json();
-            if (ticketsSauves && ticketsSauves.length > 0) {
-                ticketsSauves.forEach(t => { tickets[t.tableNum] = t.ticketData; });
-                afficherListeTables(); if (currentTable) afficherTicket(); return;
-            }
-        } catch(e) { console.warn("Serveur injoignable, chargement local..."); }
-        
-        try {
-            // 🔥 Récupération depuis IndexedDB
-            const saved = await localforage.getItem('tabia_caisse_tickets');
-            if (saved) { Object.keys(saved).forEach(key => { tickets[key] = saved[key]; }); }
-        } catch(e) { console.error("Erreur lecture locale", e); }
+function trouverSlotEmporterLibre() {
+    for (let i = 1; i <= 10; i++) {
+        const slot = 'EMP' + i;
+        if (tickets[slot] && tickets[slot].articles.length === 0) return slot;
     }
+    return 'EMP10'; 
+}
+async function chargerTickets() {
+    try {
+        const res = await fetchSecurise('/api/tickets-ouverts');
+        const ticketsSauves = await res.json();
+        if (ticketsSauves && ticketsSauves.length > 0) {
+            ticketsSauves.forEach(t => { 
+                let tableCible = t.tableNum;
+                // Si la commande arrive avec l'étiquette "Emporter" ou "EMP-NOM"
+                if (tableCible === 'Emporter' || String(tableCible).startsWith('EMP-')) {
+                    tableCible = trouverSlotEmporterLibre();
+                }
+                tickets[tableCible] = t.ticketData; 
+            });
+            afficherListeTables(); 
+            if (currentTable) afficherTicket(); 
+        }
+    } catch(e) { console.error(e); }
+}
 
 async function chargerCatalogue() {
         try {
@@ -1022,11 +1030,40 @@ function initSocket() {
             renderProducts(); 
         });
 
-        socket.on('nouvelle_commande', (commande) => { 
+socket.on('nouvelle_commande', (commande) => { 
             commandesRecues.push(commande); 
             if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
-            afficherCommandesWeb(); // 🔥 On actualise le bloc du haut en temps réel
-        }); 
+            afficherCommandesWeb(); // Actualise le bloc des commandes en ligne
+
+            // 🔥 LOGIQUE DE PLACEMENT EN TEMPS RÉEL (Pour les clients qui paient à la caisse)
+            if (commande.methodePaiement === 'sur_place' && commande.statut !== 'paye') {
+                let tableCible = commande.numeroTable;
+                
+                // La redirection intelligente vers EMP 1, EMP 2, etc.
+                if (tableCible === 'Emporter' || String(tableCible).startsWith('EMP-')) {
+                    tableCible = trouverSlotEmporterLibre();
+                }
+
+                if (tickets[tableCible]) {
+                    // On formate les articles pour la caisse
+                    tickets[tableCible].articles = commande.articles.map((a, idx) => ({
+                        id: a.id || Date.now() + idx,
+                        nom: a.nom,
+                        variante: a.variante || null,
+                        prix: parseFloat(a.prix) || 0,
+                        quantite: parseInt(a.quantite) || 1,
+                        envoye: true // Déjà validé par le client web
+                    }));
+                    tickets[tableCible].total = commande.total;
+                    
+                    sauvegarderTousLesTickets();
+                    afficherListeTables();
+                    
+                    // Alerte visuelle et sonore pour le caissier
+                    showNotification(`🛒 Nouvelle commande reçue sur ${tableCible.replace('EMP', 'Emporter ')} !`, "#0284c7");
+                }
+            }
+        });
 
         socket.on('mise_a_jour_commande', (commande) => {
             const idx = commandesRecues.findIndex(c => c.id === commande.id); 
