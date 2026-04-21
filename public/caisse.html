@@ -1322,11 +1322,24 @@ function afficherModalFermetureCaisse() {
     }
 
 function afficherCommandesWeb() {
-    // 1. On filtre les commandes Web (En ligne, VIP, ou "À Emporter" non payées)
-    const webCmds = commandesRecues.filter(c => 
-        c.statut !== 'paye' && 
-        (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite' || c.numeroTable === 'Emporter')
-    );
+    // 1. Filtre ultra-robuste pour attraper les commandes Internet
+    const webCmds = commandesRecues.filter(c => {
+        if (c.statut === 'paye') return false; // On ignore ce qui est déjà payé
+        
+        // On affiche toujours si c'est payé d'avance (Web / VIP)
+        if (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite') return true;
+        
+        // Si c'est "À payer sur place", on vérifie si c'est une table normale ou "À Emporter"
+        if (c.methodePaiement === 'sur_place') {
+            const num = parseInt(c.numeroTable);
+            const isTableNormale = !isNaN(num) && num > 0 && num <= NB_TABLES_MAX;
+            
+            // Si ce n'est PAS une table normale (c'est donc "Emporter", "EMP-Karim", etc.), on l'affiche ici !
+            if (!isTableNormale) return true; 
+        }
+        
+        return false;
+    });
     
     const container = document.getElementById('sectionCommandesWeb');
     if(webCmds.length === 0) { container.style.display = 'none'; return; }
@@ -1336,25 +1349,28 @@ function afficherCommandesWeb() {
     
     document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
         const isFidele = cmd.methodePaiement === 'carte_fidelite';
-        const isEmporterNonPaye = cmd.methodePaiement === 'sur_place' && cmd.numeroTable === 'Emporter';
+        
+        // 🔥 LE SECRET EST ICI : Si la commande est en "sur_place", c'est qu'elle doit être encaissée !
+        const isNonPaye = cmd.methodePaiement === 'sur_place';
         
         let badgeIcon = '<i class="fas fa-globe"></i> Web';
         let themeColor = '#3b82f6'; 
 
         if (isFidele) { badgeIcon = '<i class="fas fa-id-card"></i> VIP Wallet'; themeColor = '#f59e0b'; }
-        if (isEmporterNonPaye) { badgeIcon = '<i class="fas fa-walking"></i> À Payer'; themeColor = '#e67e22'; }
+        if (isNonPaye) { badgeIcon = '<i class="fas fa-walking"></i> À Payer'; themeColor = '#e67e22'; }
         
         const articlesPreview = cmd.articles.slice(0, 3).map(a => `<div style="font-size:0.8rem; color:#64748b;">• ${a.quantite}x ${a.nom}</div>`).join('');
+        const pointsSuspension = cmd.articles.length > 3 ? '<div style="font-size:0.7rem; color:#94a3b8; padding-left:10px;">...et plus</div>' : '';
 
         let buttonHtml = '';
         let cardClass = '';
 
-        // 2. Gestion des boutons selon le type
-        if (isEmporterNonPaye) {
-            // Si le client doit payer sur place
+        // 2. Gestion des boutons dynamiques
+        if (isNonPaye) {
+            // LE CLIENT DOIT PAYER À LA CAISSE
             buttonHtml = `<button onclick="chargerCommandeWebPourPaiement('${cmd.id}')" style="width:100%; background:var(--primary-orange); color:white; border:none; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; box-shadow: 0 4px 12px rgba(230, 126, 34, 0.4);">💳 OUVRIR POUR ENCAISSER</button>`;
         } else {
-            // Si le client a déjà payé (VIP ou En Ligne)
+            // LE CLIENT A DÉJÀ PAYÉ EN LIGNE OU EN VIP
             if (cmd.statut === 'en_attente' || cmd.statut === 'en_preparation') {
                 buttonHtml = `<button disabled style="width:100%; background:#94a3b8; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; cursor:not-allowed;">⏳ EN CUISINE...</button>`;
             } else if (cmd.statut === 'terminee') {
@@ -1371,7 +1387,10 @@ function afficherCommandesWeb() {
             </div>
             <div style="margin-bottom:10px;">
                 <div style="font-weight:700; color:#334155; font-size:0.95rem;">${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 À Emporter`}</div>
-                <div style="margin-top:5px; background:#f8fafc; padding:8px; border-radius:8px;">${articlesPreview}</div>
+                <div style="margin-top:5px; background:#f8fafc; padding:8px; border-radius:8px;">
+                    ${articlesPreview}
+                    ${pointsSuspension}
+                </div>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <span style="color:#94a3b8; font-size:0.8rem;">Total:</span>
