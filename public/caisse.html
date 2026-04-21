@@ -419,8 +419,8 @@ button:hover:not(:disabled) {
     let tickets = {}; let currentTable = null; let activeCategory = "all"; let produits = [];
     let derniereTableModal = null; let socket = null; let commandesRecues = []; 
     let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
-
-    for (let i = 1; i <= 20; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
+    let NB_TABLES_MAX = 160;
+    for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
     tickets['Emporter'] = { articles: [], total: 0 };
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
 
@@ -629,6 +629,10 @@ async function appliquerBranding() {
             if (config.logoUrl) {
                 document.getElementById('dynamicLogo').src = config.logoUrl;
             }
+            if (config.nombreTables) { 
+                NB_TABLES_MAX = parseInt(config.nombreTables); 
+                afficherListeTables(); 
+            }
 
 
         }
@@ -685,7 +689,7 @@ async function envoyerEnCuisine() {
         const container = document.getElementById('tablesGrid'); const countSpan = document.getElementById('tablesCount');
         if (!container) return; let actives = 0, html = '';
         
-        for (let i = 1; i <= 20; i++) {
+        for (let i = 1; i <= NB_TABLES_MAX; i++) {
             const tableStr = String(i); const ticket = tickets[tableStr]; const hasItems = ticket && ticket.articles.length > 0;
             if (hasItems) actives++;
             html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')"><span class="table-num">Table ${i}</span><span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;

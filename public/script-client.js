@@ -20,6 +20,7 @@ let panier = [];
 let produits = []; 
 let categorieActuelle = "all";
 let clientId = null;
+let NB_TABLES_MAX = 160;
 // 🎵 MOTEUR AUDIO (Sons natifs sans fichiers)
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(type) {
@@ -225,6 +226,7 @@ async function appliquerBranding() {
             document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
             document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
             if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
+            if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); };
         }
 
         // ⏳ LA PAUSE DE 3 SECONDES EST ICI
@@ -569,7 +571,7 @@ function passerCommande() {
 }
 
 function afficherModalTable(isVip = false, authFidele = null) {
-    const btns = Array.from({length: 20}, (_, i) => `<button class="table-btn" data-table="${i+1}">${i+1}</button>`).join('');
+    const btns = Array.from({length: NB_TABLES_MAX}, (_, i) => `<button class="table-btn" data-table="${i+1}">${i+1}</button>`).join('');
     const modalHtml = `
         <div id="tableModal" class="table-modal">
             <div class="table-modal-content">

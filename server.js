@@ -237,6 +237,7 @@ const StoreSettings = mongoose.model('StoreSettings', new mongoose.Schema({
     couleurPrincipale: String,
     logoUrl: String,
     caisseToken: String,
+    nombreTables: { type: Number, default: 20 },
     statutAbonnement: { type: String, default: 'actif' }
 }));
 
@@ -363,14 +364,14 @@ app.get('/api/branding', async (req, res) => {
 
 app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
     try {
-        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, targetCafeId } = req.body;
+        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, targetCafeId, nombreTables, } = req.body;
         
         // 🔥 L'ASTUCE ULTIME : Si le Super Admin donne un "targetCafeId", on l'utilise !
         const cafeCible = targetCafeId ? targetCafeId : req.cafeId;
 
         const config = await StoreSettings.findOneAndUpdate(
             { cafeId: cafeCible, type: 'branding' },
-            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken }, 
+            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, nombreTables }, 
             { new: true, upsert: true }
         );
         res.json({ success: true, config });
