@@ -421,7 +421,6 @@ button:hover:not(:disabled) {
     let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
     let NB_TABLES_MAX = 160;
     for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
-    tickets['Emporter'] = { articles: [], total: 0 };
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
 
     function escapeHtml(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
@@ -444,21 +443,28 @@ async function sauvegarderTousLesTickets() {
     }    
 
 async function chargerTickets() {
-        try {
-            const res = await fetchSecurise('/api/tickets-ouverts');
-            const ticketsSauves = await res.json();
-            if (ticketsSauves && ticketsSauves.length > 0) {
-                ticketsSauves.forEach(t => { tickets[t.tableNum] = t.ticketData; });
-                afficherListeTables(); if (currentTable) afficherTicket(); return;
-            }
-        } catch(e) { console.warn("Serveur injoignable, chargement local..."); }
-        
-        try {
-            // 🔥 Récupération depuis IndexedDB
-            const saved = await localforage.getItem('tabia_caisse_tickets');
-            if (saved) { Object.keys(saved).forEach(key => { tickets[key] = saved[key]; }); }
-        } catch(e) { console.error("Erreur lecture locale", e); }
-    }
+    try {
+        const res = await fetchSecurise('/api/tickets-ouverts');
+        const ticketsSauves = await res.json();
+        if (ticketsSauves && ticketsSauves.length > 0) {
+            ticketsSauves.forEach(t => { 
+                if (t.tableNum === 'Emporter') return; // On l'ignore !
+                tickets[t.tableNum] = t.ticketData; 
+            });
+            afficherListeTables(); if (currentTable) afficherTicket(); return;
+        }
+    } catch(e) { console.warn("Serveur injoignable, chargement local..."); }
+    
+    try {
+        const saved = await localforage.getItem('tabia_caisse_tickets');
+        if (saved) { 
+            Object.keys(saved).forEach(key => { 
+                if (key === 'Emporter') return; // On l'ignore !
+                tickets[key] = saved[key]; 
+            }); 
+        }
+    } catch(e) {}
+}
 
 async function chargerCatalogue() {
         try {
@@ -572,44 +578,29 @@ function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
     }
 
 async function viderTicket(tableNum, confirmDialogue = true) {
-        if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
-            if (confirmDialogue) { 
-                try { 
-                    // 🔥 CORRECTION : Gestion spécifique pour les clients fidèles
-                    if (String(tableNum).startsWith('Fidele_')) {
-                        const ticket = tickets[tableNum];
-                        if (ticket && ticket.orderIds && ticket.orderIds.length > 0) {
-                            // On annule chaque commande de ce client une par une
-                            for (let oid of ticket.orderIds) { 
-                                await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); 
-                            }
-                        }
-                    } else {
-                        // Si c'est une table normale, on utilise la méthode classique
-                        await nettoyerCommandesCuisine(tableNum); 
+    if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
+        if (confirmDialogue) { 
+            try { 
+                if (String(tableNum).startsWith('Fidele_') || String(tableNum).startsWith('WEB_')) {
+                    const ticket = tickets[tableNum];
+                    if (ticket && ticket.orderIds && ticket.orderIds.length > 0) {
+                        for (let oid of ticket.orderIds) { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); }
                     }
-                } catch(e) { console.error("Erreur lors du vidage", e); } 
-            }
-            
-            // Suppression locale du ticket
-            if (String(tableNum).startsWith('Fidele_')) { 
-                delete tickets[tableNum]; 
-                if (currentTable === tableNum) currentTable = 'Emporter'; 
-            } else { 
-                tickets[tableNum] = { articles: [], total: 0 }; 
-            }
-            
-            sauvegarderTousLesTickets(); 
-            // 🔥 RENOUVELLEMENT AUTO DU CODE SI LA TABLE EST VIDÉE / ANNULÉE
-        if (!tableNum.startsWith('Fidele_') && tableNum !== 'Emporter') {
+                } else { await fetchSecurise(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' }); }
+            } catch(e) { console.error("Erreur lors du vidage", e); } 
+        }
+        
+        if (String(tableNum).startsWith('Fidele_') || String(tableNum).startsWith('WEB_')) { 
+            delete tickets[tableNum]; currentTable = null; 
+        } else { 
+            tickets[tableNum] = { articles: [], total: 0, orderIds: [] }; 
             try { await fetchSecurise(`/api/numbers/refresh/${tableNum}`, { method: 'POST' }); } catch(e) {}
         }
-            afficherTicket(); 
-            afficherListeTables();
-            
-            if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3b82f6");
-        }
+        
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+        if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3b82f6");
     }
+}
 
     function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
 async function appliquerBranding() {
@@ -685,62 +676,68 @@ async function envoyerEnCuisine() {
         } catch (error) { showNotification("❌ Erreur réseau", "#ef4444"); }
     }
 
-    function afficherListeTables() {
-        const container = document.getElementById('tablesGrid'); const countSpan = document.getElementById('tablesCount');
-        if (!container) return; let actives = 0, html = '';
-        
-        for (let i = 1; i <= NB_TABLES_MAX; i++) {
-            const tableStr = String(i); const ticket = tickets[tableStr]; const hasItems = ticket && ticket.articles.length > 0;
-            if (hasItems) actives++;
-            html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')"><span class="table-num">Table ${i}</span><span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
-        }
-        
-        const emporter = tickets['Emporter']; const emporterHasItems = emporter && emporter.articles.length > 0;
-        if (emporterHasItems) actives++;
-        html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === 'Emporter' ? 'active' : ''} ${emporterHasItems ? 'has-items' : ''}" onclick="selectionnerTable('Emporter')"><span class="table-num">📦 Emporter</span><span class="table-total">${emporterHasItems ? emporter.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('Emporter'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
-
-        Object.keys(tickets).forEach(key => {
-            if (key.startsWith('Fidele_')) {
-                const customTicket = tickets[key]; const hasItems = customTicket.articles.length > 0;
-                if (hasItems || currentTable === key) {
-                    if (hasItems) actives++;
-                   html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="border-color:#e67e22;"><span class="table-num" style="font-size:0.85rem;"><i class="fas fa-star" style="color:#e67e22;"></i> ${escapeHtml(customTicket.label)}</span><span class="table-total">${customTicket.total.toFixed(2)} DT</span></button></div>`;
-                } else if (!hasItems && currentTable !== key) { delete tickets[key]; }
-            }
-        });
-        
-        container.innerHTML = html; if (countSpan) countSpan.innerText = `${actives} actives`;
+function afficherListeTables() {
+    const container = document.getElementById('tablesGrid'); 
+    const countSpan = document.getElementById('tablesCount');
+    if (!container) return; 
+    let actives = 0, html = '';
+    
+    // 1. Tables Normales (1 à NB_TABLES_MAX)
+    for (let i = 1; i <= NB_TABLES_MAX; i++) {
+        const tableStr = String(i); 
+        const ticket = tickets[tableStr]; 
+        const hasItems = ticket && ticket.articles.length > 0;
+        if (hasItems) actives++;
+        html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')"><span class="table-num">Table ${i}</span><span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
     }
+
+    // 2. Séparation visuelle
+    html += `<div style="grid-column: 1 / -1; height: 1px; background: #e2e8f0; margin: 10px 0;"></div>`;
+
+    // 3. Boutons individuels générés (Fidèles & À Emporter)
+    Object.keys(tickets).forEach(key => {
+        if (key.startsWith('Fidele_') || key.startsWith('WEB_')) {
+            const customTicket = tickets[key]; 
+            const hasItems = customTicket.articles.length > 0;
+            if (hasItems || currentTable === key) {
+                if (hasItems) actives++;
+                const isWeb = key.startsWith('WEB_');
+                const color = isWeb ? '#3b82f6' : '#e67e22'; // Bleu pour Emporter, Orange pour Fidèle
+                const icon = isWeb ? '🛍️' : '⭐';
+                html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="border-color:${color};"><span class="table-num" style="font-size:0.85rem; color:${color}; margin-bottom:5px;">${icon} ${escapeHtml(customTicket.label)}</span><span class="table-total">${customTicket.total.toFixed(2)} DT</span></button></div>`;
+            } else if (!hasItems && currentTable !== key) { 
+                delete tickets[key]; 
+            }
+        }
+    });
+    
+    container.innerHTML = html; 
+    if (countSpan) countSpan.innerText = `${actives} actives`;
+}
 
 function afficherTicket() {
-        const itemsDiv = document.getElementById('ticketItemsList'); const totalSpan = document.getElementById('ticketTotal'); const countSpan = document.getElementById('articleCount'); const labelSpan = document.getElementById('currentTableLabel');
-        
-        if (!currentTable) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; }
-        const ticket = tickets[currentTable];
-        if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter'; else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
-        if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
-        
-        let totalArts = 0, html = '';
-        
-        ticket.articles.forEach((item) => {
-            const prix = parseFloat(item.prix) || 0; 
-            const qte = parseInt(item.quantite) || 1; 
-            const itemTotal = prix * qte; 
-            totalArts += qte; 
-            
-            const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null';
-            const envoyeVar = item.envoye ? 'true' : 'false';
+    const itemsDiv = document.getElementById('ticketItemsList'); const totalSpan = document.getElementById('ticketTotal'); const countSpan = document.getElementById('articleCount'); const labelSpan = document.getElementById('currentTableLabel');
+    if (!currentTable) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; }
+    
+    const ticket = tickets[currentTable];
+    
+    // Le nom dynamique
+    if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) labelSpan.innerText = `${ticket.label}`; 
+    else labelSpan.innerText = `Table ${currentTable}`;
+    
+    if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
+    
+    let totalArts = 0, html = '';
+    ticket.articles.forEach((item) => {
+        const prix = parseFloat(item.prix) || 0; const qte = parseInt(item.quantite) || 1; const itemTotal = prix * qte; totalArts += qte; 
+        const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null'; const envoyeVar = item.envoye ? 'true' : 'false';
+        const badgeCuisine = item.envoye ? '' : `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
 
-            // 🔥 LOGIQUE ULTRA-SIMPLE : Le badge "Nouveau" disparaît dès que l'article est envoyé en cuisine.
-            const badgeCuisine = item.envoye 
-                ? '' // Rien ! Il devient un article normal
-                : `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
-
-            html += `<div class="ticket-item"><div class="item-info"><div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div><div class="item-price">${prix.toFixed(2)} DT / u</div></div><div class="item-actions"><div class="qty-control"><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button><span>${qte}</span><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button></div><div class="item-total-price">${itemTotal.toFixed(2)}</div></div></div>`;
-        });
-        
-        itemsDiv.innerHTML = html; totalSpan.innerText = ticket.total.toFixed(2) + " DT"; countSpan.innerText = totalArts + " art.";
-    }
+        html += `<div class="ticket-item"><div class="item-info"><div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div><div class="item-price">${prix.toFixed(2)} DT / u</div></div><div class="item-actions"><div class="qty-control"><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button><span>${qte}</span><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button></div><div class="item-total-price">${itemTotal.toFixed(2)}</div></div></div>`;
+    });
+    
+    itemsDiv.innerHTML = html; totalSpan.innerText = ticket.total.toFixed(2) + " DT"; countSpan.innerText = totalArts + " art.";
+}
 
     function renderCategories() {
         const container = document.getElementById('categoriesContainer');
@@ -783,56 +780,35 @@ function afficherTicket() {
     }
 
 async function executerPaiementComplet(articles, totalPaye, remise, methodePaiement = 'especes') {
-        const ticket = tickets[currentTable]; if (!ticket.articles.length) return;
-        if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
-        
-        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
-        if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
+    const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
+    if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
+    
+    let nomOrigine = `Table ${currentTable}`;
+    if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) nomOrigine = ticket.label;
 
-        const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
+    const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
 
-        // 🔥 BLOQUER LES DOUBLONS : On dit à la caisse de ne plus jamais afficher ces commandes
-        if (ticket.orderIds && ticket.orderIds.length > 0) {
-            ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
-        }
+    if (ticket.orderIds && ticket.orderIds.length > 0) ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
 
-        // Tenter d'envoyer au serveur
-        let requeteReussie = false;
-        try {
-            if (navigator.onLine) {
-                const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) });
-                if (res.ok) requeteReussie = true;
-            }
-        } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
+    let requeteReussie = false;
+    try { if (navigator.onLine) { const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) }); if (res.ok) requeteReussie = true; } } catch(e) { console.warn("Réseau"); }
 
-        if (!requeteReussie) {
-            // 🚨 HORS LIGNE : Sauvegarde ultra-robuste avec mémorisation de la table pour nettoyage futur
-            let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
-            venteBody.offlineTable = currentTable; 
-            venteBody.offlineOrderIds = ticket.orderIds || [];
-            ventesOffline.push(venteBody);
-            await localforage.setItem('tabia_ventes_offline', ventesOffline);
-            showNotification("⚠️ Serveur injoignable, Vente hors-ligne.", "#f39c12");
-        } else {
-            // ✅ EN LIGNE : On nettoie la cuisine tout de suite
-            if (currentTable.startsWith('Fidele_')) {
-                if (ticket.orderIds) { for (let oid of ticket.orderIds) { try { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); } catch(e){} } }
-            } else {
-                try { await nettoyerCommandesCuisine(currentTable); } catch(e){}
-            }
-        }
-        
-        if (currentTable.startsWith('Fidele_')) { delete tickets[currentTable]; currentTable = 'Emporter'; } 
-        else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; }
-        
-        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
-        // 🔥 RENOUVELLEMENT AUTO DU CODE DE LA TABLE APRÈS PAIEMENT
-        if (!currentTable.startsWith('Fidele_') && currentTable !== 'Emporter') {
-            try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {}
-        }
-        showNotification(`✅ Payé : ${totalPaye.toFixed(2)} DT`, "#10b981");
-        imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
+    if (!requeteReussie) {
+        let ventesOffline = await localforage.getItem('tabia_ventes_offline') || []; venteBody.offlineTable = currentTable; venteBody.offlineOrderIds = ticket.orderIds || []; ventesOffline.push(venteBody); await localforage.setItem('tabia_ventes_offline', ventesOffline); showNotification("⚠️ Vente sauvegardée hors-ligne.", "#f39c12");
+    } else {
+        if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) {
+            if (ticket.orderIds) { for (let oid of ticket.orderIds) { try { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); } catch(e){} } }
+        } else { try { await fetchSecurise(`/api/commandes/table/${currentTable}/paye`, { method: 'PUT' }); } catch(e){} }
     }
+    
+    // NETTOYAGE DU BOUTON
+    if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { delete tickets[currentTable]; currentTable = null; } 
+    else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {} }
+    
+    sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+    showNotification(`✅ Payé : ${totalPaye.toFixed(2)} DT`, "#10b981");
+    imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
+}
 
     function payerSelection() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444");
@@ -887,71 +863,43 @@ function validerSelectionPaiement() {
     function fermerModalSelection() { document.getElementById('modalSelectionArticles').classList.remove('active'); currentTableSelection = null; }
 
 async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer, methodePaiement = 'especes') {
-        const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
-        if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
-        
-        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
-        if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle : ${ticket.label}`;
+    const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
+    if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
+    
+    let nomOrigine = `Table ${currentTable}`;
+    if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) nomOrigine = ticket.label;
 
-        const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
+    const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
 
-        // 1. Calcul des articles restants (CORRIGÉ 🔥)
-// Dans `executerPaiementPartiel`, remplace UNIQUEMENT le bloc "1. Calcul des articles restants" par ceci :
-        
-        // 1. Calcul des articles restants
-        const articlesRestants = [];
-        ticket.articles.forEach((article, articleIndex) => {
-            for (let i = 0; i < article.quantite; i++) {
-                const unitId = `${articleIndex}_${i}`;
-                if (!unitIdsASupprimer.includes(unitId)) {
-                    // On conserve l'état 'envoye' pour ne pas faire réapparaitre le badge rouge
-                    const existing = articlesRestants.find(a => a.id === article.id && a.variante === article.variante && a.envoye === article.envoye);
-                    if (existing) {
-                        existing.quantite++; 
-                    } else {
-                        articlesRestants.push({ 
-                            id: article.id, nom: article.nom, variante: article.variante, 
-                            prix: article.prix, quantite: 1,
-                            envoye: article.envoye
-                        });
-                    }
-                }
-            }
-        });
-
-        // Tenter d'envoyer au serveur
-        let requeteReussie = false;
-        try {
-            if (navigator.onLine) {
-                const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) });
-                if (res.ok) requeteReussie = true;
-            }
-        } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
-
-        if (!requeteReussie) {
-            // 🚨 HORS LIGNE 
-            let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
-            venteBody.isPartiel = true;
-            venteBody.offlineOrderIds = ticket.orderIds || [];
-            venteBody.articlesRestantsOffline = articlesRestants; 
-            ventesOffline.push(venteBody);
-            await localforage.setItem('tabia_ventes_offline', ventesOffline);
-            showNotification("⚠️ Paiement partiel hors-ligne.", "#f39c12");
-        } else {
-            // ✅ EN LIGNE
-            if (ticket.orderIds && ticket.orderIds.length > 0) {
-                try { await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants }) }); } catch(e) {}
+    const articlesRestants = [];
+    ticket.articles.forEach((article, articleIndex) => {
+        for (let i = 0; i < article.quantite; i++) {
+            const unitId = `${articleIndex}_${i}`;
+            if (!unitIdsASupprimer.includes(unitId)) {
+                const existing = articlesRestants.find(a => a.id === article.id && a.variante === article.variante && a.envoye === article.envoye);
+                if (existing) { existing.quantite++; } else { articlesRestants.push({ id: article.id, nom: article.nom, variante: article.variante, prix: article.prix, quantite: 1, envoye: article.envoye }); }
             }
         }
-        
-        // 3. Mise à jour de la caisse locale
-        tickets[currentTable].articles = articlesRestants; 
-        tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
-        
-        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
-        showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
-        imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
+    });
+
+    let requeteReussie = false;
+    try { if (navigator.onLine) { const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) }); if (res.ok) requeteReussie = true; } } catch(e) {}
+
+    if (!requeteReussie) {
+        let ventesOffline = await localforage.getItem('tabia_ventes_offline') || []; venteBody.isPartiel = true; venteBody.offlineOrderIds = ticket.orderIds || []; venteBody.articlesRestantsOffline = articlesRestants; ventesOffline.push(venteBody); await localforage.setItem('tabia_ventes_offline', ventesOffline); showNotification("⚠️ Paiement partiel hors-ligne.", "#f39c12");
+    } else {
+        if (ticket.orderIds && ticket.orderIds.length > 0) { try { await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants }) }); } catch(e) {} }
     }
+    
+    if (articlesRestants.length === 0) {
+        if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { delete tickets[currentTable]; currentTable = null; } 
+        else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; }
+    } else { tickets[currentTable].articles = articlesRestants; tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0); }
+    
+    sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+    showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
+    imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
+}
 
     async function chargerCommandesCuisineInitiales() {
         try { const response = await fetchSecurise('/api/commandes'); commandesRecues = await response.json(); afficherCommandesWeb(); } catch(e) {}
@@ -963,25 +911,25 @@ function synchroniserTicketsAvecServeur() {
     
     commandesRecues.forEach(commande => {
         if (commande.statut === 'paye') return;
-        if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;
+        if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return; // Reste à gauche
         
         if (commande.methodePaiement === 'sur_place') {
             let tableNum = String(commande.numeroTable || '').trim();
             let customLabel = null;
             
-            // 🔥 C'est ici : on sépare les Emporter dans des tickets uniques
+            // 🔥 CRÉATION DU TICKET UNIQUE "À EMPORTER"
             if (tableNum === 'Emporter') {
-                customLabel = commande.clientName ? commande.clientName : ('#' + commande.numero);
-                tableNum = 'WEB_' + commande.id; 
+                tableNum = 'WEB_' + commande.id;
+                customLabel = commande.clientName ? commande.clientName : `Emporter #${commande.numero}`;
+            } else if (commande.clientName) {
+                tableNum = 'Fidele_' + commande.clientName; 
+                customLabel = commande.clientName;
             }
 
             if (window.commandesTraiteesTickets && window.commandesTraiteesTickets.has(commande.id)) return;
 
-            // Création du ticket indépendant
-            if (!tickets[tableNum]) {
-                tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
-                if (customLabel) tickets[tableNum].label = customLabel;
-            }
+            if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
+            if (customLabel) tickets[tableNum].label = customLabel;
             if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
 
             if (!tickets[tableNum].orderIds.includes(commande.id)) {
@@ -993,37 +941,31 @@ function synchroniserTicketsAvecServeur() {
                         let nomPropre = article.nom || "Inconnu"; let variante = article.variante || null;
                         if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
                         let vraiPrix = parseFloat(article.prix); if (isNaN(vraiPrix) || vraiPrix===0) { const p = produits.find(p => String(p.id) === String(article.id)); if (p) vraiPrix = parseFloat(p.prix); }
-                        
                         ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1, envoye: true }, false, true); 
                     }); 
                     aMiseAJour = true;
                 }
             }
             
-            // Suivi du statut de la cuisine
             if (commande.statut === 'terminee') {
                 if (commande.articles) { 
                     commande.articles.forEach((cmdArt) => { 
                         let nomPropre = cmdArt.nom || "Inconnu"; let variante = cmdArt.variante || null;
                         if (!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-                        
                         const existing = tickets[tableNum].articles.find(a => (a.nom === nomPropre) && (a.variante || null) === variante && a.envoye === true && !a.pret);
                         if (existing) existing.pret = true;
                     });
                 }
-                showNotification(`🔔 Cuisine prête: ${customLabel ? customLabel : 'Table ' + tableNum}`, "#10b981");
+                showNotification(`🔔 Cuisine prête: ${customLabel || 'Table '+tableNum}`, "#10b981");
                 aMiseAJour = true;
             }
         }
     });
 
     if (aMiseAJour) { 
-        Object.keys(tickets).forEach(k => {
-            if (tickets[k].articles) tickets[k].total = tickets[k].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
-        });
-        sauvegarderTousLesTickets(); 
-        afficherListeTables(); 
-        if (currentTable) afficherTicket(); 
+        Object.keys(tickets).forEach(k => { if (tickets[k].articles) tickets[k].total = tickets[k].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0); });
+        sauvegarderTousLesTickets(); afficherListeTables(); if (currentTable) afficherTicket(); 
+        showNotification("🔄 Commandes ajoutées à la grille !", "#10b981"); 
     }
 }
 
@@ -1043,124 +985,111 @@ function synchroniserTicketsAvecServeur() {
     function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
 function initSocket() {
-        socket = io({ auth: { token: monToken }, transports: ['websocket', 'polling'] });
+    socket = io({ auth: { token: monToken }, transports: ['websocket', 'polling'] });
+    
+    socket.on('connect', async () => { 
+        await chargerCommandesCuisineInitiales(); 
+        synchroniserTicketsAvecServeur(); 
+    });
+    
+    socket.on('update_stock', async () => { 
+        await chargerCatalogue(); 
+        if (currentTable) afficherTicket(); 
+        renderProducts(); 
+    });
+
+    socket.on('nouvelle_commande', (commande) => { 
+        commandesRecues.push(commande); 
         
-        socket.on('connect', async () => { 
-            await chargerCommandesCuisineInitiales(); 
-            synchroniserTicketsAvecServeur(); 
-        });
-        
-        socket.on('update_stock', async () => { 
-            await chargerCatalogue(); 
-            if (currentTable) afficherTicket(); 
-            renderProducts(); 
-        });
+        if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') {
+            afficherCommandesWeb(); 
+        } 
+        else if (commande.methodePaiement === 'sur_place') {
+            let tableNum = String(commande.numeroTable || '').trim();
+            let customLabel = null;
 
-socket.on('nouvelle_commande', (commande) => { 
-            commandesRecues.push(commande); 
-            
-            if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') {
-                afficherCommandesWeb(); 
-            } 
-            else if (commande.methodePaiement === 'sur_place') {
-                let tableNum = String(commande.numeroTable || '').trim();
-                let customLabel = null;
-
-                // 🔥 Séparation des "Emporter" en tickets uniques en temps réel
-                if (tableNum === 'Emporter') {
-                    customLabel = commande.clientName ? commande.clientName : ('#' + commande.numero);
-                    tableNum = 'WEB_' + commande.id;
-                }
-                
-                if (tableNum) {
-                    if (!tickets[tableNum]) {
-                        tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
-                        if (customLabel) tickets[tableNum].label = customLabel;
-                    }
-
-                    if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
-                    if (!tickets[tableNum].orderIds.includes(commande.id)) {
-                        tickets[tableNum].orderIds.push(commande.id);
-                        window.commandesTraiteesTickets.add(commande.id);
-                        
-                        commande.articles.forEach((a, idx) => {
-                            ajouterAuTicket(tableNum, {
-                                id: a.id || Date.now() + idx,
-                                nom: a.nom,
-                                variante: a.variante || null,
-                                prix: parseFloat(a.prix) || 0,
-                                quantite: parseInt(a.quantite) || 1,
-                                envoye: true
-                            }, false, true);
-                        });
-                        
-                        tickets[tableNum].total = tickets[tableNum].articles.reduce((s, art) => s + (parseFloat(art.prix || 0) * parseInt(art.quantite || 1)), 0);
-                        sauvegarderTousLesTickets();
-                        afficherListeTables();
-                        if (currentTable === tableNum) afficherTicket();
-                        showNotification(`🛒 Commande web reçue : ${customLabel ? customLabel : 'Table ' + tableNum}`, "#0284c7");
-                    }
-                }
+            // 🔥 On crée le bouton dynamique en temps réel
+            if (tableNum === 'Emporter') {
+                tableNum = 'WEB_' + commande.id;
+                customLabel = commande.clientName ? commande.clientName : `Emporter #${commande.numero}`;
+            } else if (commande.clientName) {
+                tableNum = 'Fidele_' + commande.clientName;
+                customLabel = commande.clientName;
             }
-            
-            if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
-        }); 
 
-socket.on('mise_a_jour_commande', (commande) => {
-            const idx = commandesRecues.findIndex(c => c.id === commande.id); 
-            if (idx !== -1) commandesRecues[idx] = commande; 
-            else commandesRecues.push(commande);
-            
-            afficherCommandesWeb();
-            
-            if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            
-            
-            if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
+            if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
+            if (customLabel) tickets[tableNum].label = customLabel;
+            if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
+
+            if (!tickets[tableNum].orderIds.includes(commande.id)) {
+                tickets[tableNum].orderIds.push(commande.id);
                 window.commandesTraiteesTickets.add(commande.id);
                 
-                let tableNum = String(commande.numeroTable || '').trim(); 
-                let customLabel = null;
+                commande.articles.forEach((a, idx) => {
+                    let nomPropre = a.nom || "Inconnu"; let variante = a.variante || null;
+                    if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
+                    let vraiPrix = parseFloat(a.prix) || 0;
+                    ajouterAuTicket(tableNum, { id: a.id || Date.now()+idx, nom: nomPropre, variante: variante, prix: vraiPrix, quantite: parseInt(a.quantite) || 1, envoye: true }, false, true);
+                });
                 
-                // 🔥 On retrouve le bon ticket selon son origine
-                if (commande.clientName && commande.methodePaiement === 'carte_fidelite') { 
-                    tableNum = 'Fidele_' + commande.clientName; 
-                    customLabel = commande.clientName; 
-                } else if (tableNum === 'Emporter') {
-                    tableNum = 'WEB_' + commande.id;
-                    customLabel = commande.clientName ? commande.clientName : ('#' + commande.numero);
-                }
-                
-                if (!tickets[tableNum]) {
-                    tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
-                    if (customLabel) tickets[tableNum].label = customLabel;
-                }
-                
-                if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
-                if (!tickets[tableNum].orderIds.includes(commande.id)) tickets[tableNum].orderIds.push(commande.id);
-
-                if (commande.articles) { 
-                    commande.articles.forEach((cmdArt, arrIdx) => { 
-                        let nomPropre = cmdArt.nom || "Inconnu"; let variante = cmdArt.variante || null;
-                        if (!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-                        let vraiPrix = parseFloat(cmdArt.prix); 
-                        if (isNaN(vraiPrix) || vraiPrix === 0) { const p = produits.find(p => String(p.id) === String(cmdArt.id)); if (p) vraiPrix = parseFloat(p.prix); }
-
-                        const existing = tickets[tableNum].articles.find(a => (a.nom === nomPropre) && (a.variante || null) === variante && a.envoye === true && !a.pret);
-                        if (existing) { existing.pret = true; existing.quantite = parseInt(cmdArt.quantite) || existing.quantite; } 
-                        else {
-                            ajouterAuTicket(tableNum, { id: cmdArt.id || Date.now() + arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(cmdArt.quantite) || 1, envoye: true, pret: true }, false, true); 
-                        }
-                    }); 
-                }
-                
-                tickets[tableNum].total = tickets[tableNum].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
-                sauvegarderTousLesTickets(); afficherListeTables(); 
-                if (String(currentTable) === tableNum) afficherTicket();
-                showNotification(`🔔 Cuisine prête: #${commande.numero}`, "#10b981");
+                tickets[tableNum].total = tickets[tableNum].articles.reduce((s, art) => s + (parseFloat(art.prix || 0) * parseInt(art.quantite || 1)), 0);
+                sauvegarderTousLesTickets();
+                afficherListeTables();
+                if (currentTable === tableNum) afficherTicket();
+                showNotification(`🛒 Nouvelle commande : ${customLabel || 'Table ' + tableNum}`, "#0284c7");
             }
-            if (derniereTableModal) afficherCommandesTable(derniereTableModal);
-        });
-    }
+        }
+        if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
+    }); 
+
+    socket.on('mise_a_jour_commande', (commande) => {
+        const idx = commandesRecues.findIndex(c => c.id === commande.id); 
+        if (idx !== -1) commandesRecues[idx] = commande; 
+        else commandesRecues.push(commande);
+        
+        afficherCommandesWeb();
+        if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            
+        
+        if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
+            window.commandesTraiteesTickets.add(commande.id);
+            
+            let tableNum = String(commande.numeroTable || '').trim(); 
+            let customLabel = null;
+            
+            if (tableNum === 'Emporter') {
+                tableNum = 'WEB_' + commande.id;
+                customLabel = commande.clientName ? commande.clientName : `Emporter #${commande.numero}`;
+            } else if (commande.clientName) { 
+                tableNum = 'Fidele_' + commande.clientName; 
+                customLabel = commande.clientName; 
+            }
+            
+            if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
+            if (customLabel) tickets[tableNum].label = customLabel; 
+            if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
+            if (!tickets[tableNum].orderIds.includes(commande.id)) tickets[tableNum].orderIds.push(commande.id);
+
+            if (commande.articles) { 
+                commande.articles.forEach((cmdArt, arrIdx) => { 
+                    let nomPropre = cmdArt.nom || "Inconnu"; let variante = cmdArt.variante || null;
+                    if (!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
+                    let vraiPrix = parseFloat(cmdArt.prix); 
+                    if (isNaN(vraiPrix) || vraiPrix === 0) { const p = produits.find(p => String(p.id) === String(cmdArt.id)); if (p) vraiPrix = parseFloat(p.prix); }
+
+                    const existing = tickets[tableNum].articles.find(a => (a.nom === nomPropre) && (a.variante || null) === variante && a.envoye === true && !a.pret);
+                    if (existing) { existing.pret = true; existing.quantite = parseInt(cmdArt.quantite) || existing.quantite; } 
+                    else { ajouterAuTicket(tableNum, { id: cmdArt.id || Date.now() + arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(cmdArt.quantite) || 1, envoye: true, pret: true }, false, true); }
+                }); 
+            }
+            
+            tickets[tableNum].total = tickets[tableNum].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
+            sauvegarderTousLesTickets(); afficherListeTables(); 
+            if (String(currentTable) === tableNum) afficherTicket();
+            showNotification(`🔔 Cuisine prête: ${customLabel || 'Table '+tableNum}`, "#10b981");
+        }
+        if (derniereTableModal) afficherCommandesTable(derniereTableModal);
+    });
+}
 
     let caisseOuverte = false; let sessionCaisseId = null;
     async function verifierStatutCaisse() {
@@ -1312,7 +1241,6 @@ function afficherModalFermetureCaisse() {
     }
 
 function afficherCommandesWeb() {
-    // Ne garde que les paiements En Ligne ou VIP dans cette barre
     const webCmds = commandesRecues.filter(c => 
         c.statut !== 'paye' && 
         (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite')
@@ -1329,31 +1257,31 @@ function afficherCommandesWeb() {
         let badgeIcon = isFidele ? '<i class="fas fa-id-card"></i> VIP Wallet' : '<i class="fas fa-globe"></i> Paiement Web';
         let themeColor = isFidele ? '#f59e0b' : '#3b82f6'; 
         
-        const articlesPreview = cmd.articles.slice(0, 3).map(a => `<div style="font-size:0.85rem; color:#475569; font-weight:600;">• ${a.quantite}x ${a.nom}</div>`).join('');
-        const pointsSuspension = cmd.articles.length > 3 ? '<div style="font-size:0.75rem; color:#94a3b8; padding-left:10px; font-weight:bold;">...et plus</div>' : '';
+        const articlesPreview = cmd.articles.slice(0, 3).map(a => `<div style="font-size:0.8rem; color:#64748b;">• ${a.quantite}x ${a.nom}</div>`).join('');
+        const pointsSuspension = cmd.articles.length > 3 ? '<div style="font-size:0.7rem; color:#94a3b8; padding-left:10px;">...et plus</div>' : '';
 
         let buttonHtml = ''; let cardClass = '';
 
         if (cmd.statut === 'en_attente' || cmd.statut === 'en_preparation') {
-            buttonHtml = `<button disabled style="width:100%; background:#94a3b8; color:white; border:none; padding:14px; border-radius:12px; font-weight:800; cursor:not-allowed; font-size:1rem;">⏳ EN CUISINE...</button>`;
+            buttonHtml = `<button disabled style="width:100%; background:#94a3b8; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; cursor:not-allowed;">⏳ EN CUISINE...</button>`;
         } else if (cmd.statut === 'terminee') {
             cardClass = 'animate-pulse-green';
-            buttonHtml = `<button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:#10b981; color:white; border:none; padding:14px; border-radius:12px; cursor:pointer; font-weight:900; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4); font-size:1rem; transition:0.2s;">✅ SERVIR & ARCHIVER</button>`;
+            buttonHtml = `<button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:#10b981; color:white; border:none; padding:12px; border-radius:10px; cursor:pointer; font-weight:800; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);">✅ SERVIR & ARCHIVER</button>`;
         }
 
         return `
-        <div class="${cardClass}" style="background: white; border-left: 8px solid ${themeColor}; padding: 20px; border-radius: 16px; box-shadow: var(--shadow-md); margin-bottom: 15px; border: 1px solid var(--border-soft);">
+        <div class="${cardClass}" style="background: white; border-left: 6px solid ${themeColor}; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:1.1rem; font-weight:800; color:#1e293b;">#${cmd.numero}</span>
+                <span style="background:${themeColor}22; color:${themeColor}; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold;">${badgeIcon}</span>
+            </div>
+            <div style="margin-bottom:10px;">
+                <div style="font-weight:700; color:#334155; font-size:0.95rem;">${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 Web`}</div>
+                <div style="margin-top:5px; background:#f8fafc; padding:8px; border-radius:8px; border:1px solid #e2e8f0;">${articlesPreview}${pointsSuspension}</div>
+            </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <span style="font-size:1.3rem; font-weight:900; color:#1e293b; letter-spacing:-0.5px;">#${cmd.numero}</span>
-                <span style="background:${themeColor}15; color:${themeColor}; padding:6px 12px; border-radius:8px; font-size:0.8rem; font-weight:800; text-transform:uppercase;">${badgeIcon}</span>
-            </div>
-            <div style="margin-bottom:15px;">
-                <div style="font-weight:800; color:#334155; font-size:1.05rem; margin-bottom:6px;"><i class="fas fa-user-circle" style="color:#94a3b8;"></i> ${cmd.clientName ? cmd.clientName : `Web`}</div>
-                <div style="background:#f8fafc; padding:12px; border-radius:10px; border: 1px solid #f1f5f9;">${articlesPreview}${pointsSuspension}</div>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-top: 1px dashed var(--border-soft); padding-top:10px;">
-                <span style="color:#94a3b8; font-size:0.9rem; font-weight:700; text-transform:uppercase;">Total Payé</span>
-                <span style="font-weight:900; font-size:1.5rem; color:#1e293b;">${(cmd.total || 0).toFixed(2)} <span style="font-size:0.9rem;">DT</span></span>
+                <span style="color:#94a3b8; font-size:0.8rem;">Total payé:</span>
+                <span style="font-weight:900; font-size:1.3rem; color:#1e293b;">${(cmd.total || 0).toFixed(2)} <small>DT</small></span>
             </div>
             ${buttonHtml}
         </div>`;
