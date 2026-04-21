@@ -590,6 +590,9 @@ async function viderTicket(tableNum, confirmDialogue = true) {
             } catch(e) { console.error("Erreur lors du vidage", e); } 
         }
         
+        // 🔥 CORRECTION ICI : On force le serveur à enregistrer un ticket vide pour tuer le "fantôme"
+        try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: tableNum, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
+        
         if (String(tableNum).startsWith('Fidele_') || String(tableNum).startsWith('WEB_')) { 
             delete tickets[tableNum]; currentTable = null; 
         } else { 
@@ -802,12 +805,22 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
     }
     
     // NETTOYAGE DU BOUTON
-    if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { delete tickets[currentTable]; currentTable = null; } 
-    else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {} }
-    
-    sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
-    showNotification(`✅ Payé : ${totalPaye.toFixed(2)} DT`, "#10b981");
-    imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
+// 🔥 CORRECTION : On écrase le ticket sur le serveur AVANT de le supprimer de l'écran
+        try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
+
+        // NETTOYAGE DU BOUTON
+        if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { 
+            delete tickets[currentTable]; 
+            currentTable = null; 
+        } 
+        else { 
+            tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; 
+            try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {} 
+        }
+        
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+        showNotification(`✅ Payé : ${totalPaye.toFixed(2)} DT`, "#10b981");
+        imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
 }
 
     function payerSelection() {
@@ -891,14 +904,24 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         if (ticket.orderIds && ticket.orderIds.length > 0) { try { await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants }) }); } catch(e) {} }
     }
     
-    if (articlesRestants.length === 0) {
-        if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { delete tickets[currentTable]; currentTable = null; } 
-        else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; }
-    } else { tickets[currentTable].articles = articlesRestants; tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0); }
-    
-    sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
-    showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
-    imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
+if (articlesRestants.length === 0) {
+            // 🔥 CORRECTION : On écrase le ticket sur le serveur
+            try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
+
+            if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { 
+                delete tickets[currentTable]; 
+                currentTable = null; 
+            } else { 
+                tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; 
+            }
+        } else { 
+            tickets[currentTable].articles = articlesRestants; 
+            tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0); 
+        }
+        
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+        showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
+        imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
 }
 
     async function chargerCommandesCuisineInitiales() {
