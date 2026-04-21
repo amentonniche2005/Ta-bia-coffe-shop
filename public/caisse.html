@@ -421,7 +421,6 @@ button:hover:not(:disabled) {
     let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
     let NB_TABLES_MAX = 160;
     for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
-    tickets['Emporter'] = { articles: [], total: 0 };
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
 
     function escapeHtml(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
@@ -448,7 +447,11 @@ async function chargerTickets() {
             const res = await fetchSecurise('/api/tickets-ouverts');
             const ticketsSauves = await res.json();
             if (ticketsSauves && ticketsSauves.length > 0) {
-                ticketsSauves.forEach(t => { tickets[t.tableNum] = t.ticketData; });
+                ticketsSauves.forEach(t => { 
+                    // On ne charge pas les anciens "Emporter" ou "EMP"
+                    if (t.tableNum === 'Emporter' || String(t.tableNum).startsWith('EMP')) return;
+                    tickets[t.tableNum] = t.ticketData; 
+                });
                 afficherListeTables(); if (currentTable) afficherTicket(); return;
             }
         } catch(e) { console.warn("Serveur injoignable, chargement local..."); }
@@ -456,7 +459,12 @@ async function chargerTickets() {
         try {
             // 🔥 Récupération depuis IndexedDB
             const saved = await localforage.getItem('tabia_caisse_tickets');
-            if (saved) { Object.keys(saved).forEach(key => { tickets[key] = saved[key]; }); }
+            if (saved) { 
+                Object.keys(saved).forEach(key => { 
+                    if (key === 'Emporter' || String(key).startsWith('EMP')) return;
+                    tickets[key] = saved[key]; 
+                }); 
+            }
         } catch(e) { console.error("Erreur lecture locale", e); }
     }
 
@@ -685,31 +693,61 @@ async function envoyerEnCuisine() {
         } catch (error) { showNotification("❌ Erreur réseau", "#ef4444"); }
     }
 
-    function afficherListeTables() {
-        const container = document.getElementById('tablesGrid'); const countSpan = document.getElementById('tablesCount');
-        if (!container) return; let actives = 0, html = '';
+function afficherListeTables() {
+        const container = document.getElementById('tablesGrid'); 
+        const countSpan = document.getElementById('tablesCount');
+        if (!container) return; 
+        let actives = 0, html = '';
         
+        // 1. On affiche les tables normales (1 à NB_TABLES_MAX)
         for (let i = 1; i <= NB_TABLES_MAX; i++) {
-            const tableStr = String(i); const ticket = tickets[tableStr]; const hasItems = ticket && ticket.articles.length > 0;
+            const tableStr = String(i); 
+            const ticket = tickets[tableStr]; 
+            const hasItems = ticket && ticket.articles.length > 0;
+            
             if (hasItems) actives++;
-            html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')"><span class="table-num">Table ${i}</span><span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
+            
+            html += `<div class="table-wrapper">
+                <button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')">
+                    <span class="table-num">Table ${i}</span>
+                    <span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span>
+                </button>
+                <button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button>
+            </div>`;
         }
-        
-        const emporter = tickets['Emporter']; const emporterHasItems = emporter && emporter.articles.length > 0;
-        if (emporterHasItems) actives++;
-        html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === 'Emporter' ? 'active' : ''} ${emporterHasItems ? 'has-items' : ''}" onclick="selectionnerTable('Emporter')"><span class="table-num">📦 Emporter</span><span class="table-total">${emporterHasItems ? emporter.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('Emporter'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
 
+        // 2. On ajoute une petite ligne de séparation (esthétique)
+        html += `<div style="grid-column: 1 / -1; height: 1px; background: #e2e8f0; margin: 10px 0;"></div>`;
+
+        // 3. On affiche les Clients Fidèles et les Commandes Web "À Emporter" (les tickets générés dynamiquement)
         Object.keys(tickets).forEach(key => {
-            if (key.startsWith('Fidele_')) {
-                const customTicket = tickets[key]; const hasItems = customTicket.articles.length > 0;
+            if (key.startsWith('Fidele_') || key.startsWith('WEB_')) {
+                const customTicket = tickets[key]; 
+                const hasItems = customTicket.articles.length > 0;
+                
                 if (hasItems || currentTable === key) {
                     if (hasItems) actives++;
-                   html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="border-color:#e67e22;"><span class="table-num" style="font-size:0.85rem;"><i class="fas fa-star" style="color:#e67e22;"></i> ${escapeHtml(customTicket.label)}</span><span class="table-total">${customTicket.total.toFixed(2)} DT</span></button></div>`;
-                } else if (!hasItems && currentTable !== key) { delete tickets[key]; }
+                    
+                    const icone = key.startsWith('WEB_') ? '🛍️' : '⭐';
+                    const color = key.startsWith('WEB_') ? '#3b82f6' : '#e67e22'; // Bleu pour Web, Orange pour Fidele
+                    
+                    html += `<div class="table-wrapper">
+                        <button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="border-color:${color};">
+                            <span class="table-num" style="font-size:0.85rem;">
+                                <i class="fas fa-star" style="color:${color};"></i> ${icone} ${escapeHtml(customTicket.label)}
+                            </span>
+                            <span class="table-total">${customTicket.total.toFixed(2)} DT</span>
+                        </button>
+                    </div>`;
+                } else if (!hasItems && currentTable !== key) { 
+                    // Sécurité : on supprime les tickets virtuels vides non sélectionnés
+                    delete tickets[key]; 
+                }
             }
         });
         
-        container.innerHTML = html; if (countSpan) countSpan.innerText = `${actives} actives`;
+        container.innerHTML = html; 
+        if (countSpan) countSpan.innerText = `${actives} actives`;
     }
 
 function afficherTicket() {
@@ -717,7 +755,7 @@ function afficherTicket() {
         
         if (!currentTable) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; }
         const ticket = tickets[currentTable];
-        if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter'; else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
+        if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else if (currentTable.startsWith('WEB_')) labelSpan.innerText = `🛍️ Emporter ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
         if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
         
         let totalArts = 0, html = '';
@@ -783,20 +821,24 @@ function afficherTicket() {
     }
 
 async function executerPaiementComplet(articles, totalPaye, remise, methodePaiement = 'especes') {
-        const ticket = tickets[currentTable]; if (!ticket.articles.length) return;
+        const ticket = tickets[currentTable]; 
+        if (!ticket || !ticket.articles.length) return;
+        
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
-        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
+        // --- 1. Gestion Intelligente du Nom d'origine ---
+        let nomOrigine = `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
+        if (currentTable.startsWith('WEB_')) nomOrigine = `🛍️ À Emporter`;
 
         const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
 
-        // 🔥 BLOQUER LES DOUBLONS : On dit à la caisse de ne plus jamais afficher ces commandes
+        // 🔥 BLOQUER LES DOUBLONS CAISSE
         if (ticket.orderIds && ticket.orderIds.length > 0) {
             ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
         }
 
-        // Tenter d'envoyer au serveur
+        // --- 2. Envoi au Serveur ---
         let requeteReussie = false;
         try {
             if (navigator.onLine) {
@@ -806,7 +848,7 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
         } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
 
         if (!requeteReussie) {
-            // 🚨 HORS LIGNE : Sauvegarde ultra-robuste avec mémorisation de la table pour nettoyage futur
+            // 🚨 HORS LIGNE
             let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
             venteBody.offlineTable = currentTable; 
             venteBody.offlineOrderIds = ticket.orderIds || [];
@@ -814,24 +856,37 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
             await localforage.setItem('tabia_ventes_offline', ventesOffline);
             showNotification("⚠️ Serveur injoignable, Vente hors-ligne.", "#f39c12");
         } else {
-            // ✅ EN LIGNE : On nettoie la cuisine tout de suite
-            if (currentTable.startsWith('Fidele_')) {
-                if (ticket.orderIds) { for (let oid of ticket.orderIds) { try { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); } catch(e){} } }
+            // ✅ EN LIGNE : Nettoyage de la cuisine
+            if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) {
+                if (ticket.orderIds) { 
+                    for (let oid of ticket.orderIds) { 
+                        try { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); } catch(e){} 
+                    } 
+                }
             } else {
                 try { await nettoyerCommandesCuisine(currentTable); } catch(e){}
             }
         }
         
-        if (currentTable.startsWith('Fidele_')) { delete tickets[currentTable]; currentTable = 'Emporter'; } 
-        else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; }
-        
-        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
-        // 🔥 RENOUVELLEMENT AUTO DU CODE DE LA TABLE APRÈS PAIEMENT
-        if (!currentTable.startsWith('Fidele_') && currentTable !== 'Emporter') {
+        // --- 3. Nettoyage du Ticket Local ---
+        if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { 
+            // Si c'est un ticket virtuel (VIP ou Web), on le supprime définitivement
+            delete tickets[currentTable]; 
+            currentTable = null; // On désélectionne
+        } else { 
+            // Si c'est une table physique (Table 1), on la vide juste
+            tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; 
+            
+            // On refresh le QR Code de la table
             try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {}
         }
+        
+        sauvegarderTousLesTickets(); 
+        afficherTicket(); 
+        afficherListeTables();
+        
         showNotification(`✅ Payé : ${totalPaye.toFixed(2)} DT`, "#10b981");
-        imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
+        imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
     }
 
     function payerSelection() {
@@ -887,39 +942,38 @@ function validerSelectionPaiement() {
     function fermerModalSelection() { document.getElementById('modalSelectionArticles').classList.remove('active'); currentTableSelection = null; }
 
 async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer, methodePaiement = 'especes') {
-        const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
+        const ticket = tickets[currentTable]; 
+        if (!ticket || !ticket.articles.length) return;
+        
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
-        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
+        // --- 1. Gestion Intelligente du Nom d'origine ---
+        let nomOrigine = `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle : ${ticket.label}`;
+        if (currentTable.startsWith('WEB_')) nomOrigine = `🛍️ À Emporter`;
 
         const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
 
-        // 1. Calcul des articles restants (CORRIGÉ 🔥)
-// Dans `executerPaiementPartiel`, remplace UNIQUEMENT le bloc "1. Calcul des articles restants" par ceci :
-        
-        // 1. Calcul des articles restants
+        // --- 2. Calcul des articles restants ---
         const articlesRestants = [];
         ticket.articles.forEach((article, articleIndex) => {
             for (let i = 0; i < article.quantite; i++) {
                 const unitId = `${articleIndex}_${i}`;
                 if (!unitIdsASupprimer.includes(unitId)) {
-                    // On conserve l'état 'envoye' pour ne pas faire réapparaitre le badge rouge
                     const existing = articlesRestants.find(a => a.id === article.id && a.variante === article.variante && a.envoye === article.envoye);
                     if (existing) {
                         existing.quantite++; 
                     } else {
                         articlesRestants.push({ 
                             id: article.id, nom: article.nom, variante: article.variante, 
-                            prix: article.prix, quantite: 1,
-                            envoye: article.envoye
+                            prix: article.prix, quantite: 1, envoye: article.envoye
                         });
                     }
                 }
             }
         });
 
-        // Tenter d'envoyer au serveur
+        // --- 3. Envoi au Serveur ---
         let requeteReussie = false;
         try {
             if (navigator.onLine) {
@@ -944,13 +998,26 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
             }
         }
         
-        // 3. Mise à jour de la caisse locale
-        tickets[currentTable].articles = articlesRestants; 
-        tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
+        // --- 4. Mise à jour de la caisse locale ---
+        if (articlesRestants.length === 0) {
+            // S'il ne reste plus d'articles et que c'est un ticket virtuel, on supprime !
+            if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { 
+                delete tickets[currentTable]; 
+                currentTable = null; 
+            } else { 
+                tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; 
+            }
+        } else {
+            tickets[currentTable].articles = articlesRestants; 
+            tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
+        }
         
-        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+        sauvegarderTousLesTickets(); 
+        afficherTicket(); 
+        afficherListeTables();
+        
         showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
-        imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, currentTable.startsWith('Fidele_') ? ticket.label : null);
+        imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
     }
 
     async function chargerCommandesCuisineInitiales() {
@@ -1255,68 +1322,88 @@ function afficherModalFermetureCaisse() {
     }
 
 function afficherCommandesWeb() {
-        const webCmds = commandesRecues.filter(c => 
-            (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite') && 
-            c.statut !== 'paye'
-        );
+    // 1. On filtre les commandes Web (En ligne, VIP, ou "À Emporter" non payées)
+    const webCmds = commandesRecues.filter(c => 
+        c.statut !== 'paye' && 
+        (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite' || c.numeroTable === 'Emporter')
+    );
+    
+    const container = document.getElementById('sectionCommandesWeb');
+    if(webCmds.length === 0) { container.style.display = 'none'; return; }
+    
+    container.style.display = 'block'; 
+    document.getElementById('countCommandesWeb').innerText = webCmds.length;
+    
+    document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
+        const isFidele = cmd.methodePaiement === 'carte_fidelite';
+        const isEmporterNonPaye = cmd.methodePaiement === 'sur_place' && cmd.numeroTable === 'Emporter';
         
-        const container = document.getElementById('sectionCommandesWeb');
-        if(webCmds.length === 0) { container.style.display = 'none'; return; }
-        
-        container.style.display = 'block'; 
-        document.getElementById('countCommandesWeb').innerText = webCmds.length;
-        
-        document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
-            const isFidele = cmd.methodePaiement === 'carte_fidelite';
-            const badgeIcon = isFidele ? '<i class="fas fa-id-card"></i> VIP Wallet' : '<i class="fas fa-globe"></i> Paiement Web';
-            const themeColor = isFidele ? '#f59e0b' : '#3b82f6'; // Orange pour VIP, Bleu pour Web
-            
-            // Résumé des articles (max 3 pour rester compact)
-            const articlesPreview = cmd.articles.slice(0, 3).map(a => 
-                `<div style="font-size:0.8rem; color:#64748b;">• ${a.quantite}x ${a.nom}</div>`
-            ).join('');
-            const pointsSuspension = cmd.articles.length > 3 ? '<div style="font-size:0.7rem; color:#94a3b8; padding-left:10px;">...et plus</div>' : '';
+        let badgeIcon = '<i class="fas fa-globe"></i> Web';
+        let themeColor = '#3b82f6'; 
 
-            // Gestion des états du bouton et animations
-            let buttonHtml = '';
-            let cardClass = '';
+        if (isFidele) { badgeIcon = '<i class="fas fa-id-card"></i> VIP Wallet'; themeColor = '#f59e0b'; }
+        if (isEmporterNonPaye) { badgeIcon = '<i class="fas fa-walking"></i> À Payer'; themeColor = '#e67e22'; }
+        
+        const articlesPreview = cmd.articles.slice(0, 3).map(a => `<div style="font-size:0.8rem; color:#64748b;">• ${a.quantite}x ${a.nom}</div>`).join('');
 
-            if (cmd.statut === 'en_attente') {
-                buttonHtml = `<button disabled style="width:100%; background:#94a3b8; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; cursor:not-allowed;">⏳ ATTENTE CUISINE</button>`;
-            } 
-            else if (cmd.statut === 'en_preparation') {
-                buttonHtml = `<button disabled style="width:100%; background:#3b82f6; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; cursor:not-allowed;">🍳 EN PRÉPARATION...</button>`;
-            } 
-            else if (cmd.statut === 'terminee') {
-                // Animation "PULSE" quand c'est prêt
+        let buttonHtml = '';
+        let cardClass = '';
+
+        // 2. Gestion des boutons selon le type
+        if (isEmporterNonPaye) {
+            // Si le client doit payer sur place
+            buttonHtml = `<button onclick="chargerCommandeWebPourPaiement('${cmd.id}')" style="width:100%; background:var(--primary-orange); color:white; border:none; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; box-shadow: 0 4px 12px rgba(230, 126, 34, 0.4);">💳 OUVRIR POUR ENCAISSER</button>`;
+        } else {
+            // Si le client a déjà payé (VIP ou En Ligne)
+            if (cmd.statut === 'en_attente' || cmd.statut === 'en_preparation') {
+                buttonHtml = `<button disabled style="width:100%; background:#94a3b8; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; cursor:not-allowed;">⏳ EN CUISINE...</button>`;
+            } else if (cmd.statut === 'terminee') {
                 cardClass = 'animate-pulse-green';
                 buttonHtml = `<button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:#10b981; color:white; border:none; padding:12px; border-radius:10px; cursor:pointer; font-weight:800; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);">✅ SERVIR & ARCHIVER</button>`;
             }
+        }
 
-            return `
-            <div class="${cardClass}" style="background: white; border-left: 6px solid ${themeColor}; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 15px; transition: all 0.3s;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <span style="font-size:1.1rem; font-weight:800; color:#1e293b;">#${cmd.numero}</span>
-                    <span style="background:${themeColor}22; color:${themeColor}; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold;">${badgeIcon}</span>
-                </div>
-                
-                <div style="margin-bottom:10px;">
-                    <div style="font-weight:700; color:#334155; font-size:0.95rem;">${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 Table ${cmd.numeroTable}`}</div>
-                    <div style="margin-top:5px; background:#f8fafc; padding:8px; border-radius:8px; border:1px solid #e2e8f0;">
-                        ${articlesPreview}
-                        ${pointsSuspension}
-                    </div>
-                </div>
+        return `
+        <div class="${cardClass}" style="background: white; border-left: 6px solid ${themeColor}; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:1.1rem; font-weight:800; color:#1e293b;">#${cmd.numero}</span>
+                <span style="background:${themeColor}22; color:${themeColor}; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold;">${badgeIcon}</span>
+            </div>
+            <div style="margin-bottom:10px;">
+                <div style="font-weight:700; color:#334155; font-size:0.95rem;">${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 À Emporter`}</div>
+                <div style="margin-top:5px; background:#f8fafc; padding:8px; border-radius:8px;">${articlesPreview}</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span style="color:#94a3b8; font-size:0.8rem;">Total:</span>
+                <span style="font-weight:900; font-size:1.3rem; color:#1e293b;">${(cmd.total || 0).toFixed(2)} DT</span>
+            </div>
+            ${buttonHtml}
+        </div>`;
+    }).join('');
+}
+window.chargerCommandeWebPourPaiement = function(id) {
+    const cmd = commandesRecues.find(c => c.id === id);
+    if (!cmd) return;
 
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                    <span style="color:#94a3b8; font-size:0.8rem;">Total payé:</span>
-                    <span style="font-weight:900; font-size:1.3rem; color:#1e293b;">${(cmd.total || 0).toFixed(2)} <small>DT</small></span>
-                </div>
-
-                ${buttonHtml}
-            </div>`;
-        }).join('');
-    }
+    // On crée un ticket temporaire spécial WEB
+    const tableTemp = 'WEB_' + cmd.id;
+    
+    tickets[tableTemp] = {
+        articles: cmd.articles.map((a, idx) => ({ 
+            id: a.id || Date.now() + idx, 
+            nom: a.nom, 
+            variante: a.variante || null, 
+            prix: parseFloat(a.prix) || 0, 
+            quantite: parseInt(a.quantite) || 1, 
+            envoye: true // On force à "true" pour ne pas renvoyer en cuisine
+        })),
+        total: cmd.total,
+        orderIds: [cmd.id], // Très important pour clôturer la commande serveur
+        label: cmd.clientName ? cmd.clientName : ('#' + cmd.numero)
+    };
+    
+    selectionnerTable(tableTemp);
+};
     window.marquerWebServie = async function(id) { try { await fetchSecurise(`/api/commandes/${id}/statut`, { method: 'PUT', body: JSON.stringify({statut: 'paye'}) }); await chargerCommandesCuisineInitiales(); afficherCommandesWeb(); } catch(e) {} }
 
     document.addEventListener("DOMContentLoaded", async () => {
