@@ -421,7 +421,7 @@ button:hover:not(:disabled) {
     let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
     let NB_TABLES_MAX = 160;
     for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
-    for (let i = 1; i <= 10; i++) tickets['EMP' + i] = { articles: [], total: 0 };
+    tickets['Emporter'] = { articles: [], total: 0 };
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
 
     function escapeHtml(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
@@ -442,31 +442,23 @@ async function sauvegarderTousLesTickets() {
             try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: tickets[currentTable] }) }); } catch (e) {}
         }
     }    
-function trouverSlotEmporterLibre() {
-    for (let i = 1; i <= 10; i++) {
-        const slot = 'EMP' + i;
-        if (tickets[slot] && tickets[slot].articles.length === 0) return slot;
-    }
-    return 'EMP10'; 
-}
+
 async function chargerTickets() {
-    try {
-        const res = await fetchSecurise('/api/tickets-ouverts');
-        const ticketsSauves = await res.json();
-        if (ticketsSauves && ticketsSauves.length > 0) {
-            ticketsSauves.forEach(t => { 
-                let tableCible = t.tableNum;
-                // Si la commande arrive avec l'étiquette "Emporter" ou "EMP-NOM"
-                if (tableCible === 'Emporter' || String(tableCible).startsWith('EMP-')) {
-                    tableCible = trouverSlotEmporterLibre();
-                }
-                tickets[tableCible] = t.ticketData; 
-            });
-            afficherListeTables(); 
-            if (currentTable) afficherTicket(); 
-        }
-    } catch(e) { console.error(e); }
-}
+        try {
+            const res = await fetchSecurise('/api/tickets-ouverts');
+            const ticketsSauves = await res.json();
+            if (ticketsSauves && ticketsSauves.length > 0) {
+                ticketsSauves.forEach(t => { tickets[t.tableNum] = t.ticketData; });
+                afficherListeTables(); if (currentTable) afficherTicket(); return;
+            }
+        } catch(e) { console.warn("Serveur injoignable, chargement local..."); }
+        
+        try {
+            // 🔥 Récupération depuis IndexedDB
+            const saved = await localforage.getItem('tabia_caisse_tickets');
+            if (saved) { Object.keys(saved).forEach(key => { tickets[key] = saved[key]; }); }
+        } catch(e) { console.error("Erreur lecture locale", e); }
+    }
 
 async function chargerCatalogue() {
         try {
@@ -703,19 +695,9 @@ async function envoyerEnCuisine() {
             html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')"><span class="table-num">Table ${i}</span><span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
         }
         
-for (let i = 1; i <= 10; i++) {
-    const tableStr = 'EMP' + i; const ticket = tickets[tableStr]; const hasItems = ticket && ticket.articles.length > 0;
-    if (hasItems) actives++;
-    
-    // On met une couleur bleue spéciale pour bien différencier "Emporter" des "Tables"
-    html += `<div class="table-wrapper">
-        <button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')" style="${hasItems ? 'background:#f0f9ff; border-color:#0284c7;' : ''}">
-            <span class="table-num" style="color:#0284c7;">🛍️ EMP ${i}</span>
-            <span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span>
-        </button>
-        <button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button>
-    </div>`;
-}
+        const emporter = tickets['Emporter']; const emporterHasItems = emporter && emporter.articles.length > 0;
+        if (emporterHasItems) actives++;
+        html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === 'Emporter' ? 'active' : ''} ${emporterHasItems ? 'has-items' : ''}" onclick="selectionnerTable('Emporter')"><span class="table-num">📦 Emporter</span><span class="table-total">${emporterHasItems ? emporter.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('Emporter'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
 
         Object.keys(tickets).forEach(key => {
             if (key.startsWith('Fidele_')) {
@@ -735,7 +717,7 @@ function afficherTicket() {
         
         if (!currentTable) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; }
         const ticket = tickets[currentTable];
-        if (currentTable && currentTable.startsWith('EMP')) labelSpan.innerText = '🛍️ Emporter ' + currentTable.replace('EMP', ''); else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
+        if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter'; else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
         if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
         
         let totalArts = 0, html = '';
@@ -804,7 +786,7 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
         const ticket = tickets[currentTable]; if (!ticket.articles.length) return;
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
-        let nomOrigine = currentTable.startsWith('EMP') ? `📦 Emporter ${currentTable.replace('EMP', '')}` : `Table ${currentTable}`;
+        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
 
         const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
@@ -908,7 +890,7 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
-        let nomOrigine = currentTable.startsWith('EMP') ? `📦 Emporter ${currentTable.replace('EMP', '')}` : `Table ${currentTable}`;
+        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle : ${ticket.label}`;
 
         const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
@@ -1030,40 +1012,11 @@ function initSocket() {
             renderProducts(); 
         });
 
-socket.on('nouvelle_commande', (commande) => { 
+        socket.on('nouvelle_commande', (commande) => { 
             commandesRecues.push(commande); 
             if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
-            afficherCommandesWeb(); // Actualise le bloc des commandes en ligne
-
-            // 🔥 LOGIQUE DE PLACEMENT EN TEMPS RÉEL (Pour les clients qui paient à la caisse)
-            if (commande.methodePaiement === 'sur_place' && commande.statut !== 'paye') {
-                let tableCible = commande.numeroTable;
-                
-                // La redirection intelligente vers EMP 1, EMP 2, etc.
-                if (tableCible === 'Emporter' || String(tableCible).startsWith('EMP-')) {
-                    tableCible = trouverSlotEmporterLibre();
-                }
-
-                if (tickets[tableCible]) {
-                    // On formate les articles pour la caisse
-                    tickets[tableCible].articles = commande.articles.map((a, idx) => ({
-                        id: a.id || Date.now() + idx,
-                        nom: a.nom,
-                        variante: a.variante || null,
-                        prix: parseFloat(a.prix) || 0,
-                        quantite: parseInt(a.quantite) || 1,
-                        envoye: true // Déjà validé par le client web
-                    }));
-                    tickets[tableCible].total = commande.total;
-                    
-                    sauvegarderTousLesTickets();
-                    afficherListeTables();
-                    
-                    // Alerte visuelle et sonore pour le caissier
-                    showNotification(`🛒 Nouvelle commande reçue sur ${tableCible.replace('EMP', 'Emporter ')} !`, "#0284c7");
-                }
-            }
-        });
+            afficherCommandesWeb(); // 🔥 On actualise le bloc du haut en temps réel
+        }); 
 
         socket.on('mise_a_jour_commande', (commande) => {
             const idx = commandesRecues.findIndex(c => c.id === commande.id); 
