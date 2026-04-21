@@ -3,17 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Caisse | SARBINI.CLICK</title>
+    <title>Caisse POS | SARBINI</title>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
     <style>
-        /* ========== RESET & VARIABLES ========== */
+        /* ==========================================================================
+           1. VARIABLES & THEME GLOBAL (TA'BIA Premium)
+           ========================================================================== */
         :root {
             --primary-green: #143621;
             --primary-orange: #e67e22;
             --orange-hover: #d35400;
-            --bg-app: #f1f5f9;
+            --bg-app: #f4f7f6;
             --bg-card: #ffffff;
             --text-dark: #1e293b;
             --text-muted: #64748b;
@@ -23,31 +28,41 @@
             --info: #3b82f6;
             --radius-lg: 20px;
             --radius-md: 12px;
-            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-            --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+            --shadow-sm: 0 4px 6px rgba(20, 54, 33, 0.04);
+            --shadow-md: 0 10px 20px rgba(20, 54, 33, 0.08);
+            --shadow-float: 0 15px 35px rgba(20, 54, 33, 0.12);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
         
-        /* App Layout - Bloque le scroll global */
-        body { background: var(--bg-app); color: var(--text-dark); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        body { 
+            background: var(--bg-app); color: var(--text-dark); 
+            height: 100vh; overflow: hidden; display: flex; flex-direction: column; 
+        }
         
-        /* Scrollbar Design */
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        ::selection { background: #e3c496; color: #143621; }
 
-        /* ========== HEADER ========== */
-        header { background: var(--primary-green); padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-md); z-index: 100; height: 75px;}
+        /* ==========================================================================
+           2. HEADER (Glassmorphism)
+           ========================================================================== */
+        header { 
+            background: rgba(20, 54, 33, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(227, 196, 150, 0.2);
+            padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between; 
+            box-shadow: var(--shadow-md); z-index: 100; height: 75px;
+        }
         .logo { display: flex; align-items: center; gap: 12px; }
-        .logo-img { height: 50px; width: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #e3c496; }
-        .logo h1 { font-family: 'Cinzel', serif; font-size: 1.6rem; font-weight: 800; color: #fdfbf7; line-height: 1; margin: 0; display: flex; flex-direction: column;}
-        .logo .logo-subtext { font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 600; color: #e3c496; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;}
+        .logo-img { height: 45px; width: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #e3c496; }
+        .logo h1 { font-family: 'Cinzel', serif; font-size: 1.5rem; font-weight: 800; color: #fdfbf7; line-height: 1; display: flex; flex-direction: column;}
+        .logo .logo-subtext { font-family: 'Inter', sans-serif; font-size: 0.7rem; font-weight: 600; color: #e3c496; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px;}
         
         .nav-right { display: flex; gap: 0.8rem; align-items: center; }        
-        .caisse-badge { background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 6px 12px; border-radius: 30px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.5px;}
+        .caisse-badge { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; padding: 6px 12px; border-radius: 30px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px; text-transform: uppercase; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
         .btn-nav { padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; border: none; color: white; text-decoration: none; }
@@ -55,197 +70,144 @@
         .btn-usb { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
         .btn-danger { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
         .btn-stock { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .btn-primary-action { background: linear-gradient(135deg, var(--primary-orange), var(--orange-hover)); }
+        .btn-primary-action { background: linear-gradient(135deg, var(--primary-orange), var(--orange-hover)); box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3);}
 
-        /* ========== MAIN DASHBOARD (SPLIT SCREEN) ========== */
-        .dashboard { display: grid; grid-template-columns: 1fr 420px; gap: 1.5rem; padding: 1.5rem; flex: 1; overflow: hidden; height: calc(100vh - 75px); max-width: 1800px; margin: 0 auto; width: 100%;}
-        
-        /* LEFT PANEL (Scrollable) */
-        .left-panel { display: flex; flex-direction: column; gap: 1.5rem; overflow-y: auto; padding-right: 5px; }
+        /* ==========================================================================
+           3. LAYOUT PRINCIPAL (Dashboard)
+           ========================================================================== */
+        .dashboard { 
+            display: grid; grid-template-columns: 1fr 420px; gap: 1.5rem; 
+            padding: 1.5rem; flex: 1; overflow: hidden; height: calc(100vh - 75px); max-width: 1900px; margin: 0 auto; width: 100%;
+        }
+        .left-panel { display: flex; flex-direction: column; gap: 1.5rem; overflow-y: auto; padding-right: 5px; padding-bottom: 20px;}
 
-        /* SECTION: COMMANDES WEB & TABLES */
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; padding: 0 5px;}
-        .section-header h2 { font-size: 1.1rem; color: var(--text-dark); display: flex; align-items: center; gap: 8px; }
-        .badge-count { background: var(--text-muted); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding: 0 5px;}
+        .section-header h2 { font-size: 1.15rem; color: var(--text-dark); display: flex; align-items: center; gap: 8px; font-weight: 800;}
+        .badge-count { background: var(--text-muted); color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; }
         
-        .tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.8rem; }
+        /* Grille des Tables */
+        .tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.8rem; }
         .table-wrapper { position: relative; }
-        .table-btn { width: 100%; background: var(--bg-card); border: 2px solid transparent; padding: 0.8rem 0.5rem; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); height: 80px; justify-content: center;}
+        .table-btn { 
+            width: 100%; background: var(--bg-card); border: 2px solid transparent; 
+            padding: 1rem 0.5rem; border-radius: var(--radius-md); cursor: pointer; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); 
+            display: flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); height: 90px; justify-content: center;
+        }
+        .table-btn:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
         .table-btn:active { transform: scale(0.95); }
         .table-btn.has-items { border-color: #fcd34d; background: #fffbeb; }
-        .table-btn.active { background: var(--primary-orange); border-color: var(--primary-orange); color: white; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4); transform: translateY(-2px);}
-        .table-num { font-size: 1rem; font-weight: 700; color: var(--text-dark); }
+        .table-btn.active { background: var(--primary-orange); border-color: var(--primary-orange); color: white; box-shadow: 0 8px 20px rgba(230, 126, 34, 0.3); transform: translateY(-2px);}
+        
+        .table-num { font-size: 1.05rem; font-weight: 800; color: var(--text-dark); text-align: center;}
         .table-btn.active .table-num { color: white; }
-        .table-total { font-size: 0.8rem; color: var(--success); font-weight: 700;}
+        .table-total { font-size: 0.85rem; color: var(--success); font-weight: 800;}
         .table-btn.active .table-total { color: #fef3c7; }
-        .details-btn { position: absolute; top: -8px; right: -8px; background: var(--text-dark); color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 5; box-shadow: var(--shadow-md);}
-        .details-btn:active { transform: scale(0.9); }
+        
+        .details-btn { position: absolute; top: -8px; right: -8px; background: var(--text-dark); color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 5; box-shadow: var(--shadow-md); transition: 0.2s;}
+        .details-btn:hover { background: var(--info); transform: scale(1.1); }
 
-        /* SECTION: MENU PRODUITS */
-        .menu-container { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; flex: 1; min-height: 400px; overflow: hidden; border: 1px solid var(--border-soft);}
-        .categories { display: flex; gap: 0.5rem; padding: 1rem; border-bottom: 1px solid var(--border-soft); overflow-x: auto; background: #f8fafc;}
-        .cat-btn { background: white; border: 1px solid var(--border-soft); padding: 0.6rem 1.2rem; border-radius: 30px; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: var(--text-muted); transition: all 0.2s; white-space: nowrap; box-shadow: var(--shadow-sm);}
-        .cat-btn:active { transform: scale(0.95); }
-        .cat-btn.active { background: var(--primary-green); color: white; border-color: var(--primary-green); }
+        /* Menu Produits */
+        .menu-container { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); display: flex; flex-direction: column; flex: 1; min-height: 400px; overflow: hidden; border: 1px solid var(--border-soft);}
+        .categories { display: flex; gap: 0.8rem; padding: 1.2rem; border-bottom: 1px solid var(--border-soft); overflow-x: auto; background: #f8fafc;}
+        .cat-btn { background: white; border: 1px solid var(--border-soft); padding: 0.7rem 1.4rem; border-radius: 30px; cursor: pointer; font-size: 0.95rem; font-weight: 700; color: var(--text-muted); transition: all 0.2s; white-space: nowrap; box-shadow: var(--shadow-sm);}
+        .cat-btn:hover { border-color: var(--primary-green); color: var(--primary-green); }
+        .cat-btn.active { background: var(--primary-green); color: white; border-color: var(--primary-green); box-shadow: 0 4px 12px rgba(20, 54, 33, 0.2);}
         
-        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; padding: 1rem; overflow-y: auto; flex: 1; align-content: start;}
-        .product-card { background: white; border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 1rem 0.5rem; text-align: center; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; justify-content: center; height: 110px; box-shadow: var(--shadow-sm);}
-        .product-card:active { transform: scale(0.95); background: #f8fafc; border-color: #cbd5e1; }
-        .product-name { font-weight: 700; font-size: 0.95rem; color: var(--text-dark); margin-bottom: 5px; line-height: 1.2;}
-        .product-price { color: var(--primary-orange); font-weight: 800; font-size: 1rem; }
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.2rem; padding: 1.2rem; overflow-y: auto; flex: 1; align-content: start; background: #fdfdfd;}
+        .product-card { background: white; border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 1.2rem 0.5rem; text-align: center; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; justify-content: center; height: 120px; box-shadow: var(--shadow-sm);}
+        .product-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: #cbd5e1; }
+        .product-card:active { transform: scale(0.95); background: #f8fafc; }
+        .product-name { font-weight: 800; font-size: 1rem; color: var(--text-dark); margin-bottom: 8px; line-height: 1.2;}
+        .product-price { color: var(--primary-orange); font-weight: 900; font-size: 1.1rem; }
 
-        /* RIGHT PANEL: TICKET FIXE */
-        .ticket-card { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; height: 100%; border: 1px solid var(--border-soft); overflow: hidden;}
-        .ticket-header { background: #f8fafc; color: var(--text-dark); padding: 1.2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed var(--border-soft);}
-        .ticket-header h3 { font-size: 1.2rem; display: flex; align-items: center; gap: 8px;}
-        .ticket-header .ticket-badge { background: var(--text-dark); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold;}
+        /* ==========================================================================
+           4. PANNEAU DROIT (Ticket Caisse)
+           ========================================================================== */
+        .ticket-card { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-float); display: flex; flex-direction: column; height: 100%; border: 1px solid var(--border-soft); overflow: hidden;}
+        .ticket-header { background: #f8fafc; color: var(--text-dark); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed var(--border-soft);}
+        .ticket-header h3 { font-size: 1.3rem; display: flex; align-items: center; gap: 8px; font-weight: 900;}
+        .ticket-badge { background: var(--text-dark); color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; letter-spacing: 0.5px;}
         
-        .ticket-items { flex: 1; overflow-y: auto; padding: 1rem 0.5rem 1rem 1rem; background: white;}
-        .ticket-item { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid #f1f5f9;}
-        .item-info { flex: 1; padding-right: 10px;}
-        .item-name { font-weight: 700; font-size: 0.95rem; color: var(--text-dark); line-height: 1.2;}
-        .item-price { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;}
+        .ticket-items { flex: 1; overflow-y: auto; padding: 1rem; background: white;}
+        .ticket-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid #f1f5f9;}
+        .item-info { flex: 1; padding-right: 15px;}
+        .item-name { font-weight: 800; font-size: 1.05rem; color: var(--text-dark); line-height: 1.3;}
+        .item-price { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; font-weight: 600;}
         
-        .item-actions { display: flex; align-items: center; gap: 12px; }
-        .qty-control { display: flex; align-items: center; background: #f1f5f9; padding: 4px; border-radius: 30px; }
-        .qty-control button { background: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-weight: bold; font-size: 1.1rem; color: var(--text-dark); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center;}
-        .qty-control button:active { background: #e2e8f0; transform: scale(0.9); }
-        .qty-control span { width: 30px; text-align: center; font-weight: 800; font-size: 1rem;}
-        .item-total-price { font-weight: 800; color: var(--text-dark); width: 70px; text-align: right;}
+        .item-actions { display: flex; align-items: center; gap: 15px; }
+        .qty-control { display: flex; align-items: center; background: #f8fafc; padding: 4px; border-radius: 30px; border: 1px solid var(--border-soft);}
+        .qty-control button { background: white; border: none; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-weight: bold; font-size: 1.1rem; color: var(--text-dark); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; transition: 0.2s;}
+        .qty-control button:hover { background: #e2e8f0; }
+        .qty-control span { width: 35px; text-align: center; font-weight: 900; font-size: 1.1rem;}
+        .item-total-price { font-weight: 900; color: var(--text-dark); width: 80px; text-align: right; font-size: 1.1rem;}
         
-        /* Bottom actions of Ticket */
-        .ticket-footer { background: white; border-top: 1px solid var(--border-soft); padding: 0; display: flex; flex-direction: column; flex-shrink: 0;}
-        .ticket-total { padding: 1.2rem; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-bottom: 1px solid var(--border-soft);}
-        .ticket-total span:first-child { font-size: 1.2rem; font-weight: 700; color: var(--text-muted);}
-        .ticket-total span:last-child { font-size: 2rem; font-weight: 800; color: var(--primary-green);}
+        .ticket-footer { background: white; flex-shrink: 0;}
+        .ticket-total { padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);}
+        .ticket-total span:first-child { font-size: 1.3rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;}
+        .ticket-total span:last-child { font-size: 2.2rem; font-weight: 900; color: var(--primary-green);}
         
-        .ticket-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
-        .btn-action { border: none; padding: 16px; border-radius: var(--radius-md); cursor: pointer; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s; color: white;}
+        .ticket-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px; background: white;}
+        .btn-action { border: none; padding: 16px; border-radius: var(--radius-md); cursor: pointer; font-weight: 800; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; color: white; text-transform: uppercase;}
+        .btn-action:hover { filter: brightness(1.1); transform: translateY(-2px);}
         .btn-action:active { transform: scale(0.97); }
-        .btn-cuisine { background: var(--primary-orange); }
-        .btn-payer-select { background: var(--info); }
-        .btn-payer-tout { background: var(--success); grid-column: 1 / -1; font-size: 1.2rem; padding: 20px;}
-        .btn-vider { background: #f1f5f9; color: var(--danger); }
-        .btn-imprimer { background: var(--text-dark); }
+        .btn-cuisine { background: var(--primary-orange); box-shadow: 0 4px 12px rgba(230, 126, 34, 0.3);}
+        .btn-payer-select { background: var(--info); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);}
+        .btn-payer-tout { background: var(--success); grid-column: 1 / -1; font-size: 1.3rem; padding: 22px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);}
+        .btn-vider { background: #f1f5f9; color: var(--danger); border: 1px solid #fecaca;}
+        .btn-vider:hover { background: #fee2e2; }
+        .btn-imprimer { background: var(--text-dark); box-shadow: 0 4px 12px rgba(30, 41, 59, 0.3);}
 
-        /* ========== MODALS (Glassmorphism) ========== */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+        /* ==========================================================================
+           5. COMMANDES WEB (Sidebar & Animations)
+           ========================================================================== */
+        @keyframes pulseGreen { 0% { transform: scale(1); box-shadow: 0 4px 6px rgba(0,0,0,0.1); } 50% { transform: scale(1.02); box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); border-color: #10b981; } 100% { transform: scale(1); box-shadow: 0 4px 6px rgba(0,0,0,0.1); } }
+        .animate-pulse-green { animation: pulseGreen 2s infinite ease-in-out; background-color: #f0fff4 !important; }   
+
+        /* ==========================================================================
+           6. MODALS & NOTIFICATIONS
+           ========================================================================== */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; }
         .modal-overlay.active { display: flex; }
-        .modal-content { background: white; border-radius: 24px; padding: 2rem; max-width: 500px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);}
+        .modal-content { background: white; border-radius: 24px; padding: 2.5rem; max-width: 500px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);}
         @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(20px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
         
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-soft); }
-        .modal-header h3 { font-size: 1.4rem; color: var(--text-dark); display: flex; align-items: center; gap: 10px;}
-        .close-btn { background: #f1f5f9; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;}
-        .close-btn:active { background: #e2e8f0; }
+        .modal-header h3 { font-size: 1.5rem; color: var(--text-dark); display: flex; align-items: center; gap: 10px; font-weight: 900;}
+        .close-btn { background: #f1f5f9; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.3rem; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: 0.2s;}
+        .close-btn:hover { background: #e2e8f0; color: var(--danger); }
 
-        /* Formulaires dans Modal */
-        .montant-total { font-size: 3rem; font-weight: 800; color: var(--success); text-align: center; margin: 1rem 0; font-family: monospace;}
-        .form-group { margin-bottom: 1.2rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-muted); font-size: 0.95rem;}
-        .form-group select, .form-group input { width: 100%; padding: 1rem; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: 1.1rem; outline: none; font-weight: 600; color: var(--text-dark); background: #f8fafc;}
-        .form-group select:focus, .form-group input:focus { border-color: var(--primary-green); background: white;}
+        .montant-total { font-size: 3.5rem; font-weight: 900; color: var(--success); text-align: center; margin: 1.5rem 0; font-family: 'Courier New', monospace; letter-spacing: -2px;}
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 700; color: var(--text-muted); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;}
+        .form-group select, .form-group input { width: 100%; padding: 1.2rem; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: 1.2rem; outline: none; font-weight: 700; color: var(--text-dark); background: #f8fafc; transition: 0.2s;}
+        .form-group select:focus, .form-group input:focus { border-color: var(--primary-green); background: white; box-shadow: 0 0 0 4px rgba(20,54,33,0.1);}
         
         .modal-buttons { display: flex; gap: 1rem; margin-top: 2rem; }
-        .btn-valider { background: var(--success); color: white; flex: 2; padding: 1.2rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);}
+        .btn-valider { background: var(--success); color: white; flex: 2; padding: 1.4rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 800; font-size: 1.2rem; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3); transition: 0.2s;}
+        .btn-valider:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);}
         .btn-valider:active { transform: scale(0.98); }
-        .btn-annuler { background: var(--border-soft); color: var(--text-dark); flex: 1; padding: 1.2rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 700; font-size: 1.1rem;}
+        .btn-annuler { background: var(--border-soft); color: var(--text-dark); flex: 1; padding: 1.4rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 700; font-size: 1.1rem; transition: 0.2s;}
+        .btn-annuler:hover { background: #cbd5e1; }
 
-        /* Paiement Partiel List */
-        .article-select-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 2px solid var(--border-soft); border-radius: var(--radius-md); margin-bottom: 0.5rem; cursor: pointer; background: white;}
-        .article-select-item.selected { background: #ecfdf5; border-color: var(--success); }
-        .article-checkbox { width: 24px; height: 24px; accent-color: var(--success); margin-right: 15px; pointer-events: none;}
-        
-        /* ========== NOTIFICATIONS ========== */
-        .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--text-dark); color: white; padding: 16px 24px; border-radius: 30px; z-index: 3000; display: flex; align-items: center; gap: 12px; font-weight: 600; box-shadow: var(--shadow-lg); transition: all 0.3s; animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);}
+        .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--text-dark); color: white; padding: 16px 28px; border-radius: 30px; z-index: 3000; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1.05rem; box-shadow: var(--shadow-float); transition: all 0.3s; animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);}
         @keyframes slideDown { from { top: -50px; opacity: 0; } to { top: 20px; opacity: 1; } }
-        .empty-message { text-align: center; padding: 3rem 1rem; color: #94a3b8; font-weight: 500; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; gap: 10px;}
+        .empty-message { text-align: center; padding: 4rem 1rem; color: #94a3b8; font-weight: 600; font-size: 1.2rem; display: flex; flex-direction: column; align-items: center; gap: 15px;}
 
-        /* ========== RESPONSIVE ========== */
-        @media (max-width: 1024px) {
-            .dashboard { grid-template-columns: 1fr; overflow-y: auto; height: auto; }
-            .left-panel { overflow-y: visible; }
-            .ticket-card { height: 600px; }
-            body { overflow-y: auto; }
-        }
-
-        /* ========== IMPRESSION THERMIQUE ========== */
+        /* Impression Thermique (Cachée par défaut) */
         .ticket-caisse { width: 80mm; max-width: 80mm; background: white; padding: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; display: none; margin: 0 auto; color: black;}
         @media print { @page { size: 80mm auto; margin: 0; } body * { visibility: hidden; } #ticketCaisse, #ticketCaisse * { visibility: visible; } #ticketCaisse { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 2mm 5mm; } }
-        @keyframes pulseGreen {
-    0% { transform: scale(1); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    50% { transform: scale(1.02); box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); border-color: #10b981; }
-    100% { transform: scale(1); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-}
-
-.animate-pulse-green {
-    animation: pulseGreen 2s infinite ease-in-out;
-    background-color: #f0fff4 !important; /* Fond très légèrement vert */
-}   
-/* ========================================================================= */
-/* 💎 PACK DESIGN PREMIUM TA'BIA (Global) 💎 */
-/* ========================================================================= */
-
-/* 1. GLASSMORPHISM SUR LE HEADER (Effet Verre Dépoli type iOS) */
-header {
-    background: rgba(20, 54, 33, 0.89) !important; /* Le vert TA'BIA translucide */
-    backdrop-filter: blur(12px) !important; /* Le flou d'arrière-plan */
-    -webkit-backdrop-filter: blur(12px) !important;
-    border-bottom: 1px solid rgba(227, 196, 150, 0.3) !important; /* Liseré doré subtil */
-}
-
-/* 2. OMBRES DOUCES ET ÉLÉGANTES (Soft Shadows) */
-/* S'applique aux tables, produits, tickets, modales et commandes cuisine */
-.card, .table-btn, .product-card, .ticket-card, .modal-content, .commande-card, .table-container {
-    box-shadow: 0 12px 35px rgba(20, 54, 33, 0.06) !important; /* Ombre très diffuse teintée de vert */
-    border: 1px solid rgba(227, 196, 150, 0.2) !important; /* Contour doré ultra fin */
-    border-radius: 16px !important; /* Arrondis modernes */
-}
-
-/* 3. ANIMATIONS FLUIDES AU SURVOL ET CLIC (Feedback tactile) */
-button, .product-card, .table-btn, .card, .commande-card {
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-button:active, .product-card:active, .table-btn:active {
-    transform: scale(0.96) !important; /* Effet d'enfoncement physique */
-}
-button:hover:not(:disabled) {
-    filter: brightness(1.1); /* S'illumine légèrement au survol de la souris */
-}
-
-/* 4. SCROLLBAR PREMIUM (Barre de défilement discrète et élégante) */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-::-webkit-scrollbar-thumb {
-    background: rgba(20, 54, 33, 0.15); /* Vert très clair */
-    border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(227, 196, 150, 0.8); /* Devient doré quand on la manipule */
-}
-
-/* 5. SÉLECTION DE TEXTE AUX COULEURS DE LA MARQUE */
-::selection {
-    background: #e3c496; /* Doré */
-    color: #143621; /* Vert */
-}
     </style>
 </head>
 <body>
 
 <header>
-<div class="logo">
-    <img src="logo.jpg" alt="Logo" id="dynamicLogo" class="logo-img dynamic-logo">
-    <h1>
-        <span id="dynamicName" class="dynamic-name">CHARGEMENT...</span>
-        <span id="dynamicSlogan" class="logo-subtext dynamic-subtext">...</span>
-    </h1>
-</div>
+    <div class="logo">
+        <img src="logo.jpg" alt="Logo" id="dynamicLogo" class="logo-img dynamic-logo">
+        <h1>
+            <span id="dynamicName" class="dynamic-name">CHARGEMENT...</span>
+            <span id="dynamicSlogan" class="logo-subtext dynamic-subtext">...</span>
+        </h1>
+    </div>
     <div class="nav-right">
         <div class="caisse-badge">
             <i class="fas fa-circle" style="font-size: 8px; animation: pulse 2s infinite;"></i> En Ligne
@@ -266,24 +228,25 @@ button:hover:not(:disabled) {
         </button>  
         <button id="btn-verrouiller" class="btn-nav btn-primary-action">
             <i class="fas fa-sign-out-alt"></i> Quitter
-        </button>    
+        </button>   
     </div>
 </header>
 
 <div class="dashboard">
+    
     <div class="left-panel">
         
         <div id="sectionCommandesWeb" style="display:none;">
             <div class="section-header">
-                <h2 style="color: var(--info);"><i class="fas fa-globe"></i> Commandes Web</h2>
+                <h2 style="color: var(--info);"><i class="fas fa-globe"></i> Commandes Web & Emporter</h2>
                 <span class="badge-count" id="countCommandesWeb" style="background: var(--info);">0</span>
             </div>
-            <div id="listeCommandesWeb" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;"></div>
+            <div id="listeCommandesWeb" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;"></div>
         </div>
 
         <div class="section-tables">
             <div class="section-header">
-                <h2><i class="fas fa-chair"></i> Tables & Fidéles</h2>
+                <h2><i class="fas fa-chair"></i> Salles & Tables</h2>
                 <span class="badge-count" id="tablesCount">0 actives</span>
             </div>
             <div class="tables-grid" id="tablesGrid"></div>
@@ -297,14 +260,14 @@ button:hover:not(:disabled) {
 
     <div class="ticket-card">
         <div class="ticket-header">
-            <h3><i class="fas fa-receipt"></i> <span id="currentTableLabel" style="font-weight: 800; color: var(--primary-orange); margin-left:5px;">-</span></h3>
+            <h3><i class="fas fa-receipt"></i> <span id="currentTableLabel" style="font-weight: 900; color: var(--primary-orange); margin-left:5px;">-</span></h3>
             <span class="ticket-badge" id="articleCount">0 article</span>
         </div>
         
         <div class="ticket-items" id="ticketItemsList">
             <div class="empty-message">
-                <i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>
-                Sélectionnez une table pour commencer
+                <i class="fas fa-shopping-basket" style="font-size: 4rem; color: #e2e8f0; margin-bottom: 10px;"></i>
+                Sélectionnez une table ou commande
             </div>
         </div>
         
@@ -346,16 +309,16 @@ button:hover:not(:disabled) {
             <button class="close-btn" onclick="fermerModalSelection()">&times;</button>
         </div>
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <button style="flex:1; padding:10px; border-radius:10px; border:none; background:#e0f2fe; color:#0369a1; font-weight:bold; cursor:pointer;" onclick="selectionnerTousArticles()">Tout cocher</button>
-            <button style="flex:1; padding:10px; border-radius:10px; border:none; background:#f1f5f9; color:#475569; font-weight:bold; cursor:pointer;" onclick="deselectionnerTousArticles()">Rien cocher</button>
+            <button style="flex:1; padding:12px; border-radius:10px; border:none; background:#e0f2fe; color:#0369a1; font-weight:800; cursor:pointer;" onclick="selectionnerTousArticles()">Tout cocher</button>
+            <button style="flex:1; padding:12px; border-radius:10px; border:none; background:#f1f5f9; color:#475569; font-weight:800; cursor:pointer;" onclick="deselectionnerTousArticles()">Rien cocher</button>
         </div>
         <div id="articlesListeSelection" style="max-height: 40vh; overflow-y: auto; padding-right: 5px;"></div>
-        <div style="background:#f8fafc; padding:15px; border-radius:12px; margin-top:15px; display:flex; justify-content:space-between; align-items:center; border:2px solid var(--border-soft);">
-            <span style="font-weight:bold; color:var(--text-muted);">Total Sélectionné:</span>
-            <span id="selectionTotal" style="font-size:1.5rem; font-weight:800; color:var(--primary-orange);">0.00 DT</span>
+        <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-top:20px; display:flex; justify-content:space-between; align-items:center; border:2px solid var(--border-soft);">
+            <span style="font-weight:800; color:var(--text-muted); text-transform: uppercase;">Total Sélectionné:</span>
+            <span id="selectionTotal" style="font-size:1.8rem; font-weight:900; color:var(--primary-orange);">0.00 DT</span>
         </div>
         <div class="modal-buttons">
-            <button class="btn-valider" onclick="validerSelectionPaiement()">Continuer vers Paiement <i class="fas fa-arrow-right"></i></button>
+            <button class="btn-valider" onclick="validerSelectionPaiement()">Continuer au Paiement <i class="fas fa-arrow-right" style="margin-left:8px;"></i></button>
         </div>
     </div>
 </div>
@@ -393,20 +356,42 @@ button:hover:not(:disabled) {
     <div style="text-align:center; margin-top:5px;">- - - - - - - - - - - - - - - </div>
 </div>
 
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
 <script>
-    /* ========================================================================= */
-    /* 🔥 LA LOGIQUE RESTE STRICTEMENT IDENTIQUE À TON CODE ORIGINAL 🔥 */
-    /* ========================================================================= */
+    // --- 1. VARIABLES & SÉCURITÉ ---
     const monToken = localStorage.getItem('tabia_caisse_token');
     if (!monToken) { window.location.href = '/caisse-login.html'; }
-    // ========== INITIALISATION INDEXEDDB ==========
-    localforage.config({
-        name: 'TabiaCaisseDB',
-        storeName: 'caisse_data', // Nom de la table interne
-        description: 'Base de données ultra-rapide pour le mode hors-ligne'
-    });
+    
+    localforage.config({ name: 'TabiaCaisseDB', storeName: 'caisse_data', description: 'Base hors-ligne' });
 
+    let tickets = {}; 
+    let currentTable = null; 
+    let activeCategory = "all"; 
+    let produits = [];
+    let derniereTableModal = null; 
+    let socket = null; 
+    let commandesRecues = []; 
+    let articlesDecomposes = []; 
+    let selectedUnits = []; 
+    let currentTableSelection = null;
+    let NB_TABLES_MAX = 160;
+    
+    // Initialisation du registre des tables physiques uniquement
+    for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };
+    if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
+    let caisseOuverte = false; 
+    let portTiroirUSB = null;
+
+    // --- 2. UTILITAIRES ---
+    function escapeHtml(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+    function showNotification(msg, bg = "#1e293b") { 
+        const n = document.createElement("div"); n.className = "notification"; 
+        n.innerHTML = `<i class="fas fa-bell"></i> ${msg}`; 
+        if(bg !== "#1e293b" && bg !== "#3498db") n.style.background = bg; 
+        document.body.appendChild(n); 
+        setTimeout(() => { n.style.opacity = '0'; n.style.transform = 'translate(-50%, -20px)'; setTimeout(() => n.remove(), 300); }, 2500); 
+    }
+    
     async function fetchSecurise(url, options = {}) {
         if (!options.headers) options.headers = {};
         options.headers['authorization'] = monToken; 
@@ -416,39 +401,21 @@ button:hover:not(:disabled) {
         return reponse;
     }
 
-    let tickets = {}; let currentTable = null; let activeCategory = "all"; let produits = [];
-    let derniereTableModal = null; let socket = null; let commandesRecues = []; 
-    let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
-    let NB_TABLES_MAX = 160;
-    for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
-    if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
-
-    function escapeHtml(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
-
-    function showNotification(msg, bg = "#1e293b") { 
-        const n = document.createElement("div"); n.className = "notification"; 
-        n.innerHTML = `<i class="fas fa-bell"></i> ${msg}`; 
-        if(bg !== "#1e293b" && bg !== "#3498db") n.style.background = bg; 
-        document.body.appendChild(n); 
-        setTimeout(() => { n.style.opacity = '0'; n.style.transform = 'translate(-50%, -20px)'; setTimeout(() => n.remove(), 300); }, 2500); 
-    }
-
-async function sauvegarderTousLesTickets() { 
-        // 🔥 Sauvegarde dans IndexedDB (ultra-rapide)
+    async function sauvegarderTousLesTickets() { 
         await localforage.setItem('tabia_caisse_tickets', tickets); 
-        
         if (currentTable && tickets[currentTable]) {
             try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: tickets[currentTable] }) }); } catch (e) {}
         }
-    }    
+    } 
 
-async function chargerTickets() {
+    // --- 3. CHARGEMENT DES DONNÉES (API) ---
+    async function chargerTickets() {
         try {
             const res = await fetchSecurise('/api/tickets-ouverts');
             const ticketsSauves = await res.json();
             if (ticketsSauves && ticketsSauves.length > 0) {
                 ticketsSauves.forEach(t => { 
-                    // On ne charge pas les anciens "Emporter" ou "EMP"
+                    // On ignore les vieux bugs de l'ancienne version
                     if (t.tableNum === 'Emporter' || String(t.tableNum).startsWith('EMP')) return;
                     tickets[t.tableNum] = t.ticketData; 
                 });
@@ -457,7 +424,6 @@ async function chargerTickets() {
         } catch(e) { console.warn("Serveur injoignable, chargement local..."); }
         
         try {
-            // 🔥 Récupération depuis IndexedDB
             const saved = await localforage.getItem('tabia_caisse_tickets');
             if (saved) { 
                 Object.keys(saved).forEach(key => { 
@@ -465,45 +431,62 @@ async function chargerTickets() {
                     tickets[key] = saved[key]; 
                 }); 
             }
-        } catch(e) { console.error("Erreur lecture locale", e); }
+        } catch(e) {}
     }
 
-async function chargerCatalogue() {
+    async function chargerCatalogue() {
         try {
             const res = await fetchSecurise('/api/stock');
             produits = await res.json();
-            // 🔥 Mise en cache IndexedDB
             await localforage.setItem('tabia_menu_cache', produits); 
             renderCategories(); renderProducts();
         } catch(e) { 
             showNotification("⚠️ Mode Hors-Ligne", "#f39c12");
-            // 🔥 Lecture depuis IndexedDB
             const menuSauvegarde = await localforage.getItem('tabia_menu_cache'); 
             if (menuSauvegarde) { produits = menuSauvegarde; renderCategories(); renderProducts(); } 
-            else { showNotification("❌ Aucun menu en mémoire", "#e74c3c"); }
         }
     }
 
+    async function appliquerBranding() {
+        try {
+            const response = await fetch('/api/branding');
+            const config = await response.json();
+            if (config) {
+                document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
+                document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
+                if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
+                if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); afficherListeTables(); }
+            }
+        } catch (error) { console.error("Branding", error); }
+    }
+
+    async function verifierStatutCaisse() {
+        try { 
+            const res = await fetchSecurise('/api/tiroir/statut'); 
+            const data = await res.json(); caisseOuverte = data.ouvert;
+            const btn = document.getElementById('btn-tiroir');
+            if (caisseOuverte) { btn.style.background = 'var(--success)'; btn.style.borderColor = 'var(--success)'; btn.innerHTML = '<i class="fas fa-box-open"></i> Clôturer'; btn.style.color = 'white'; } 
+            else { btn.style.background = 'rgba(239, 68, 68, 0.15)'; btn.style.borderColor = 'rgba(239, 68, 68, 0.3)'; btn.innerHTML = '<i class="fas fa-lock"></i> Ouvrir Caisse'; btn.style.color = '#f87171'; }
+        } catch (e) {}
+    }
+
+    // --- 4. SYNCHRONISATION & OFFLINE ---
     window.addEventListener('online', syncVentesHorsLigne);
     let isSyncingOffline = false;
 
-async function syncVentesHorsLigne() {
+    async function syncVentesHorsLigne() {
         if (isSyncingOffline) return; 
-        
         const ventesEnAttente = await localforage.getItem('tabia_ventes_offline') || [];
         if (ventesEnAttente.length === 0) return;
         
         isSyncingOffline = true;
-        showNotification(`🔄 Synchronisation de ${ventesEnAttente.length} ventes...`, "#3b82f6");
+        showNotification(`🔄 Synchro de ${ventesEnAttente.length} ventes...`, "#3b82f6");
         let ventesRestantes = [];
         
         for (let vente of ventesEnAttente) {
             try {
-                // On pousse la vente vers la base de données
                 const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(vente) });
-                
                 if (res.ok) {
-                    // 🔥 NOUVEAUTÉ : Si la vente réussit, on ordonne au serveur de nettoyer la cuisine !
                     if (vente.isPartiel && vente.offlineOrderIds) {
                         await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: vente.offlineOrderIds, articlesRestants: vente.articlesRestantsOffline }) });
                     } else if (!vente.isPartiel) {
@@ -513,51 +496,250 @@ async function syncVentesHorsLigne() {
                             await fetchSecurise(`/api/commandes/table/${vente.offlineTable}/paye`, { method: 'PUT' });
                         }
                     }
-                } else {
-                    ventesRestantes.push(vente); 
-                }
+                } else { ventesRestantes.push(vente); }
             } catch (e) { ventesRestantes.push(vente); }
         }
-        
         await localforage.setItem('tabia_ventes_offline', ventesRestantes);
         isSyncingOffline = false;
         if (ventesRestantes.length === 0) showNotification("✅ Ventes synchronisées", "#10b981");
     }
 
-function ajouterAuTicket(tableNum, produit, updateUI = true, fromServer = false) {
+    // --- 5. INTERFACE UTILISATEUR (UI) ---
+    function afficherListeTables() {
+        const container = document.getElementById('tablesGrid'); 
+        const countSpan = document.getElementById('tablesCount');
+        if (!container) return; 
+        let actives = 0, html = '';
+        
+        // Tables physiques
+        for (let i = 1; i <= NB_TABLES_MAX; i++) {
+            const tableStr = String(i); 
+            const ticket = tickets[tableStr]; 
+            const hasItems = ticket && ticket.articles.length > 0;
+            if (hasItems) actives++;
+            html += `
+            <div class="table-wrapper">
+                <button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')">
+                    <span class="table-num">Table ${i}</span>
+                    <span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span>
+                </button>
+                <button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button>
+            </div>`;
+        }
+
+        // Séparateur virtuel
+        html += `<div style="grid-column: 1 / -1; height: 1px; background: #e2e8f0; margin: 10px 0;"></div>`;
+
+        // Tickets Virtuels (VIP & Commandes Web Ouvertes)
+        Object.keys(tickets).forEach(key => {
+            if (key.startsWith('Fidele_') || key.startsWith('WEB_')) {
+                const customTicket = tickets[key]; 
+                const hasItems = customTicket.articles.length > 0;
+                
+                if (hasItems || currentTable === key) {
+                    if (hasItems) actives++;
+                    const icone = key.startsWith('WEB_') ? '🛍️' : '⭐';
+                    const color = key.startsWith('WEB_') ? '#3b82f6' : '#e67e22'; 
+                    html += `
+                    <div class="table-wrapper">
+                        <button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="border-color:${color};">
+                            <span class="table-num" style="font-size:0.9rem;">
+                                <i class="fas fa-star" style="color:${color};"></i> ${icone} ${escapeHtml(customTicket.label)}
+                            </span>
+                            <span class="table-total">${customTicket.total.toFixed(2)} DT</span>
+                        </button>
+                    </div>`;
+                } else if (!hasItems && currentTable !== key) { 
+                    delete tickets[key]; 
+                }
+            }
+        });
+        
+        container.innerHTML = html; 
+        if (countSpan) countSpan.innerText = `${actives} actives`;
+    }
+
+    function afficherTicket() {
+        const itemsDiv = document.getElementById('ticketItemsList'); 
+        const totalSpan = document.getElementById('ticketTotal'); 
+        const countSpan = document.getElementById('articleCount'); 
+        const labelSpan = document.getElementById('currentTableLabel');
+        
+        if (!currentTable) { 
+            itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 4rem; color: #e2e8f0; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; 
+            totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; 
+        }
+        
+        const ticket = tickets[currentTable];
+        
+        // Nom du ticket
+        if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; 
+        else if (currentTable.startsWith('WEB_')) labelSpan.innerText = `🛍️ Emporter (${ticket.label})`; 
+        else labelSpan.innerText = `Table ${currentTable}`;
+        
+        if (!ticket || !ticket.articles || ticket.articles.length === 0) { 
+            itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 4rem; color: #e2e8f0; margin-bottom: 10px;"></i>Ticket vide</div>'; 
+            totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; 
+        }
+        
+        let totalArts = 0, html = '';
+        ticket.articles.forEach((item) => {
+            const prix = parseFloat(item.prix) || 0; 
+            const qte = parseInt(item.quantite) || 1; 
+            const itemTotal = prix * qte; 
+            totalArts += qte; 
+            
+            const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null';
+            const envoyeVar = item.envoye ? 'true' : 'false';
+            const badgeCuisine = item.envoye ? '' : `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:3px 8px; border-radius:6px; margin-left:8px; font-weight:bold;">Nouveau</span>`;
+
+            html += `
+            <div class="ticket-item">
+                <div class="item-info">
+                    <div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.8rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div>
+                    <div class="item-price">${prix.toFixed(2)} DT / u</div>
+                </div>
+                <div class="item-actions">
+                    <div class="qty-control">
+                        <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button>
+                        <span>${qte}</span>
+                        <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div class="item-total-price">${itemTotal.toFixed(2)}</div>
+                </div>
+            </div>`;
+        });
+        
+        itemsDiv.innerHTML = html; 
+        totalSpan.innerText = ticket.total.toFixed(2) + " DT"; 
+        countSpan.innerText = totalArts + " art.";
+    }
+
+    function renderCategories() {
+        const container = document.getElementById('categoriesContainer');
+        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", sandwish: "🥪 Sandwiches",chicha: "💨 Chichas",Ma9loub: "🌮 ma9loub",Pizza: "🍕 Pizza",BagetteFarci: "🥖 Bagette Farci",Tacos: "🌯 Tacos",Burger: "🍔 Burger",Crepes: "🦪Crepes",plats: "🍽 Plats",Pasta: "🍝 Pasta",Libanai: "🌯 Libanai" }; 
+        const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
+        let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
+        Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });
+        container.innerHTML = html;
+        document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => { activeCategory = btn.dataset.cat; renderCategories(); renderProducts(); }));
+    }
+
+    function renderProducts() {
+        const grid = document.getElementById('productsGrid'); if (!grid) return;
+        let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
+        if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit</div>'; return; }
+        
+        grid.innerHTML = filtered.map(p => { 
+            const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
+            return `
+            <div class="product-card" onclick="ajouterClickProduit(${p.id}, '${escapeHtml(p.nom)}', ${p.prix})">
+                <div style="font-size: 0.75rem; font-weight:700; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div>
+                <div class="product-name">${escapeHtml(p.nom)}</div>
+                <div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div>
+            </div>`; 
+        }).join('');
+    }
+
+    function ajouterClickProduit(id, nom, prix) {
+        if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
+        ajouterAuTicket(currentTable, { id: parseInt(id) || Date.now(), nom: nom, prix: parseFloat(prix) });
+    }
+
+    // --- 6. LE PANNEAU DES COMMANDES WEB (La magie est ici) ---
+    function afficherCommandesWeb() {
+        const webCmds = commandesRecues.filter(c => {
+            if (c.statut === 'paye') return false; 
+            if (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite') return true;
+            
+            const tableNum = String(c.numeroTable || '').trim();
+            const num = parseInt(tableNum);
+            const isTableNormale = !isNaN(num) && num > 0 && num <= NB_TABLES_MAX;
+            
+            if (!isTableNormale) return true; // C'est un client "À Emporter" 
+            return false;
+        });
+        
+        const container = document.getElementById('sectionCommandesWeb');
+        if(webCmds.length === 0) { container.style.display = 'none'; return; }
+        
+        container.style.display = 'block'; 
+        document.getElementById('countCommandesWeb').innerText = webCmds.length;
+        
+        document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
+            const isFidele = cmd.methodePaiement === 'carte_fidelite';
+            const isNonPaye = cmd.methodePaiement !== 'en_ligne' && cmd.methodePaiement !== 'carte_fidelite';
+            
+            let badgeIcon = '<i class="fas fa-globe"></i> Web';
+            let themeColor = '#3b82f6'; 
+
+            if (isFidele) { badgeIcon = '<i class="fas fa-id-card"></i> VIP Wallet'; themeColor = '#f59e0b'; }
+            if (isNonPaye) { badgeIcon = '<i class="fas fa-walking"></i> À Payer'; themeColor = '#e67e22'; }
+            
+            const articlesPreview = cmd.articles.slice(0, 3).map(a => `<div style="font-size:0.85rem; color:#475569; font-weight:600;">• ${a.quantite}x ${a.nom}</div>`).join('');
+            const pointsSuspension = cmd.articles.length > 3 ? '<div style="font-size:0.75rem; color:#94a3b8; padding-left:10px; font-weight:bold;">...et plus</div>' : '';
+
+            let buttonHtml = ''; let cardClass = '';
+
+            if (isNonPaye) {
+                // Client sur place (À Emporter) qui doit payer
+                buttonHtml = `<button onclick="chargerCommandeWebPourPaiement('${cmd.id}')" style="width:100%; background:var(--primary-orange); color:white; border:none; padding:14px; border-radius:12px; font-weight:900; cursor:pointer; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4); font-size:1rem; transition:0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">💳 OUVRIR & ENCAISSER</button>`;
+            } else {
+                if (cmd.statut === 'en_attente' || cmd.statut === 'en_preparation') {
+                    buttonHtml = `<button disabled style="width:100%; background:#94a3b8; color:white; border:none; padding:14px; border-radius:12px; font-weight:800; cursor:not-allowed; font-size:1rem;">⏳ EN CUISINE...</button>`;
+                } else if (cmd.statut === 'terminee') {
+                    cardClass = 'animate-pulse-green';
+                    buttonHtml = `<button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:#10b981; color:white; border:none; padding:14px; border-radius:12px; cursor:pointer; font-weight:900; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4); font-size:1rem; transition:0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">✅ SERVIR & ARCHIVER</button>`;
+                }
+            }
+
+            return `
+            <div class="${cardClass}" style="background: white; border-left: 8px solid ${themeColor}; padding: 20px; border-radius: 16px; box-shadow: var(--shadow-md); margin-bottom: 15px; border: 1px solid var(--border-soft);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <span style="font-size:1.3rem; font-weight:900; color:#1e293b; letter-spacing:-0.5px;">#${cmd.numero}</span>
+                    <span style="background:${themeColor}15; color:${themeColor}; padding:6px 12px; border-radius:8px; font-size:0.8rem; font-weight:800; text-transform:uppercase;">${badgeIcon}</span>
+                </div>
+                <div style="margin-bottom:15px;">
+                    <div style="font-weight:800; color:#334155; font-size:1.05rem; margin-bottom:6px;"><i class="fas fa-user-circle" style="color:#94a3b8;"></i> ${cmd.clientName ? cmd.clientName : `À Emporter`}</div>
+                    <div style="background:#f8fafc; padding:12px; border-radius:10px; border: 1px solid #f1f5f9;">${articlesPreview}${pointsSuspension}</div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-top: 1px dashed var(--border-soft); padding-top:10px;">
+                    <span style="color:#94a3b8; font-size:0.9rem; font-weight:700; text-transform:uppercase;">Total</span>
+                    <span style="font-weight:900; font-size:1.5rem; color:#1e293b;">${(cmd.total || 0).toFixed(2)} <span style="font-size:0.9rem;">DT</span></span>
+                </div>
+                ${buttonHtml}
+            </div>`;
+        }).join('');
+    }
+
+    // --- 7. ACTIONS (Modification du Ticket) ---
+    function selectionnerTable(tableNum) { 
+        currentTable = String(tableNum); afficherTicket(); afficherListeTables(); 
+    }
+
+    function ajouterAuTicket(tableNum, produit, updateUI = true, fromServer = false) {
         if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
         const ticket = tickets[tableNum];
         const prixSecurise = parseFloat(produit.prix) || 0;
         const qteSecurise = parseInt(produit.quantite) || 1;
-        
         const isEnvoye = fromServer ? true : (produit.envoye || false);
 
         const existing = ticket.articles.find(a => 
             (String(a.id) === String(produit.id) || a.nom === produit.nom) && 
-            (a.variante || null) === (produit.variante || null) &&
-            (a.envoye === isEnvoye) // Sécurité anti-mélange
+            (a.variante || null) === (produit.variante || null) && (a.envoye === isEnvoye)
         );
 
-        if (existing) {
-            existing.quantite += qteSecurise;
-        } else {
-            ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise, envoye: isEnvoye });
-        }
+        if (existing) { existing.quantite += qteSecurise; } 
+        else { ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise, envoye: isEnvoye }); }
         
         ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
         sauvegarderTousLesTickets();
         if (updateUI) { if (String(currentTable) === String(tableNum)) afficherTicket(); afficherListeTables(); }
     }
 
-function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
+    function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
         const ticket = tickets[tableNum]; if (!ticket) return;
-        
-        const index = ticket.articles.findIndex(a => 
-            String(a.id) === String(produitId) && 
-            (a.variante || null) === (variante || null) && 
-            a.envoye === isEnvoye
-        );
-        
+        const index = ticket.articles.findIndex(a => String(a.id) === String(produitId) && (a.variante || null) === (variante || null) && a.envoye === isEnvoye);
         if (index !== -1) {
             const article = ticket.articles[index]; 
             const nouvelleQuantite = article.quantite + delta;
@@ -572,86 +754,7 @@ function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
         }
     }
 
-    async function nettoyerCommandesCuisine(tableNum) {
-        try {
-            await fetchSecurise(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
-            if (String(derniereTableModal) === String(tableNum)) { afficherCommandesTable(tableNum); }
-        } catch (error) {}
-    }
-
-async function viderTicket(tableNum, confirmDialogue = true) {
-        if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
-            if (confirmDialogue) { 
-                try { 
-                    // 🔥 CORRECTION : Gestion spécifique pour les clients fidèles
-                    if (String(tableNum).startsWith('Fidele_')) {
-                        const ticket = tickets[tableNum];
-                        if (ticket && ticket.orderIds && ticket.orderIds.length > 0) {
-                            // On annule chaque commande de ce client une par une
-                            for (let oid of ticket.orderIds) { 
-                                await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); 
-                            }
-                        }
-                    } else {
-                        // Si c'est une table normale, on utilise la méthode classique
-                        await nettoyerCommandesCuisine(tableNum); 
-                    }
-                } catch(e) { console.error("Erreur lors du vidage", e); } 
-            }
-            
-            // Suppression locale du ticket
-            if (String(tableNum).startsWith('Fidele_')) { 
-                delete tickets[tableNum]; 
-                if (currentTable === tableNum) currentTable = 'Emporter'; 
-            } else { 
-                tickets[tableNum] = { articles: [], total: 0 }; 
-            }
-            
-            sauvegarderTousLesTickets(); 
-            // 🔥 RENOUVELLEMENT AUTO DU CODE SI LA TABLE EST VIDÉE / ANNULÉE
-        if (!tableNum.startsWith('Fidele_') && tableNum !== 'Emporter') {
-            try { await fetchSecurise(`/api/numbers/refresh/${tableNum}`, { method: 'POST' }); } catch(e) {}
-        }
-            afficherTicket(); 
-            afficherListeTables();
-            
-            if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3b82f6");
-        }
-    }
-
-    function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
-async function appliquerBranding() {
-    try {
-        // 1. On récupère les réglages depuis ton API /api/branding
-        const response = await fetch('/api/branding');
-        const config = await response.json();
-
-        if (config) {
-            // 2. Mise à jour du Nom du café
-            document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
-
-            // 3. Mise à jour du Slogan (Coffee Shop, Bar, etc.)
-            document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
-
-            // 4. Mise à jour du Logo
-            if (config.logoUrl) {
-                document.getElementById('dynamicLogo').src = config.logoUrl;
-            }
-            if (config.nombreTables) { 
-                NB_TABLES_MAX = parseInt(config.nombreTables); 
-                afficherListeTables(); 
-            }
-
-
-        }
-    } catch (error) {
-        console.error("Erreur lors du chargement du branding:", error);
-    }
-}
-
-// Lancer la fonction au chargement de la page
-window.onload = appliquerBranding;
-async function envoyerEnCuisine() {
+    async function envoyerEnCuisine() {
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444");
         const ticket = tickets[currentTable];
         if (!ticket.articles.length) return showNotification("❌ Le ticket est vide", "#ef4444");
@@ -678,140 +781,102 @@ async function envoyerEnCuisine() {
             if (response.ok) { 
                 const data = await response.json();
                 showNotification(`👨‍🍳 Articles envoyés en cuisine !`, "#e67e22"); 
-                
                 if (!ticket.orderIds) ticket.orderIds = [];
                 if (data.id || data._id) ticket.orderIds.push(data.id || data._id);
 
-                // 🔥 On les marque comme envoyés (ils vont disparaître de l'écran)
                 ticket.articles.forEach(a => { if (!a.envoye) a.envoye = true; });
-                sauvegarderTousLesTickets(); 
-                afficherTicket(); 
+                sauvegarderTousLesTickets(); afficherTicket(); 
             } else { 
-                const errData = await response.json();
-                showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
+                const errData = await response.json(); showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
             }
         } catch (error) { showNotification("❌ Erreur réseau", "#ef4444"); }
     }
 
-function afficherListeTables() {
-        const container = document.getElementById('tablesGrid'); 
-        const countSpan = document.getElementById('tablesCount');
-        if (!container) return; 
-        let actives = 0, html = '';
-        
-        // 1. On affiche les tables normales (1 à NB_TABLES_MAX)
-        for (let i = 1; i <= NB_TABLES_MAX; i++) {
-            const tableStr = String(i); 
-            const ticket = tickets[tableStr]; 
-            const hasItems = ticket && ticket.articles.length > 0;
-            
-            if (hasItems) actives++;
-            
-            html += `<div class="table-wrapper">
-                <button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')">
-                    <span class="table-num">Table ${i}</span>
-                    <span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span>
-                </button>
-                <button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button>
-            </div>`;
-        }
-
-        // 2. On ajoute une petite ligne de séparation (esthétique)
-        html += `<div style="grid-column: 1 / -1; height: 1px; background: #e2e8f0; margin: 10px 0;"></div>`;
-
-        // 3. On affiche les Clients Fidèles et les Commandes Web "À Emporter" (les tickets générés dynamiquement)
-        Object.keys(tickets).forEach(key => {
-            if (key.startsWith('Fidele_') || key.startsWith('WEB_')) {
-                const customTicket = tickets[key]; 
-                const hasItems = customTicket.articles.length > 0;
-                
-                if (hasItems || currentTable === key) {
-                    if (hasItems) actives++;
-                    
-                    const icone = key.startsWith('WEB_') ? '🛍️' : '⭐';
-                    const color = key.startsWith('WEB_') ? '#3b82f6' : '#e67e22'; // Bleu pour Web, Orange pour Fidele
-                    
-                    html += `<div class="table-wrapper">
-                        <button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="border-color:${color};">
-                            <span class="table-num" style="font-size:0.85rem;">
-                                <i class="fas fa-star" style="color:${color};"></i> ${icone} ${escapeHtml(customTicket.label)}
-                            </span>
-                            <span class="table-total">${customTicket.total.toFixed(2)} DT</span>
-                        </button>
-                    </div>`;
-                } else if (!hasItems && currentTable !== key) { 
-                    // Sécurité : on supprime les tickets virtuels vides non sélectionnés
-                    delete tickets[key]; 
-                }
+    async function viderTicket(tableNum, confirmDialogue = true) {
+        if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
+            if (confirmDialogue) { 
+                try { 
+                    if (String(tableNum).startsWith('Fidele_') || String(tableNum).startsWith('WEB_')) {
+                        const ticket = tickets[tableNum];
+                        if (ticket && ticket.orderIds && ticket.orderIds.length > 0) {
+                            for (let oid of ticket.orderIds) { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); }
+                        }
+                    } else {
+                        await fetchSecurise(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
+                    }
+                } catch(e) {} 
             }
-        });
-        
-        container.innerHTML = html; 
-        if (countSpan) countSpan.innerText = `${actives} actives`;
-    }
-
-function afficherTicket() {
-        const itemsDiv = document.getElementById('ticketItemsList'); const totalSpan = document.getElementById('ticketTotal'); const countSpan = document.getElementById('articleCount'); const labelSpan = document.getElementById('currentTableLabel');
-        
-        if (!currentTable) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; }
-        const ticket = tickets[currentTable];
-        if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else if (currentTable.startsWith('WEB_')) labelSpan.innerText = `🛍️ Emporter ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
-        if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
-        
-        let totalArts = 0, html = '';
-        
-        ticket.articles.forEach((item) => {
-            const prix = parseFloat(item.prix) || 0; 
-            const qte = parseInt(item.quantite) || 1; 
-            const itemTotal = prix * qte; 
-            totalArts += qte; 
             
-            const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null';
-            const envoyeVar = item.envoye ? 'true' : 'false';
+            if (String(tableNum).startsWith('Fidele_') || String(tableNum).startsWith('WEB_')) { 
+                delete tickets[tableNum]; currentTable = null; 
+            } else { 
+                tickets[tableNum] = { articles: [], total: 0, orderIds: [] }; 
+                try { await fetchSecurise(`/api/numbers/refresh/${tableNum}`, { method: 'POST' }); } catch(e) {}
+            }
+            
+            sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+            if(confirmDialogue) showNotification(`🧾 Ticket vidé`, "#3b82f6");
+        }
+    }
 
-            // 🔥 LOGIQUE ULTRA-SIMPLE : Le badge "Nouveau" disparaît dès que l'article est envoyé en cuisine.
-            const badgeCuisine = item.envoye 
-                ? '' // Rien ! Il devient un article normal
-                : `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
-
-            html += `<div class="ticket-item"><div class="item-info"><div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div><div class="item-price">${prix.toFixed(2)} DT / u</div></div><div class="item-actions"><div class="qty-control"><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button><span>${qte}</span><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button></div><div class="item-total-price">${itemTotal.toFixed(2)}</div></div></div>`;
-        });
+    window.chargerCommandeWebPourPaiement = function(id) {
+        const cmd = commandesRecues.find(c => c.id === id);
+        if (!cmd) return;
+        const tableTemp = 'WEB_' + cmd.id; // Ticket virtuel
         
-        itemsDiv.innerHTML = html; totalSpan.innerText = ticket.total.toFixed(2) + " DT"; countSpan.innerText = totalArts + " art.";
+        tickets[tableTemp] = {
+            articles: cmd.articles.map((a, idx) => ({ 
+                id: a.id || Date.now() + idx, nom: a.nom, variante: a.variante || null, 
+                prix: parseFloat(a.prix) || 0, quantite: parseInt(a.quantite) || 1, envoye: true 
+            })),
+            total: cmd.total, orderIds: [cmd.id],
+            label: cmd.clientName ? cmd.clientName : ('#' + cmd.numero)
+        };
+        selectionnerTable(tableTemp);
+    };
+
+    window.marquerWebServie = async function(id) { 
+        try { await fetchSecurise(`/api/commandes/${id}/statut`, { method: 'PUT', body: JSON.stringify({statut: 'paye'}) }); await chargerCommandesCuisineInitiales(); afficherCommandesWeb(); } catch(e) {} 
     }
 
-    function renderCategories() {
-        const container = document.getElementById('categoriesContainer');
-        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", sandwish: "🥪 Sandwiches",chicha: "💨 Chichas",Ma9loub: "🌮 ma9loub",Pizza: "🍕 Pizza",BagetteFarci: "🥖 Bagette Farci",Tacos: "🌯 Tacos",Burger: "🍔 Burger",Crepes: "🦪Crepes",plats: "🍽 Plats",Pasta: "🍝 Pasta",Libanai: "🌯 Libanai" }; const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
-        let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
-        Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });
-        container.innerHTML = html;
-        document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => { activeCategory = btn.dataset.cat; renderCategories(); renderProducts(); }));
+    async function chargerCommandesCuisineInitiales() {
+        try { const response = await fetchSecurise('/api/commandes'); commandesRecues = await response.json(); afficherCommandesWeb(); } catch(e) {}
     }
 
-    function renderProducts() {
-        const grid = document.getElementById('productsGrid'); if (!grid) return;
-        let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
-        if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit</div>'; return; }
-        grid.innerHTML = filtered.map(p => { const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; return `<div class="product-card" data-id="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}"><div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div><div class="product-name">${escapeHtml(p.nom)}</div><div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div></div>`; }).join('');
-        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); ajouterAuTicket(currentTable, { id: parseInt(card.dataset.id) || Date.now(), nom: card.dataset.nom, prix: parseFloat(card.dataset.prix) }); }));
+    async function afficherCommandesTable(tableNum) {
+        const modal = document.getElementById('modalDetailsTable'); const content = document.getElementById('modalTableContent'); derniereTableModal = String(tableNum).trim();
+        let titre = tableNum; if (tableNum.startsWith('Fidele_') || tableNum.startsWith('WEB_')) titre = `${tickets[tableNum].label}`;
+        document.getElementById('modalTableNum').textContent = titre; modal.classList.add('active'); content.innerHTML = '<div class="empty-message">⏳...</div>';
+        await chargerCommandesCuisineInitiales();
+        
+        const cmds = commandesRecues.filter(cmd => { if (cmd.statut === 'paye') return false; if (derniereTableModal.startsWith('Fidele_')) { return cmd.clientName === tickets[derniereTableModal].label.split(' (')[0]; } else { return String(cmd.numeroTable||'').trim() === derniereTableModal && !cmd.clientName; } });
+        if (cmds.length === 0) { content.innerHTML = '<div class="empty-message">Rien en cours</div>'; return; }
+        
+        content.innerHTML = cmds.map(cmd => {
+            let s = { t: '⏳ En attente', c: 'var(--primary-orange)' }; if(cmd.statut==='en_preparation') s = { t: '🍳 Préparation', c: 'var(--info)' }; if(cmd.statut==='terminee') s = { t: '✅ Prête', c: 'var(--success)' };
+            return `<div style="border: 2px solid var(--border-soft); border-radius: 12px; margin-bottom: 10px;"><div style="background: #f8fafc; padding: 15px; border-bottom: 1px solid var(--border-soft); display:flex; justify-content:space-between; align-items:center;"><strong>#${cmd.numero}</strong><span style="background:white; border:1px solid ${s.c}; color:${s.c}; padding:4px 10px; border-radius:20px; font-weight:bold; font-size:0.8rem;">${s.t}</span></div><div style="padding:15px; font-size:0.95rem;">${cmd.articles.map(a => `<div style="margin-bottom:5px;"><strong>${a.quantite}x</strong> ${a.nom} ${a.variante?`<span style="color:#64748b;">(${a.variante})</span>`:''}</div>`).join('')}</div></div>`;
+        }).join('');
     }
+    function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
 
+    // --- 8. SYSTÈME DE PAIEMENT ---
     function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
         if (!caisseOuverte) { showNotification("❌ Caisse fermée !", "#ef4444"); return; }
         const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `<div id="modalPaiement" class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-wallet"></i> ${isPartial ? 'Paiement Partiel' : 'Encaissement'}</h3><button type="button" class="close-btn" id="closePaiementBtn">&times;</button></div><div class="montant-total" id="modalTotal">${total.toFixed(2)} DT</div><div class="form-group"><label>Remise (%)</label><div style="display:flex; gap:10px;"><input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0"><button type="button" id="appliquerRemiseBtn" class="btn-valider" style="flex:0 0 auto; padding: 0 20px;"><i class="fas fa-check"></i></button></div></div><div class="form-group"><label>Mode de paiement</label><select id="selectModePaiement"><option value="especes">💰 Espèces</option><option value="carte">💳 Carte Bancaire</option><option value="ticket_resto">🎫 Ticket Resto</option></select></div><div class="form-group" id="montantRecuDiv"><label>Montant reçu (DT)</label><input type="number" id="montantRecuInput" step="0.1" value="${total.toFixed(2)}"></div><div id="monnaieDiv" style="display:none; text-align:center; padding:15px; background:#ecfdf5; border-radius:12px; color:var(--success); font-weight:bold; font-size:1.2rem; margin-bottom:15px; border:2px solid #a7f3d0;"><i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT</div><div class="modal-buttons"><button type="button" id="validerPaiementBtn" class="btn-valider">Valider</button></div></div></div>`;
+        container.innerHTML = `<div id="modalPaiement" class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-wallet"></i> ${isPartial ? 'Paiement Partiel' : 'Encaissement'}</h3><button type="button" class="close-btn" id="closePaiementBtn">&times;</button></div><div class="montant-total" id="modalTotal">${total.toFixed(2)} DT</div><div class="form-group"><label>Remise (%)</label><div style="display:flex; gap:10px;"><input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0"><button type="button" id="appliquerRemiseBtn" class="btn-valider" style="flex:0 0 auto; padding: 0 25px;"><i class="fas fa-check"></i></button></div></div><div class="form-group"><label>Mode de paiement</label><select id="selectModePaiement"><option value="especes">💰 Espèces</option><option value="carte">💳 Carte Bancaire</option><option value="ticket_resto">🎫 Ticket Resto</option></select></div><div class="form-group" id="montantRecuDiv"><label>Montant reçu (DT)</label><input type="number" id="montantRecuInput" step="0.1" value="${total.toFixed(2)}"></div><div id="monnaieDiv" style="display:none; text-align:center; padding:20px; background:#ecfdf5; border-radius:16px; color:var(--success); font-weight:900; font-size:1.5rem; margin-bottom:20px; border:2px solid #a7f3d0;"><i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT</div><div class="modal-buttons"><button type="button" id="validerPaiementBtn" class="btn-valider">Valider le paiement</button></div></div></div>`;
         const modal = document.getElementById("modalPaiement"); let remiseActuelle = 0; let totalAvecRemise = total;
         const remiseInput = document.getElementById("remiseInput"); const appliquerRemise = document.getElementById("appliquerRemiseBtn"); const modalTotal = document.getElementById("modalTotal"); const montantRecuInput = document.getElementById("montantRecuInput"); const monnaieDiv = document.getElementById("monnaieDiv"); const monnaieSpan = document.getElementById("monnaieRendre"); const selectMode = document.getElementById("selectModePaiement"); const montantRecuDiv = document.getElementById("montantRecuDiv");
+        
         const updateTotal = () => { totalAvecRemise = total * (1 - remiseActuelle/100); modalTotal.innerText = totalAvecRemise.toFixed(2) + " DT"; montantRecuInput.value = totalAvecRemise.toFixed(2); calculerMonnaie(); };
         const calculerMonnaie = () => { const recu = parseFloat(montantRecuInput.value) || 0; const monnaie = recu - totalAvecRemise; if(recu > 0 && monnaie >= 0) { monnaieSpan.innerText = monnaie.toFixed(2); monnaieDiv.style.display = "block"; } else { monnaieDiv.style.display = "none"; } };
+        
         appliquerRemise.onclick = () => { let val = parseFloat(remiseInput.value) || 0; if(val<0) val=0; if(val>100) val=100; remiseActuelle = val; remiseInput.value = val; updateTotal(); };
         montantRecuInput.addEventListener('input', calculerMonnaie);
         selectMode.addEventListener('change', () => { montantRecuDiv.style.display = (selectMode.value === "especes") ? "block" : "none"; monnaieDiv.style.display = "none"; });
         
         document.getElementById("validerPaiementBtn").onclick = async () => {
             if(selectMode.value === "especes") { const recu = parseFloat(montantRecuInput.value) || 0; if(recu < totalAvecRemise) { showNotification("❌ Montant insuffisant", "#ef4444"); return; } }
-            document.getElementById("validerPaiementBtn").disabled = true; document.getElementById("validerPaiementBtn").innerHTML = "⏳...";
+            document.getElementById("validerPaiementBtn").disabled = true; document.getElementById("validerPaiementBtn").innerHTML = "⏳ Validation...";
             try {
                 if (isPartial) await executerPaiementPartiel(ticketArticles, totalAvecRemise, remiseActuelle, selectedData, selectMode.value);
                 else await executerPaiementComplet(ticketArticles, totalAvecRemise, remiseActuelle, selectMode.value);
@@ -820,71 +885,41 @@ function afficherTicket() {
         document.getElementById("closePaiementBtn").onclick = () => modal.remove();
     }
 
-async function executerPaiementComplet(articles, totalPaye, remise, methodePaiement = 'especes') {
-        const ticket = tickets[currentTable]; 
-        if (!ticket || !ticket.articles.length) return;
-        
+    async function executerPaiementComplet(articles, totalPaye, remise, methodePaiement = 'especes') {
+        const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
-        // --- 1. Gestion Intelligente du Nom d'origine ---
         let nomOrigine = `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
         if (currentTable.startsWith('WEB_')) nomOrigine = `🛍️ À Emporter`;
 
         const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
 
-        // 🔥 BLOQUER LES DOUBLONS CAISSE
-        if (ticket.orderIds && ticket.orderIds.length > 0) {
-            ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
-        }
+        if (ticket.orderIds && ticket.orderIds.length > 0) ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
 
-        // --- 2. Envoi au Serveur ---
         let requeteReussie = false;
         try {
             if (navigator.onLine) {
                 const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) });
                 if (res.ok) requeteReussie = true;
             }
-        } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
+        } catch(e) { console.warn("Réseau"); }
 
         if (!requeteReussie) {
-            // 🚨 HORS LIGNE
             let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
-            venteBody.offlineTable = currentTable; 
-            venteBody.offlineOrderIds = ticket.orderIds || [];
-            ventesOffline.push(venteBody);
-            await localforage.setItem('tabia_ventes_offline', ventesOffline);
-            showNotification("⚠️ Serveur injoignable, Vente hors-ligne.", "#f39c12");
+            venteBody.offlineTable = currentTable; venteBody.offlineOrderIds = ticket.orderIds || [];
+            ventesOffline.push(venteBody); await localforage.setItem('tabia_ventes_offline', ventesOffline);
+            showNotification("⚠️ Vente sauvegardée hors-ligne.", "#f39c12");
         } else {
-            // ✅ EN LIGNE : Nettoyage de la cuisine
             if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) {
-                if (ticket.orderIds) { 
-                    for (let oid of ticket.orderIds) { 
-                        try { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); } catch(e){} 
-                    } 
-                }
-            } else {
-                try { await nettoyerCommandesCuisine(currentTable); } catch(e){}
-            }
+                if (ticket.orderIds) { for (let oid of ticket.orderIds) { try { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); } catch(e){} } }
+            } else { try { await fetchSecurise(`/api/commandes/table/${currentTable}/paye`, { method: 'PUT' }); } catch(e){} }
         }
         
-        // --- 3. Nettoyage du Ticket Local ---
-        if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { 
-            // Si c'est un ticket virtuel (VIP ou Web), on le supprime définitivement
-            delete tickets[currentTable]; 
-            currentTable = null; // On désélectionne
-        } else { 
-            // Si c'est une table physique (Table 1), on la vide juste
-            tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; 
-            
-            // On refresh le QR Code de la table
-            try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {}
-        }
+        if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { delete tickets[currentTable]; currentTable = null; } 
+        else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {} }
         
-        sauvegarderTousLesTickets(); 
-        afficherTicket(); 
-        afficherListeTables();
-        
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
         showNotification(`✅ Payé : ${totalPaye.toFixed(2)} DT`, "#10b981");
         imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
     }
@@ -904,26 +939,21 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
         container.innerHTML = articlesDecomposes.map((unit, index) => `<div class="article-select-item" data-unit-index="${index}" onclick="toggleUnitSelection(${index})"><input type="checkbox" class="article-checkbox" id="check_unit_${index}"><div class="item-info"><div class="item-name">${escapeHtml(unit.nom)} ${unit.variante ? `<span style="color:var(--primary-orange);">(${unit.variante})</span>` : ''}</div></div><div class="item-total-price">${unit.prix.toFixed(2)} DT</div></div>`).join('');
         modal.classList.add('active'); mettreAJourTotalUnites();
     }
-
     function toggleUnitSelection(unitIndex) { selectedUnits[unitIndex] = !selectedUnits[unitIndex]; const item = document.querySelector(`.article-select-item[data-unit-index="${unitIndex}"]`); const checkbox = document.getElementById(`check_unit_${unitIndex}`); if (selectedUnits[unitIndex]) { item.classList.add('selected'); checkbox.checked = true; } else { item.classList.remove('selected'); checkbox.checked = false; } mettreAJourTotalUnites(); }
     function selectionnerTousArticles() { selectedUnits = selectedUnits.map(() => true); document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.add('selected'); document.getElementById(`check_unit_${idx}`).checked = true; }); mettreAJourTotalUnites(); }
     function deselectionnerTousArticles() { selectedUnits = selectedUnits.map(() => false); document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.remove('selected'); document.getElementById(`check_unit_${idx}`).checked = false; }); mettreAJourTotalUnites(); }
     function mettreAJourTotalUnites() { let total = 0; articlesDecomposes.forEach((unit, index) => { if (selectedUnits[index]) { total += unit.prix; } }); document.getElementById('selectionTotal').innerText = `${total.toFixed(2)} DT`; }
+    function fermerModalSelection() { document.getElementById('modalSelectionArticles').classList.remove('active'); currentTableSelection = null; }
 
-function validerSelectionPaiement() {
+    function validerSelectionPaiement() {
         const selectedUnitsList = articlesDecomposes.filter((_, index) => selectedUnits[index]);
-        
         if (selectedUnitsList.length === 0) return showNotification("❌ Aucun article", "#ef4444");
 
-        // 🔥 CORRECTION : Si TOUS les articles sont sélectionnés, on bascule sur un paiement COMPLET
         if (selectedUnitsList.length === articlesDecomposes.length) {
             fermerModalSelection();
-            // On utilise les articles originaux du ticket et on met isPartial à 'false'
-            afficherModalPaiement(tickets[currentTable].articles, tickets[currentTable].total, false);
-            return; // On arrête la fonction ici
+            afficherModalPaiement(tickets[currentTable].articles, tickets[currentTable].total, false); return;
         }
 
-        // Si ce n'est qu'une partie des articles (Paiement Partiel normal) :
         const unitsParProduit = {};
         selectedUnitsList.forEach(unit => { 
             const key = `${unit.id}_${unit.variante}`; 
@@ -935,390 +965,103 @@ function validerSelectionPaiement() {
         const total = articlesAPayer.reduce((s, a) => s + a.prix * a.quantite, 0); 
         const unitIdsASupprimer = selectedUnitsList.map(u => u.unitId);
         
-        fermerModalSelection(); 
-        afficherModalPaiement(articlesAPayer, total, true, unitIdsASupprimer);
+        fermerModalSelection(); afficherModalPaiement(articlesAPayer, total, true, unitIdsASupprimer);
     }
 
-    function fermerModalSelection() { document.getElementById('modalSelectionArticles').classList.remove('active'); currentTableSelection = null; }
-
-async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer, methodePaiement = 'especes') {
-        const ticket = tickets[currentTable]; 
-        if (!ticket || !ticket.articles.length) return;
-        
+    async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitIdsASupprimer, methodePaiement = 'especes') {
+        const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
-        // --- 1. Gestion Intelligente du Nom d'origine ---
         let nomOrigine = `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle : ${ticket.label}`;
         if (currentTable.startsWith('WEB_')) nomOrigine = `🛍️ À Emporter`;
 
         const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
 
-        // --- 2. Calcul des articles restants ---
         const articlesRestants = [];
         ticket.articles.forEach((article, articleIndex) => {
             for (let i = 0; i < article.quantite; i++) {
                 const unitId = `${articleIndex}_${i}`;
                 if (!unitIdsASupprimer.includes(unitId)) {
                     const existing = articlesRestants.find(a => a.id === article.id && a.variante === article.variante && a.envoye === article.envoye);
-                    if (existing) {
-                        existing.quantite++; 
-                    } else {
-                        articlesRestants.push({ 
-                            id: article.id, nom: article.nom, variante: article.variante, 
-                            prix: article.prix, quantite: 1, envoye: article.envoye
-                        });
-                    }
+                    if (existing) { existing.quantite++; } 
+                    else { articlesRestants.push({ id: article.id, nom: article.nom, variante: article.variante, prix: article.prix, quantite: 1, envoye: article.envoye }); }
                 }
             }
         });
 
-        // --- 3. Envoi au Serveur ---
         let requeteReussie = false;
         try {
             if (navigator.onLine) {
                 const res = await fetchSecurise('/api/ventes', { method: 'POST', body: JSON.stringify(venteBody) });
                 if (res.ok) requeteReussie = true;
             }
-        } catch(e) { console.warn("Erreur réseau silencieuse, passage en hors-ligne"); }
+        } catch(e) {}
 
         if (!requeteReussie) {
-            // 🚨 HORS LIGNE 
             let ventesOffline = await localforage.getItem('tabia_ventes_offline') || [];
-            venteBody.isPartiel = true;
-            venteBody.offlineOrderIds = ticket.orderIds || [];
-            venteBody.articlesRestantsOffline = articlesRestants; 
-            ventesOffline.push(venteBody);
-            await localforage.setItem('tabia_ventes_offline', ventesOffline);
+            venteBody.isPartiel = true; venteBody.offlineOrderIds = ticket.orderIds || []; venteBody.articlesRestantsOffline = articlesRestants; 
+            ventesOffline.push(venteBody); await localforage.setItem('tabia_ventes_offline', ventesOffline);
             showNotification("⚠️ Paiement partiel hors-ligne.", "#f39c12");
         } else {
-            // ✅ EN LIGNE
             if (ticket.orderIds && ticket.orderIds.length > 0) {
                 try { await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants }) }); } catch(e) {}
             }
         }
         
-        // --- 4. Mise à jour de la caisse locale ---
         if (articlesRestants.length === 0) {
-            // S'il ne reste plus d'articles et que c'est un ticket virtuel, on supprime !
-            if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { 
-                delete tickets[currentTable]; 
-                currentTable = null; 
-            } else { 
-                tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; 
-            }
+            if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { delete tickets[currentTable]; currentTable = null; } 
+            else { tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; }
         } else {
-            tickets[currentTable].articles = articlesRestants; 
-            tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
+            tickets[currentTable].articles = articlesRestants; tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0);
         }
         
-        sauvegarderTousLesTickets(); 
-        afficherTicket(); 
-        afficherListeTables();
-        
+        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
         showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
         imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
     }
 
-    async function chargerCommandesCuisineInitiales() {
-        try { const response = await fetchSecurise('/api/commandes'); commandesRecues = await response.json(); afficherCommandesWeb(); } catch(e) {}
-    }
-
-function synchroniserTicketsAvecServeur() {
-    let aMiseAJour = false;
-    if (!commandesRecues || !Array.isArray(commandesRecues)) return;
-    
-    commandesRecues.forEach(commande => {
-        if (commande.statut === 'paye') return; // Ignorer les commandes payées
-        if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return; // VIP va à gauche
-
-        const tableNum = String(commande.numeroTable || '').trim();
-        const num = parseInt(tableNum);
-        const isTableNormale = !isNaN(num) && num > 0 && num <= NB_TABLES_MAX;
-
-        // Si ce n'est PAS une table normale (c'est donc Emporter), on ignore ici
-        if (!isTableNormale) return;
-
-        // === C'EST UNE TABLE NORMALE (1, 2, 3...) ===
-        if (window.commandesTraiteesTickets && window.commandesTraiteesTickets.has(commande.id)) return;
-
-        if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: tableNum };
-        if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
-
-        if (!tickets[tableNum].orderIds.includes(commande.id)) {
-            tickets[tableNum].orderIds.push(commande.id);
-            window.commandesTraiteesTickets.add(commande.id);
-            
-            if (commande.articles && commande.articles.length > 0) {
-                commande.articles.forEach((article, arrIdx) => { 
-                    let nomPropre = article.nom || "Inconnu"; let variante = article.variante || null;
-                    if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-                    let vraiPrix = parseFloat(article.prix); if (isNaN(vraiPrix) || vraiPrix===0) { const p = produits.find(p => String(p.id) === String(article.id)); if (p) vraiPrix = parseFloat(p.prix); }
-                    
-                    ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1, envoye: true }, false, true); 
-                }); 
-                aMiseAJour = true;
-            }
-        }
-        
-        // Mettre à jour si la cuisine a terminé
-        if (commande.statut === 'terminee') {
-            if (commande.articles) { 
-                commande.articles.forEach((cmdArt) => { 
-                    let nomPropre = cmdArt.nom || "Inconnu"; let variante = cmdArt.variante || null;
-                    if (!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-                    const existing = tickets[tableNum].articles.find(a => (a.nom === nomPropre) && (a.variante || null) === variante && a.envoye === true && !a.pret);
-                    if (existing) existing.pret = true;
-                });
-            }
-            showNotification(`🔔 Cuisine prête: Table ${tableNum}`, "#10b981");
-            aMiseAJour = true;
-        }
-    });
-
-    if (aMiseAJour) { 
-        // Sécurité : recalcul de tous les totaux
-        Object.keys(tickets).forEach(k => {
-            if (tickets[k].articles) tickets[k].total = tickets[k].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
-        });
-        sauvegarderTousLesTickets(); 
-        afficherListeTables(); 
-        if (currentTable) afficherTicket(); 
-    }
-}
-
-    async function afficherCommandesTable(tableNum) {
-        const modal = document.getElementById('modalDetailsTable'); const content = document.getElementById('modalTableContent'); derniereTableModal = String(tableNum).trim();
-        let titre = tableNum; if (tableNum === 'Emporter') titre = '📦 Emporter'; if (tableNum.startsWith('Fidele_')) titre = `⭐ ${tickets[tableNum].label}`;
-        document.getElementById('modalTableNum').textContent = titre; modal.classList.add('active'); content.innerHTML = '<div class="empty-message">⏳...</div>';
-        await chargerCommandesCuisineInitiales();
-        const cmds = commandesRecues.filter(cmd => { if (cmd.statut === 'paye') return false; if (derniereTableModal.startsWith('Fidele_')) { return cmd.clientName === tickets[derniereTableModal].label.split(' (')[0]; } else { return String(cmd.numeroTable||'Emporter').trim() === derniereTableModal && !cmd.clientName; } });
-        if (cmds.length === 0) { content.innerHTML = '<div class="empty-message">Rien en cours</div>'; return; }
-        content.innerHTML = cmds.map(cmd => {
-            let s = { t: '⏳ En attente', c: 'var(--primary-orange)' }; if(cmd.statut==='en_preparation') s = { t: '🍳 Préparation', c: 'var(--info)' }; if(cmd.statut==='terminee') s = { t: '✅ Prête', c: 'var(--success)' };
-            return `<div style="border: 2px solid var(--border-soft); border-radius: 12px; margin-bottom: 10px;"><div style="background: #f8fafc; padding: 10px; border-bottom: 1px solid var(--border-soft); display:flex; justify-content:space-between;"><strong>#${cmd.numero}</strong><span style="color:${s.c}; font-weight:bold;">${s.t}</span></div><div style="padding:10px;">${cmd.articles.map(a => `<div>${a.quantite}x ${a.nom} ${a.variante?`(${a.variante})`:''}</div>`).join('')}</div></div>`;
-        }).join('');
-    }
-
-    function fermerModalDetails() { document.getElementById('modalDetailsTable').classList.remove('active'); derniereTableModal = null; }
-
-function initSocket() {
-        socket = io({ auth: { token: monToken }, transports: ['websocket', 'polling'] });
-        
-        socket.on('connect', async () => { 
-            await chargerCommandesCuisineInitiales(); 
-            synchroniserTicketsAvecServeur(); 
-        });
-        
-        socket.on('update_stock', async () => { 
-            await chargerCatalogue(); 
-            if (currentTable) afficherTicket(); 
-            renderProducts(); 
-        });
-
-socket.on('nouvelle_commande', (commande) => { 
-            commandesRecues.push(commande); 
-            
-            const tableNum = String(commande.numeroTable || '').trim();
-            const num = parseInt(tableNum);
-            const isTableNormale = !isNaN(num) && num > 0 && num <= NB_TABLES_MAX;
-            const isWebPay = commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite';
-
-            // 1. Si c'est Web/VIP OU "Emporter" (Pas une table normale)
-            if (isWebPay || !isTableNormale) {
-                afficherCommandesWeb(); 
-            } 
-            // 2. C'EST UNE TABLE NORMALE (1, 2, 3...)
-            else {
-                if (tableNum && tickets[tableNum]) {
-                    if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
-                    if (!tickets[tableNum].orderIds.includes(commande.id)) {
-                        tickets[tableNum].orderIds.push(commande.id);
-                        window.commandesTraiteesTickets.add(commande.id);
-                        
-                        commande.articles.forEach((a, idx) => {
-                            ajouterAuTicket(tableNum, {
-                                id: a.id || Date.now() + idx,
-                                nom: a.nom,
-                                variante: a.variante || null,
-                                prix: parseFloat(a.prix) || 0,
-                                quantite: parseInt(a.quantite) || 1,
-                                envoye: true 
-                            }, false, true);
-                        });
-                        
-                        tickets[tableNum].total = tickets[tableNum].articles.reduce((s, art) => s + (parseFloat(art.prix || 0) * parseInt(art.quantite || 1)), 0);
-                        sauvegarderTousLesTickets();
-                        afficherListeTables();
-                        if (currentTable === tableNum) afficherTicket();
-                        showNotification(`🛒 Commande reçue sur Table ${tableNum}`, "#0284c7");
-                    }
-                }
-                afficherCommandesWeb(); // Rafraîchir au cas où
-            }
-            
-            if (derniereTableModal) afficherCommandesTable(derniereTableModal); 
-        });
-
-        socket.on('mise_a_jour_commande', (commande) => {
-            const idx = commandesRecues.findIndex(c => c.id === commande.id); 
-            if (idx !== -1) commandesRecues[idx] = commande; 
-            else commandesRecues.push(commande);
-            
-            afficherCommandesWeb();
-            
-            if (commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return;            
-            
-            // 🟢 RETOUR DE CUISINE (La commande est prête)
-            if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
-                window.commandesTraiteesTickets.add(commande.id);
-                
-                let tableNum = String(commande.numeroTable || 'Emporter').trim(); 
-                let customLabel = null;
-                
-                if (commande.clientName) { 
-                    tableNum = 'Fidele_' + commande.clientName; 
-                    customLabel = commande.clientName; 
-                }
-                
-                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
-                if (customLabel) tickets[tableNum].label = customLabel; 
-                
-                if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
-                if (!tickets[tableNum].orderIds.includes(commande.id)) tickets[tableNum].orderIds.push(commande.id);
-
-                if (commande.articles) { 
-                    commande.articles.forEach((cmdArt, arrIdx) => { 
-                        let nomPropre = cmdArt.nom || "Inconnu"; 
-                        let variante = cmdArt.variante || null;
-                        
-                        if (!variante && nomPropre.includes('(')) { 
-                            const parts = nomPropre.split('('); 
-                            nomPropre = parts[0].trim(); 
-                            variante = parts[1].replace(')', '').trim(); 
-                        }
-                        
-                        let vraiPrix = parseFloat(cmdArt.prix); 
-                        if (isNaN(vraiPrix) || vraiPrix === 0) { 
-                            const p = produits.find(p => String(p.id) === String(cmdArt.id)); 
-                            if (p) vraiPrix = parseFloat(p.prix); 
-                        }
-
-                        // 🔥 CORRECTION ANTI-DOUBLON ICI
-                        // On cherche l'article qui est actuellement "caché" en cuisine
-                        const existing = tickets[tableNum].articles.find(a => 
-                            (a.nom === nomPropre) && 
-                            (a.variante || null) === variante && 
-                            a.envoye === true && 
-                            !a.pret
-                        );
-
-                        if (existing) {
-                            // L'article était bien dans le ticket : on le marque comme Prêt (pour le faire réapparaître)
-                            existing.pret = true; 
-                            existing.quantite = parseInt(cmdArt.quantite) || existing.quantite;
-                        } else {
-                            // Sécurité : l'article n'existe pas localement (ex: F5 de la page caisse entre temps)
-                            // On le recrée en précisant qu'il est déjà "envoyé" ET "prêt"
-                            ajouterAuTicket(tableNum, { 
-                                id: cmdArt.id || Date.now() + arrIdx, 
-                                nom: nomPropre, 
-                                variante: variante, 
-                                prix: vraiPrix || 0, 
-                                quantite: parseInt(cmdArt.quantite) || 1,
-                                envoye: true, // Statut serveur
-                                pret: true    // Il est prêt à être servi !
-                            }, false, true); 
-                        }
-                    }); 
-                }
-                
-                // Recalcul de sécurité du total de la table
-                tickets[tableNum].total = tickets[tableNum].articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
-                sauvegarderTousLesTickets();
-                
-                afficherListeTables(); 
-                if (String(currentTable) === tableNum) afficherTicket();
-                
-                showNotification(`🔔 Cuisine prête: #${commande.numero}`, "#10b981");
-            }
-            
-            if (derniereTableModal) afficherCommandesTable(derniereTableModal);
-        });
-    }
-
-    let caisseOuverte = false; let sessionCaisseId = null;
-    async function verifierStatutCaisse() {
-        try { const res = await fetchSecurise('/api/tiroir/statut'); const data = await res.json(); caisseOuverte = data.ouvert;
-            const btn = document.getElementById('btn-tiroir');
-            if (caisseOuverte) { btn.style.background = 'var(--success)'; btn.style.borderColor = 'var(--success)'; btn.innerHTML = '<i class="fas fa-box-open"></i> Clôturer'; btn.style.color = 'white'; } 
-            else { btn.style.background = 'rgba(239, 68, 68, 0.15)'; btn.style.borderColor = 'rgba(239, 68, 68, 0.3)'; btn.innerHTML = '<i class="fas fa-lock"></i> Ouvrir Caisse'; btn.style.color = '#f87171'; }
-        } catch (e) {}
-    }
-
-    document.getElementById('btn-tiroir').addEventListener('click', () => { if (!caisseOuverte) afficherModalOuvertureCaisse(); else afficherModalFermetureCaisse(); });
-
-    function afficherModalOuvertureCaisse() {
+    // --- 9. CLÔTURE DE CAISSE ET IMPRESSION ---
+    function afficherModalFermetureCaisse() {
         const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `<div class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-sun"></i> Ouvrir Caisse</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div><div class="form-group"><label>Fond de caisse (DT)</label><input type="number" id="fondCaisseInput" step="0.5" value="0" style="font-size:2rem; text-align:center;"></div><div class="modal-buttons"><button type="button" id="validerOuvertureBtn" class="btn-valider">Ouvrir</button></div></div></div>`;
-        document.getElementById('validerOuvertureBtn').onclick = async function() {
-            const fond = parseFloat(document.getElementById('fondCaisseInput').value) || 0; this.innerHTML = "⏳..."; this.disabled = true;
-            try { await fetchSecurise('/api/tiroir/ouvrir', { method: 'POST', body: JSON.stringify({ fond }) }); showNotification("☀️ Caisse ouverte", "#10b981"); container.innerHTML = ''; verifierStatutCaisse(); } catch(e) {}
-        };
-    }
-function afficherModalFermetureCaisse() {
-        const container = document.getElementById('containerModalPaiement');
-        container.innerHTML = `<div class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-moon"></i> Clôture (Z)</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div><div class="form-group"><label>Total Compté (Espèces + Reçus CB + Tickets Resto) en DT</label><input type="number" id="especesReellesInput" step="0.1" style="font-size:2rem; text-align:center;"></div><div class="modal-buttons"><button type="button" id="validerClotureBtn" class="btn-valider" style="background:var(--danger); box-shadow:none;">Clôturer</button></div></div></div>`;
+        container.innerHTML = `<div class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-moon"></i> Clôture (Z)</h3><button type="button" class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button></div><div class="form-group"><label>Total Compté (Espèces + Reçus CB + Tickets Resto) en DT</label><input type="number" id="especesReellesInput" step="0.1" style="font-size:2rem; text-align:center;"></div><div class="modal-buttons"><button type="button" id="validerClotureBtn" class="btn-valider" style="background:var(--danger); box-shadow:none;">Clôturer la journée</button></div></div></div>`;
         
         document.getElementById('validerClotureBtn').onclick = async function() {
             const reel = parseFloat(document.getElementById('especesReellesInput').value); 
             if (isNaN(reel)) return; 
-            this.disabled = true;
+            this.disabled = true; this.innerHTML = "Calcul en cours...";
             
             try {
                 const res = await fetchSecurise('/api/tiroir/fermer', { method: 'POST', body: JSON.stringify({ reel }) }); 
                 const data = await res.json();
-                let messageEcart = data.session.ecart === 0 ? "✅ Parfait" : (data.session.ecart > 0 ? `📈 Excédent: +${data.session.ecart.toFixed(3)}` : `⚠️ Déficit: ${data.session.ecart.toFixed(3)}`);
+                let messageEcart = data.session.ecart === 0 ? "✅ Caisse Parfaite" : (data.session.ecart > 0 ? `📈 Excédent: +${data.session.ecart.toFixed(3)} DT` : `⚠️ Déficit: ${data.session.ecart.toFixed(3)} DT`);
                 
-                // 🔥 On stocke TOUTES les données pour l'impression
                 window.donneesRapportZ = {
-                    fond: data.session.fondDeCaisse,
-                    ventesEsp: data.totalEspeces,
-                    ventesCb: data.totalCarte,
-                    ventesTr: data.totalTicketResto,
-                    sorties: data.totalSorties,
-                    attendu: data.attendu,
-                    compte: data.session.especesReelles,
-                    ecart: data.session.ecart
+                    fond: data.session.fondDeCaisse, ventesEsp: data.totalEspeces, ventesCb: data.totalCarte,
+                    ventesTr: data.totalTicketResto, sorties: data.totalSorties, attendu: data.attendu,
+                    compte: data.session.especesReelles, ecart: data.session.ecart
                 };
 
-                container.innerHTML = `<div class="modal-overlay active"><div class="modal-content" style="text-align:center;"><h2>Rapport Z</h2><div style="background:#f8fafc; padding:20px; border-radius:12px; margin:20px 0; text-align:left; font-size:0.95rem;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Fond de caisse:</span> <strong>${data.session.fondDeCaisse.toFixed(3)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Ventes (Espèces):</span> <strong style="color:var(--success);">+ ${data.totalEspeces.toFixed(3)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Ventes (Carte B.):</span> <strong style="color:var(--success);">+ ${data.totalCarte.toFixed(3)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Ventes (T. Resto):</span> <strong style="color:var(--success);">+ ${data.totalTicketResto.toFixed(3)}</strong></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Sorties (Dépenses):</span> <strong style="color:var(--danger);">- ${data.totalSorties.toFixed(3)}</strong></div>
+                container.innerHTML = `<div class="modal-overlay active"><div class="modal-content" style="text-align:center;"><h2>Rapport Z - Fin de journée</h2><div style="background:#f8fafc; padding:20px; border-radius:12px; margin:20px 0; text-align:left; font-size:1.05rem;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>Fond de caisse:</span> <strong>${data.session.fondDeCaisse.toFixed(3)}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>Ventes (Espèces):</span> <strong style="color:var(--success);">+ ${data.totalEspeces.toFixed(3)}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>Ventes (Carte B.):</span> <strong style="color:var(--success);">+ ${data.totalCarte.toFixed(3)}</strong></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:12px;"><span>Sorties (Dépenses):</span> <strong style="color:var(--danger);">- ${data.totalSorties.toFixed(3)}</strong></div>
                     <hr style="margin:15px 0;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Total Attendu:</span> <strong>${data.attendu.toFixed(3)}</strong></div>
                     <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Total Compté:</span> <strong>${data.session.especesReelles.toFixed(3)}</strong></div>
-                    </div><h1 style="margin-bottom:20px; font-size:1.5rem;">${messageEcart}</h1>
+                    </div><h1 style="margin-bottom:20px; font-size:1.8rem;">${messageEcart}</h1>
                     <button class="btn-valider" style="width:100%; margin-bottom:10px; background:var(--text-dark);" onclick="imprimerRapportZ()">🖨️ Imprimer Rapport Z</button>
                     <button class="btn-annuler" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">Fermer</button></div></div>`;
                 verifierStatutCaisse();
-            } catch(e) {}
+            } catch(e) { this.disabled = false; this.innerHTML = "Réessayer"; }
         };
     }
 
-    // 🔥 Impression thermique spécifique pour le Rapport Z
     function imprimerRapportZ() {
-        const d = window.donneesRapportZ;
-        if (!d) return;
-
-        const now = new Date(); 
-        const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
-        
-        const ticketDiv = document.getElementById('ticketCaisse');
-        const ancienContenu = ticketDiv.innerHTML;
+        const d = window.donneesRapportZ; if (!d) return;
+        const now = new Date(); const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
+        const ticketDiv = document.getElementById('ticketCaisse'); const ancienContenu = ticketDiv.innerHTML;
 
         ticketDiv.innerHTML = `
             <div style="text-align:center; border-bottom:1px dashed black; padding-bottom:6px; margin-bottom:6px;">
@@ -1329,37 +1072,26 @@ function afficherModalFermetureCaisse() {
                 <div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>Date d'édition:</span><span>${dateStr}</span></div>
             </div>
             <div style="border-top:1px dashed black; margin:6px 0;"></div>
-            
             <div style="font-size:12px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Fond de caisse :</span><span>${d.fond.toFixed(3)}</span></div>
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (Espèces):</span><span>+ ${d.ventesEsp.toFixed(3)}</span></div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (Carte B.):</span><span>+ ${d.ventesCb.toFixed(3)}</span></div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (T. Resto):</span><span>+ ${d.ventesTr.toFixed(3)}</span></div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Sorties (Dépenses):</span><span>- ${d.sorties.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Ventes (Carte):</span><span>+ ${d.ventesCb.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Dépenses:</span><span>- ${d.sorties.toFixed(3)}</span></div>
             </div>
-            
             <div style="border-top:1px dashed black; margin:6px 0;"></div>
             <div style="font-size:14px; font-weight:bold;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>TOTAL ATTENDU :</span><span>${d.attendu.toFixed(3)}</span></div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>TOTAL COMPTÉ :</span><span>${d.compte.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>ATTENDU :</span><span>${d.attendu.toFixed(3)}</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>COMPTÉ :</span><span>${d.compte.toFixed(3)}</span></div>
             </div>
-            
             <div style="border-top:1px dashed black; margin:6px 0;"></div>
             <div style="font-size:14px; font-weight:bold; margin-top:5px;">
-                <div style="display:flex; justify-content:space-between;"><span>ÉCART TIROIR :</span><span>${d.ecart > 0 ? '+' : ''}${d.ecart.toFixed(3)} DT</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>ÉCART TIROIR:</span><span>${d.ecart > 0 ? '+' : ''}${d.ecart.toFixed(3)} DT</span></div>
             </div>
-            
-            <div style="text-align:center; margin-top:25px; font-size:12px;">Signature du Caissier</div>
+            <div style="text-align:center; margin-top:25px; font-size:12px;">Signature</div>
             <div style="margin-top: 35px; border-bottom: 1px dotted black; width: 60%; margin-left: 20%;"></div>
             <div style="text-align:center; margin-top:10px;">- - - - - - - - - - - - - - - </div>
         `;
-
-        ticketDiv.style.display = 'block';
-        setTimeout(() => { 
-            window.print(); 
-            ticketDiv.style.display = 'none'; 
-            setTimeout(() => { ticketDiv.innerHTML = ancienContenu; }, 500);
-        }, 300);
+        ticketDiv.style.display = 'block'; setTimeout(() => { window.print(); ticketDiv.style.display = 'none'; setTimeout(() => { ticketDiv.innerHTML = ancienContenu; }, 500); }, 300);
     }
 
     function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
@@ -1383,116 +1115,15 @@ function afficherModalFermetureCaisse() {
         imprimerTicket(ticket.articles, nomOrigine, "PROFORMA", ticket.total, currentTable.startsWith('Fidele_') ? ticket.label : null);
     }
 
-    let portTiroirUSB = null;
-    async function connecterTiroirUSB() {
-        try {
-            portTiroirUSB = await navigator.serial.requestPort(); await portTiroirUSB.open({ baudRate: 9600 });
-            showNotification("🔌 Tiroir USB connecté !", "#10b981");
-            const btnConnect = document.getElementById('btn-connect-tiroir'); btnConnect.innerHTML = '<i class="fas fa-check"></i> Connecté'; btnConnect.style.background = 'var(--success)';
-        } catch (e) { showNotification("❌ Échec USB", "#ef4444"); }
-    }
-    async function ouvrirTiroirManuel() {
-        if (!portTiroirUSB) return showNotification("⚠️ Connectez le tiroir USB", "#f39c12");
-        try { const writer = portTiroirUSB.writable.getWriter(); await writer.write(new Uint8Array([0x1B, 0x70, 0x00, 0x19, 0xFA])); writer.releaseLock(); } catch (e) { }
-    }
-
-function afficherCommandesWeb() {
-    // 1. Filtre BLINDÉ pour attraper les commandes Internet
-    const webCmds = commandesRecues.filter(c => {
-        if (c.statut === 'paye') return false; // On ignore ce qui est déjà payé
-        
-        // On affiche toujours si c'est payé d'avance (Web / VIP)
-        if (c.methodePaiement === 'en_ligne' || c.methodePaiement === 'carte_fidelite') return true;
-        
-        // Vérification de la table
-        const tableNum = String(c.numeroTable || '').trim();
-        const num = parseInt(tableNum);
-        const isTableNormale = !isNaN(num) && num > 0 && num <= NB_TABLES_MAX;
-        
-        // Si ce n'est PAS une table normale (ex: Emporter), on l'affiche à gauche !
-        if (!isTableNormale) return true; 
-        
-        return false; // Sinon (Table 1, 2...), on le cache d'ici, ça va dans la grille centrale
-    });
-    
-    const container = document.getElementById('sectionCommandesWeb');
-    if(webCmds.length === 0) { container.style.display = 'none'; return; }
-    
-    container.style.display = 'block'; 
-    document.getElementById('countCommandesWeb').innerText = webCmds.length;
-    
-    document.getElementById('listeCommandesWeb').innerHTML = webCmds.map(cmd => {
-        const isFidele = cmd.methodePaiement === 'carte_fidelite';
-        const isNonPaye = cmd.methodePaiement !== 'en_ligne' && cmd.methodePaiement !== 'carte_fidelite';
-        
-        let badgeIcon = '<i class="fas fa-globe"></i> Web';
-        let themeColor = '#3b82f6'; 
-
-        if (isFidele) { badgeIcon = '<i class="fas fa-id-card"></i> VIP Wallet'; themeColor = '#f59e0b'; }
-        if (isNonPaye) { badgeIcon = '<i class="fas fa-walking"></i> À Payer'; themeColor = '#e67e22'; }
-        
-        const articlesPreview = cmd.articles.slice(0, 3).map(a => `<div style="font-size:0.8rem; color:#64748b;">• ${a.quantite}x ${a.nom}</div>`).join('');
-        const pointsSuspension = cmd.articles.length > 3 ? '<div style="font-size:0.7rem; color:#94a3b8; padding-left:10px;">...et plus</div>' : '';
-
-        let buttonHtml = '';
-        let cardClass = '';
-
-        if (isNonPaye) {
-            buttonHtml = `<button onclick="chargerCommandeWebPourPaiement('${cmd.id}')" style="width:100%; background:var(--primary-orange); color:white; border:none; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; box-shadow: 0 4px 12px rgba(230, 126, 34, 0.4);">💳 OUVRIR POUR ENCAISSER</button>`;
-        } else {
-            if (cmd.statut === 'en_attente' || cmd.statut === 'en_preparation') {
-                buttonHtml = `<button disabled style="width:100%; background:#94a3b8; color:white; border:none; padding:12px; border-radius:10px; font-weight:700; cursor:not-allowed;">⏳ EN CUISINE...</button>`;
-            } else if (cmd.statut === 'terminee') {
-                cardClass = 'animate-pulse-green';
-                buttonHtml = `<button onclick="marquerWebServie('${cmd.id}')" style="width:100%; background:#10b981; color:white; border:none; padding:12px; border-radius:10px; cursor:pointer; font-weight:800; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);">✅ SERVIR & ARCHIVER</button>`;
-            }
-        }
-
-        return `
-        <div class="${cardClass}" style="background: white; border-left: 6px solid ${themeColor}; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 15px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span style="font-size:1.1rem; font-weight:800; color:#1e293b;">#${cmd.numero}</span>
-                <span style="background:${themeColor}22; color:${themeColor}; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:bold;">${badgeIcon}</span>
-            </div>
-            <div style="margin-bottom:10px;">
-                <div style="font-weight:700; color:#334155; font-size:0.95rem;">${cmd.clientName ? `👤 ${cmd.clientName}` : `📍 À Emporter`}</div>
-                <div style="margin-top:5px; background:#f8fafc; padding:8px; border-radius:8px;">${articlesPreview}${pointsSuspension}</div>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <span style="color:#94a3b8; font-size:0.8rem;">Total:</span>
-                <span style="font-weight:900; font-size:1.3rem; color:#1e293b;">${(cmd.total || 0).toFixed(2)} DT</span>
-            </div>
-            ${buttonHtml}
-        </div>`;
-    }).join('');
-}
-window.chargerCommandeWebPourPaiement = function(id) {
-    const cmd = commandesRecues.find(c => c.id === id);
-    if (!cmd) return;
-
-    // On crée un ticket temporaire spécial WEB
-    const tableTemp = 'WEB_' + cmd.id;
-    
-    tickets[tableTemp] = {
-        articles: cmd.articles.map((a, idx) => ({ 
-            id: a.id || Date.now() + idx, 
-            nom: a.nom, 
-            variante: a.variante || null, 
-            prix: parseFloat(a.prix) || 0, 
-            quantite: parseInt(a.quantite) || 1, 
-            envoye: true // On force à "true" pour ne pas renvoyer en cuisine
-        })),
-        total: cmd.total,
-        orderIds: [cmd.id], // Très important pour clôturer la commande serveur
-        label: cmd.clientName ? cmd.clientName : ('#' + cmd.numero)
-    };
-    
-    selectionnerTable(tableTemp);
-};
-    window.marquerWebServie = async function(id) { try { await fetchSecurise(`/api/commandes/${id}/statut`, { method: 'PUT', body: JSON.stringify({statut: 'paye'}) }); await chargerCommandesCuisineInitiales(); afficherCommandesWeb(); } catch(e) {} }
-
+    // --- 11. DÉMARRAGE GLOBAL ---
     document.addEventListener("DOMContentLoaded", async () => {
-        chargerTickets(); await chargerCatalogue(); selectionnerTable("1"); await chargerCommandesCuisineInitiales(); synchroniserTicketsAvecServeur(); verifierStatutCaisse(); initSocket();
+        await chargerTickets(); 
+        await chargerCatalogue(); 
+        selectionnerTable("1"); 
+        await chargerCommandesCuisineInitiales(); 
+        synchroniserTicketsAvecServeur(); 
+        verifierStatutCaisse(); 
+        initSocket();
         
         document.getElementById('viderTicketBtn').addEventListener('click', () => viderTicket(currentTable));
         document.getElementById('imprimerTicketBtn').addEventListener('click', imprimerTicketCourant);
