@@ -421,7 +421,7 @@ button:hover:not(:disabled) {
     let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
     let NB_TABLES_MAX = 160;
     for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
-    tickets['Emporter'] = { articles: [], total: 0 };
+    for (let i = 1; i <= 10; i++) tickets['EMP' + i] = { articles: [], total: 0 };
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
 
     function escapeHtml(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
@@ -695,9 +695,19 @@ async function envoyerEnCuisine() {
             html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')"><span class="table-num">Table ${i}</span><span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
         }
         
-        const emporter = tickets['Emporter']; const emporterHasItems = emporter && emporter.articles.length > 0;
-        if (emporterHasItems) actives++;
-        html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === 'Emporter' ? 'active' : ''} ${emporterHasItems ? 'has-items' : ''}" onclick="selectionnerTable('Emporter')"><span class="table-num">📦 Emporter</span><span class="table-total">${emporterHasItems ? emporter.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('Emporter'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
+for (let i = 1; i <= 10; i++) {
+    const tableStr = 'EMP' + i; const ticket = tickets[tableStr]; const hasItems = ticket && ticket.articles.length > 0;
+    if (hasItems) actives++;
+    
+    // On met une couleur bleue spéciale pour bien différencier "Emporter" des "Tables"
+    html += `<div class="table-wrapper">
+        <button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')" style="${hasItems ? 'background:#f0f9ff; border-color:#0284c7;' : ''}">
+            <span class="table-num" style="color:#0284c7;">🛍️ EMP ${i}</span>
+            <span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span>
+        </button>
+        <button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button>
+    </div>`;
+}
 
         Object.keys(tickets).forEach(key => {
             if (key.startsWith('Fidele_')) {
@@ -717,7 +727,7 @@ function afficherTicket() {
         
         if (!currentTable) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; }
         const ticket = tickets[currentTable];
-        if (currentTable === 'Emporter') labelSpan.innerText = '📦 Emporter'; else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
+        if (currentTable && currentTable.startsWith('EMP')) labelSpan.innerText = '🛍️ Emporter ' + currentTable.replace('EMP', ''); else if (currentTable.startsWith('Fidele_')) labelSpan.innerText = `⭐ ${ticket.label}`; else labelSpan.innerText = `Table ${currentTable}`;
         if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
         
         let totalArts = 0, html = '';
@@ -786,7 +796,7 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
         const ticket = tickets[currentTable]; if (!ticket.articles.length) return;
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
-        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
+        let nomOrigine = currentTable.startsWith('EMP') ? `📦 Emporter ${currentTable.replace('EMP', '')}` : `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
 
         const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
@@ -890,7 +900,7 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         const ticket = tickets[currentTable]; if (!ticket || !ticket.articles.length) return;
         if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
         
-        let nomOrigine = currentTable === 'Emporter' ? "📦 Emporter" : `Table ${currentTable}`;
+        let nomOrigine = currentTable.startsWith('EMP') ? `📦 Emporter ${currentTable.replace('EMP', '')}` : `Table ${currentTable}`;
         if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle : ${ticket.label}`;
 
         const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
