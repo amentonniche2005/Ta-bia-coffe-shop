@@ -365,77 +365,60 @@ function gererClicAjout(event, id) {
     }
 }
 
-function ouvrirModalOptions(produit, options) {
+window.ouvrirModalOptions = function(produit, options) {
     produitEnAttenteOption = produit;
     prixBaseEnAttente = parseFloat(produit.prix) || 0;
     
     document.getElementById("optionsTitle").textContent = produit.nom;
-    document.getElementById("optionPriceDisplay").textContent = `Base : ${prixBaseEnAttente.toFixed(2)} DT`;
+    document.getElementById("optionPriceDisplay").textContent = `À partir de ${prixBaseEnAttente.toFixed(2)} DT`;
     
-    // --- 1. GESTION DES VARIANTES ---
+    // 1. GÉNÉRATION DES VARIANTES (RADIO)
     const sectionVar = document.getElementById("sectionVariantes");
     if (options && options.length > 0) {
         let isMultiple = produit.typeChoix === 'multiple';
-        let typeInput = isMultiple ? 'checkbox' : 'radio';
         
-        const listHtml = options.map((opt, index) => `
-            <label class="option-label" style="background:#f8fafc; padding:10px; border-radius:8px; border:1px solid var(--border-color); display:flex; align-items:center; cursor:pointer;">
-                <input type="${typeInput}" name="varianteOption" value="${opt}" class="option-input" style="margin-right:10px; transform:scale(1.2);" ${(!isMultiple && index === 0) ? 'checked' : ''}>
-                <div class="option-box" style="flex:1; font-weight:600; color:var(--text-main);">
-                    <span>${opt}</span>
+        document.getElementById("optionsList").innerHTML = options.map((opt, index) => `
+            <label style="cursor: pointer;">
+                <input type="${isMultiple ? 'checkbox' : 'radio'}" name="varianteOption" value="${opt}" style="display:none;" ${(!isMultiple && index === 0) ? 'checked' : ''}>
+                <div class="custom-option-card">
+                    <span class="opt-name">
+                        <i class="fas ${isMultiple ? 'fa-check-square' : 'fa-circle'}"></i> ${opt}
+                    </span>
                 </div>
             </label>
         `).join('');
-        
-        document.getElementById("optionsList").innerHTML = listHtml;
         sectionVar.style.display = "block";
-    } else {
-        document.getElementById("optionsList").innerHTML = "";
-        sectionVar.style.display = "none";
-    }
+    } else { sectionVar.style.display = "none"; }
 
-// --- 2. GESTION DES SUPPLÉMENTS ---
+    // 2. GÉNÉRATION DES SUPPLÉMENTS (CHECKBOX + STOCK)
     const sectionSupp = document.getElementById("sectionSupplements");
     if (produit.supplements && produit.supplements.length > 0) {
-        const suppHtml = produit.supplements.map((supp) => {
-            // 🔥 VÉRIFICATION DU STOCK DU SUPPLÉMENT
-            // On cherche l'objet complet du supplément dans notre liste globale de produits
-            const produitReference = produits.find(p => String(p.id) === String(supp.id));
-            const estEnRupture = produitReference && produitReference.stock <= 0 && produitReference.stock !== undefined;
+        document.getElementById("supplementsList").innerHTML = produit.supplements.map(supp => {
+            // Vérification du stock réel
+            const refProd = produits.find(p => String(p.id) === String(supp.id));
+            const estRupture = refProd && refProd.stock <= 0 && refProd.stock !== undefined;
 
             return `
-            <label class="option-label ${estEnRupture ? 'option-disabled' : ''}" 
-                   style="background:${estEnRupture ? '#f1f5f9' : 'white'}; padding:10px; border-radius:8px; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; cursor:${estEnRupture ? 'not-allowed' : 'pointer'}; opacity:${estEnRupture ? '0.6' : '1'};">
-                <div style="display:flex; align-items:center;">
-                    <input type="checkbox" name="supplementOption" 
-                           value="${supp.prix}" 
-                           data-id="${supp.id}" 
-                           data-nom="${supp.nom}" 
-                           class="supp-input" 
-                           ${estEnRupture ? 'disabled' : ''} 
-                           style="margin-right:10px; transform:scale(1.2);" 
-                           onchange="mettreAJourTotalModal()">
-                    <span style="font-weight:600; color:${estEnRupture ? 'var(--text-muted)' : 'var(--text-main)'};">
-                        ${supp.nom} ${estEnRupture ? '<b style="color:var(--danger); margin-left:5px;">(Rupture)</b>' : ''}
-                    </span>
-                </div>
-                <span style="color:${estEnRupture ? '#94a3b8' : 'var(--success)'}; font-weight:800; font-size:0.9rem;">
-                    ${estEnRupture ? '---' : '+ ' + parseFloat(supp.prix).toFixed(3) + ' DT'}
-                </span>
-            </label>
-        `;
+                <label style="cursor: ${estRupture ? 'not-allowed' : 'pointer'};">
+                    <input type="checkbox" name="supplementOption" value="${supp.prix}" 
+                           data-id="${supp.id}" data-nom="${supp.nom}" 
+                           style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModal()">
+                    <div class="custom-option-card ${estRupture ? 'disabled' : ''}">
+                        <span class="opt-name">
+                            <i class="fas fa-plus"></i> ${supp.nom}
+                            ${estRupture ? '<span class="rupture-badge">Rupture</span>' : ''}
+                        </span>
+                        <span class="opt-price">${estRupture ? '--' : '+' + parseFloat(supp.prix).toFixed(2)}</span>
+                    </div>
+                </label>
+            `;
         }).join('');
-        
-        document.getElementById("supplementsList").innerHTML = suppHtml;
         sectionSupp.style.display = "block";
-    } else {
-        document.getElementById("supplementsList").innerHTML = "";
-        sectionSupp.style.display = "none";
-    }
+    } else { sectionSupp.style.display = "none"; }
 
     mettreAJourTotalModal();
     document.getElementById("optionsModal").style.display = "flex";
-}
+};
 
 // 🔥 NOUVEAU : Calcul dynamique du prix total en bas de la modale
 function mettreAJourTotalModal() {
