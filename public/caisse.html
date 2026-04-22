@@ -1321,12 +1321,15 @@ function afficherModalFermetureCaisse() {
         }, 300);
     }
 
-    function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
+function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
         const now = new Date(); const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
-        const numTicket = cmd.numero || Math.floor(1000 + Math.random() * 9000); 
-        const ttc = parseFloat(cmd.total) || 0; 
+        
+        // 🔥 CORRECTION : On retire 'cmd.' car on est dans la caisse, pas dans le comptoir !
+        const numTicket = Math.floor(1000 + Math.random() * 9000); 
+        const ttc = parseFloat(total) || 0; 
         const ht = ttc / 1.19; 
         const tva = ttc - ht;        
+        
         document.getElementById('printDate').textContent = dateStr; document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = numTable;
         if (nomClient) { document.getElementById('printClientDiv').style.display = 'flex'; document.getElementById('printClient').textContent = nomClient; } else { document.getElementById('printClientDiv').style.display = 'none'; }
         
