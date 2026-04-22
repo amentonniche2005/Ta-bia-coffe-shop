@@ -939,12 +939,12 @@ function extraireSupplements() {
         const select = row.querySelector('.supp-select');
         const prixInput = row.querySelector('.supp-prix');
         
-        // CORRECTION : Évite le crash si une ligne vide est ajoutée par erreur
         if (select && select.value && prixInput && prixInput.value !== "") {
             const selectedOption = select.options[select.selectedIndex];
             supps.push({ 
+                id: select.value,  // 🔥 AJOUT : Capture de l'ID pour la base de données
                 nom: selectedOption.getAttribute('data-nom'), 
-                prix: parseFloat(prixInput.value)
+                prix: parseFloat(prixInput.value) || 0
             });
         }
     });

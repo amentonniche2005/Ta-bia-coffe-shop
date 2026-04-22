@@ -809,14 +809,16 @@ async function validerCommande(numTable, clientData, codeSaisi) {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                articles: panier.map(a => ({ 
-                    id: a.baseId, 
-                    nom: a.nom, 
-                    variante: a.variante, 
-                    prix: a.prix, 
-                    quantite: a.quantite,
-                    isSupplement: a.isSupplement || (a.nom && a.nom.startsWith('+'))
-                })),
+articles: panier.map(a => ({ 
+    id: a.baseId || a.id, 
+    nom: a.nom, 
+    variante: a.variante, 
+    prix: a.prix, 
+    quantite: a.quantite,
+    isSupplement: a.isSupplement || (a.nom && a.nom.startsWith('+')),
+    uniqueGroupId: a.uniqueGroupId, // 🔥 Rétablit le lien de parenté
+    parentId: a.parentId            // 🔥 Indique à quel plat ce supplément appartient
+})),
                 numeroTable: tableFinale,
                 clientId: idFidele, 
                 codeAuth: idFidele, 

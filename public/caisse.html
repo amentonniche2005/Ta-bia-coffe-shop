@@ -700,7 +700,15 @@ async function envoyerEnCuisine() {
         const response = await fetchSecurise('/api/commandes', {
             method: 'POST', 
             body: JSON.stringify({ 
-                articles: articlesAEnvoyer.map(a => ({ id: a.id, nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, prix: a.prix, quantite: a.quantite })), 
+                articles: articlesAEnvoyer.map(a => ({ 
+    id: a.id, 
+    nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, 
+    prix: a.prix, 
+    quantite: a.quantite,
+    isSupplement: a.isSupplement,            // 🔥
+    uniqueGroupId: a.uniqueGroupId,          // 🔥
+    parentId: a.parentId                     // 🔥
+})), 
                 numeroTable: nomTableServeur, clientName: nomClientFidele, clientId: null,
                 codeAuth: "00000", methodePaiement: "sur_place"
             })
@@ -901,7 +909,15 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
     // 🔥 CORRECTION : On lance l'impression IMMÉDIATEMENT avant que le navigateur bloque la fenêtre
     imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
 
-    const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
+    // Remplacez la ligne const venteBody = ... par celle-ci :
+const venteBody = { 
+    id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, 
+    articles: ticket.articles.map(a => ({ 
+        id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix,
+        isSupplement: a.isSupplement, uniqueGroupId: a.uniqueGroupId, parentId: a.parentId // 🔥 Conservation
+    })), 
+    methodePaiement: methodePaiement 
+};
 
     if (ticket.orderIds && ticket.orderIds.length > 0) ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
 
@@ -1137,8 +1153,17 @@ function synchroniserTicketsAvecServeur() {
                     let nomPropre = article.nom || "Inconnu"; let variante = article.variante || null;
                     if(!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
                     let vraiPrix = parseFloat(article.prix); if (isNaN(vraiPrix) || vraiPrix===0) { const p = produits.find(p => String(p.id) === String(article.id)); if (p) vraiPrix = parseFloat(p.prix); }
-                    ajouterAuTicket(tableNum, { id: article.id || Date.now()+arrIdx, nom: nomPropre, variante: variante, prix: vraiPrix || 0, quantite: parseInt(article.quantite) || 1, envoye: true }, false, true); 
-                }); 
+ajouterAuTicket(tableNum, { 
+    id: article.id || Date.now()+arrIdx, 
+    nom: nomPropre, 
+    variante: variante, 
+    prix: vraiPrix || 0, 
+    quantite: parseInt(article.quantite) || 1, 
+    envoye: true,
+    isSupplement: article.isSupplement,      // 🔥
+    uniqueGroupId: article.uniqueGroupId,    // 🔥
+    parentId: article.parentId               // 🔥
+}, false, true);                }); 
                 aMiseAJour = true;
             }
         } else {

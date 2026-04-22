@@ -181,9 +181,10 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     seuilAlerte: { type: Number, default: 10 }, 
     unite: String,
     actif: { type: Boolean, default: true },
-    supplements: [{
-        nom: String,
-        prix: Number
+supplements: [{
+        id: String,     // L'ID du produit supplément (ex: ID du fromage)
+        nom: String,    // Le nom à afficher
+        prix: Number    // Le prix facturé au client
     }]
 }));
 
