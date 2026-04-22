@@ -285,6 +285,7 @@ button:hover:not(:disabled) {
             <div class="section-header">
                 <h2><i class="fas fa-chair"></i> Salles & Tables</h2>
                 <div style="display:flex; gap:10px; align-items:center;">
+                    <button onclick="ouvrirVenteDirecte()" style="background:var(--danger); color:white; border:none; padding:6px 15px; border-radius:8px; cursor:pointer; font-weight:800; box-shadow:0 4px 10px rgba(239, 68, 68, 0.3); transition:0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"><i class="fas fa-bolt"></i> Direct</button>
                     <button onclick="creerEmporterLocal()" style="background:var(--success); color:white; border:none; padding:6px 15px; border-radius:8px; cursor:pointer; font-weight:800; box-shadow:0 4px 10px rgba(16, 185, 129, 0.3); transition:0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"><i class="fas fa-walking"></i> + Comptoir</button>
                     <span class="badge-count" id="tablesCount">0 actives</span>
                 </div>
@@ -582,9 +583,11 @@ function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
 
 async function viderTicket(tableNum, confirmDialogue = true) {
     if (!confirmDialogue || confirm(`Vider ce ticket ?`)) {
+        const isTicketVirtuel = String(tableNum).startsWith('Fidele_') || String(tableNum).startsWith('WEB_') || String(tableNum).startsWith('LOCAL_EMP_') || tableNum === 'Direct';
+        
         if (confirmDialogue) { 
             try { 
-                if (String(tableNum).startsWith('Fidele_') || String(tableNum).startsWith('WEB_')) {
+                if (isTicketVirtuel) {
                     const ticket = tickets[tableNum];
                     if (ticket && ticket.orderIds && ticket.orderIds.length > 0) {
                         for (let oid of ticket.orderIds) { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); }
@@ -593,9 +596,9 @@ async function viderTicket(tableNum, confirmDialogue = true) {
             } catch(e) { console.error("Erreur lors du vidage", e); } 
         }
         
-try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: tableNum, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
+        try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: tableNum, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
         
-        if (String(tableNum).startsWith('Fidele_') || String(tableNum).startsWith('WEB_') || String(tableNum).startsWith('LOCAL_EMP_')) { 
+        if (isTicketVirtuel) { 
             delete tickets[tableNum]; currentTable = null; 
         } else { 
             tickets[tableNum] = { articles: [], total: 0, orderIds: [] }; 
@@ -614,6 +617,14 @@ window.creerEmporterLocal = function() {
     
     // On crée son ticket temporaire
     tickets[key] = { articles: [], total: 0, orderIds: [], label: "Client " + num };
+    selectionnerTable(key);
+};
+window.ouvrirVenteDirecte = function() {
+    const key = 'Direct';
+    if (!tickets[key]) {
+        // Crée un ticket instantané "Vente Directe"
+        tickets[key] = { articles: [], total: 0, orderIds: [], label: "Vente Directe" };
+    }
     selectionnerTable(key);
 };
     function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
@@ -660,7 +671,7 @@ async function envoyerEnCuisine() {
     if (currentTable.startsWith('Fidele_')) { 
         nomTableServeur = ticket.numeroTableOrigine || 'Emporter'; 
         nomClientFidele = ticket.label.split(' (')[0]; 
-    } else if (currentTable.startsWith('LOCAL_EMP_')) {
+    } else if (currentTable.startsWith('LOCAL_EMP_') || currentTable === 'Direct') {
         nomTableServeur = 'Emporter';
         nomClientFidele = 'Caisse';
     }
@@ -680,8 +691,8 @@ async function envoyerEnCuisine() {
             const newId = data.id || data._id;
             showNotification(`👨‍🍳 Articles envoyés en cuisine !`, "#e67e22"); 
             
-            // 🔥 Transformation magique si c'est un client au comptoir
-            if (currentTable.startsWith('LOCAL_EMP_')) {
+            // Transformation magique si c'est un client local
+            if (currentTable.startsWith('LOCAL_EMP_') || currentTable === 'Direct') {
                 const newKey = 'WEB_' + newId;
                 tickets[newKey] = { ...ticket, label: `Comptoir #${data.numero}` };
                 tickets[newKey].orderIds = [newId];
@@ -713,12 +724,12 @@ function afficherListeTables() {
         html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === tableStr ? 'active' : ''} ${hasItems ? 'has-items' : ''}" onclick="selectionnerTable('${tableStr}')"><span class="table-num">Table ${i}</span><span class="table-total">${hasItems ? ticket.total.toFixed(2) + ' DT' : '-'}</span></button><button type="button" onclick="afficherCommandesTable('${tableStr}'); event.stopPropagation();" class="details-btn"><i class="fas fa-bell"></i></button></div>`;
     }
 
-    // 2. Séparation
+    // 2. Séparation visuelle
     html += `<div style="grid-column: 1 / -1; height: 1px; background: #e2e8f0; margin: 10px 0;"></div>`;
 
-    // 3. Boutons virtuels (Fidèles, Commandes Web, Clients Comptoir)
+    // 3. Boutons virtuels (Fidèles, Web, Comptoir, Direct)
     Object.keys(tickets).forEach(key => {
-        if (key.startsWith('Fidele_') || key.startsWith('WEB_') || key.startsWith('LOCAL_EMP_')) {
+        if (key.startsWith('Fidele_') || key.startsWith('WEB_') || key.startsWith('LOCAL_EMP_') || key === 'Direct') {
             const customTicket = tickets[key]; const hasItems = customTicket.articles.length > 0;
             if (hasItems || currentTable === key) {
                 if (hasItems) actives++;
@@ -726,6 +737,7 @@ function afficherListeTables() {
                 let color = '#3b82f6'; let icon = '🛍️'; let texte = customTicket.label;
                 if (key.startsWith('Fidele_')) { color = '#e67e22'; icon = '⭐'; }
                 if (key.startsWith('LOCAL_EMP_')) { color = '#10b981'; icon = '🚶'; texte = 'Comptoir ' + key.split('_')[2]; }
+                if (key === 'Direct') { color = '#ef4444'; icon = '⚡'; texte = 'Direct'; } // Vente directe en rouge
 
                 html += `<div class="table-wrapper"><button type="button" class="table-btn ${currentTable === key ? 'active' : ''} has-items" onclick="selectionnerTable('${key}')" style="border-color:${color};"><span class="table-num" style="font-size:0.85rem; color:${color}; margin-bottom:5px;">${icon} ${escapeHtml(texte)}</span><span class="table-total">${customTicket.total.toFixed(2)} DT</span></button></div>`;
             } else if (!hasItems && currentTable !== key) { delete tickets[key]; }
@@ -744,6 +756,7 @@ function afficherTicket() {
     // Noms Dynamiques
     if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) labelSpan.innerText = `${ticket.label}`; 
     else if (currentTable.startsWith('LOCAL_EMP_')) labelSpan.innerText = `🚶 Client Comptoir`; 
+    else if (currentTable === 'Direct') labelSpan.innerText = `⚡ Vente Directe`; 
     else labelSpan.innerText = `Table ${currentTable}`;
     
     if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
@@ -805,8 +818,9 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
     if (methodePaiement === 'especes' && portTiroirUSB) ouvrirTiroirManuel();
     
     let nomOrigine = `Table ${currentTable}`;
-    if (currentTable.startsWith('Fidele_')) nomOrigine = `Fidèle: ${ticket.label}`;
-    if (currentTable.startsWith('WEB_')) nomOrigine = `🛍️ À Emporter`;
+    if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) nomOrigine = ticket.label;
+    if (currentTable.startsWith('LOCAL_EMP_')) nomOrigine = `🚶 Caisse Directe`;
+    if (currentTable === 'Direct') nomOrigine = `⚡ Vente Directe`;
 
     const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
 
@@ -818,19 +832,19 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
     if (!requeteReussie) {
         let ventesOffline = await localforage.getItem('tabia_ventes_offline') || []; venteBody.offlineTable = currentTable; venteBody.offlineOrderIds = ticket.orderIds || []; ventesOffline.push(venteBody); await localforage.setItem('tabia_ventes_offline', ventesOffline); showNotification("⚠️ Vente sauvegardée hors-ligne.", "#f39c12");
     } else {
-        if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) {
+        const isTicketVirtuel = currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_') || currentTable.startsWith('LOCAL_EMP_') || currentTable === 'Direct';
+        if (isTicketVirtuel) {
             if (ticket.orderIds) { for (let oid of ticket.orderIds) { try { await fetchSecurise(`/api/commandes/${oid}/statut`, { method: 'PUT', body: JSON.stringify({ statut: 'paye' }) }); } catch(e){} } }
         } else { try { await fetchSecurise(`/api/commandes/table/${currentTable}/paye`, { method: 'PUT' }); } catch(e){} }
     }
     
-    // 🔥 C'EST ICI LA CORRECTION : On tue le ticket fantôme sur le serveur avant de l'effacer de l'écran
+    // Nettoyage ticket
     try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
 
-    // NETTOYAGE DU BOUTON LOCAL
-    if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) { 
+    const isTicketVirtuel = currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_') || currentTable.startsWith('LOCAL_EMP_') || currentTable === 'Direct';
+    if (isTicketVirtuel) { 
         delete tickets[currentTable]; currentTable = null; 
-    } 
-    else { 
+    } else { 
         tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; 
         try { await fetchSecurise(`/api/numbers/refresh/${currentTable}`, { method: 'POST' }); } catch(e) {} 
     }
@@ -898,6 +912,8 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
     
     let nomOrigine = `Table ${currentTable}`;
     if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) nomOrigine = ticket.label;
+    if (currentTable.startsWith('LOCAL_EMP_')) nomOrigine = `🚶 Caisse Directe`;
+    if (currentTable === 'Direct') nomOrigine = `⚡ Vente Directe`;
 
     const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
 
@@ -921,22 +937,20 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         if (ticket.orderIds && ticket.orderIds.length > 0) { try { await fetchSecurise('/api/commandes/partiel-ids', { method: 'PUT', body: JSON.stringify({ orderIds: ticket.orderIds, articlesRestants: articlesRestants }) }); } catch(e) {} }
     }
     
-if (articlesRestants.length === 0) {
-            try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
+    if (articlesRestants.length === 0) {
+        try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
 
-            if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_') || currentTable.startsWith('LOCAL_EMP_')) { 
-                delete tickets[currentTable]; currentTable = null; 
-            } else { 
-                tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; 
-            }
+        const isTicketVirtuel = currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_') || currentTable.startsWith('LOCAL_EMP_') || currentTable === 'Direct';
+        if (isTicketVirtuel) { 
+            delete tickets[currentTable]; currentTable = null; 
         } else { 
-            tickets[currentTable].articles = articlesRestants; 
-            tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0); 
+            tickets[currentTable] = { articles: [], total: 0, orderIds: [] }; 
         }
-        
-        sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
-        showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
-        imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
+    } else { tickets[currentTable].articles = articlesRestants; tickets[currentTable].total = articlesRestants.reduce((s, a) => s + a.prix * a.quantite, 0); }
+    
+    sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
+    showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
+    imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
 }
 
     async function chargerCommandesCuisineInitiales() {
