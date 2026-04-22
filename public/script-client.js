@@ -815,7 +815,7 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
         }
 
         const nomPremium = sessionStorage.getItem('client_nom_premium');
-        let nomFidele = nomPremium || (clientData ? `${clientData.prenom} ${clientData.nom}` : "Client");
+        let nomFidele = nomPremium || (clientData ? `${clientData.prenom} ${clientData.nom}` : "");
         let idFidele = (codeSaisi || sessionStorage.getItem('tabia_auth_qr')) || clientId || "client_anonyme";
         
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : (parseInt(numTable) || 0);

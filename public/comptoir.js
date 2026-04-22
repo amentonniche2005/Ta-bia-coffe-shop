@@ -174,47 +174,65 @@ function afficherColonne(containerId, commandes, type) {
         return;
     }
     
-    container.innerHTML = commandesFiltrees.map(cmd => {
+container.innerHTML = commandesFiltrees.map(cmd => {
         const timeStr = cmd.date ? cmd.date.split(' ')[1] : new Date(cmd.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        const nomAffiche = cmd.clientName ? `<i class="fas fa-star"></i> ${cmd.clientName}` : `#${cmd.numero}`;
-        const colorTitre = cmd.clientName ? 'color:#ea580c; font-size:1.2rem;' : ''; 
-        const textTable = (cmd.numeroTable === 'Emporter' || !cmd.numeroTable) ? 'À Emporter' : `Table ${cmd.numeroTable}`;
         
-        const badgeTable = cmd.clientName 
-            ? `<span class="badge" style="background:#fef5e6; color:#e67e22; border:1px solid #fed7aa;"><i class="fas fa-star"></i> Fidèle - ${textTable}</span>` 
-            : `<span class="badge badge-table"><i class="fas fa-chair"></i> ${textTable}</span>`;
+        // 🔥 1. DÉTECTION STRICTE ET INTELLIGENTE DU STATUT
+        const nomClientStr = String(cmd.clientName || '').trim();
+        const estVIP = cmd.methodePaiement === 'carte_fidelite' || (nomClientStr !== '' && nomClientStr !== 'Client' && nomClientStr !== 'Caisse' && nomClientStr !== 'null');
+        const estEmporter = String(cmd.numeroTable).toLowerCase() === 'emporter' || cmd.methodePaiement === 'en_ligne';
+
+        let nomAffiche = "";
+        let colorTitre = "";
+        let badgeTable = "";
+
+        // 🔥 2. ROUTAGE DE L'AFFICHAGE SELON LE STATUT
+        if (estEmporter) {
+            // Cas A : À Emporter
+            nomAffiche = estVIP ? `<i class="fas fa-star"></i> ${nomClientStr}` : `🛍️ Emporter #${cmd.numero}`;
+            colorTitre = estVIP ? 'color:#ea580c; font-size:1.2rem;' : 'color:#10b981; font-size:1.2rem;';
+            badgeTable = `<span class="badge" style="background:#d1fae5; color:#059669; border:1px solid #a7f3d0;"><i class="fas fa-shopping-bag"></i> À Emporter</span>`;
+        } 
+        else if (estVIP) {
+            // Cas B : VIP sur place
+            nomAffiche = `<i class="fas fa-crown"></i> ${nomClientStr}`;
+            colorTitre = 'color:#ea580c; font-size:1.2rem;';
+            badgeTable = `<span class="badge" style="background:#fef5e6; color:#e67e22; border:1px solid #fed7aa;"><i class="fas fa-star"></i> VIP - Table ${cmd.numeroTable}</span>`;
+        } 
+        else {
+            // Cas C : Client Normal sur place (Priorité au numéro de table)
+            nomAffiche = `📍 Table ${cmd.numeroTable}`;
+            colorTitre = 'color:#3b82f6; font-size:1.2rem; font-weight: 800;';
+            badgeTable = `<span class="badge" style="background:#dbeafe; color:#2563eb; border:1px solid #bfdbfe;"><i class="fas fa-chair"></i> Sur Place</span>`;
+        }
         
-        const badgeOrigine = cmd.clientId && !cmd.clientName 
+        const badgeOrigine = cmd.clientId && !estVIP 
             ? `<span class="badge badge-client"><i class="fas fa-mobile-alt"></i> Web</span>` : ``;
 
-// 🔥 CORRECTION : On vérifie si c'est payé en ligne OU par Carte Fidélité
+        // Vérification si c'est payé
         const estPaye = (cmd.methodePaiement === 'en_ligne' || cmd.methodePaiement === 'carte_fidelite' || cmd.methodePaiement === 'Carte Fidélité');
-        
         const badgePaiement = estPaye
             ? `<span class="badge" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0;"><i class="fas fa-check-circle"></i> Payé</span>`
             : `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;"><i class="fas fa-hand-holding-usd"></i> À encaisser</span>`;
 
-// 🔥 NOUVEAUTÉ : GÉNÉRATION DU BADGE CHRONOMÈTRE (SLA) AVEC DATA-TIMESTAMP
+        // Génération du badge chronomètre (SLA)
         let slaHtml = '';
         if (cmd.statut !== 'terminee') {
             const sla = getSLAInfo(cmd.timestamp);
-            // On ajoute l'ID de la commande et le timestamp pour le chronomètre en direct
             slaHtml = `<div id="sla-${cmd.id}" class="sla-badge ${sla.class}" data-timestamp="${cmd.timestamp}">
                          <i class="fas ${sla.icon}"></i> <span>${sla.text}</span>
                        </div>`;
         }
 
-const platsPrincipaux = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+        const platsPrincipaux = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
         
         const itemsHtml = platsPrincipaux.map(a => {
-            // 1. Le plat principal
             let html = `
             <li class="item-row" style="margin-bottom: 2px;">
                 <div class="item-qty">${a.quantite || 1}</div>
                 <div class="item-name" style="font-weight:bold;">${a.nom} ${a.variante ? `<span style="display:block; font-size:0.8rem; color:#e67e22; font-weight:bold;">↳ ${a.variante}</span>` : ''}</div>
             </li>`;
             
-            // 2. Les suppléments de CE plat
             const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
             mesSupps.forEach(supp => {
                 html += `
@@ -232,7 +250,8 @@ const platsPrincipaux = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a
                     <span class="ticket-id" style="${colorTitre}">${nomAffiche}</span>
                     <div class="ticket-time-container">
                         <span class="ticket-time"><i class="far fa-clock"></i> ${timeStr}</span>
-                        ${slaHtml} </div>
+                        ${slaHtml} 
+                    </div>
                 </div>
                 <div class="badges-row">
                     ${badgeTable} ${badgeOrigine} ${badgePaiement} 
@@ -240,7 +259,7 @@ const platsPrincipaux = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a
                 <ul class="items-list">
                     ${itemsHtml}
                 </ul>
-<div class="ticket-actions">
+                <div class="ticket-actions">
                     <button class="btn-action" style="background:#64748b; flex: 0.3;" onclick="event.stopPropagation(); imprimerTicket(${cmd.id})">
                         <i class="fas fa-print"></i>
                     </button>
