@@ -465,14 +465,22 @@ try {
             return res.status(403).json({ error: "QRCode expiré ou  Code Incorect" });
         }
 
-        let totalSecurise = 0;
+let totalSecurise = 0;
         let articlesSecurises = [];
         for (let art of req.body.articles) {
-            const produitDb = await Product.findOne({ cafeId: req.cafeId, id: art.id });
+            let produitDb = null;
+            
+            // 🔥 CORRECTION : On ignore la base de données si c'est un supplément
+            // et on s'assure que l'ID est bien un nombre pour éviter le plantage Mongoose
+            if (!art.isSupplement && art.id && !isNaN(art.id)) {
+                produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
+            }
+
             if (produitDb) {
                 totalSecurise += (produitDb.prix * art.quantite);
                 articlesSecurises.push({ ...art, prix: produitDb.prix });
             } else {
+                // Si c'est un supplément, on fait confiance au prix envoyé par le client
                 totalSecurise += (art.prix * art.quantite);
                 articlesSecurises.push(art);
             }
@@ -904,9 +912,16 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
             if (venteExistante) return res.json({ success: true, message: "Vente ignorée" });
         }
 
-        let vraiTotalReel = 0;
+let vraiTotalReel = 0;
         for (let art of req.body.articles) {
-            const produitDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: art.id }, { nom: art.nom }] });
+            let produitDb = null;
+            
+            // 🔥 CORRECTION : Pareil pour la caisse, on protège la recherche
+            if (!art.isSupplement && art.id && !isNaN(art.id)) {
+                produitDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(art.id) }, { nom: art.nom }] });
+            } else if (!art.isSupplement) {
+                produitDb = await Product.findOne({ cafeId: req.cafeId, nom: art.nom });
+            }
             
             if (produitDb) {
                 vraiTotalReel += (produitDb.prix * art.quantite); 
@@ -922,7 +937,9 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
                         nouveauStock: produitMisAJour.stock, raison: `Vente ${req.body.numero}` 
                     }).save();
                 }
-            } else { vraiTotalReel += (art.prix * art.quantite); }
+            } else { 
+                vraiTotalReel += (art.prix * art.quantite); 
+            }
         }
 
         if (req.body.remise && req.body.remise > 0) vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));

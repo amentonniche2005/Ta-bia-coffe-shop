@@ -446,30 +446,20 @@ function mettreAJourTotalModal() {
     document.getElementById("prixTotalOptionsBtn").textContent = `(${total.toFixed(2)} DT)`;
 }
 
-window.executerAjoutPanier = function(idProduit) {
-    const produit = produits.find(p => String(p.id) === String(idProduit) || String(p._id) === String(idProduit));
+window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsForces = null) {
+    let produit = null;
+
+    // 1. Déterminer si on a reçu un Objet (depuis la modale) ou un ID (clic direct)
+    if (typeof idOuObjetProduit === 'object' && idOuObjetProduit !== null) {
+        produit = idOuObjetProduit;
+    } else {
+        produit = produits.find(p => String(p.id) === String(idOuObjetProduit) || String(p._id) === String(idOuObjetProduit));
+    }
+
     if (!produit) return;
 
-    let vari = null;
-    let suppsChoisis = [];
-
-    if (produit.typeChoix === 'unique') {
-        const select = document.getElementById(`variante-${idProduit}`);
-        if (select) vari = select.value;
-    } else if (produit.typeChoix === 'multiple') {
-        const checkboxes = document.querySelectorAll(`.checkbox-${idProduit}:checked`);
-        vari = Array.from(checkboxes).map(cb => cb.value).join(', ');
-        if (!vari) vari = "Nature"; 
-    }
-
-    // Extraction des suppléments cochés par le client
-    if (produit.supplements && produit.supplements.length > 0) {
-        const suppCheckboxes = document.querySelectorAll(`.supp-${idProduit}:checked`);
-        suppCheckboxes.forEach(cb => {
-            const index = cb.getAttribute('data-index');
-            suppsChoisis.push(produit.supplements[index]);
-        });
-    }
+    let vari = varForcee || null;
+    let suppsChoisis = suppsForces || [];
 
     // 🔥 CRÉATION DU LIEN DE PARENTÉ UNIQUE POUR CETTE COMMANDE
     const idGroupeUnique = Date.now(); 
@@ -478,12 +468,13 @@ window.executerAjoutPanier = function(idProduit) {
     panier.push({ 
         cartId: `MAIN_${idGroupeUnique}`,
         id: produit.id || produit._id, 
+        baseId: produit.id || produit._id,
         nom: produit.nom, 
         variante: vari, 
         prix: parseFloat(produit.prix), 
         quantite: 1,
         isSupplement: false,
-        uniqueGroupId: idGroupeUnique, // 🔥 Assigne l'ID du groupe
+        uniqueGroupId: idGroupeUnique,
         parentId: null
     });
 
@@ -491,21 +482,25 @@ window.executerAjoutPanier = function(idProduit) {
     if (suppsChoisis.length > 0) {
         suppsChoisis.forEach(supp => {
             panier.push({
-                cartId: `SUPP_${idGroupeUnique}_${Math.random()}`, 
-                baseId: supp.id || supp._id, 
-                id: supp.id || supp._id, 
+                cartId: `SUPP_${idGroupeUnique}_${Math.random().toString(36).substring(2, 9)}`, 
+                baseId: supp.id || supp._id || `SUPP_BASE`, 
+                id: supp.id || supp._id || `SUPP_${Date.now()}`, 
                 nom: `+ ${supp.nom}`, 
                 variante: null,
-                prix: parseFloat(supp.prix),
+                prix: parseFloat(supp.prix) || 0,
                 quantite: 1,
                 isSupplement: true, 
-                parentId: idGroupeUnique // 🔥 Indique que ce supplément appartient au produit principal !
+                parentId: idGroupeUnique 
             });
         });
     }
 
     mettreAJourUIPanier();
-    fermerModal();
+    
+    // Fermeture automatique de la modale d'options si elle était ouverte
+    const modal = document.getElementById("optionsModal");
+    if(modal) modal.style.display = "none";
+    
     playSound('pop'); 
 };
 
