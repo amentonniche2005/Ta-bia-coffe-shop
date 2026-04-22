@@ -1,19 +1,3 @@
-const socket = io(); 
-
-// 1. Si le stock change
-socket.on('update_stock', () => {
-    chargerCatalogue(); 
-});
-
-// 2. Si une nouvelle commande arrive
-socket.on('nouvelle_commande', (data) => {
-    chargerMesCommandes(); 
-});
-
-// 3. Si un statut change 
-socket.on('mise_a_jour_commande', () => {
-    chargerMesCommandes(); 
-});
 
 // ========== VARIABLES GLOBALES ==========
 let panier = [];
@@ -494,7 +478,7 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsF
             });
         });
     }
-
+    sauvegarderPanier();
     mettreAJourUIPanier();
     
     // Fermeture automatique de la modale d'options si elle était ouverte
@@ -1003,10 +987,27 @@ function initClientSocket() {
         reconnection: true 
     });
     
+    // 🔥 CORRECTION : Tous les événements sont maintenant sur l'unique bonne connexion
+    socket.on('update_stock', () => {
+        chargerCatalogue(); 
+    });
+
+    socket.on('nouvelle_commande', (data) => {
+        chargerMesCommandes(); 
+    });
+
     socket.on('mise_a_jour_commande', (commande) => {
+        // Si on reçoit juste un signal générique
+        if (!commande || !commande.id) {
+            chargerMesCommandes();
+            return;
+        }
+
+        // Si on reçoit une commande précise
         const key = `tabia_mes_commandes_${clientId}`;
         let hist = JSON.parse(localStorage.getItem(key) || "[]");
         const idx = hist.findIndex(c => c.id === commande.id);
+        
         if(idx !== -1) {
             hist[idx].statut = commande.statut;
             localStorage.setItem(key, JSON.stringify(hist));
