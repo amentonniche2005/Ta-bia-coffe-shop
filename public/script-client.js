@@ -311,9 +311,12 @@ function afficherProduits() {
     grille.innerHTML = produitsTries.map(p => {
         const rupture = p.stock <= 0 && p.stock !== undefined;
         const classeRupture = rupture ? 'sold-out' : '';
-const bouton = rupture 
+        
+        // 🔥 CORRECTION : On sécurise l'ID avec des guillemets pour éviter les plantages si l'ID contient des lettres
+        const bouton = rupture 
             ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
-: `<button class="add-to-cart" onclick="gererClicAjout(event, ${p.id})">Ajouter <i class="fas fa-plus"></i></button>`;            
+            : `<button class="add-to-cart" onclick="gererClicAjout(event, '${p.id || p._id}')">Ajouter <i class="fas fa-plus"></i></button>`;            
+        
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
         const prixFormatte = parseFloat(p.prix || 0).toFixed(2);
 
@@ -338,7 +341,8 @@ const bouton = rupture
 let prixBaseEnAttente = 0;
 
 function gererClicAjout(event, id) {
-    const produit = produits.find(p => p.id === id);
+    // 🔥 CORRECTION : On sécurise la recherche de l'ID en le forçant en texte (String)
+    const produit = produits.find(p => String(p.id) === String(id) || String(p._id) === String(id));
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
     let optionsTrouvees = null;
@@ -348,7 +352,8 @@ function gererClicAjout(event, id) {
         if (produit.supplements && produit.supplements.length > 0) {
              ouvrirModalOptions(produit, null);
         } else {
-             executerAjoutPanier(produit, null, []);
+             // 🔥 CORRECTION : On envoie uniquement l'ID à la fonction
+             executerAjoutPanier(produit.id || produit._id);
              animerVersPanierClient(event); 
         }
         return; 
@@ -370,7 +375,8 @@ function gererClicAjout(event, id) {
     if ((optionsTrouvees && optionsTrouvees.length > 0) || (produit.supplements && produit.supplements.length > 0)) {
         ouvrirModalOptions(produit, optionsTrouvees);
     } else {
-        executerAjoutPanier(produit, null, []);
+        // 🔥 CORRECTION : On envoie uniquement l'ID à la fonction
+        executerAjoutPanier(produit.id || produit._id);
         animerVersPanierClient(event); 
     }
 }
