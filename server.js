@@ -238,7 +238,8 @@ const StoreSettings = mongoose.model('StoreSettings', new mongoose.Schema({
     logoUrl: String,
     caisseToken: String,
     nombreTables: { type: Number, default: 20 },
-    statutAbonnement: { type: String, default: 'actif' }
+    statutAbonnement: { type: String, default: 'actif' },
+    dateExpiration: String
 }));
 
 const Sale = mongoose.model('Sale', new mongoose.Schema({
@@ -364,16 +365,32 @@ app.get('/api/branding', async (req, res) => {
 
 app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
     try {
-        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, targetCafeId, nombreTables, } = req.body;
+        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, targetCafeId, nombreTables, dateExpiration, cloneFromId } = req.body;
         
-        // 🔥 L'ASTUCE ULTIME : Si le Super Admin donne un "targetCafeId", on l'utilise !
         const cafeCible = targetCafeId ? targetCafeId : req.cafeId;
 
         const config = await StoreSettings.findOneAndUpdate(
             { cafeId: cafeCible, type: 'branding' },
-            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, nombreTables }, 
+            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, nombreTables, dateExpiration }, 
             { new: true, upsert: true }
         );
+
+        // 🔥 LOGIQUE DE CLONAGE DU MENU SAAS
+        if (cloneFromId) {
+            const existingProducts = await Product.countDocuments({ cafeId: cafeCible });
+            if (existingProducts === 0) { // On clone seulement si le nouveau menu est vide
+                const produitsACloner = await Product.find({ cafeId: cloneFromId });
+                if (produitsACloner.length > 0) {
+                    const nouveauxProduits = produitsACloner.map(p => ({
+                        cafeId: cafeCible, id: p.id, nom: p.nom, prix: p.prix, prixAchat: p.prixAchat,
+                        stock: p.stock, categorie: p.categorie, image: p.image, variantes: p.variantes,
+                        typeChoix: p.typeChoix, seuilAlerte: p.seuilAlerte, unite: p.unite, actif: true
+                    }));
+                    await Product.insertMany(nouveauxProduits);
+                }
+            }
+        }
+
         res.json({ success: true, config });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });

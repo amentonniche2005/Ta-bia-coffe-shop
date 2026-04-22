@@ -34,8 +34,10 @@
         /* Animations LED */
         .led-green { box-shadow: 0 0 10px #10b981, inset 0 0 5px #10b981; animation: pulse-green 2s infinite; }
         .led-red { box-shadow: 0 0 10px #f43f5e, inset 0 0 5px #f43f5e; animation: pulse-red 1s infinite; }
+        .led-orange { box-shadow: 0 0 10px #f59e0b, inset 0 0 5px #f59e0b; animation: pulse-orange 1.5s infinite; }
         @keyframes pulse-green { 0% { opacity: 0.7; } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0.7; } }
         @keyframes pulse-red { 0% { opacity: 0.5; } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.5; } }
+        @keyframes pulse-orange { 0% { opacity: 0.6; } 50% { opacity: 1; transform: scale(1.15); } 100% { opacity: 0.6; } }
 
         /* Scrollbar tech */
         ::-webkit-scrollbar { width: 6px; }
@@ -43,9 +45,13 @@
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #00F2FE; }
 
-        /* Custom Toast */
+        /* Custom Toast & Modal */
         .toast-enter { animation: slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body class="bg-grid min-h-screen pb-10">
@@ -65,6 +71,9 @@
                     <i class="fas fa-key text-slate-500 text-sm"></i>
                     <input type="password" id="masterKey" class="bg-transparent border-none text-slate-300 text-sm w-40 focus:outline-none font-mono placeholder-slate-600" placeholder="Master Key...">
                 </div>
+                <button onclick="deconnecter()" class="text-slate-500 hover:text-alert transition" title="Déconnecter (Vider la clé)">
+                    <i class="fas fa-power-off"></i>
+                </button>
                 <div class="flex items-center gap-2 text-xs font-mono bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20">
                     <div class="w-2 h-2 rounded-full bg-emerald-500 led-green"></div>
                     SYSTEM ONLINE
@@ -105,9 +114,14 @@
                 <div class="glass-panel rounded-3xl p-6 relative overflow-hidden" id="formContainer">
                     <div class="absolute -top-20 -right-20 w-64 h-64 bg-neon/5 rounded-full blur-[50px] pointer-events-none"></div>
                     
-                    <h2 class="text-xl font-black mb-6 flex items-center gap-3">
-                        <i class="fas fa-rocket text-neon"></i> Console de Déploiement
-                    </h2>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-black flex items-center gap-3">
+                            <i class="fas fa-rocket text-neon"></i> Console de Déploiement
+                        </h2>
+                        <button id="btnAnnulerEdition" onclick="annulerEdition()" class="hidden text-xs bg-slate-800 text-slate-300 px-3 py-1 rounded hover:bg-slate-700 transition">
+                            <i class="fas fa-times"></i> Annuler
+                        </button>
+                    </div>
 
                     <div class="space-y-5 relative z-10">
                         <div class="p-4 bg-black/30 rounded-2xl border border-slate-800/50">
@@ -133,30 +147,40 @@
                                         <label class="block text-sm font-semibold text-slate-300 mb-1">Slogan</label>
                                         <input type="text" id="sloganCafe" class="input-tech rounded-xl px-4 py-3 w-full" placeholder="Coffee Shop">
                                     </div>
-                                    <div class="grid grid-cols-2 gap-4 mt-4">
-    <div>
-        <label class="block text-sm font-semibold text-slate-300 mb-1">Nombre de tables <i class="fas fa-chair text-slate-500"></i></label>
-        <input type="number" id="nombreTables" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-neon" placeholder="Ex: 20" value="20" min="1">
-    </div>
-</div>
                                     <div>
-                                        <label class="block text-sm font-semibold text-slate-300 mb-1">Logo (Fichier)</label>
-                                        <input type="text" id="logoUrl" class="input-tech rounded-xl px-4 py-3 w-full" placeholder="logo.jpg" value="logo.jpg">
+                                        <label class="block text-sm font-semibold text-slate-300 mb-1">Nombre de tables</label>
+                                        <input type="number" id="nombreTables" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-neon" placeholder="20" value="20">
                                     </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-300 mb-1">Logo (Fichier URL)</label>
+                                    <input type="text" id="logoUrl" class="input-tech rounded-xl px-4 py-3 w-full" placeholder="logo.jpg" value="logo.jpg">
                                 </div>
                             </div>
                         </div>
 
                         <div class="p-4 bg-black/30 rounded-2xl border border-slate-800/50">
-                            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">3. Accès & Sécurité</h3>
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-300 mb-1">Mot de Passe Caisse <i class="fas fa-lock text-slate-500"></i></label>
-                                <input type="text" id="caisseToken" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-warning" placeholder="ex: lorient2026">
+                            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">3. SaaS & Sécurité</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-300 mb-1">Expiration de l'abonnement <i class="fas fa-calendar text-warning"></i></label>
+                                    <input type="date" id="dateExpiration" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-warning">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-300 mb-1">Cloner le menu depuis... <i class="fas fa-copy text-slate-500"></i></label>
+                                    <select id="cloneFromId" class="input-tech rounded-xl px-4 py-3 w-full appearance-none">
+                                        <option value="">-- Ne pas cloner (Menu vide) --</option>
+                                        </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-300 mb-1">Mot de Passe Caisse <i class="fas fa-lock text-slate-500"></i></label>
+                                    <input type="text" id="caisseToken" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-neon" placeholder="ex: lorient2026">
+                                </div>
                             </div>
                         </div>
 
                         <button id="deployBtn" onclick="creerCafe()" class="w-full bg-neon text-black font-black py-4 rounded-xl text-sm tracking-wide shadow-[0_0_20px_rgba(0,242,254,0.3)] hover:shadow-[0_0_30px_rgba(0,242,254,0.5)] transition hover:scale-[1.02] flex items-center justify-center gap-2 uppercase mt-4">
-                            <i class="fas fa-cloud-upload-alt"></i> Créer / Mettre à jour l'instance
+                            <i class="fas fa-cloud-upload-alt"></i> Créer / Déployer l'instance
                         </button>
                     </div>
                 </div>
@@ -180,7 +204,7 @@
                         </div>
                     </div>
 
-                    <div id="liste" class="flex-1 overflow-y-auto pr-2 space-y-4" style="max-height: calc(100vh - 300px);">
+                    <div id="liste" class="flex-1 overflow-y-auto pr-2 space-y-4" style="max-height: calc(100vh - 200px);">
                         </div>
 
                 </div>
@@ -191,16 +215,39 @@
 
     <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3"></div>
 
+    <div id="modalSuppression" class="modal-overlay">
+        <div class="glass-panel border-alert/30 bg-surface/95 rounded-3xl p-8 max-w-md w-full shadow-[0_0_50px_rgba(244,63,94,0.15)]">
+            <div class="text-center mb-6">
+                <div class="w-20 h-20 mx-auto bg-alert/10 rounded-full flex items-center justify-center text-alert text-4xl mb-4 border border-alert/20">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h2 class="text-2xl font-black text-white mb-2">Destruction Critique</h2>
+                <p class="text-slate-400 text-sm">Vous allez effacer définitivement le serveur <strong id="deleteTargetName" class="text-alert font-mono">...</strong>. Toutes les données (Stock, Ventes, Clients) seront perdues à jamais.</p>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-semibold text-slate-300 mb-2 text-center">Tapez l'ID de l'instance pour confirmer :</label>
+                <input type="text" id="deleteConfirmInput" class="input-tech rounded-xl px-4 py-3 w-full text-center font-mono text-alert border-alert/50" placeholder="" onkeyup="checkDeleteInput()">
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="fermerModalSuppression()" class="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-700 transition">Annuler</button>
+                <button id="btnConfirmDelete" onclick="validerSuppression()" disabled class="flex-1 bg-alert/50 text-white font-bold py-3 rounded-xl opacity-50 cursor-not-allowed transition flex justify-center items-center gap-2">
+                    <i class="fas fa-skull-crossbones"></i> DÉTRUIRE
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const MASTER_URL = "sarbini.click";
         let cafesData = []; 
+        let cafeToDelete = null;
 
-        // Initialisation de la clé Master au chargement
         document.addEventListener('DOMContentLoaded', () => {
             const savedKey = localStorage.getItem('sarbini_master_key');
             if (savedKey) document.getElementById('masterKey').value = savedKey;
 
-            // Sauvegarde auto quand on tape
             document.getElementById('masterKey').addEventListener('input', (e) => {
                 localStorage.setItem('sarbini_master_key', e.target.value);
             });
@@ -208,32 +255,47 @@
             chargerCafes();
         });
 
-        // --- Système de Notification ---
+        // --- Toasts & UI Utils ---
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            
             let color = type === 'error' ? 'border-alert text-alert' : (type === 'warning' ? 'border-warning text-warning' : 'border-neon text-neon');
             let icon = type === 'error' ? 'fa-times-circle' : (type === 'warning' ? 'fa-exclamation-triangle' : 'fa-check-circle');
             let bg = type === 'error' ? 'bg-alert/10' : (type === 'warning' ? 'bg-warning/10' : 'bg-neon/10');
-
             toast.className = `toast-enter glass-panel px-5 py-4 rounded-xl border-l-4 ${color} ${bg} shadow-lg flex items-center gap-3 w-80`;
             toast.innerHTML = `<i class="fas ${icon} text-xl"></i> <span class="font-semibold text-sm text-white">${message}</span>`;
-            
             container.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all 0.3s'; setTimeout(() => toast.remove(), 300); }, 4000);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; setTimeout(() => toast.remove(), 300); }, 4000);
         }
 
-        function copyPassword(pwd) {
-            navigator.clipboard.writeText(pwd).then(() => showToast("Mot de passe caisse copié !", "success"));
+        function copyPassword(pwd) { navigator.clipboard.writeText(pwd).then(() => showToast("Mot de passe copié !", "success")); }
+
+        function deconnecter() {
+            localStorage.removeItem('sarbini_master_key');
+            document.getElementById('masterKey').value = '';
+            showToast("Master Key effacée. Déconnexion.", "warning");
+            document.getElementById('liste').innerHTML = '';
         }
 
+        function calculerJoursRestants(dateStr) {
+            if (!dateStr) return { jours: 999, texte: 'Illimité', classe: 'text-success' };
+            const exp = new Date(dateStr);
+            const now = new Date();
+            const diff = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+            
+            if (diff < 0) return { jours: diff, texte: `Expiré depuis ${Math.abs(diff)}j`, classe: 'text-alert font-bold' };
+            if (diff <= 5) return { jours: diff, texte: `Expire dans ${diff}j`, classe: 'text-warning font-bold' };
+            return { jours: diff, texte: `Expire dans ${diff}j`, classe: 'text-slate-400' };
+        }
+
+        // --- Logic API ---
         async function chargerCafes() {
             const key = document.getElementById('masterKey').value;
             const container = document.getElementById('liste');
-            container.innerHTML = `<div class="flex flex-col items-center justify-center h-40 text-neon"><i class="fas fa-circle-notch fa-spin fa-3x mb-4"></i><p class="font-mono text-sm tracking-widest uppercase">Connexion aux serveurs...</p></div>`;
+            container.innerHTML = `<div class="flex flex-col items-center justify-center h-40 text-neon"><i class="fas fa-circle-notch fa-spin fa-3x mb-4"></i><p class="font-mono text-sm tracking-widest uppercase">Synchronisation Cluster...</p></div>`;
 
             try {
+                // Dans le futur, ton API devra renvoyer les stats d'activité (caMensuel, ticketsJour) et dateExpiration
                 const res = await fetch('/api/admin/cafes?t=' + Date.now(), { headers: { 'authorization': key }, cache: 'no-store' });
                 if (!res.ok) {
                     showToast(`Clé Master invalide`, 'error');
@@ -242,6 +304,7 @@
                 cafesData = await res.json();
                 mettreAJourKPIs(cafesData);
                 afficherListe(cafesData);
+                majSelectClonage(cafesData);
             } catch(e) { 
                 showToast('Serveur injoignable', 'error');
                 container.innerHTML = `<div class="text-center text-alert font-bold p-10"><i class="fas fa-wifi fa-2x mb-3"></i><br>Erreur de communication avec le cluster.</div>`; 
@@ -255,54 +318,79 @@
             document.getElementById('kpi-suspendus').innerText = liste.length - actifs;
         }
 
+        function majSelectClonage(liste) {
+            const select = document.getElementById('cloneFromId');
+            let options = '<option value="">-- Ne pas cloner (Menu vide) --</option>';
+            liste.forEach(c => { options += `<option value="${c.cafeId}">${c.nomCafe || c.cafeId} (${c.cafeId})</option>`; });
+            select.innerHTML = options;
+        }
+
         function afficherListe(liste) {
             const container = document.getElementById('liste');
-            if (liste.length === 0) return container.innerHTML = `<div class="text-center p-10 text-slate-500 border border-dashed border-slate-700 rounded-2xl"><i class="fas fa-server fa-3x mb-3 opacity-50"></i><p>Aucune instance détectée dans le cluster.</p></div>`;
+            if (liste.length === 0) return container.innerHTML = `<div class="text-center p-10 text-slate-500 border border-dashed border-slate-700 rounded-2xl"><i class="fas fa-server fa-3x mb-3 opacity-50"></i><p>Aucune instance déployée.</p></div>`;
             
             container.innerHTML = "";
             liste.forEach(c => {
                 const siteUrl = `https://${c.cafeId}.${MASTER_URL}`;
                 const estSuspendu = c.statutAbonnement === 'suspendu';
                 
+                // Calcul Expiration
+                const expInfo = calculerJoursRestants(c.dateExpiration);
+                // Simulation Analytics (A remplacer par tes vraies données serveur)
+                const caSimule = c.caMensuel || "---"; 
+                const ticketsSimules = c.ticketsAujourdhui || "--";
+
                 const cardClass = estSuspendu ? 'border-alert/30 bg-alert/5 opacity-80 grayscale-[50%]' : 'border-slate-700/50 bg-black/40 hover:border-neon/50';
-                const ledClass = estSuspendu ? 'bg-alert led-red' : 'bg-success led-green';
-                const statusText = estSuspendu ? 'Bloqué (Impayé)' : 'En Ligne';
+                const ledClass = estSuspendu ? 'bg-alert led-red' : (expInfo.jours <= 5 && expInfo.jours > 0 ? 'bg-warning led-orange' : 'bg-success led-green');
+                const statusText = estSuspendu ? 'Bloqué (Impayé)' : 'Actif';
                 const statusColor = estSuspendu ? 'text-alert' : 'text-success';
 
                 const div = document.createElement('div');
-                div.className = `p-5 rounded-2xl border transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${cardClass}`;
+                div.className = `p-4 rounded-2xl border transition-all duration-300 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 ${cardClass}`;
                 
                 div.innerHTML = `
-                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                    <div class="flex items-center gap-4 w-full xl:w-auto">
                         <div class="relative">
                             <img src="${c.logoUrl || 'logo.jpg'}" class="w-14 h-14 rounded-xl object-cover bg-surface2 border border-white/10" onerror="this.src='https://via.placeholder.com/100/1f2937/00F2FE?text=IMG'">
-                            <div class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full ${ledClass} border-2 border-[#030712]"></div>
+                            <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full ${ledClass} border-2 border-[#030712]"></div>
                         </div>
                         <div>
                             <div class="flex items-center gap-2 mb-1">
-                                <h3 class="font-black text-lg leading-tight text-white">${c.nomCafe || c.cafeId.toUpperCase()}</h3>
-                                <span class="text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-white/5 border border-white/10 ${statusColor}">${statusText}</span>
+                                <h3 class="font-black text-lg leading-none text-white">${c.nomCafe || c.cafeId.toUpperCase()}</h3>
+                                <span class="text-[0.65rem] font-bold uppercase px-2 py-0.5 rounded bg-white/5 border border-white/10 ${statusColor}">${statusText}</span>
                             </div>
                             <div class="flex items-center gap-3">
                                 <a href="${siteUrl}" target="_blank" class="text-xs font-mono text-neon hover:text-white transition flex items-center gap-1 bg-neon/10 px-2 py-0.5 rounded border border-neon/20">
                                     <i class="fas fa-link"></i> ${c.cafeId}.${MASTER_URL}
                                 </a>
-                                <span class="text-xs font-mono text-slate-500"><i class="fas fa-key"></i> ${c.caisseToken || '12345678'}</span>
+                                <span class="text-xs font-mono text-slate-500" title="Date d'expiration"><i class="fas fa-calendar-alt"></i> <span class="${expInfo.classe}">${expInfo.texte}</span></span>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-                        <button onclick="copyPassword('${c.caisseToken || '12345678'}')" class="w-10 h-10 rounded-xl bg-surface2 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition flex items-center justify-center" title="Copier Mot de Passe">
-                            <i class="fas fa-copy"></i>
+                    <div class="flex items-center gap-6 w-full xl:w-auto px-4 xl:px-0 py-2 xl:py-0 border-y xl:border-y-0 border-slate-800/50">
+                        <div class="text-center">
+                            <div class="text-[0.65rem] text-slate-500 uppercase font-bold tracking-wider mb-0.5">CA Mois</div>
+                            <div class="font-mono text-sm text-white">${caSimule} <span class="text-slate-600 text-xs">DT</span></div>
+                        </div>
+                        <div class="w-px h-8 bg-slate-800"></div>
+                        <div class="text-center">
+                            <div class="text-[0.65rem] text-slate-500 uppercase font-bold tracking-wider mb-0.5">Tickets (J)</div>
+                            <div class="font-mono text-sm text-white">${ticketsSimules}</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full xl:w-auto justify-end">
+                        <button onclick="copyPassword('${c.caisseToken || '12345678'}')" class="w-9 h-9 rounded-lg bg-surface2 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition flex items-center justify-center" title="Copier Mot de Passe Caisse">
+                            <i class="fas fa-key"></i>
                         </button>
-                        <button onclick="editerCafe('${c.cafeId}')" class="w-10 h-10 rounded-xl bg-surface2 border border-slate-700 text-warning hover:bg-warning/20 hover:border-warning/50 transition flex items-center justify-center" title="Modifier la config">
+                        <button onclick="editerCafe('${c.cafeId}')" class="w-9 h-9 rounded-lg bg-surface2 border border-slate-700 text-warning hover:bg-warning/20 hover:border-warning/50 transition flex items-center justify-center" title="Modifier la configuration">
                             <i class="fas fa-pen"></i>
                         </button>
-                        <button onclick="basculerStatut('${c.cafeId}', '${estSuspendu ? 'actif' : 'suspendu'}')" class="w-10 h-10 rounded-xl bg-surface2 border border-slate-700 ${estSuspendu ? 'text-success hover:bg-success/20 hover:border-success/50' : 'text-alert hover:bg-alert/20 hover:border-alert/50'} transition flex items-center justify-center" title="${estSuspendu ? 'Réactiver le service' : 'Couper le service'}">
-                            <i class="fas ${estSuspendu ? 'fa-play' : 'fa-power-off'}"></i>
+                        <button onclick="basculerStatut('${c.cafeId}', '${estSuspendu ? 'actif' : 'suspendu'}')" class="w-9 h-9 rounded-lg bg-surface2 border border-slate-700 ${estSuspendu ? 'text-success hover:bg-success/20 hover:border-success/50' : 'text-alert hover:bg-alert/20 hover:border-alert/50'} transition flex items-center justify-center" title="${estSuspendu ? 'Réactiver le service' : 'Couper le service'}">
+                            <i class="fas ${estSuspendu ? 'fa-play' : 'fa-pause'}"></i>
                         </button>
-                        <button onclick="supprimerCafe('${c.cafeId}')" class="w-10 h-10 rounded-xl bg-surface2 border border-slate-700 text-slate-500 hover:text-alert hover:bg-alert/20 hover:border-alert/50 transition flex items-center justify-center ml-2" title="Détruire (Irréversible)">
+                        <button onclick="ouvrirModalSuppression('${c.cafeId}')" class="w-9 h-9 rounded-lg bg-surface2 border border-slate-700 text-slate-500 hover:text-alert hover:bg-alert/20 hover:border-alert/50 transition flex items-center justify-center ml-1" title="Détruire (Irréversible)">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     </div>
@@ -311,29 +399,13 @@
             });
         }
 
-        async function basculerStatut(id, nouveauStatut) {
-            const action = nouveauStatut === 'suspendu' ? "couper l'accès à" : "réactiver";
-            if(!confirm(`⚠️ CONFIRMATION\nVoulez-vous vraiment ${action} l'instance "${id}" ?`)) return;
-            
-            const key = document.getElementById('masterKey').value;
-            try {
-                const res = await fetch(`/api/admin/cafes/${id}/statut`, { 
-                    method: 'PUT', headers: { 'Content-Type': 'application/json', 'authorization': key }, body: JSON.stringify({ statut: nouveauStatut })
-                });
-                
-                if(res.ok) {
-                    showToast(`Instance [${id}] : ${nouveauStatut.toUpperCase()}`, nouveauStatut === 'suspendu' ? 'warning' : 'success');
-                    chargerCafes(); 
-                } else { showToast("Accès refusé ou erreur serveur.", "error"); }
-            } catch(e) { showToast("Erreur réseau.", "error"); }
-        }
-
         function filtrerCafes() {
             const text = document.getElementById('searchCafe').value.toLowerCase();
             const filtres = cafesData.filter(c => (c.nomCafe || '').toLowerCase().includes(text) || c.cafeId.toLowerCase().includes(text));
             afficherListe(filtres);
         }
 
+        // --- Édition ---
         function editerCafe(id) {
             const cafe = cafesData.find(c => c.cafeId === id);
             if (!cafe) return;
@@ -347,14 +419,43 @@
             document.getElementById('caisseToken').value = cafe.caisseToken || '';
             document.getElementById('logoUrl').value = cafe.logoUrl || 'logo.jpg';
             document.getElementById('nombreTables').value = cafe.nombreTables || 20;
+            if(cafe.dateExpiration) document.getElementById('dateExpiration').value = cafe.dateExpiration.split('T')[0];
+
+            // Désactiver le clonage en édition
+            document.getElementById('cloneFromId').disabled = true;
+            document.getElementById('cloneFromId').classList.add('opacity-50');
 
             const btn = document.getElementById('deployBtn');
             btn.innerHTML = `<i class="fas fa-sync-alt fa-spin mr-2"></i> METTRE À JOUR [${id}]`;
             btn.className = "w-full bg-warning text-black font-black py-4 rounded-xl text-sm tracking-wide shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] transition hover:scale-[1.02] flex items-center justify-center gap-2 uppercase mt-4";
 
             document.getElementById('formContainer').classList.add('border-warning/50');
+            document.getElementById('btnAnnulerEdition').classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
             showToast(`Mode édition activé pour [${id}]`, 'warning');
+        }
+
+        function annulerEdition() {
+            document.getElementById('cafeId').value = ""; 
+            document.getElementById('cafeId').readOnly = false;
+            document.getElementById('cafeId').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            document.getElementById('nomCafe').value = "";
+            document.getElementById('sloganCafe').value = "";
+            document.getElementById('caisseToken').value = "";
+            document.getElementById('logoUrl').value = "logo.jpg";
+            document.getElementById('nombreTables').value = "20";
+            document.getElementById('dateExpiration').value = "";
+            
+            document.getElementById('cloneFromId').disabled = false;
+            document.getElementById('cloneFromId').classList.remove('opacity-50');
+
+            const btn = document.getElementById('deployBtn');
+            btn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> Créer / Déployer l'instance`;
+            btn.className = "w-full bg-neon text-black font-black py-4 rounded-xl text-sm tracking-wide shadow-[0_0_20px_rgba(0,242,254,0.3)] hover:shadow-[0_0_30px_rgba(0,242,254,0.5)] transition hover:scale-[1.02] flex items-center justify-center gap-2 uppercase mt-4";
+            
+            document.getElementById('formContainer').classList.remove('border-warning/50');
+            document.getElementById('btnAnnulerEdition').classList.add('hidden');
         }
 
         async function creerCafe() {
@@ -368,13 +469,16 @@
             btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> TRANSMISSION...`; 
             btn.disabled = true;
 
+            // Nouveaux champs (dateExpiration et cloneFromId)
             const data = {
                 targetCafeId: cafeId,
                 nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
                 sloganCafe: document.getElementById('sloganCafe').value || "Coffee Shop",
                 caisseToken: document.getElementById('caisseToken').value || '12345678',
                 logoUrl: document.getElementById('logoUrl').value,
-                nombreTables: parseInt(document.getElementById('nombreTables').value) || 20
+                nombreTables: parseInt(document.getElementById('nombreTables').value) || 20,
+                dateExpiration: document.getElementById('dateExpiration').value || null,
+                cloneFromId: document.getElementById('cloneFromId').value || null
             };
 
             try {
@@ -383,37 +487,80 @@
                 });
 
                 if(res.ok) { 
-                    showToast(isUpdate ? `Instance [${cafeId}] mise à jour.` : `Instance [${cafeId}] déployée avec succès.`, 'success');
-                    
-                    document.getElementById('cafeId').value = ""; 
-                    document.getElementById('cafeId').readOnly = false;
-                    document.getElementById('cafeId').classList.remove('opacity-50', 'cursor-not-allowed');
-                    document.getElementById('nomCafe').value = "";
-                    document.getElementById('sloganCafe').value = "";
-                    document.getElementById('caisseToken').value = "";
-                    
-                    btn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> Créer / Mettre à jour l'instance`;
-                    btn.className = "w-full bg-neon text-black font-black py-4 rounded-xl text-sm tracking-wide shadow-[0_0_20px_rgba(0,242,254,0.3)] hover:shadow-[0_0_30px_rgba(0,242,254,0.5)] transition hover:scale-[1.02] flex items-center justify-center gap-2 uppercase mt-4";
-                    document.getElementById('formContainer').classList.remove('border-warning/50');
-                    
+                    showToast(isUpdate ? `Instance [${cafeId}] mise à jour.` : `Instance [${cafeId}] déployée !`, 'success');
+                    annulerEdition(); // Reset form
                     chargerCafes(); 
-                } else { showToast("Accès refusé ou ID existant.", "error"); btn.innerHTML = originalText; }
+                } else { showToast("Erreur. L'ID existe peut-être déjà.", "error"); btn.innerHTML = originalText; }
             } catch(e) { showToast("Erreur réseau.", "error"); btn.innerHTML = originalText; }
             
             btn.disabled = false;
         }
 
-        async function supprimerCafe(id) {
-            if(!confirm(`⚠️ DESTRUCTION CRITIQUE\n\nVoulez-vous DÉTRUIRE l'instance "${id}" ?\nTOUTES les commandes, clients, et produits seront effacés DÉFINITIVEMENT.`)) return;
-            
+        async function basculerStatut(id, nouveauStatut) {
             const key = document.getElementById('masterKey').value;
             try {
-                const res = await fetch(`/api/admin/cafes/${id}`, { method: 'DELETE', headers: { 'authorization': key } });
+                const res = await fetch(`/api/admin/cafes/${id}/statut`, { 
+                    method: 'PUT', headers: { 'Content-Type': 'application/json', 'authorization': key }, body: JSON.stringify({ statut: nouveauStatut })
+                });
+                
                 if(res.ok) {
-                    showToast(`Instance [${id}] effacée du cluster.`, 'success');
-                    chargerCafes();
-                } else { showToast("Échec de la suppression.", "error"); }
+                    showToast(`Instance [${id}] : ${nouveauStatut.toUpperCase()}`, nouveauStatut === 'suspendu' ? 'warning' : 'success');
+                    chargerCafes(); 
+                } else { showToast("Accès refusé ou erreur serveur.", "error"); }
             } catch(e) { showToast("Erreur réseau.", "error"); }
+        }
+
+        // --- Destruction Sécurisée ---
+        function ouvrirModalSuppression(id) {
+            cafeToDelete = id;
+            document.getElementById('deleteTargetName').innerText = id;
+            document.getElementById('deleteConfirmInput').value = "";
+            document.getElementById('deleteConfirmInput').placeholder = `Tapez "${id}"`;
+            checkDeleteInput(); // disabled le bouton par défaut
+            document.getElementById('modalSuppression').classList.add('active');
+        }
+
+        function fermerModalSuppression() {
+            document.getElementById('modalSuppression').classList.remove('active');
+            cafeToDelete = null;
+        }
+
+        function checkDeleteInput() {
+            const input = document.getElementById('deleteConfirmInput').value.trim();
+            const btn = document.getElementById('btnConfirmDelete');
+            if (input === cafeToDelete) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                btn.classList.add('hover:bg-alert', 'hover:shadow-[0_0_20px_rgba(244,63,94,0.5)]');
+            } else {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                btn.classList.remove('hover:bg-alert', 'hover:shadow-[0_0_20px_rgba(244,63,94,0.5)]');
+            }
+        }
+
+        async function validerSuppression() {
+            if (!cafeToDelete) return;
+            const key = document.getElementById('masterKey').value;
+            const btn = document.getElementById('btnConfirmDelete');
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> DESTRUCTION...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/admin/cafes/${cafeToDelete}`, { method: 'DELETE', headers: { 'authorization': key } });
+                if(res.ok) {
+                    showToast(`Instance [${cafeToDelete}] détruite avec succès.`, 'success');
+                    fermerModalSuppression();
+                    chargerCafes();
+                } else { 
+                    showToast("Échec de la suppression (Non autorisé).", "error"); 
+                    fermerModalSuppression();
+                }
+            } catch(e) { 
+                showToast("Erreur réseau.", "error"); 
+                fermerModalSuppression();
+            }
         }
     </script>
 </body>
