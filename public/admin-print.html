@@ -195,7 +195,7 @@
     <script>
         const socket = io(); 
         let currentData = { numero: null, code: null, lastUpdated: null };
-
+        let MAX_TABLES = 160;
         async function appliquerBranding() {
             try {
                 const response = await fetch('/api/branding');
@@ -204,9 +204,17 @@
                     document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
                     document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
                     if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
+                    
+                    // 🔥 NOUVEAU : On récupère le nombre de tables configuré par le Super Admin
+                    if (config.nombreTables) {
+                        MAX_TABLES = parseInt(config.nombreTables);
+                    }
                 }
             } catch (error) {
                 console.error("Erreur lors du chargement du branding:", error);
+            } finally {
+                // On peuple la liste DÈS QUE le branding est chargé
+                populateSelect();
             }
         }
 
@@ -221,7 +229,8 @@
 
         function populateSelect() {
             const select = document.getElementById('numberSelect');
-            for (let i = 1; i <= 20; i++) {
+            select.innerHTML = '<option value="">-- Choisir une table --</option>';
+            for (let i = 1; i <= MAX_TABLES; i++) {
                 const option = document.createElement('option');
                 option.value = i;
                 option.textContent = `Table N° ${i}`;
@@ -361,7 +370,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            populateSelect();
             setupListeners();
         });
     </script>
