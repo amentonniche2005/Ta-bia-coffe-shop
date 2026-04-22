@@ -1013,8 +1013,12 @@ function synchroniserTicketsAvecServeur() {
             
             // 🔥 CRÉATION DU TICKET UNIQUE "À EMPORTER"
             if (tableNum === 'Emporter') {
-                tableNum = 'WEB_' + commande.id;
-                customLabel = commande.clientName ? commande.clientName : `Emporter #${commande.numero}`;
+                if (commande.clientName && commande.clientName.startsWith('WEB_')) {
+                    tableNum = commande.clientName; // C'est un ajout sur un ticket existant
+                } else {
+                    tableNum = 'WEB_' + commande.id;
+                    customLabel = (commande.clientName && commande.clientName !== 'Caisse') ? commande.clientName : `Emporter #${commande.numero}`;
+                }
             } else if (commande.clientName) {
                 tableNum = 'Fidele_' + commande.clientName; 
                 customLabel = commande.clientName;
@@ -1026,7 +1030,7 @@ function synchroniserTicketsAvecServeur() {
             if (customLabel) tickets[tableNum].label = customLabel;
             if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
 
-                if (!tickets[tableNum].orderIds.includes(commande.id)) {
+            if (!tickets[tableNum].orderIds.includes(commande.id)) {
                 tickets[tableNum].orderIds.push(commande.id);
                 window.commandesTraiteesTickets.add(commande.id);
                 
@@ -1040,6 +1044,8 @@ function synchroniserTicketsAvecServeur() {
                     aMiseAJour = true;
                 }
             } else {
+                // 🔥 CORRECTION : Si le ticket a déjà été chargé depuis la mémoire (localforage), 
+                // on l'ajoute dans le registre pour ne pas bloquer les futures fusions !
                 window.commandesTraiteesTickets.add(commande.id);
             }
             
