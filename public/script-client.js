@@ -565,38 +565,27 @@ function ouvrirFermerPanier() {
 
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
 
-// ========== AFFICHAGE DU PANIER MODERNE ==========
-// ========== AFFICHAGE DU PANIER MODERNE (NETTOYÉ) ==========
-
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
     const checkoutBtn = document.getElementById("checkoutBtn");
     
-    // --- 🔥 AJOUT ICI : GESTION DYNAMIQUE DU PAIEMENT VIP ---
+    // --- GESTION DYNAMIQUE DU PAIEMENT VIP ---
     const selectPaiement = document.getElementById('methodePaiementClient');
     if (selectPaiement) {
         let optionVIP = document.getElementById('optionPaiementVIP');
-        
-        // On vérifie si un client est connecté (via le nom stocké en session)
         const clientConnecte = sessionStorage.getItem('client_nom_premium');
         
         if (clientConnecte) {
-            // Si le client est VIP, on ajoute l'option si elle n'existe pas déjà
             if (!optionVIP) {
                 optionVIP = document.createElement('option');
                 optionVIP.id = 'optionPaiementVIP';
                 optionVIP.value = 'carte_fidelite';
                 selectPaiement.appendChild(optionVIP);
             }
-            // On récupère le solde affiché dans la carte VIP
-            const soldeAffiche = document.getElementById('vipSolde')?.innerText || "0.00 DT";
             optionVIP.textContent = `⭐ Payer avec mon Solde VIP `;
-            
-            // On force la sélection sur VIP par défaut pour lui faire plaisir
             selectPaiement.value = 'carte_fidelite';
         } else {
-            // Si pas de client connecté, on supprime l'option VIP
             if (optionVIP) optionVIP.remove();
             selectPaiement.value = 'especes';
         }
@@ -612,20 +601,51 @@ function afficherContenuPanier() {
     
     checkoutBtn.disabled = false;
     let total = 0;
-    conteneur.innerHTML = panier.map(article => {
+    
+    // 1. Calcul du prix total global (incluant les suppléments)
+    panier.forEach(article => {
         total += article.prix * article.quantite;
-        return `
-            <div class="modern-cart-item">
-                <div class="modern-cart-item-info">
-                    <h4>${article.nom}</h4>
-                    <div class="modern-cart-item-price">${article.prix.toFixed(2)} DT</div>
+    });
+
+    // 2. 🔥 LOGIQUE PARENT-ENFANT POUR LE CLIENT
+    const platsPrincipaux = panier.filter(a => !a.isSupplement);
+
+    conteneur.innerHTML = platsPrincipaux.map(mainItem => {
+        // On cherche les suppléments liés à CE plat spécifique
+        const mesSupplements = panier.filter(s => s.isSupplement && s.parentId === mainItem.uniqueGroupId);
+        
+        // Design du plat principal
+        let html = `
+            <div class="modern-cart-item" style="flex-direction: column; align-items: stretch; padding: 15px; margin-bottom: 12px; background: white; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #f1f5f9;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div class="modern-cart-item-info">
+                        <h4 style="margin:0; font-size:1.1rem; color:#1e293b; font-weight:800;">${mainItem.nom}</h4>
+                        <div class="modern-cart-item-price" style="color:#db800a; font-weight:bold;">${mainItem.prix.toFixed(2)} DT</div>
+                    </div>
+                    <div class="modern-qty-control" style="display:flex; align-items:center; background:#f8fafc; border-radius:10px; padding:4px; border: 1px solid #e2e8f0;">
+                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', -1)" style="border:none; background:white; width:32px; height:32px; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); color:#64748b;"><i class="fas fa-minus"></i></button>
+                        <span class="modern-qty-val" style="width:35px; text-align:center; font-weight:900; color:#1e293b;">${mainItem.quantite}</span>
+                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', 1)" style="border:none; background:white; width:32px; height:32px; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); color:#db800a;"><i class="fas fa-plus"></i></button>
+                    </div>
                 </div>
-                <div class="modern-qty-control">
-                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', -1)"><i class="fas fa-minus"></i></button>
-                    <span class="modern-qty-val">${article.quantite}</span>
-                    <button class="modern-qty-btn" onclick="changerQuantite('${article.cartId}', 1)"><i class="fas fa-plus"></i></button>
-                </div>
-            </div>`;
+        `;
+        
+        // Design des suppléments (s'il y en a)
+        if (mesSupplements.length > 0) {
+            html += `<div style="margin-top: 12px; padding-top: 10px; border-top: 2px dashed #f1f5f9;">`;
+            mesSupplements.forEach(supp => {
+                html += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding-left: 10px; margin-bottom: 6px;">
+                        <span style="font-size:0.9rem; color:#64748b; font-weight:600;"><i class="fas fa-plus" style="font-size:0.7rem; color:#cbd5e1; margin-right:8px;"></i> ${supp.nom.replace('+ ', '')}</span>
+                        <span style="font-size:0.9rem; font-weight:bold; color:#94a3b8;">+${supp.prix.toFixed(2)} DT</span>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+        
+        html += `</div>`;
+        return html;
     }).join('');
 
     totalElement.textContent = `${total.toFixed(2)} DT`;
@@ -879,7 +899,6 @@ function chargerMesCommandes() {
     
     const hist = JSON.parse(localStorage.getItem(`tabia_mes_commandes_${clientId}`) || "[]");
     
-    // 🔥 MODIFICATION 1 : On ne garde que les commandes non expirées ET qui ne sont PAS payées
     const valides = hist.filter(c => c.expiration > Date.now() && c.statut !== 'paye');
     
     if(!valides.length) { 
@@ -896,42 +915,53 @@ function chargerMesCommandes() {
         let statusText = 'En attente';
         let statusIcon = '<i class="fas fa-clock"></i>';
         
-        // 🔥 MODIFICATION 2 : Logique des badges avec icônes animées FontAwesome
-        if(cmd.statut === 'en_attente') { 
-            statusClass = 'status-attente'; 
-            statusText = 'En attente'; 
-            statusIcon = '<i class="fas fa-clock"></i>';
-        }
-        else if(cmd.statut === 'en_preparation') { 
-            statusClass = 'status-preparation'; 
-            statusText = 'Préparation'; 
-            statusIcon = '<i class="fas fa-fire fa-beat" style="--fa-animation-duration: 1.5s;"></i>';
-        }
-        else if(cmd.statut === 'terminee') { 
-            statusClass = 'status-termine'; 
-            statusText = 'C\'est Prêt !'; 
-            statusIcon = '<i class="fas fa-check-circle fa-bounce" style="--fa-animation-duration: 2s;"></i>';
-        }
+        if(cmd.statut === 'en_attente') { statusClass = 'status-attente'; statusText = 'En attente'; statusIcon = '<i class="fas fa-clock"></i>'; }
+        else if(cmd.statut === 'en_preparation') { statusClass = 'status-preparation'; statusText = 'Préparation'; statusIcon = '<i class="fas fa-fire fa-beat" style="--fa-animation-duration: 1.5s;"></i>'; }
+        else if(cmd.statut === 'terminee') { statusClass = 'status-termine'; statusText = 'C\'est Prêt !'; statusIcon = '<i class="fas fa-check-circle fa-bounce" style="--fa-animation-duration: 2s;"></i>'; }
 
         const numCmd = cmd.numero ? `#${cmd.numero}` : 'en cours...';
+
+        // 🔥 LOGIQUE PARENT-ENFANT POUR L'HISTORIQUE
+        const platsPrincipauxHistorique = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+
+        const itemsHtml = platsPrincipauxHistorique.map(mainItem => {
+            let htmlDetail = `
+                <div class="article-detail" style="padding: 8px 0; border-bottom: 1px solid #f8fafc;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span><span style="font-weight:900; color:#1e293b; background:#e2e8f0; padding:2px 8px; border-radius:6px; margin-right:8px;">${mainItem.quantite}x</span> <strong style="font-size:1.05rem;">${mainItem.nom}</strong> ${mainItem.variante ? `<i style="font-size:0.85rem; color:#db800a; margin-left:5px;">(${mainItem.variante})</i>` : ''}</span> 
+                        <span style="font-weight:800; color:#475569;">${(mainItem.prix * mainItem.quantite).toFixed(2)} DT</span>
+                    </div>
+            `;
+            
+            // On cherche les suppléments liés
+            const mesSupps = cmd.articles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === mainItem.uniqueGroupId);
+            
+            if (mesSupps.length > 0) {
+                mesSupps.forEach(supp => {
+                    htmlDetail += `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding-left: 45px; margin-top: 6px;">
+                            <span style="font-size:0.85rem; color:#64748b; font-weight:600;"><i class="fas fa-plus" style="font-size:0.7rem; color:#cbd5e1; margin-right:6px;"></i> ${supp.nom.replace('+ ', '')}</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            htmlDetail += `</div>`;
+            return htmlDetail;
+        }).join('');
 
         return `
             <div class="historique-commande-card">
                 <div class="historique-commande-header">
-                    <span class="commande-numero" style="font-size: 1.1rem;">Commande ${numCmd}</span>
-                    <span class="status-badge ${statusClass}" style="display:flex; align-items:center; gap:6px; padding: 6px 12px; font-size: 0.8rem;">
+                    <span class="commande-numero" style="font-size: 1.1rem; font-weight:800;">Commande ${numCmd}</span>
+                    <span class="status-badge ${statusClass}" style="display:flex; align-items:center; gap:6px; padding: 6px 12px; font-size: 0.8rem; font-weight:bold;">
                         ${statusIcon} ${statusText}
                     </span>
                 </div>
                 <div style="margin-bottom: 15px;">
-                    ${cmd.articles.map(a => `
-                        <div class="article-detail" style="padding: 5px 0;">
-                            <span><span style="font-weight:900; color:#1e293b;">${a.quantite}x</span> ${a.nom}</span> 
-                            <span style="font-weight:600; color:#475569;">${(a.prix*a.quantite).toFixed(2)} DT</span>
-                        </div>
-                    `).join('')}
+                    ${itemsHtml}
                 </div>
-                <div style="font-weight:900; text-align:right; border-top:2px dashed #e2e8f0; padding-top:12px; margin-top:8px; color:#143621; font-size:1.3rem;">
+                <div style="font-weight:900; text-align:right; border-top:2px dashed #cbd5e1; padding-top:12px; margin-top:8px; color:#143621; font-size:1.3rem;">
                     Total: ${(cmd.total || 0).toFixed(2)} DT
                 </div>
             </div>

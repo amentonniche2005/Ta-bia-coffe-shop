@@ -800,15 +800,53 @@ function afficherTicket() {
     if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
     
     let totalArts = 0, html = '';
+    
     ticket.articles.forEach((item) => {
-        const prix = parseFloat(item.prix) || 0; const qte = parseInt(item.quantite) || 1; const itemTotal = prix * qte; totalArts += qte; 
-        const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null'; const envoyeVar = item.envoye ? 'true' : 'false';
+        const prix = parseFloat(item.prix) || 0; 
+        const qte = parseInt(item.quantite) || 1; 
+        const itemTotal = prix * qte; 
+        
+        // 🔥 DÉTECTION DU SUPPLÉMENT : par le flag ou le symbole +
+        const isSupp = item.isSupplement === true || (item.nom && item.nom.startsWith('+'));
+        
+        if (!isSupp) totalArts += qte; // On ne compte que les plats principaux dans le compteur d'articles
+        
+        const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null'; 
+        const envoyeVar = item.envoye ? 'true' : 'false';
         const badgeCuisine = item.envoye ? '' : `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
 
-        html += `<div class="ticket-item"><div class="item-info"><div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div><div class="item-price">${prix.toFixed(2)} DT / u</div></div><div class="item-actions"><div class="qty-control"><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button><span>${qte}</span><button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button></div><div class="item-total-price">${itemTotal.toFixed(2)}</div></div></div>`;
+        if (isSupp) {
+            // 🔥 AFFICHAGE PREMIUM D'UN SUPPLÉMENT (Décalé, petit, pas de boutons + / -)
+            html += `<div class="ticket-item" style="padding-left: 25px; font-size: 0.9rem; color: var(--text-muted); border-bottom: none; padding-top: 2px;">
+                        <div class="item-info">
+                            <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(item.nom.replace('+ ', ''))} ${badgeCuisine}</div>
+                        </div>
+                        <div class="item-actions">
+                            <div class="item-total-price" style="font-size: 0.9rem;">+${itemTotal.toFixed(2)}</div>
+                        </div>
+                     </div>`;
+        } else {
+            // AFFICHAGE CLASSIQUE D'UN PLAT
+            html += `<div class="ticket-item">
+                        <div class="item-info">
+                            <div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div>
+                            <div class="item-price">${prix.toFixed(2)} DT / u</div>
+                        </div>
+                        <div class="item-actions">
+                            <div class="qty-control">
+                                <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button>
+                                <span>${qte}</span>
+                                <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button>
+                            </div>
+                            <div class="item-total-price">${itemTotal.toFixed(2)}</div>
+                        </div>
+                     </div>`;
+        }
     });
     
-    itemsDiv.innerHTML = html; totalSpan.innerText = ticket.total.toFixed(2) + " DT"; countSpan.innerText = totalArts + " art.";
+    itemsDiv.innerHTML = html; 
+    totalSpan.innerText = ticket.total.toFixed(2) + " DT"; 
+    countSpan.innerText = totalArts + " art.";
 }
 
     function renderCategories() {
@@ -1325,7 +1363,6 @@ function afficherModalFermetureCaisse() {
 function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
         const now = new Date(); const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
         
-        // 🔥 CORRECTION : On retire 'cmd.' car on est dans la caisse, pas dans le comptoir !
         const numTicket = Math.floor(1000 + Math.random() * 9000); 
         const ttc = parseFloat(total) || 0; 
         const ht = ttc / 1.19; 
@@ -1334,13 +1371,38 @@ function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomCli
         document.getElementById('printDate').textContent = dateStr; document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = numTable;
         if (nomClient) { document.getElementById('printClientDiv').style.display = 'flex'; document.getElementById('printClient').textContent = nomClient; } else { document.getElementById('printClientDiv').style.display = 'none'; }
         
-        document.getElementById('printArticles').innerHTML = panierArticles.map(a => `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="width:15%; font-weight:bold;">${a.quantite}x</span><span style="width:55%;">${a.nom} ${a.variante?`(${a.variante})`:''}</span><span style="width:30%; text-align:right; font-weight:bold;">${(a.prix * a.quantite).toFixed(3)}</span></div>`).join('') + `<div style="border-top:1px dashed black; margin:6px 0;"></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px;"><span>HT</span><span>${ht.toFixed(3)}</span></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:2px;"><span>TVA (19%)</span><span>${tva.toFixed(3)}</span></div>`;
+        // 🔥 LOGIQUE D'IMPRESSION PREMIUM
+        let htmlArticles = '';
+        panierArticles.forEach(a => {
+            const itemTotal = (a.prix * a.quantite).toFixed(3);
+            const isSupp = a.isSupplement === true || (a.nom && a.nom.startsWith('+'));
+            
+            if (isSupp) {
+                // Style Supplément Thermique
+                htmlArticles += `
+                <div style="display:flex; justify-content:space-between; margin-bottom:2px; padding-left: 15px;">
+                    <span style="width:70%; font-size:10px; color:#555;">+ ${a.nom.replace('+ ', '')}</span>
+                    <span style="width:30%; text-align:right; font-size:10px; color:#555;">${itemTotal}</span>
+                </div>`;
+            } else {
+                // Style Plat Normal Thermique
+                htmlArticles += `
+                <div style="display:flex; justify-content:space-between; margin-top:4px; margin-bottom:2px;">
+                    <span style="width:15%; font-weight:bold;">${a.quantite}x</span>
+                    <span style="width:55%; font-weight:bold;">${a.nom} ${a.variante ? `(${a.variante})` : ''}</span>
+                    <span style="width:30%; text-align:right; font-weight:bold;">${itemTotal}</span>
+                </div>`;
+            }
+        });
+
+        document.getElementById('printArticles').innerHTML = htmlArticles + `<div style="border-top:1px dashed black; margin:6px 0;"></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px;"><span>HT</span><span>${ht.toFixed(3)}</span></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:2px;"><span>TVA (19%)</span><span>${tva.toFixed(3)}</span></div>`;
+        
         document.getElementById('printTotal').textContent = `${ttc.toFixed(3)} DT`;
         document.getElementById('printPaiement').textContent = methodePaiement === 'especes' ? 'ESPECES' : (methodePaiement === 'carte' ? 'CARTE' : 'Ticket Resto');
         
         const ticketElem = document.getElementById('ticketCaisse'); ticketElem.style.display = 'block';
         setTimeout(() => { window.print(); ticketElem.style.display = 'none'; }, 300);
-    }
+}
 
     function imprimerTicketCourant() {
         if (!currentTable) return; const ticket = tickets[currentTable]; if (!ticket.articles.length) return;

@@ -204,12 +204,27 @@ function afficherColonne(containerId, commandes, type) {
                        </div>`;
         }
 
-        const itemsHtml = cmd.articles.map(a => `
-            <li class="item-row">
+const platsPrincipaux = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+        
+        const itemsHtml = platsPrincipaux.map(a => {
+            // 1. Le plat principal
+            let html = `
+            <li class="item-row" style="margin-bottom: 2px;">
                 <div class="item-qty">${a.quantite || 1}</div>
-                <div class="item-name">${a.nom} ${a.variante ? `<span style="display:block; font-size:0.8rem; color:#64748b; font-weight:normal;">(${a.variante})</span>` : ''}</div>
-            </li>
-        `).join('');
+                <div class="item-name" style="font-weight:bold;">${a.nom} ${a.variante ? `<span style="display:block; font-size:0.8rem; color:#e67e22; font-weight:bold;">↳ ${a.variante}</span>` : ''}</div>
+            </li>`;
+            
+            // 2. Les suppléments de CE plat
+            const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
+            mesSupps.forEach(supp => {
+                html += `
+                <li class="item-row" style="margin-bottom: 2px; padding-left: 20px; opacity: 0.9;">
+                    <div class="item-qty" style="visibility:hidden;">-</div>
+                    <div class="item-name" style="font-size:0.85rem; color:#d35400; font-weight:bold;"><i class="fas fa-plus-circle" style="font-size:0.7rem;"></i> Supp: ${supp.nom.replace('+ ', '')}</div>
+                </li>`;
+            });
+            return html;
+        }).join('');
 
         return `
             <div class="ticket" data-id="${cmd.id}" onclick="voirDetails(${cmd.id})">
@@ -257,15 +272,36 @@ function voirDetails(id) {
     
     const textTable = (cmd.numeroTable === 'Emporter' || !cmd.numeroTable) ? 'À Emporter' : `Table ${cmd.numeroTable}`;
 
+    // 🔥 Génération du HTML des articles avec la logique Parent-Enfant
+    const platsCuisine = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+    const articlesHtml = platsCuisine.map(a => {
+        let htmlDetail = `
+            <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom:0.2rem; font-weight:700; font-size: 1.1rem; color:#1e293b;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span style="background: #e2e8f0; padding: 4px 10px; border-radius: 6px;">${a.quantite}x</span>
+                    <span>${a.nom} ${a.variante ? `<i style="color:#64748b; font-size:0.9rem;">(${a.variante})</i>` : ''}</span>
+                </div>
+            </div>`;
+        
+        const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
+        mesSupps.forEach(supp => {
+            htmlDetail += `
+            <div style="display:flex; align-items: center; margin-bottom:0.6rem; margin-left:45px; font-weight:800; font-size: 0.95rem; color:#d35400;">
+                <i class="fas fa-plus-circle" style="margin-right:5px; font-size:0.8rem;"></i> Supp: ${supp.nom.replace('+ ', '')}
+            </div>`;
+        });
+        return htmlDetail;
+    }).join('');
+
     let html = `
         <div style="margin-bottom: 1.5rem; background: #f8fafc; padding: 1rem; border-radius: 12px; border: 1px solid #e2e8f0;">
             <div style="margin-bottom:0.5rem; font-size: 1.1rem;">
                 <strong><i class="fas fa-map-marker-alt"></i> Destination :</strong> 
                 ${cmd.clientName ? `<span style="color:#e67e22; font-weight:bold;">🌟 Fidèle (${cmd.clientName}) - ${textTable}</span>` : textTable}
             </div>
-<div style="margin-bottom:0.5rem;"><strong><i class="fas fa-compass"></i> Origine :</strong> ${cmd.clientId ? 'Client Web (Mobile)' : 'Caisse / Serveur'}</div>
+            <div style="margin-bottom:0.5rem;"><strong><i class="fas fa-compass"></i> Origine :</strong> ${cmd.clientId ? 'Client Web (Mobile)' : 'Caisse / Serveur'}</div>
             
-<div style="margin-bottom:0.5rem;">
+            <div style="margin-bottom:0.5rem;">
                 <strong><i class="fas fa-wallet"></i> Paiement :</strong> 
                 ${(cmd.methodePaiement === 'en_ligne' || cmd.methodePaiement === 'carte_fidelite' || cmd.methodePaiement === 'Carte Fidélité')
                     ? '<span style="color:#166534; font-weight:bold; background:#dcfce7; padding:2px 8px; border-radius:10px;">✅ Déjà payé (En Ligne / Wallet)</span>' 
@@ -274,16 +310,10 @@ function voirDetails(id) {
 
             <div><strong><i class="far fa-clock"></i> Heure :</strong> ${cmd.date || new Date(cmd.timestamp).toLocaleString()}</div>
         </div>
+        
         <h3 style="font-size: 1.1rem; margin-bottom: 1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">Articles à préparer</h3>
         <div style="border-radius: 10px;">
-            ${cmd.articles.map(a => `
-                <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom:0.8rem; font-weight:700; font-size: 1.1rem;">
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <span style="background: #e2e8f0; padding: 4px 10px; border-radius: 6px;">${a.quantite}x</span>
-                        <span>${a.nom} ${a.variante ? `<i style="color:#64748b; font-size:0.9rem;">(${a.variante})</i>` : ''}</span>
-                    </div>
-                </div>
-            `).join('')}
+            ${articlesHtml}
         </div>
     `;
     
@@ -531,14 +561,26 @@ window.imprimerTicket = function(id) {
     let nomOrigine = (cmd.numeroTable === 'Emporter' || !cmd.numeroTable) ? "📦 Emporter" : `Table ${cmd.numeroTable}`;
     if (cmd.clientName) nomOrigine = `Fidèle : ${cmd.clientName}`;
 
-    // 3. Génération de la liste des articles (Alignement strict de caisse)
-    let articlesHTML = cmd.articles.map(a => `
-        <div style="display: flex; justify-content: space-between; font-family: 'Courier New', Courier, monospace; font-size: 14px; font-weight: bold; margin-bottom: 4px;">
+    // 3. Génération de la liste des articles (Logique Parent-Enfant)
+    let articlesHTML = '';
+    const platsPrint = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+    
+    platsPrint.forEach(a => {
+        articlesHTML += `
+        <div style="display: flex; justify-content: space-between; font-family: 'Courier New', Courier, monospace; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
             <div style="flex: 1;">${a.quantite}x ${a.nom.toUpperCase()}</div>
             <div style="width: 70px; text-align: right;">${(parseFloat(a.prix) * a.quantite).toFixed(2)}</div>
         </div>
-        ${a.variante ? `<div style="font-family: 'Courier New', Courier, monospace; font-size: 12px; margin-left: 15px; margin-bottom: 6px;">> ${a.variante}</div>` : ''}
-    `).join('');
+        ${a.variante ? `<div style="font-family: 'Courier New', Courier, monospace; font-size: 12px; margin-left: 15px; margin-bottom: 4px;">> ${a.variante}</div>` : ''}`;
+        
+        const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
+        mesSupps.forEach(supp => {
+            articlesHTML += `
+            <div style="display: flex; justify-content: space-between; font-family: 'Courier New', Courier, monospace; font-size: 12px; font-weight: bold; margin-bottom: 4px; padding-left: 20px; color: #555;">
+                <div style="flex: 1;">+ ${supp.nom.replace('+ ', '').toUpperCase()}</div>
+            </div>`;
+        });
+    });
 
     // 4. Injection du HTML (Design Caisse)
     zonePrint.style.display = 'block';
