@@ -470,17 +470,19 @@ let totalSecurise = 0;
         for (let art of req.body.articles) {
             let produitDb = null;
             
-            // 🔥 CORRECTION : On ignore la base de données si c'est un supplément
-            // et on s'assure que l'ID est bien un nombre pour éviter le plantage Mongoose
-            if (!art.isSupplement && art.id && !isNaN(art.id)) {
+            // 🔥 CORRECTION : On cherche TOUT (Plats et Suppléments) si l'ID est un vrai chiffre
+            if (art.id && !isNaN(art.id)) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
             }
 
             if (produitDb) {
-                totalSecurise += (produitDb.prix * art.quantite);
-                articlesSecurises.push({ ...art, prix: produitDb.prix });
+                // Si c'est un supplément, on garde le prix que le client a coché
+                let prixApplique = art.isSupplement ? art.prix : produitDb.prix;
+                totalSecurise += (prixApplique * art.quantite);
+                
+                // On s'assure que l'ID propre (Number) est sauvegardé pour le stock
+                articlesSecurises.push({ ...art, prix: prixApplique, id: produitDb.id }); 
             } else {
-                // Si c'est un supplément, on fait confiance au prix envoyé par le client
                 totalSecurise += (art.prix * art.quantite);
                 articlesSecurises.push(art);
             }
@@ -510,17 +512,20 @@ let totalSecurise = 0;
                 date: new Date().toLocaleString('fr-FR'), timestamp: Date.now()
             }).save();
 
-            for (let art of articlesSecurises) {
+for (let art of articlesSecurises) {
                 const qte = parseInt(art.quantite) || 1;
-                const produitMisAJour = await Product.findOneAndUpdate(
-                    { cafeId: req.cafeId, id: art.id }, { $inc: { stock: -qte } }, { new: true }
-                );
+                // 🔥 SÉCURITÉ AJOUTÉE ICI : On vérifie que c'est bien un nombre
+                if (art.id && !isNaN(art.id)) {
+                    const produitMisAJour = await Product.findOneAndUpdate(
+                        { cafeId: req.cafeId, id: Number(art.id) }, { $inc: { stock: -qte } }, { new: true }
+                    );
 
-                if (produitMisAJour && produitMisAJour.stock !== undefined) {
-                    await new Movement({ 
-                        cafeId: req.cafeId, type: 'vente_vip', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
-                        quantite: qte, ancienStock: produitMisAJour.stock + qte, nouveauStock: produitMisAJour.stock, raison: `Achat VIP #${numeroCmd}` 
-                    }).save();
+                    if (produitMisAJour && produitMisAJour.stock !== undefined) {
+                        await new Movement({ 
+                            cafeId: req.cafeId, type: 'vente_vip', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
+                            quantite: qte, ancienStock: produitMisAJour.stock + qte, nouveauStock: produitMisAJour.stock, raison: `Achat VIP #${numeroCmd}` 
+                        }).save();
+                    }
                 }
             }
             io.to(req.cafeId).emit('update_stock'); // 🔥 Envoi ciblé au café !
@@ -608,17 +613,20 @@ app.get('/api/simulateur-paiement/:orderId', async (req, res) => {
         commande.statut = 'en_attente';
         await commande.save();
 
-        for (let art of commande.articles) {
-            const produitMisAJour = await Product.findOneAndUpdate(
-                { cafeId: req.cafeId, id: art.id }, { $inc: { stock: -art.quantite } }, { new: true }
-            );
+for (let art of commande.articles) {
+            // 🔥 Sécurisation de l'ID ici aussi
+            if (art.id && !isNaN(art.id)) {
+                const produitMisAJour = await Product.findOneAndUpdate(
+                    { cafeId: req.cafeId, id: Number(art.id) }, { $inc: { stock: -art.quantite } }, { new: true }
+                );
 
-            if (produitMisAJour && produitMisAJour.stock !== undefined) {
-                await new Movement({ 
-                    cafeId: req.cafeId, type: 'vente_web', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
-                    quantite: art.quantite, ancienStock: produitMisAJour.stock + art.quantite,
-                    nouveauStock: produitMisAJour.stock, raison: `Commande WEB #${commande.numero}` 
-                }).save();
+                if (produitMisAJour && produitMisAJour.stock !== undefined) {
+                    await new Movement({ 
+                        cafeId: req.cafeId, type: 'vente_web', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
+                        quantite: art.quantite, ancienStock: produitMisAJour.stock + art.quantite,
+                        nouveauStock: produitMisAJour.stock, raison: `Commande WEB #${commande.numero}` 
+                    }).save();
+                }
             }
         }
 
@@ -809,15 +817,18 @@ app.post('/api/stock/:id/add', verifierToken, async (req, res) => {
 app.post('/api/stock/decrementer', verifierToken, async (req, res) => {
     try {
         for (let art of req.body.articles) {
-            const p = await Product.findOneAndUpdate(
-                { cafeId: req.cafeId, id: art.id, stock: { $exists: true } }, 
-                { $inc: { stock: -art.quantite } }, { new: true }
-            );
-            if (p) {
-                await new Movement({ 
-                    cafeId: req.cafeId, type: 'vente', produit: p.nom, produitId: art.id, 
-                    quantite: art.quantite, nouveauStock: p.stock, ancienStock: p.stock + art.quantite, raison: "Vente" 
-                }).save();
+            // 🔥 SÉCURITÉ AJOUTÉE ICI
+            if (art.id && !isNaN(art.id)) {
+                const p = await Product.findOneAndUpdate(
+                    { cafeId: req.cafeId, id: Number(art.id), stock: { $exists: true } }, 
+                    { $inc: { stock: -art.quantite } }, { new: true }
+                );
+                if (p) {
+                    await new Movement({ 
+                        cafeId: req.cafeId, type: 'vente', produit: p.nom, produitId: art.id, 
+                        quantite: art.quantite, nouveauStock: p.stock, ancienStock: p.stock + art.quantite, raison: "Vente" 
+                    }).save();
+                }
             }
         }
         io.to(req.cafeId).emit('update_stock');
@@ -916,15 +927,16 @@ let vraiTotalReel = 0;
         for (let art of req.body.articles) {
             let produitDb = null;
             
-            // 🔥 CORRECTION : Pareil pour la caisse, on protège la recherche
-            if (!art.isSupplement && art.id && !isNaN(art.id)) {
-                produitDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(art.id) }, { nom: art.nom }] });
-            } else if (!art.isSupplement) {
+            // 🔥 CORRECTION : Recherche sécurisée pour les plats ET les suppléments
+            if (art.id && !isNaN(art.id)) {
+                produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
+            } else if (art.nom) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, nom: art.nom });
             }
             
             if (produitDb) {
-                vraiTotalReel += (produitDb.prix * art.quantite); 
+                let prixApplique = art.isSupplement ? art.prix : produitDb.prix;
+                vraiTotalReel += (prixApplique * art.quantite); 
                 
                 if (produitDb.stock !== undefined) {
                     const produitMisAJour = await Product.findOneAndUpdate(
