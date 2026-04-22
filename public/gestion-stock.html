@@ -859,11 +859,11 @@ function ouvrirModalNouveauProduit() {
                     </select>
                 </div>
                 <div class="form-group" id="divNewVariantes" style="display: none;">
-                    <label>Valeurs (séparées par des virgules) :</label><input type="text" id="newProdVariantes" placeholder="Ex: Normal, Serré, Allongé">
+                    <label>Valeurs (virgules) :</label><input type="text" id="newProdVariantes" placeholder="Ex: Normal, Serré, Allongé">
                 </div>
 
                 <div class="form-group" style="background: #fdfaf6; padding: 10px; border-radius: 10px; border: 1px solid #e3c496;">
-                    <label style="color: #db800a; font-weight: 800;"><i class="fas fa-plus-circle"></i> Suppléments Payants :</label>
+                    <label style="color: #db800a; font-weight: 800;">Suppléments Payants :</label>
                     <div id="containerSupplements"></div>
                     <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un choix</button>
                 </div>
@@ -884,7 +884,10 @@ function ouvrirModalNouveauProduit() {
                     <div class="form-group" style="flex:1;"><label>Prix Vente:</label><input type="number" id="newProdPrice" step="0.1"></div>
                 </div>
 
-                <div class="form-group"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
+                    <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10"></div>
+                </div>
                 
                 <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()">Enregistrer</button></div>
             </div>
@@ -960,12 +963,13 @@ async function sauvegarderNouveauProduit() {
         prixAchat: parseFloat(document.getElementById('newProdPrixAchat').value) || 0,
         prix: parseFloat(document.getElementById('newProdPrice').value),
         stock: parseInt(document.getElementById('newProdStock').value) || 0,
+        seuilAlerte: parseInt(document.getElementById('newProdAlerte').value) || 10, // 🔥
         supplements: extraireSupplements()
     };
     try {
         const response = await fetchSecurise('/api/stock', { method: 'POST', body: JSON.stringify(produitData) });
         if (response.ok) { fermerModal(); chargerStock(); showNotification("✅ Produit créé"); }
-    } catch (e) { showNotification("Erreur", "var(--danger)"); }
+    } catch (e) { showNotification("Erreur de sauvegarde", "var(--danger)"); }
 }
 function ajouterLigneIngredient(idIng = '', qte = '1') {
     const div = document.createElement('div');
@@ -1052,7 +1056,10 @@ function ouvrirModalEdition(id) {
                     <div class="form-group" style="flex:1;"><label>Prix Vente:</label><input type="number" id="editProdPrice" value="${p.prix}"></div>
                 </div>
 
-                <div class="form-group"><label>Stock :</label><input type="number" id="editProdStock" value="${p.stock}"></div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
+                    <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
+                </div>
 
                 <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
             </div>
@@ -1072,12 +1079,13 @@ async function sauvegarderEditionProduit(id) {
         prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
         prix: parseFloat(document.getElementById('editProdPrice').value),
         stock: parseInt(document.getElementById('editProdStock').value),
+        seuilAlerte: parseInt(document.getElementById('editProdAlerte').value) || 10, // 🔥
         supplements: extraireSupplements()
     };
     try {
         const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
         if (response.ok) { fermerModal(); chargerStock(); showNotification("✅ Mis à jour"); }
-    } catch (e) { showNotification("Erreur", "var(--danger)"); }
+    } catch (e) { showNotification("Erreur de modification", "var(--danger)"); }
 }
 
         async function supprimerProduit(id) {
