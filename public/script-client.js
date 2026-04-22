@@ -227,6 +227,7 @@ async function appliquerBranding() {
             document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
             if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
             if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); };
+            window.CODE_SERVEUR = config.codeServeur || "00000";
         }
 
         // ⏳ LA PAUSE DE 3 SECONDES EST ICI
@@ -663,7 +664,7 @@ function afficherModalCode(numTable) {
             } catch(e) {}
         }
 
-        if (codeSaisi === "00000") authValid = true;
+        if (codeSaisi === window.CODE_SERVEUR) authValid = true;
 
         if (authValid) {
             modal.remove();

@@ -237,6 +237,7 @@ const StoreSettings = mongoose.model('StoreSettings', new mongoose.Schema({
     couleurPrincipale: String,
     logoUrl: String,
     caisseToken: String,
+    codeServeur: { type: String, default: '00000' },
     nombreTables: { type: Number, default: 20 },
     statutAbonnement: { type: String, default: 'actif' },
     dateExpiration: String
@@ -365,20 +366,20 @@ app.get('/api/branding', async (req, res) => {
 
 app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
     try {
-        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, targetCafeId, nombreTables, dateExpiration, cloneFromId } = req.body;
+        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken,codeServeur, targetCafeId, nombreTables, dateExpiration, cloneFromId } = req.body;
         
         const cafeCible = targetCafeId ? targetCafeId : req.cafeId;
 
         const config = await StoreSettings.findOneAndUpdate(
             { cafeId: cafeCible, type: 'branding' },
-            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, nombreTables, dateExpiration }, 
+            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken,codeServeur, nombreTables, dateExpiration }, 
             { new: true, upsert: true }
         );
 
         // 🔥 LOGIQUE DE CLONAGE DU MENU SAAS
         if (cloneFromId) {
             const existingProducts = await Product.countDocuments({ cafeId: cafeCible });
-            if (existingProducts === 0) { // On clone seulement si le nouveau menu est vide
+            if (existingProducts === 0) { 
                 const produitsACloner = await Product.find({ cafeId: cloneFromId });
                 if (produitsACloner.length > 0) {
                     const nouveauxProduits = produitsACloner.map(p => ({
@@ -402,24 +403,34 @@ app.get('/api/stock', async (req, res) => {
 
 // 🔥 ROUTE COMMANDE (SÉCURISÉE AVEC VÉRIFICATION DU CODE TABLE)
 app.post('/api/commandes', async (req, res) => {
-    try {
+try {
         const codeEnvoye = String(req.body.codeAuth);
         
-        if (req.body.numeroTable && req.body.numeroTable !== 'Emporter') {
-            let authValid = false;
-            const fidele = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
-            if (fidele) authValid = true;
+        // 🔥 1. ON RÉCUPÈRE LES CLÉS DYNAMIQUES DU CAFÉ
+        const config = await StoreSettings.findOne({ cafeId: req.cafeId, type: 'branding' });
+        const vraiCodeServeur = (config && config.codeServeur) ? config.codeServeur : '00000';
+        const vraiCaisseToken = (config && config.caisseToken) ? config.caisseToken : '12345678';
+        const tokenFourni = req.headers['authorization'];
 
-            if (!authValid) {
+        let authValid = false;
+        if (tokenFourni && tokenFourni === vraiCaisseToken) {
+            authValid = true;
+        }
+        else if (codeEnvoye === vraiCodeServeur) {
+            authValid = true;
+        }
+        else if (req.body.numeroTable && req.body.numeroTable !== 'Emporter') {
+            const fidele = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
+            if (fidele) {
+                authValid = true;
+            } else {
                 const tableDb = await TableCode.findOne({ cafeId: req.cafeId, numero: parseInt(req.body.numeroTable) });
                 if (tableDb && tableDb.code === codeEnvoye) authValid = true;
             }
+        }
 
-            if (codeEnvoye === "00000") authValid = true;
-
-            if (!authValid) {
-                return res.status(403).json({ error: "Ce QR Code a expiré ou est invalide." });
-            }
+        if (!authValid) {
+            return res.status(403).json({ error: "Ce QR Code a expiré ou le Code Serveur est invalide." });
         }
 
         let totalSecurise = 0;

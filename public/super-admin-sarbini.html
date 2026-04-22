@@ -176,6 +176,10 @@
                                     <label class="block text-sm font-semibold text-slate-300 mb-1">Mot de Passe Caisse <i class="fas fa-lock text-slate-500"></i></label>
                                     <input type="text" id="caisseToken" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-neon" placeholder="ex: lorient2026">
                                 </div>
+                                <div>
+    <label class="block text-sm font-semibold text-slate-300 mb-1">Code Serveur (Prise de commande) <i class="fas fa-user-tie text-slate-500"></i></label>
+    <input type="text" id="codeServeur" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-neon" placeholder="ex: 99999">
+</div>
                             </div>
                         </div>
 
@@ -426,7 +430,7 @@ function calculerJoursRestants(dateStr) {
             document.getElementById('cafeId').value = cafe.cafeId;
             document.getElementById('cafeId').readOnly = true; 
             document.getElementById('cafeId').classList.add('opacity-50', 'cursor-not-allowed');
-            
+            document.getElementById('codeServeur').value = cafe.codeServeur || '00000';
             document.getElementById('nomCafe').value = cafe.nomCafe || '';
             document.getElementById('sloganCafe').value = cafe.sloganCafe || 'Coffee Shop';
             document.getElementById('caisseToken').value = cafe.caisseToken || '';
@@ -490,6 +494,7 @@ function calculerJoursRestants(dateStr) {
                 nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
                 sloganCafe: document.getElementById('sloganCafe').value || "Coffee Shop",
                 caisseToken: document.getElementById('caisseToken').value || '12345678',
+                codeServeur: document.getElementById('codeServeur').value || '00000',
                 logoUrl: document.getElementById('logoUrl').value,
                 nombreTables: parseInt(document.getElementById('nombreTables').value) || 20,
                 dateExpiration: document.getElementById('dateExpiration').value || null,
