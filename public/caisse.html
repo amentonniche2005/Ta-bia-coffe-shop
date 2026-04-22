@@ -859,7 +859,10 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
     if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) nomOrigine = ticket.label;
     if (currentTable.startsWith('LOCAL_EMP_')) nomOrigine = `🚶 Caisse Directe`;
     if (currentTable === 'Direct') nomOrigine = `⚡ Vente Directe`;
-    imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
+
+    // 🔥 CORRECTION : On lance l'impression IMMÉDIATEMENT avant que le navigateur bloque la fenêtre
+    imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
+
     const venteBody = { id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, articles: ticket.articles.map(a => ({ id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix })), methodePaiement: methodePaiement };
 
     if (ticket.orderIds && ticket.orderIds.length > 0) ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
@@ -951,7 +954,10 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
     if (currentTable.startsWith('Fidele_') || currentTable.startsWith('WEB_')) nomOrigine = ticket.label;
     if (currentTable.startsWith('LOCAL_EMP_')) nomOrigine = `🚶 Caisse Directe`;
     if (currentTable === 'Direct') nomOrigine = `⚡ Vente Directe`;
+
+    // 🔥 CORRECTION : On lance l'impression IMMÉDIATEMENT
     imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
+
     const venteBody = { id: Date.now().toString(), numero: "P" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'partiel', tableOrigine: nomOrigine, articles: articlesAPayer, methodePaiement: methodePaiement };
 
     const articlesRestants = [];
@@ -987,7 +993,6 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
     
     sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
     showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
-    imprimerTicket(articlesAPayer, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
 }
 
     async function chargerCommandesCuisineInitiales() {
