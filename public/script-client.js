@@ -810,11 +810,24 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
     }
 
     try {
+        // 🔥 SÉCURITÉ 1 : On nettoie le panier pour éviter les articles corrompus
+        const panierPropre = panier.filter(item => item && item.nom && !isNaN(item.prix));
+        if (panierPropre.length === 0) {
+            afficherNotification("Votre panier est vide ou invalide.", "error");
+            panier = [];
+            sauvegarderPanier();
+            if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; }
+            return;
+        }
+
         const nomPremium = sessionStorage.getItem('client_nom_premium');
-        let nomFidele = nomPremium || (clientData ? `${clientData.prenom} ${clientData.nom}` : null);
-        let idFidele = (codeSaisi || sessionStorage.getItem('tabia_auth_qr')) || clientId;
-        let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
-        const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
+        let nomFidele = nomPremium || (clientData ? `${clientData.prenom} ${clientData.nom}` : "Client");
+        let idFidele = (codeSaisi || sessionStorage.getItem('tabia_auth_qr')) || clientId || "client_anonyme";
+        
+        let tableFinale = (numTable === 'Emporter') ? 'Emporter' : (parseInt(numTable) || 0);
+        
+        // 🔥 SÉCURITÉ 2 : Calcul sécurisé du total pour éviter l'erreur NaN qui fait crasher le serveur
+        const totalCommande = panierPropre.reduce((sum, item) => sum + ((parseFloat(item.prix) || 0) * (parseInt(item.quantite) || 1)), 0);
         
         const methodeElement = document.getElementById('methodePaiementClient');
         const methodeChoisie = methodeElement ? methodeElement.value : 'especes';
@@ -823,23 +836,23 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                // 🔥 ENVOI DE LA STRUCTURE PARFAITE AU SERVEUR
-                articles: panier.map(a => ({ 
-                    id: a.baseId || a.id, 
-                    nom: a.nom, 
-                    variante: a.variante, 
-                    prix: a.prix, 
-                    quantite: a.quantite,
-                    isSupplement: a.isSupplement || (a.nom && a.nom.startsWith('+')),
-                    uniqueGroupId: a.uniqueGroupId, // Lien avec lui-même
-                    parentId: a.parentId            // Lien avec le plat principal
+                // 🔥 SÉCURITÉ 3 : Forçage des types de données (MongoDB ne pourra plus refuser la commande)
+                articles: panierPropre.map(a => ({ 
+                    id: String(a.baseId || a.id || Date.now()), 
+                    nom: String(a.nom), 
+                    variante: a.variante ? String(a.variante) : "", 
+                    prix: Number(a.prix) || 0, 
+                    quantite: Number(a.quantite) || 1,
+                    isSupplement: Boolean(a.isSupplement || (a.nom && String(a.nom).startsWith('+'))),
+                    uniqueGroupId: Number(a.uniqueGroupId) || Date.now(), 
+                    parentId: a.parentId ? Number(a.parentId) : null
                 })),
-                numeroTable: tableFinale,
-                clientId: idFidele, 
-                codeAuth: idFidele, 
-                clientName: nomFidele, 
-                total: totalCommande,
-                methodePaiement: methodeChoisie 
+                numeroTable: String(tableFinale),
+                clientId: String(idFidele), 
+                codeAuth: String(idFidele), 
+                clientName: String(nomFidele), 
+                total: Number(totalCommande) || 0,
+                methodePaiement: String(methodeChoisie) 
             })
         });
 
@@ -859,7 +872,7 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
                 return; 
             }
             
-            const messageSucces = nomFidele ? `🎉 Merci ${nomFidele} ! Commande envoyée.` : "🎉 Commande envoyée avec succès !";
+            const messageSucces = (nomFidele && nomFidele !== "Client") ? `🎉 Merci ${nomFidele} ! Commande envoyée.` : "🎉 Commande envoyée avec succès !";
             afficherNotification(messageSucces, "success");
             
             if (commande.bonusInfo) {
@@ -870,7 +883,8 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
             }
             
         } else { 
-            const erreurData = await response.json();
+            // Sécurisation de l'affichage des erreurs
+            const erreurData = await response.json().catch(() => ({ error: "Erreur serveur non reconnue" }));
             
             if (response.status === 403) {
                 afficherNotification("❌ " + erreurData.error, "error");
@@ -881,11 +895,11 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
             } else if (response.status === 400) {
                 afficherNotification("⚠️ " + erreurData.error, "error"); 
             } else {
-                afficherNotification("❌ Erreur serveur", "error"); 
+                afficherNotification("❌ Erreur serveur interne", "error"); 
             }
         }
     } catch (e) { 
-        afficherNotification("❌ Erreur de connexion", "error"); 
+        afficherNotification("❌ Erreur de connexion au serveur", "error"); 
     } finally {
         if (checkoutBtn) { 
             checkoutBtn.disabled = false; 
