@@ -667,14 +667,25 @@ async function envoyerEnCuisine() {
     const articlesAEnvoyer = ticket.articles.filter(a => !a.envoye);
     if (articlesAEnvoyer.length === 0) return showNotification("✅ Déjà envoyés", "#3b82f6");
 
-    let nomTableServeur = currentTable; let nomClientFidele = null;
+    let nomTableServeur = currentTable; 
+    let nomClientFidele = null;
+
+    // 🔥 1. CORRECTION DE L'ERREUR ROUGE "NaN" DU SERVEUR
     if (currentTable.startsWith('Fidele_')) { 
         nomTableServeur = ticket.numeroTableOrigine || 'Emporter'; 
         nomClientFidele = ticket.label.split(' (')[0]; 
     } else if (currentTable.startsWith('LOCAL_EMP_') || currentTable === 'Direct') {
         nomTableServeur = 'Emporter';
         nomClientFidele = 'Caisse';
+    } else if (currentTable.startsWith('WEB_')) {
+        // On trompe le serveur en envoyant "Emporter", mais on cache l'ID dans le nom !
+        nomTableServeur = 'Emporter';
+        nomClientFidele = currentTable; 
     }
+
+    // 🔥 2. ANTI-DUPLICATION : On prévient la caisse qu'elle est l'auteur de cette commande
+    window.tablesEnAttenteEnvoi = window.tablesEnAttenteEnvoi || new Set();
+    window.tablesEnAttenteEnvoi.add(currentTable);
 
     try {
         const response = await fetchSecurise('/api/commandes', {
@@ -691,16 +702,17 @@ async function envoyerEnCuisine() {
             const newId = data.id || data._id;
             showNotification(`👨‍🍳 Articles envoyés en cuisine !`, "#e67e22"); 
             
-            // Transformation magique si c'est un client local
+            // Transformation du ticket local
             if (currentTable.startsWith('LOCAL_EMP_') || currentTable === 'Direct') {
                 const newKey = 'WEB_' + newId;
-                tickets[newKey] = { ...ticket, label: `Comptoir #${data.numero}` };
+                tickets[newKey] = { ...ticket, label: (currentTable === 'Direct' ? '⚡ Direct' : `Comptoir #${data.numero}`) };
                 tickets[newKey].orderIds = [newId];
                 window.commandesTraiteesTickets.add(newId);
                 tickets[newKey].articles.forEach(a => { if (!a.envoye) a.envoye = true; });
                 
                 delete tickets[currentTable];
                 currentTable = newKey;
+                window.tablesEnAttenteEnvoi.add(newKey); // On protège le nouveau nom
             } else {
                 if (!ticket.orderIds) ticket.orderIds = [];
                 if (newId) ticket.orderIds.push(newId);
@@ -711,7 +723,17 @@ async function envoyerEnCuisine() {
         } else { 
             const errData = await response.json(); showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
         }
-    } catch (error) { showNotification("❌ Erreur réseau", "#ef4444"); }
+    } catch (error) { 
+        showNotification("❌ Erreur réseau", "#ef4444"); 
+    } finally {
+        // Nettoyage de la sécurité anti-doublon après 2 secondes
+        setTimeout(() => {
+            if (window.tablesEnAttenteEnvoi) {
+                window.tablesEnAttenteEnvoi.delete(currentTable);
+                if (nomClientFidele && nomClientFidele.startsWith('WEB_')) window.tablesEnAttenteEnvoi.delete(nomClientFidele);
+            }
+        }, 2000);
+    }
 }
 function afficherListeTables() {
     const container = document.getElementById('tablesGrid'); const countSpan = document.getElementById('tablesCount');
@@ -1060,17 +1082,34 @@ function initSocket() {
             let tableNum = String(commande.numeroTable || '').trim();
             let customLabel = null;
 
-            // 🔥 On crée le bouton dynamique en temps réel
+            // Routage pour retrouver le bon ticket
             if (tableNum === 'Emporter') {
-                tableNum = 'WEB_' + commande.id;
-                customLabel = commande.clientName ? commande.clientName : `Emporter #${commande.numero}`;
+                if (commande.clientName && commande.clientName.startsWith('WEB_')) {
+                    tableNum = commande.clientName; // C'est un ajout sur un ticket existant
+                } else {
+                    tableNum = 'WEB_' + commande.id;
+                    customLabel = (commande.clientName && commande.clientName !== 'Caisse') ? commande.clientName : `Emporter #${commande.numero}`;
+                }
             } else if (commande.clientName) {
                 tableNum = 'Fidele_' + commande.clientName;
                 customLabel = commande.clientName;
             }
 
+            // 🔥 BOUCLIER ANTI-DUPLICATION
+            window.tablesEnAttenteEnvoi = window.tablesEnAttenteEnvoi || new Set();
+            if (window.tablesEnAttenteEnvoi.has(tableNum) || window.tablesEnAttenteEnvoi.has(String(commande.numeroTable).trim())) {
+                if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [] };
+                if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
+                if (!tickets[tableNum].orderIds.includes(commande.id)) {
+                    tickets[tableNum].orderIds.push(commande.id);
+                    window.commandesTraiteesTickets.add(commande.id);
+                }
+                return; // 🛑 ON S'ARRÊTE ICI ! (Ne rajoute pas les articles en double)
+            }
+
+            // Ajout normal si la commande vient d'un smartphone client
             if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
-            if (customLabel) tickets[tableNum].label = customLabel;
+            if (customLabel && !tickets[tableNum].label) tickets[tableNum].label = customLabel;
             if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
 
             if (!tickets[tableNum].orderIds.includes(commande.id)) {
@@ -1109,15 +1148,19 @@ function initSocket() {
             let customLabel = null;
             
             if (tableNum === 'Emporter') {
-                tableNum = 'WEB_' + commande.id;
-                customLabel = commande.clientName ? commande.clientName : `Emporter #${commande.numero}`;
+                if (commande.clientName && commande.clientName.startsWith('WEB_')) {
+                    tableNum = commande.clientName;
+                } else {
+                    tableNum = 'WEB_' + commande.id;
+                    customLabel = (commande.clientName && commande.clientName !== 'Caisse') ? commande.clientName : `Emporter #${commande.numero}`;
+                }
             } else if (commande.clientName) { 
                 tableNum = 'Fidele_' + commande.clientName; 
                 customLabel = commande.clientName; 
             }
             
             if (!tickets[tableNum]) tickets[tableNum] = { articles: [], total: 0, orderIds: [], numeroTableOrigine: commande.numeroTable };
-            if (customLabel) tickets[tableNum].label = customLabel; 
+            if (customLabel && !tickets[tableNum].label) tickets[tableNum].label = customLabel; 
             if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
             if (!tickets[tableNum].orderIds.includes(commande.id)) tickets[tableNum].orderIds.push(commande.id);
 
