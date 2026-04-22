@@ -1012,29 +1012,29 @@ function ouvrirModalEdition(id) {
             <div class="modal-content" style="max-width:500px;">
                 <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
                 
-                <div class="form-group"><label>Nom :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
-                <div class="form-group"><label>URL Photo :</label><input type="text" id="editProdImage" value="${p.image || ''}"></div>
+                <div class="form-group"><label>Nom :</label><input type="text" id="prodName" value="${escapeHtml(p.nom)}"></div>
+                <div class="form-group"><label>URL Photo :</label><input type="text" id="prodImage" value="${p.image || ''}"></div>
 
                 <div class="form-group">
-                    <label>Type de choix client :</label>
-                    <select id="editProdTypeChoix" onchange="document.getElementById('divEditVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
+                    <label>Type de choix :</label>
+                    <select id="prodTypeChoix" onchange="document.getElementById('divVars').style.display = (this.value === 'aucun') ? 'none' : 'block'">
                         <option value="aucun" ${p.typeChoix==='aucun'?'selected':''}>🚫 Aucun</option>
                         <option value="unique" ${p.typeChoix==='unique'?'selected':''}>🔘 Unique</option>
                         <option value="multiple" ${p.typeChoix==='multiple'?'selected':''}>☑️ Multiple</option>
                     </select>
                 </div>
-                <div class="form-group" id="divEditVariantes" style="display:${p.typeChoix==='aucun'?'none':'block'};">
-                    <input type="text" id="editProdVariantes" value="${p.variantes || ''}">
+                <div class="form-group" id="divVars" style="display:${p.typeChoix==='aucun'?'none':'block'};">
+                    <input type="text" id="prodVariantes" value="${p.variantes || ''}">
                 </div>
 
-                <div class="form-group" style="background: #fdfaf6; padding: 10px; border-radius: 10px; border: 1px solid #e3c496;">
-                    <label style="color: #db800a; font-weight: 800;"><i class="fas fa-plus-circle"></i> Suppléments Payants :</label>
+                <div class="form-group" style="background:#fdfaf6; padding:10px; border-radius:10px; border:1px solid #e3c496;">
+                    <label style="color:#db800a; font-weight:800;">Suppléments Payants :</label>
                     <div id="containerSupplements"></div>
-                    <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un supplément</button>
+                    <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background:#e3c496; color:#143621; font-size:0.75rem;">+ Ajouter</button>
                 </div>
 
                 <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
-                    <select id="editProdCat">
+                    <select id="prodCat">
                         <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
                         <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
                         <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
@@ -1042,7 +1042,7 @@ function ouvrirModalEdition(id) {
                         <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
                         <option value="sandwish" ${p.categorie==='sandwish'?'selected':''}>🥪 Sandwiches</option>
                         <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option>
-                        <option value="Ma9loub" ${p.categorie==='Ma9loub'?'selected':''}>🌮 Ma9loub</option>
+                        <option value="Ma9loub" ${p.categorie==='Ma9loub'?'selected':''}>🌮 ma9loub</option>
                         <option value="Pizza" ${p.categorie==='Pizza'?'selected':''}>🍕 Pizza</option>
                         <option value="BagetteFarci" ${p.categorie==='BagetteFarci'?'selected':''}>🥖 Bagette Farci</option>
                         <option value="Tacos" ${p.categorie==='Tacos'?'selected':''}>🌯 Tacos</option>
@@ -1056,44 +1056,44 @@ function ouvrirModalEdition(id) {
                 </div>
 
                 <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="editProdPrixAchat" value="${p.prixAchat || 0}" step="0.001"></div>
-                    <div class="form-group" style="flex:1;"><label>Prix Vente:</label><input type="number" id="editProdPrice" value="${p.prix}"></div>
+                    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="prodPrixAchat" value="${p.prixAchat || 0}" step="0.001"></div>
+                    <div class="form-group" style="flex:1;"><label>Prix Vente:</label><input type="number" id="prodPrice" value="${p.prix}"></div>
                 </div>
 
                 <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
-                    <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
+                    <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="prodStock" value="${p.stock}"></div>
+                    <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="prodAlerte" value="${p.seuilAlerte || 10}"></div>
                 </div>
 
-                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})"><i class="fas fa-sync"></i> Mettre à jour</button></div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})">Mettre à jour</button></div>
             </div>
         </div>`;
     
-    // Recharge les suppléments enregistrés
     if (p.supplements) p.supplements.forEach(s => ajouterLigneSupplement(s.id, s.nom, s.prix));
 }
 
 async function sauvegarderEditionProduit(id) {
-    const typeC = document.getElementById('editProdTypeChoix').value;
+    // 🔥 CORRECTION ICI : On s'assure de bien pointer vers prodCat
+    const typeC = document.getElementById('prodTypeChoix').value;
     const produitData = {
-        nom: document.getElementById('editProdName').value,
-        image: document.getElementById('editProdImage').value,
-        variantes: typeC === 'aucun' ? "" : document.getElementById('editProdVariantes').value,
+        nom: document.getElementById('prodName').value,
+        image: document.getElementById('prodImage').value,
+        variantes: document.getElementById('prodVariantes') ? document.getElementById('prodVariantes').value : "",
         typeChoix: typeC,
-        categorie: document.getElementById('editProdCat').value,
-        prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
-        prix: parseFloat(document.getElementById('editProdPrice').value),
-        stock: parseInt(document.getElementById('editProdStock').value) || 0,
-        seuilAlerte: parseInt(document.getElementById('editProdAlerte').value) || 10,
+        categorie: document.getElementById('prodCat').value, 
+        prixAchat: parseFloat(document.getElementById('prodPrixAchat').value) || 0,
+        prix: parseFloat(document.getElementById('prodPrice').value) || 0,
+        stock: parseInt(document.getElementById('prodStock').value) || 0,
+        seuilAlerte: parseInt(document.getElementById('prodAlerte').value) || 10,
         supplements: extraireSupplements()
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
 
     try {
-        const response = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
-        if (response.ok) { fermerModal(); chargerStock(); chargerDashboard(); showNotification("✅ Mis à jour"); }
-    } catch (e) { showNotification("Erreur serveur", "var(--danger)"); }
+        const res = await fetchSecurise(`/api/stock/${id}`, { method: 'PUT', body: JSON.stringify(produitData) });
+        if(res.ok) { fermerModal(); chargerStock(); chargerDashboard(); showNotification("✅ Mis à jour"); }
+    } catch(e) { showNotification("Erreur", "var(--danger)"); }
 }
 
         async function supprimerProduit(id) {
