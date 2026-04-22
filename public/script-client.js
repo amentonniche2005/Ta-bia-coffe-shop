@@ -440,53 +440,68 @@ function mettreAJourTotalModal() {
     document.getElementById("prixTotalOptionsBtn").textContent = `(${total.toFixed(2)} DT)`;
 }
 
-function executerAjoutPanier(produit, variante, supplements = []) {
-    // 1. Ajouter le produit principal
-    const cartIdPrincipal = variante ? `${produit.id}_${variante}_${Date.now()}` : `${produit.id}_${Date.now()}`;
-    const nomAffiche = variante ? `${produit.nom} (${variante})` : produit.nom;
-    const uniqueGroupId = Date.now();
+window.executerAjoutPanier = function(idProduit) {
+    const produit = produits.find(p => String(p.id) === String(idProduit) || String(p._id) === String(idProduit));
+    if (!produit) return;
 
-    if (produit.stock !== undefined) {
-        const quantiteTotalePanier = panier.filter(item => item.baseId === produit.id).reduce((sum, item) => sum + item.quantite, 0);
-        if (quantiteTotalePanier >= produit.stock) {
-            afficherNotification("Désolé, stock insuffisant !", "error");
-            return;
-        }
+    let vari = null;
+    let suppsChoisis = [];
+
+    if (produit.typeChoix === 'unique') {
+        const select = document.getElementById(`variante-${idProduit}`);
+        if (select) vari = select.value;
+    } else if (produit.typeChoix === 'multiple') {
+        const checkboxes = document.querySelectorAll(`.checkbox-${idProduit}:checked`);
+        vari = Array.from(checkboxes).map(cb => cb.value).join(', ');
+        if (!vari) vari = "Nature"; 
     }
 
+    // Extraction des suppléments cochés par le client
+    if (produit.supplements && produit.supplements.length > 0) {
+        const suppCheckboxes = document.querySelectorAll(`.supp-${idProduit}:checked`);
+        suppCheckboxes.forEach(cb => {
+            const index = cb.getAttribute('data-index');
+            suppsChoisis.push(produit.supplements[index]);
+        });
+    }
+
+    // 🔥 CRÉATION DU LIEN DE PARENTÉ UNIQUE POUR CETTE COMMANDE
+    const idGroupeUnique = Date.now(); 
+
+    // 1. Ajouter le produit principal au panier
     panier.push({ 
-        cartId: cartIdPrincipal, 
-        baseId: produit.id,
-        id: produit.id,
-        nom: nomAffiche, 
-        variante: variante,
+        cartId: `MAIN_${idGroupeUnique}`,
+        id: produit.id || produit._id, 
+        nom: produit.nom, 
+        variante: vari, 
         prix: parseFloat(produit.prix), 
         quantite: 1,
         isSupplement: false,
-        uniqueGroupId: uniqueGroupId 
+        uniqueGroupId: idGroupeUnique, // 🔥 Assigne l'ID du groupe
+        parentId: null
     });
 
-    // 2. Ajouter les suppléments comme des produits séparés
-    if (supplements.length > 0) {
-        supplements.forEach(supp => {
+    // 2. Ajouter les suppléments comme des produits séparés, mais liés !
+    if (suppsChoisis.length > 0) {
+        suppsChoisis.forEach(supp => {
             panier.push({
-                cartId: `SUPP_${uniqueGroupId}_${Math.random()}`, 
-                baseId: supp.id || supp._id, // 🔥 CORRECTION : On s'assure d'avoir un vrai ID
-                id: produit.id, 
+                cartId: `SUPP_${idGroupeUnique}_${Math.random()}`, 
+                baseId: supp.id || supp._id, 
+                id: supp.id || supp._id, 
                 nom: `+ ${supp.nom}`, 
                 variante: null,
                 prix: parseFloat(supp.prix),
                 quantite: 1,
                 isSupplement: true, 
-                parentId: uniqueGroupId
+                parentId: idGroupeUnique // 🔥 Indique que ce supplément appartient au produit principal !
             });
         });
     }
 
-    sauvegarderPanier();
     mettreAJourUIPanier();
-    animerBoutonPanier();
-}
+    fermerModal();
+    playSound('pop'); 
+};
 
 function changerQuantite(cartId, delta) {
     const indexArticle = panier.findIndex(item => item.cartId === cartId);
@@ -787,7 +802,7 @@ function afficherModalCode(numTable) {
     };
 }
 
-async function validerCommande(numTable, clientData, codeSaisi) {
+window.validerCommande = async function(numTable, clientData, codeSaisi) {
     const checkoutBtn = document.getElementById("checkoutBtn");
     if (checkoutBtn) { 
         checkoutBtn.disabled = true; 
@@ -801,7 +816,6 @@ async function validerCommande(numTable, clientData, codeSaisi) {
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
         const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
         
-        // 🔥 CORRECTION : Si le menu déroulant est introuvable, on met 'especes' par défaut pour ne pas crasher
         const methodeElement = document.getElementById('methodePaiementClient');
         const methodeChoisie = methodeElement ? methodeElement.value : 'especes';
         
@@ -809,16 +823,17 @@ async function validerCommande(numTable, clientData, codeSaisi) {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-articles: panier.map(a => ({ 
-    id: a.baseId || a.id, 
-    nom: a.nom, 
-    variante: a.variante, 
-    prix: a.prix, 
-    quantite: a.quantite,
-    isSupplement: a.isSupplement || (a.nom && a.nom.startsWith('+')),
-    uniqueGroupId: a.uniqueGroupId, // 🔥 Rétablit le lien de parenté
-    parentId: a.parentId            // 🔥 Indique à quel plat ce supplément appartient
-})),
+                // 🔥 ENVOI DE LA STRUCTURE PARFAITE AU SERVEUR
+                articles: panier.map(a => ({ 
+                    id: a.baseId || a.id, 
+                    nom: a.nom, 
+                    variante: a.variante, 
+                    prix: a.prix, 
+                    quantite: a.quantite,
+                    isSupplement: a.isSupplement || (a.nom && a.nom.startsWith('+')),
+                    uniqueGroupId: a.uniqueGroupId, // Lien avec lui-même
+                    parentId: a.parentId            // Lien avec le plat principal
+                })),
                 numeroTable: tableFinale,
                 clientId: idFidele, 
                 codeAuth: idFidele, 
@@ -831,12 +846,12 @@ articles: panier.map(a => ({
         if (response.ok) {
             const commande = await response.json();
             
-            sauvegarderCommandeClient(commande);
+            if (typeof sauvegarderCommandeClient === 'function') sauvegarderCommandeClient(commande);
             panier = []; 
-            sauvegarderPanier(); 
-            mettreAJourUIPanier(); 
-            afficherContenuPanier();
-            await chargerCatalogue();
+            if (typeof sauvegarderPanier === 'function') sauvegarderPanier(); 
+            if (typeof mettreAJourUIPanier === 'function') mettreAJourUIPanier(); 
+            if (typeof afficherContenuPanier === 'function') afficherContenuPanier();
+            if (typeof chargerCatalogue === 'function') await chargerCatalogue();
             
             if (methodeChoisie === 'en_ligne' && commande.payUrl) {
                 afficherNotification("Redirection paiement sécurisé...", "success");
@@ -845,7 +860,7 @@ articles: panier.map(a => ({
             }
             
             const messageSucces = nomFidele ? `🎉 Merci ${nomFidele} ! Commande envoyée.` : "🎉 Commande envoyée avec succès !";
-            afficherNotification(messageSucces);
+            afficherNotification(messageSucces, "success");
             
             if (commande.bonusInfo) {
                 setTimeout(() => {
@@ -877,7 +892,7 @@ articles: panier.map(a => ({
             checkoutBtn.innerHTML = 'Valider la commande <i class="fas fa-arrow-right"></i>'; 
         }
     }
-}
+};
 
 // ========== HISTORIQUE ET SOCKET ==========
 function sauvegarderCommandeClient(commande) {
