@@ -471,8 +471,14 @@ let totalSecurise = 0;
             let produitDb = null;
             
             // 🔥 CORRECTION : On cherche TOUT (Plats et Suppléments) si l'ID est un vrai chiffre
-            if (art.id && !isNaN(art.id)) {
+if (art.id && !isNaN(art.id)) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
+            }
+            
+            // 🔥 NOUVEAU : Fallback ultra-sécurisé par nom (en retirant le "+ " des suppléments)
+            if (!produitDb && art.nom) {
+                let nomPropre = art.nom.startsWith('+ ') ? art.nom.substring(2) : art.nom;
+                produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
             }
 
             if (produitDb) {
@@ -928,10 +934,13 @@ let vraiTotalReel = 0;
             let produitDb = null;
             
             // 🔥 CORRECTION : Recherche sécurisée pour les plats ET les suppléments
-            if (art.id && !isNaN(art.id)) {
+if (art.id && !isNaN(art.id)) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
-            } else if (art.nom) {
-                produitDb = await Product.findOne({ cafeId: req.cafeId, nom: art.nom });
+            }
+            
+            if (!produitDb && art.nom) {
+                let nomPropre = art.nom.startsWith('+ ') ? art.nom.substring(2) : art.nom;
+                produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
             }
             
             if (produitDb) {

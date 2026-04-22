@@ -399,8 +399,8 @@ function ouvrirModalOptions(produit, options) {
     if (produit.supplements && produit.supplements.length > 0) {
         const suppHtml = produit.supplements.map((supp, index) => `
             <label class="option-label" style="background:white; padding:10px; border-radius:8px; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
-                <div style="display:flex; align-items:center;">
-                    <input type="checkbox" name="supplementOption" value="${supp.prix}" data-id="${supp._id || supp.id}" data-nom="${supp.nom}" class="supp-input" style="margin-right:10px; transform:scale(1.2);" onchange="mettreAJourTotalModal()">
+                <div style="display:flex; align-items:center;"><input type="checkbox" name="supplementOption" value="${supp.prix}" data-id="${supp.id || supp._id}" data-nom="${supp.nom}" class="supp-input" style="margin-right:10px; transform:scale(1.2);" onchange="mettreAJourTotalModal()">
+                    
                     <span style="font-weight:600; color:var(--text-main);">${supp.nom}</span>
                 </div>
                 <span style="color:var(--success); font-weight:800; font-size:0.9rem;">+ ${parseFloat(supp.prix).toFixed(3)} DT</span>

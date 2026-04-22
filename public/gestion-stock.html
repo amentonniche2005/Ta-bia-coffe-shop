@@ -1075,8 +1075,8 @@ function ouvrirModalEdition(id) {
         </div>`;
     
     // Recharge les suppléments existants
-    if (p.supplements && Array.isArray(p.supplements)) {
-        p.supplements.forEach(s => ajouterLigneSupplement(s._id || s.id, s.nom, s.prix)); // Support de _id mongo et id
+if (p.supplements && Array.isArray(p.supplements)) {
+        p.supplements.forEach(s => ajouterLigneSupplement(s.id || s._id, s.nom, s.prix)); 
     }
 }
 
