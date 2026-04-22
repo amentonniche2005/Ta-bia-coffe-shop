@@ -807,9 +807,16 @@ function afficherListeTables() {
     container.innerHTML = html; if (countSpan) countSpan.innerText = `${actives} actives`;
 }
 
-function afficherTicket() {
-    const itemsDiv = document.getElementById('ticketItemsList'); const totalSpan = document.getElementById('ticketTotal'); const countSpan = document.getElementById('articleCount'); const labelSpan = document.getElementById('currentTableLabel');
-    if (!currentTable) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; }
+window.afficherTicket = function() {
+    const itemsDiv = document.getElementById('ticketItemsList'); 
+    const totalSpan = document.getElementById('ticketTotal'); 
+    const countSpan = document.getElementById('articleCount'); 
+    const labelSpan = document.getElementById('currentTableLabel');
+    
+    if (!currentTable) { 
+        itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Sélectionnez une table</div>'; 
+        totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; labelSpan.innerText = "-"; return; 
+    }
     
     const ticket = tickets[currentTable];
     
@@ -819,11 +826,15 @@ function afficherTicket() {
     else if (currentTable === 'Direct') labelSpan.innerText = `⚡ Vente Directe`; 
     else labelSpan.innerText = `Table ${currentTable}`;
     
-    if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
+    if (!ticket || !ticket.articles || ticket.articles.length === 0) { 
+        itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; 
+        totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; 
+    }
     
     let totalArts = 0, html = '';
     const platsPrincipaux = ticket.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
-platsPrincipaux.forEach((item) => {
+    
+    platsPrincipaux.forEach((item) => {
         const prix = parseFloat(item.prix) || 0; 
         const qte = parseInt(item.quantite) || 1; 
         const itemTotal = prix * qte; 
@@ -831,28 +842,48 @@ platsPrincipaux.forEach((item) => {
         
         const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null'; 
         const envoyeVar = item.envoye ? 'true' : 'false';
-        const badgeCuisine = item.envoye ? '' : `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
+        
+        // 🔥 LOGIQUE INTELLIGENTE : BADGES, CADENAS ET BOUTONS
+        let badgeCuisine = '';
+        let lockIcon = '';
+        let zoneQuantite = ''; // Gère l'affichage des boutons + / -
 
-        // 2. On cherche les suppléments rattachés à CE plat
+        if (!item.envoye) {
+            // 1. NOUVEAU : On peut modifier la quantité
+            badgeCuisine = `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
+            zoneQuantite = `
+                <div class="qty-control">
+                    <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button>
+                    <span>${qte}</span>
+                    <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button>
+                </div>`;
+        } else if (!item.pret && item.cmdId) {
+            // 2. EN CUISINE : Verrouillé (Plus de boutons +/-)
+            badgeCuisine = `<span style="background:#fef3c7; color:#d97706; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;"><i class="fas fa-fire fa-fade"></i> En cuisine</span>`;
+            lockIcon = `<i class="fas fa-lock" style="color:#d97706; font-size:0.9rem; margin-right:6px;" title="Bloqué en cuisine"></i>`;
+            zoneQuantite = `<span style="font-weight:900; font-size:1.1rem; color:#d97706; margin-right:10px;">${qte}x</span>`;
+        } else {
+            // 3. PRÊT : Verrouillé mais validé pour le paiement
+            badgeCuisine = `<span style="background:#dcfce7; color:#166534; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;"><i class="fas fa-check-double"></i> Prêt</span>`;
+            zoneQuantite = `<span style="font-weight:900; font-size:1.1rem; color:#166534; margin-right:10px;">${qte}x</span>`;
+        }
+
+        // On cherche les suppléments rattachés à CE plat
         const mesSupps = ticket.articles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === item.uniqueGroupId);
 
-        // 3. On affiche le parent
+        // On affiche le parent (avec lockIcon bien inséré avant le nom)
         html += `<div class="ticket-item" style="border-bottom: ${mesSupps.length > 0 ? 'none' : '1px solid #f1f5f9'}; padding-bottom: ${mesSupps.length > 0 ? '0' : '0.8rem'};">
                     <div class="item-info">
-                        <div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div>
+                        <div class="item-name">${lockIcon}${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div>
                         <div class="item-price">${prix.toFixed(2)} DT / u</div>
                     </div>
                     <div class="item-actions">
-                        <div class="qty-control">
-                            <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button>
-                            <span>${qte}</span>
-                            <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button>
-                        </div>
+                        ${zoneQuantite}
                         <div class="item-total-price">${itemTotal.toFixed(2)}</div>
                     </div>
                  </div>`;
 
-        // 4. On affiche les enfants (suppléments) juste en dessous
+        // On affiche les enfants (suppléments) juste en dessous
         mesSupps.forEach(supp => {
             const suppTotal = (parseFloat(supp.prix) * supp.quantite).toFixed(2);
             html += `<div class="ticket-item" style="padding-left: 25px; font-size: 0.9rem; color: var(--text-muted); border-bottom: none; padding-top: 4px; padding-bottom: 4px;">
@@ -1191,9 +1222,11 @@ ajouterAuTicket(tableNum, {
     prix: vraiPrix || 0, 
     quantite: parseInt(article.quantite) || 1, 
     envoye: true,
-    isSupplement: article.isSupplement,      // 🔥
-    uniqueGroupId: article.uniqueGroupId,    // 🔥
-    parentId: article.parentId               // 🔥
+    pret: false,             // 🔥 NOUVEAU : Bloque le paiement
+    cmdId: commande.id,      // 🔥 NOUVEAU : Fait le lien avec la cuisine
+    isSupplement: article.isSupplement,
+    uniqueGroupId: article.uniqueGroupId,
+    parentId: article.parentId
 }, false, true);                }); 
                 aMiseAJour = true;
             }
@@ -1306,7 +1339,19 @@ function initSocket() {
                         variante = parts[1].replace(')', '').trim(); 
                     }
                     let vraiPrix = parseFloat(a.prix) || 0;
-                    ajouterAuTicket(tableNum, { id: a.id || Date.now()+idx, nom: nomPropre, variante: variante, prix: vraiPrix, quantite: parseInt(a.quantite) || 1, envoye: true }, false, true);
+                    ajouterAuTicket(tableNum, { 
+    id: a.id || Date.now()+idx, 
+    nom: nomPropre, 
+    variante: variante, 
+    prix: vraiPrix, 
+    quantite: parseInt(a.quantite) || 1, 
+    envoye: true,
+    pret: false,      
+    cmdId: commande.id, 
+    isSupplement: a.isSupplement, 
+    uniqueGroupId: a.uniqueGroupId, 
+    parentId: a.parentId 
+}, false, true);
                 });
                 
                 tickets[tableNum].total = tickets[tableNum].articles.reduce((s, art) => s + (parseFloat(art.prix || 0) * parseInt(art.quantite || 1)), 0);
@@ -1329,28 +1374,22 @@ function initSocket() {
         // Si payé ou Web, on ne traite pas l'affichage ticket de table ici
         if (commande.statut === 'paye' || commande.methodePaiement === 'en_ligne' || commande.methodePaiement === 'carte_fidelite') return; 
         
-        if (commande.statut === 'terminee' && !window.commandesTraiteesTickets.has(commande.id)) {
-            // Logique de mise à jour "Prêt" pour les articles
-            let tableNum = String(commande.numeroTable || '').trim(); 
-            if (tableNum === 'Emporter') tableNum = commande.clientName && commande.clientName.startsWith('WEB_') ? commande.clientName : 'WEB_' + commande.id;
-            else if (commande.clientName) tableNum = 'Fidele_' + commande.clientName;
-
-            if (tickets[tableNum]) {
-                if (!tickets[tableNum].orderIds.includes(commande.id)) tickets[tableNum].orderIds.push(commande.id);
-                window.commandesTraiteesTickets.add(commande.id);
-
-                if (commande.articles) { 
-                    commande.articles.forEach((cmdArt) => { 
-                        let nomPropre = cmdArt.nom || "Inconnu"; let variante = cmdArt.variante || null;
-                        if (!variante && nomPropre.includes('(')) { const parts = nomPropre.split('('); nomPropre = parts[0].trim(); variante = parts[1].replace(')', '').trim(); }
-                        const existing = tickets[tableNum].articles.find(a => a.nom === nomPropre && (a.variante || null) === variante && a.envoye === true);
-                        if (existing) existing.pret = true;
-                    }); 
+if (commande.statut === 'terminee') {
+            let tableTrouvee = null;
+            // On déverrouille tous les articles de cette commande
+            Object.keys(tickets).forEach(t => {
+                if (tickets[t].orderIds && tickets[t].orderIds.includes(commande.id)) {
+                    tickets[t].articles.forEach(a => { if (a.cmdId === commande.id) a.pret = true; });
+                    tableTrouvee = t;
                 }
+            });
+
+            if (tableTrouvee) {
+                window.commandesTraiteesTickets.add(commande.id);
                 sauvegarderTousLesTickets();
                 afficherListeTables();
-                if (String(currentTable) === tableNum) afficherTicket();
-                showNotification(`🔔 Cuisine prête: ${tickets[tableNum].label || 'Table '+tableNum}`, "#10b981");
+                if (String(currentTable) === tableTrouvee) afficherTicket(); // Retire le cadenas en direct
+                showNotification(`🔔 Cuisine prête: ${tickets[tableTrouvee].label || 'Table '+tableTrouvee}`, "#10b981");
             }
         }
         if (derniereTableModal) afficherCommandesTable(derniereTableModal);
@@ -1616,9 +1655,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         document.getElementById('viderTicketBtn').addEventListener('click', () => viderTicket(currentTable));
         document.getElementById('imprimerTicketBtn').addEventListener('click', imprimerTicketCourant);
-        document.getElementById('payerSelectBtn').addEventListener('click', payerSelection);
+        document.getElementById('payerSelectBtn').addEventListener('click', () => {
+            if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444");
+            const ticket = tickets[currentTable];
+            if (!ticket || !ticket.articles.length) return showNotification("❌ Le ticket est vide", "#ef4444");
+            
+            // 🔥 VERROUILLAGE : On cherche si un article est en cuisine
+            const bloquant = ticket.articles.some(a => a.envoye && !a.pret && a.cmdId);
+            if (bloquant) return showNotification("⚠️ Action bloquée : Certains articles sont en cuisine !", "error");
+            
+            currentTableSelection = currentTable; afficherModalSelectionArticles(ticket.articles);
+        });
         document.getElementById('envoyerCuisineBtn').addEventListener('click', envoyerEnCuisine);
-        document.getElementById('payerToutBtn').addEventListener('click', () => { if (currentTable && tickets[currentTable] && tickets[currentTable].articles.length > 0) { afficherModalPaiement(tickets[currentTable].articles, tickets[currentTable].total, false); } });
+        document.getElementById('payerToutBtn').addEventListener('click', () => { 
+            if (currentTable && tickets[currentTable] && tickets[currentTable].articles.length > 0) { 
+                
+                // 🔥 VERROUILLAGE : On cherche si un article est en cuisine
+                const bloquant = tickets[currentTable].articles.some(a => a.envoye && !a.pret && a.cmdId);
+                if (bloquant) return showNotification("⚠️ Paiement bloqué : La cuisine n'a pas terminé !", "error");
+                
+                afficherModalPaiement(tickets[currentTable].articles, tickets[currentTable].total, false); 
+            } 
+        });
         
         document.getElementById('btn-verrouiller')?.addEventListener('click', () => { if (confirm("Verrouiller la caisse ?")) { localStorage.removeItem('tabia_caisse_token'); window.location.href = '/caisse-login.html'; } });
         document.getElementById('btn-aller-stock')?.addEventListener('click', () => { sessionStorage.setItem('acces_stock_autorise', 'oui'); window.location.href = '/gestion-stock.html'; });
