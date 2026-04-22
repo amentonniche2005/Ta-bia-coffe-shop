@@ -470,14 +470,19 @@ let totalSecurise = 0;
         for (let art of req.body.articles) {
             let produitDb = null;
             
-            // 🔥 CORRECTION : On cherche TOUT (Plats et Suppléments) si l'ID est un vrai chiffre
-if (art.id && !isNaN(art.id)) {
+            // 🔥 1. Nettoyer le nom
+            let nomPropre = art.nom;
+            if (nomPropre && nomPropre.startsWith('+ ')) {
+                nomPropre = nomPropre.substring(2).trim();
+            }
+            
+            // 🔥 2. Chercher par ID
+            if (art.id && !isNaN(art.id)) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
             }
             
-            // 🔥 NOUVEAU : Fallback ultra-sécurisé par nom (en retirant le "+ " des suppléments)
-            if (!produitDb && art.nom) {
-                let nomPropre = art.nom.startsWith('+ ') ? art.nom.substring(2) : art.nom;
+            // 🔥 3. Chercher par Nom (Sécurité Supplément)
+            if (!produitDb && nomPropre) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
             }
 
@@ -487,7 +492,7 @@ if (art.id && !isNaN(art.id)) {
                 totalSecurise += (prixApplique * art.quantite);
                 
                 // On s'assure que l'ID propre (Number) est sauvegardé pour le stock
-                articlesSecurises.push({ ...art, prix: prixApplique, id: produitDb.id }); 
+                articlesSecurises.push({ ...art, prix: prixApplique, id: produitDb.id, nom: nomPropre }); 
             } else {
                 totalSecurise += (art.prix * art.quantite);
                 articlesSecurises.push(art);
@@ -933,13 +938,19 @@ let vraiTotalReel = 0;
         for (let art of req.body.articles) {
             let produitDb = null;
             
-            // 🔥 CORRECTION : Recherche sécurisée pour les plats ET les suppléments
-if (art.id && !isNaN(art.id)) {
-                produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
+            // 🔥 1. Nettoyer le nom pour enlever le "+ " des suppléments
+            let nomPropre = art.nom;
+            if (nomPropre && nomPropre.startsWith('+ ')) {
+                nomPropre = nomPropre.substring(2).trim();
             }
             
-            if (!produitDb && art.nom) {
-                let nomPropre = art.nom.startsWith('+ ') ? art.nom.substring(2) : art.nom;
+            // 🔥 2. Chercher par ID d'abord (Sécurisé)
+            if (art.id && !isNaN(art.id)) {
+                produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
+            } 
+            
+            // 🔥 3. FALLBACK : Chercher par le VRAI nom si l'ID a échoué
+            if (!produitDb && nomPropre) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
             }
             
