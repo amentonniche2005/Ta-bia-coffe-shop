@@ -939,13 +939,63 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
         currentTableSelection = currentTable; afficherModalSelectionArticles(ticket.articles);
     }
 
-    function afficherModalSelectionArticles(articles) {
-        const modal = document.getElementById('modalSelectionArticles'); const container = document.getElementById('articlesListeSelection');
+function afficherModalSelectionArticles(articles) {
+        const modal = document.getElementById('modalSelectionArticles'); 
+        const container = document.getElementById('articlesListeSelection');
         articlesDecomposes = [];
-        articles.forEach((article, originalIndex) => { for (let i = 0; i < article.quantite; i++) { articlesDecomposes.push({ id: article.id, nom: article.nom, variante: article.variante, prix: article.prix, quantite: 1, originalIndex: originalIndex, originalArticle: article, unitId: `${originalIndex}_${i}`, unitNumber: i + 1 }); } });
+        
+        // 1. Isoler les plats principaux
+        const platsPrincipaux = articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+        
+        // 2. Boucler sur les plats principaux et leur attacher leurs suppléments
+        platsPrincipaux.forEach((article) => { 
+            const articleOriginalIndex = articles.indexOf(article);
+            const sesSupplements = articles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === article.uniqueGroupId);
+            
+            // On décompose la quantité (ex: 2 Ma9loubs deviennent 2 lignes cliquables)
+            for (let i = 0; i < article.quantite; i++) { 
+                let prixUnitaireCombinaison = parseFloat(article.prix) || 0;
+                let nomsSupplements = [];
+                
+                // On prépare le tableau des IDs à supprimer si cette case est cochée
+                let linkedUnitIds = [`${articleOriginalIndex}_${i}`]; 
+                
+                // On ajoute le prix et le nom de chaque supplément
+                sesSupplements.forEach(supp => {
+                    prixUnitaireCombinaison += (parseFloat(supp.prix) || 0);
+                    nomsSupplements.push(supp.nom.replace('+ ', ''));
+                    const suppIndex = articles.indexOf(supp);
+                    linkedUnitIds.push(`${suppIndex}_${i}`); // On lie l'ID du supplément
+                });
+                
+                // Formatage du nom pour l'affichage dans la liste
+                let nomAffiche = escapeHtml(article.nom);
+                if (article.variante) nomAffiche += ` <span style="color:var(--primary-orange); font-size:0.85rem;">(${escapeHtml(article.variante)})</span>`;
+                if (nomsSupplements.length > 0) nomAffiche += ` <br><small style="color:var(--text-muted);"><i class="fas fa-plus" style="font-size:0.6rem;"></i> ${escapeHtml(nomsSupplements.join(', '))}</small>`;
+                
+                articlesDecomposes.push({ 
+                    id: article.id, 
+                    nomAffiche: nomAffiche, 
+                    prix: prixUnitaireCombinaison, 
+                    allUnitIds: linkedUnitIds, // Les IDs à supprimer du ticket principal
+                    parentAndSupps: [article, ...sesSupplements] // Les objets complets pour le ticket partiel
+                }); 
+            } 
+        });
+        
         selectedUnits = articlesDecomposes.map(() => false);
-        container.innerHTML = articlesDecomposes.map((unit, index) => `<div class="article-select-item" data-unit-index="${index}" onclick="toggleUnitSelection(${index})"><input type="checkbox" class="article-checkbox" id="check_unit_${index}"><div class="item-info"><div class="item-name">${escapeHtml(unit.nom)} ${unit.variante ? `<span style="color:var(--primary-orange);">(${unit.variante})</span>` : ''}</div></div><div class="item-total-price">${unit.prix.toFixed(2)} DT</div></div>`).join('');
-        modal.classList.add('active'); mettreAJourTotalUnites();
+        container.innerHTML = articlesDecomposes.map((unit, index) => `
+            <div class="article-select-item" data-unit-index="${index}" onclick="toggleUnitSelection(${index})">
+                <input type="checkbox" class="article-checkbox" id="check_unit_${index}">
+                <div class="item-info">
+                    <div class="item-name" style="line-height: 1.4;">${unit.nomAffiche}</div>
+                </div>
+                <div class="item-total-price" style="font-weight: 800; color: var(--text-dark);">${unit.prix.toFixed(2)} DT</div>
+            </div>
+        `).join('');
+        
+        modal.classList.add('active'); 
+        mettreAJourTotalUnites();
     }
 
     function toggleUnitSelection(unitIndex) { selectedUnits[unitIndex] = !selectedUnits[unitIndex]; const item = document.querySelector(`.article-select-item[data-unit-index="${unitIndex}"]`); const checkbox = document.getElementById(`check_unit_${unitIndex}`); if (selectedUnits[unitIndex]) { item.classList.add('selected'); checkbox.checked = true; } else { item.classList.remove('selected'); checkbox.checked = false; } mettreAJourTotalUnites(); }
@@ -958,25 +1008,31 @@ function validerSelectionPaiement() {
         
         if (selectedUnitsList.length === 0) return showNotification("❌ Aucun article", "#ef4444");
 
-        // 🔥 CORRECTION : Si TOUS les articles sont sélectionnés, on bascule sur un paiement COMPLET
+        // Si tout est sélectionné, on fait un paiement complet normal
         if (selectedUnitsList.length === articlesDecomposes.length) {
             fermerModalSelection();
-            // On utilise les articles originaux du ticket et on met isPartial à 'false'
             afficherModalPaiement(tickets[currentTable].articles, tickets[currentTable].total, false);
-            return; // On arrête la fonction ici
+            return; 
         }
 
-        // Si ce n'est qu'une partie des articles (Paiement Partiel normal) :
         const unitsParProduit = {};
+        let unitIdsASupprimer = [];
+
+        // On redécoupe les blocs sélectionnés en articles individuels pour que l'imprimante thermique comprenne
         selectedUnitsList.forEach(unit => { 
-            const key = `${unit.id}_${unit.variante}`; 
-            if (!unitsParProduit[key]) unitsParProduit[key] = { id: unit.id, nom: unit.nom, variante: unit.variante, prix: unit.prix, quantite: 0 }; 
-            unitsParProduit[key].quantite++; 
+            unit.parentAndSupps.forEach(art => {
+                const key = `${art.id}_${art.variante}_${art.isSupplement}_${art.uniqueGroupId || ''}`; 
+                if (!unitsParProduit[key]) {
+                    unitsParProduit[key] = { ...art, quantite: 0 };
+                }
+                unitsParProduit[key].quantite++;
+            });
+            // On ajoute tous les sous-articles à la liste de suppression
+            unitIdsASupprimer.push(...unit.allUnitIds);
         });
         
         const articlesAPayer = Object.values(unitsParProduit); 
-        const total = articlesAPayer.reduce((s, a) => s + a.prix * a.quantite, 0); 
-        const unitIdsASupprimer = selectedUnitsList.map(u => u.unitId);
+        const total = articlesAPayer.reduce((s, a) => s + parseFloat(a.prix) * a.quantite, 0); 
         
         fermerModalSelection(); 
         afficherModalPaiement(articlesAPayer, total, true, unitIdsASupprimer);
