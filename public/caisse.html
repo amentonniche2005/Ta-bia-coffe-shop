@@ -1026,7 +1026,7 @@ function synchroniserTicketsAvecServeur() {
             if (customLabel) tickets[tableNum].label = customLabel;
             if (!tickets[tableNum].orderIds) tickets[tableNum].orderIds = [];
 
-            if (!tickets[tableNum].orderIds.includes(commande.id)) {
+                if (!tickets[tableNum].orderIds.includes(commande.id)) {
                 tickets[tableNum].orderIds.push(commande.id);
                 window.commandesTraiteesTickets.add(commande.id);
                 
@@ -1039,6 +1039,8 @@ function synchroniserTicketsAvecServeur() {
                     }); 
                     aMiseAJour = true;
                 }
+            } else {
+                window.commandesTraiteesTickets.add(commande.id);
             }
             
             if (commande.statut === 'terminee') {
@@ -1409,8 +1411,18 @@ function afficherCommandesWeb() {
 }
     window.marquerWebServie = async function(id) { try { await fetchSecurise(`/api/commandes/${id}/statut`, { method: 'PUT', body: JSON.stringify({statut: 'paye'}) }); await chargerCommandesCuisineInitiales(); afficherCommandesWeb(); } catch(e) {} }
 
-    document.addEventListener("DOMContentLoaded", async () => {
-        chargerTickets(); await chargerCatalogue(); selectionnerTable("1"); await chargerCommandesCuisineInitiales(); synchroniserTicketsAvecServeur(); verifierStatutCaisse(); initSocket();
+document.addEventListener("DOMContentLoaded", async () => {
+        // 🔥 CORRECTION 1 : On ajoute "await" pour forcer le chargement de la mémoire EN PREMIER
+        await chargerTickets(); 
+        await chargerCatalogue(); 
+        selectionnerTable("1"); 
+        
+        // Seulement APRÈS, on récupère les commandes manquées pendant la fermeture
+        await chargerCommandesCuisineInitiales(); 
+        synchroniserTicketsAvecServeur(); 
+        
+        verifierStatutCaisse(); 
+        initSocket();
         
         document.getElementById('viderTicketBtn').addEventListener('click', () => viderTicket(currentTable));
         document.getElementById('imprimerTicketBtn').addEventListener('click', imprimerTicketCourant);
