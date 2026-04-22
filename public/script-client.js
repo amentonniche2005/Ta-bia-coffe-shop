@@ -410,7 +410,7 @@ function ouvrirModalOptions(produit, options) {
         const suppHtml = produit.supplements.map((supp, index) => `
             <label class="option-label" style="background:white; padding:10px; border-radius:8px; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
                 <div style="display:flex; align-items:center;">
-                    <input type="checkbox" name="supplementOption" value="${supp.prix}" data-id="${supp.id}" data-nom="${supp.nom}" class="supp-input" style="margin-right:10px; transform:scale(1.2);" onchange="mettreAJourTotalModal()">
+                    <input type="checkbox" name="supplementOption" value="${supp.prix}" data-id="${supp._id || supp.id}" data-nom="${supp.nom}" class="supp-input" style="margin-right:10px; transform:scale(1.2);" onchange="mettreAJourTotalModal()">
                     <span style="font-weight:600; color:var(--text-main);">${supp.nom}</span>
                 </div>
                 <span style="color:var(--success); font-weight:800; font-size:0.9rem;">+ ${parseFloat(supp.prix).toFixed(3)} DT</span>
@@ -442,9 +442,9 @@ function mettreAJourTotalModal() {
 
 function executerAjoutPanier(produit, variante, supplements = []) {
     // 1. Ajouter le produit principal
-    const cartIdPrincipal = variante ? `${produit.id}_${variante}_${Date.now()}` : `${produit.id}_${Date.now()}`; // Rendu unique à cause des suppléments
+    const cartIdPrincipal = variante ? `${produit.id}_${variante}_${Date.now()}` : `${produit.id}_${Date.now()}`;
     const nomAffiche = variante ? `${produit.nom} (${variante})` : produit.nom;
-    const uniqueGroupId = Date.now(); // Identifiant qui lie la pizza à ses suppléments
+    const uniqueGroupId = Date.now();
 
     if (produit.stock !== undefined) {
         const quantiteTotalePanier = panier.filter(item => item.baseId === produit.id).reduce((sum, item) => sum + item.quantite, 0);
@@ -463,21 +463,21 @@ function executerAjoutPanier(produit, variante, supplements = []) {
         prix: parseFloat(produit.prix), 
         quantite: 1,
         isSupplement: false,
-        uniqueGroupId: uniqueGroupId // 🔥 Clé de liaison
+        uniqueGroupId: uniqueGroupId 
     });
 
     // 2. Ajouter les suppléments comme des produits séparés
     if (supplements.length > 0) {
         supplements.forEach(supp => {
             panier.push({
-                cartId: `SUPP_${uniqueGroupId}_${Math.random()}`, // ID Panier Unique
-                baseId: supp.id, // Faux ID de base (on s'en moque, le prix compte)
-                id: produit.id, // On envoie l'ID du parent au serveur au cas où
-                nom: `+ ${supp.nom}`, // Le petit "+" pour l'affichage propre
+                cartId: `SUPP_${uniqueGroupId}_${Math.random()}`, 
+                baseId: supp.id || supp._id, // 🔥 CORRECTION : On s'assure d'avoir un vrai ID
+                id: produit.id, 
+                nom: `+ ${supp.nom}`, 
                 variante: null,
                 prix: parseFloat(supp.prix),
                 quantite: 1,
-                isSupplement: true, // 🔥 Pour que la caisse l'indente !
+                isSupplement: true, 
                 parentId: uniqueGroupId
             });
         });
@@ -795,16 +795,15 @@ async function validerCommande(numTable, clientData, codeSaisi) {
     }
 
     try {
-        // PRIORITÉ : 1. Nom premium (depuis QR carte) > 2. Nom clientData (depuis vérif panier) > 3. Null
         const nomPremium = sessionStorage.getItem('client_nom_premium');
         let nomFidele = nomPremium || (clientData ? `${clientData.prenom} ${clientData.nom}` : null);
-        
-        // PRIORITÉ : Si client fidèle identifié, on utilise son codeAuth, sinon notre clientId d'appareil
         let idFidele = (codeSaisi || sessionStorage.getItem('tabia_auth_qr')) || clientId;
-        
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : parseInt(numTable);
         const totalCommande = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
-        const methodeChoisie = document.getElementById('methodePaiementClient').value;
+        
+        // 🔥 CORRECTION : Si le menu déroulant est introuvable, on met 'especes' par défaut pour ne pas crasher
+        const methodeElement = document.getElementById('methodePaiementClient');
+        const methodeChoisie = methodeElement ? methodeElement.value : 'especes';
         
         const response = await fetch('/api/commandes', {
             method: 'POST', 
@@ -820,7 +819,7 @@ async function validerCommande(numTable, clientData, codeSaisi) {
                 })),
                 numeroTable: tableFinale,
                 clientId: idFidele, 
-                codeAuth: idFidele, // On envoie le code secret pour la vérification serveur (Session Fantôme)
+                codeAuth: idFidele, 
                 clientName: nomFidele, 
                 total: totalCommande,
                 methodePaiement: methodeChoisie 
@@ -830,7 +829,6 @@ async function validerCommande(numTable, clientData, codeSaisi) {
         if (response.ok) {
             const commande = await response.json();
             
-            // 1. Sauvegarde et nettoyage
             sauvegarderCommandeClient(commande);
             panier = []; 
             sauvegarderPanier(); 
@@ -838,39 +836,32 @@ async function validerCommande(numTable, clientData, codeSaisi) {
             afficherContenuPanier();
             await chargerCatalogue();
             
-            // 2. Gestion du Paiement en Ligne
             if (methodeChoisie === 'en_ligne' && commande.payUrl) {
                 afficherNotification("Redirection paiement sécurisé...", "success");
                 setTimeout(() => { window.location.href = commande.payUrl; }, 1500);
                 return; 
             }
             
-            // 3. Notification de succès personnalisée
             const messageSucces = nomFidele ? `🎉 Merci ${nomFidele} ! Commande envoyée.` : "🎉 Commande envoyée avec succès !";
             afficherNotification(messageSucces);
             
-            // 🔥 NOUVEAU : Affichage de la notification si un Bonus (Cashback) a été gagné !
             if (commande.bonusInfo) {
                 setTimeout(() => {
                     afficherNotification(commande.bonusInfo, "success");
-                    // Petite vibration de victoire pour marquer le coup 🎊
                     if (navigator.vibrate) navigator.vibrate([200, 100, 200]); 
-                }, 3000); // 3 secondes de délai pour qu'il lise d'abord que sa commande est passée
+                }, 3000); 
             }
             
         } else { 
-            // GESTION DES ERREURS
             const erreurData = await response.json();
             
             if (response.status === 403) {
-                // Erreur de sécurité (QR Code expiré ou Faux Code)
                 afficherNotification("❌ " + erreurData.error, "error");
                 sessionStorage.removeItem('tabia_table_qr');
                 sessionStorage.removeItem('tabia_auth_qr');
                 sessionStorage.removeItem('client_nom_premium'); 
                 setTimeout(() => { window.location.reload(); }, 2500);
             } else if (response.status === 400) {
-                // 🔥 NOUVEAU : Erreur de paiement (ex: Solde insuffisant sur la carte)
                 afficherNotification("⚠️ " + erreurData.error, "error"); 
             } else {
                 afficherNotification("❌ Erreur serveur", "error"); 
