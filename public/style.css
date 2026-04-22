@@ -1082,65 +1082,115 @@ button:hover:not(:disabled) {
         font-size: 18px;
     }
 }
-/* --- MODAL OPTIONS PREMIUM --- */
+/* --- UI/UX RECONSTRUCTION DU MODAL --- */
+.options-modal {
+    background: rgba(11, 17, 33, 0.85); /* Overlay plus sombre et élégant */
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: flex-end; /* Effet "Bottom Sheet" sur mobile */
+    justify-content: center;
+}
+
 .options-content {
     background: #ffffff;
-    border-radius: 24px;
-    overflow: hidden;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 28px 28px 0 0; /* Arrondi seulement en haut sur mobile */
+    width: 100%;
+    max-width: 480px;
+    padding: 0 !important; /* On gère le padding par section */
+    animation: slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpModal {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
 }
 
 .options-header {
+    padding: 24px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.options-body {
     padding: 20px;
+    max-height: 65vh;
+    overflow-y: auto;
+}
+
+/* --- CARTES D'OPTIONS --- */
+.options-grid { display: flex; flex-direction: column; gap: 12px; }
+
+.selectable-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border: 2px solid #f1f5f9;
+    border-radius: 18px;
+    background: #fff;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+/* Quand la case invisible est cochée */
+input:checked + .selectable-card {
+    border-color: #db800a;
+    background: #fff7ed;
+    transform: scale(0.98); /* Petit effet d'enfoncement */
+}
+
+input:checked + .selectable-card .opt-check-icon {
+    color: #db800a;
+}
+
+.opt-name {
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.opt-price {
+    font-weight: 800;
+    color: #10b981;
+    background: #ecfdf5;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+}
+
+/* État Rupture */
+.selectable-card.disabled {
     background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
+    border-color: #f1f5f9;
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.badge-rupture {
+    color: #ef4444;
+    font-weight: 800;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+}
+
+.options-footer {
+    padding: 20px;
+    background: white;
+    border-top: 1px solid #f1f5f9;
+}
+
+.confirm-btn {
+    background: #143621;
+    color: white;
+    border: none;
+    width: 100%;
+    padding: 18px;
+    border-radius: 18px;
+    font-weight: 800;
+    font-size: 1.1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-#optionsTitle { margin: 0; font-size: 1.3rem; color: #143621; font-weight: 800; }
-.base-price-hint { margin: 4px 0 0 0; color: #db800a; font-weight: 700; font-size: 0.9rem; }
-
-.options-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
-
-.option-section { margin-bottom: 25px; }
-.section-title { 
-    display: block; font-weight: 800; color: #64748b; 
-    font-size: 0.75rem; text-transform: uppercase; 
-    letter-spacing: 1px; margin-bottom: 12px; 
-}
-
-/* Grille interactive pour les choix */
-.options-grid { display: flex; flex-direction: column; gap: 10px; }
-
-.custom-option-card {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; border-radius: 16px; border: 2px solid #f1f5f9;
-    background: #f8fafc; cursor: pointer; transition: all 0.2s ease;
-}
-
-.custom-option-card:hover:not(.disabled) { border-color: #db800a; background: #fffcf8; }
-
-/* État coché */
-input[type="radio"]:checked + .custom-option-card,
-input[type="checkbox"]:checked + .custom-option-card {
-    border-color: #db800a; background: #fff7ed; box-shadow: 0 4px 12px rgba(219, 128, 10, 0.1);
-}
-
-.opt-name { font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; }
-.opt-price { font-weight: 800; color: #10b981; font-size: 0.9rem; }
-
-/* Rupture de stock */
-.custom-option-card.disabled { opacity: 0.5; cursor: not-allowed; background: #f1f5f9; }
-.rupture-badge { font-size: 0.7rem; background: #fee2e2; color: #ef4444; padding: 2px 8px; border-radius: 20px; }
-
-.options-footer { padding: 20px; border-top: 1px solid #e2e8f0; }
-.confirm-btn {
-    width: 100%; padding: 16px; border-radius: 16px; border: none;
-    background: linear-gradient(135deg, #143621, #1e4d30); color: white;
-    font-size: 1.1rem; font-weight: 800; cursor: pointer;
-    display: flex; justify-content: center; align-items: center; gap: 15px;
-}
-.total-badge { background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 10px; font-size: 0.95rem; }

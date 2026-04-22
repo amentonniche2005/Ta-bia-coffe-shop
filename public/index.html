@@ -79,29 +79,35 @@
 <div class="options-modal" id="optionsModal" style="display: none;">
     <div class="options-content">
         <div class="options-header">
-            <div class="header-text">
+            <div class="header-info">
                 <h2 id="optionsTitle">Produit</h2>
-                <p id="optionPriceDisplay" class="base-price-hint"></p>
+                <span id="optionPriceDisplay" class="base-price-tag">0.00 DT</span>
             </div>
-            <button class="close-options" id="closeOptions">&times;</button>
+            <button class="close-options" id="closeOptions"><i class="fas fa-times"></i></button>
         </div>
         
         <div class="options-body">
-            <div id="sectionVariantes" class="option-section" style="display: none;">
-                <label class="section-title"><i class="fas fa-sliders-h"></i> Choisissez votre préférence</label>
+            <div id="sectionVariantes" class="modal-section" style="display: none;">
+                <div class="section-header">
+                    <span class="section-title">Préférence</span>
+                    <span class="section-badge">Obligatoire</span>
+                </div>
                 <div id="optionsList" class="options-grid"></div>
             </div>
 
-            <div id="sectionSupplements" class="option-section" style="display: none;">
-                <label class="section-title"><i class="fas fa-plus-circle"></i> Ajoutez des extras</label>
+            <div id="sectionSupplements" class="modal-section" style="display: none;">
+                <div class="section-header">
+                    <span class="section-title">Extras & Suppléments</span>
+                    <span class="section-badge optional">Optionnel</span>
+                </div>
                 <div id="supplementsList" class="options-grid"></div>
             </div>
         </div>
 
         <div class="options-footer">
             <button class="confirm-btn" id="confirmOptionBtn">
-                <span>Confirmer</span>
-                <span id="prixTotalOptionsBtn" class="total-badge"></span>
+                <span class="btn-text">Ajouter au panier</span>
+                <span id="prixTotalOptionsBtn" class="btn-total">0.00 DT</span>
             </button>
         </div>
     </div>

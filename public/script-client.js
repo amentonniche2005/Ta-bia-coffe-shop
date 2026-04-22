@@ -370,45 +370,52 @@ window.ouvrirModalOptions = function(produit, options) {
     prixBaseEnAttente = parseFloat(produit.prix) || 0;
     
     document.getElementById("optionsTitle").textContent = produit.nom;
-    document.getElementById("optionPriceDisplay").textContent = `À partir de ${prixBaseEnAttente.toFixed(2)} DT`;
+    document.getElementById("optionPriceDisplay").textContent = `${prixBaseEnAttente.toFixed(2)} DT`;
     
-    // 1. GÉNÉRATION DES VARIANTES (RADIO)
+    // 1. GÉNÉRATION DES VARIANTES
     const sectionVar = document.getElementById("sectionVariantes");
+    const containerVar = document.getElementById("optionsList");
     if (options && options.length > 0) {
-        let isMultiple = produit.typeChoix === 'multiple';
-        
-        document.getElementById("optionsList").innerHTML = options.map((opt, index) => `
-            <label style="cursor: pointer;">
-                <input type="${isMultiple ? 'checkbox' : 'radio'}" name="varianteOption" value="${opt}" style="display:none;" ${(!isMultiple && index === 0) ? 'checked' : ''}>
-                <div class="custom-option-card">
-                    <span class="opt-name">
-                        <i class="fas ${isMultiple ? 'fa-check-square' : 'fa-circle'}"></i> ${opt}
-                    </span>
+        const isMultiple = produit.typeChoix === 'multiple';
+        containerVar.innerHTML = options.map((opt, index) => `
+            <label style="display:block; cursor:pointer;">
+                <input type="${isMultiple ? 'checkbox' : 'radio'}" 
+                       name="varianteOption" 
+                       value="${opt}" 
+                       style="display:none;" 
+                       ${(!isMultiple && index === 0) ? 'checked' : ''}> <div class="selectable-card">
+                    <div class="opt-info">
+                        <i class="fas ${isMultiple ? 'fa-square' : 'fa-circle'}"></i>
+                        <span>${opt}</span>
+                    </div>
                 </div>
             </label>
         `).join('');
         sectionVar.style.display = "block";
     } else { sectionVar.style.display = "none"; }
 
-    // 2. GÉNÉRATION DES SUPPLÉMENTS (CHECKBOX + STOCK)
+    // 2. GÉNÉRATION DES SUPPLÉMENTS (AVEC GESTION RUPTURE)
     const sectionSupp = document.getElementById("sectionSupplements");
+    const containerSupp = document.getElementById("supplementsList");
     if (produit.supplements && produit.supplements.length > 0) {
-        document.getElementById("supplementsList").innerHTML = produit.supplements.map(supp => {
-            // Vérification du stock réel
-            const refProd = produits.find(p => String(p.id) === String(supp.id));
-            const estRupture = refProd && refProd.stock <= 0 && refProd.stock !== undefined;
+        containerSupp.innerHTML = produit.supplements.map(supp => {
+            const ref = produits.find(p => String(p.id) === String(supp.id));
+            const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
 
             return `
-                <label style="cursor: ${estRupture ? 'not-allowed' : 'pointer'};">
-                    <input type="checkbox" name="supplementOption" value="${supp.prix}" 
-                           data-id="${supp.id}" data-nom="${supp.nom}" 
-                           style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModal()">
-                    <div class="custom-option-card ${estRupture ? 'disabled' : ''}">
-                        <span class="opt-name">
-                            <i class="fas fa-plus"></i> ${supp.nom}
-                            ${estRupture ? '<span class="rupture-badge">Rupture</span>' : ''}
-                        </span>
-                        <span class="opt-price">${estRupture ? '--' : '+' + parseFloat(supp.prix).toFixed(2)}</span>
+                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'};">
+                    <input type="checkbox" name="supplementOption" 
+                           value="${supp.prix}" data-id="${supp.id}" data-nom="${supp.nom}" 
+                           style="display:none;" ${estRupture ? 'disabled' : ''} 
+                           onchange="mettreAJourTotalModal()">
+                    <div class="selectable-card ${estRupture ? 'disabled' : ''}">
+                        <div class="opt-info">
+                            <i class="fas fa-plus-circle"></i>
+                            <span>${supp.nom}</span>
+                        </div>
+                        <div class="opt-price-container">
+                            ${estRupture ? '<span class="rupture-txt">ÉPUISÉ</span>' : `<span class="opt-price">+ ${parseFloat(supp.prix).toFixed(2)}</span>`}
+                        </div>
                     </div>
                 </label>
             `;
