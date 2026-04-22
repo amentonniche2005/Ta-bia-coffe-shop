@@ -469,7 +469,7 @@ function executerAjoutPanier(produit, variante, supplements = []) {
         supplements.forEach(supp => {
             panier.push({
                 cartId: `SUPP_${uniqueGroupId}_${Math.random()}`, // ID Panier Unique
-                baseId: `SUPP_${supp.nom}`, // Faux ID de base (on s'en moque, le prix compte)
+                baseId: 0, // Faux ID de base (on s'en moque, le prix compte)
                 id: produit.id, // On envoie l'ID du parent au serveur au cas où
                 nom: `+ ${supp.nom}`, // Le petit "+" pour l'affichage propre
                 variante: null,
@@ -788,7 +788,14 @@ async function validerCommande(numTable, clientData, codeSaisi) {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                articles: panier.map(a => ({ id: a.baseId, nom: a.nom, variante: a.variante, prix: a.prix, quantite: a.quantite })),
+                articles: panier.map(a => ({ 
+                    id: a.baseId, 
+                    nom: a.nom, 
+                    variante: a.variante, 
+                    prix: a.prix, 
+                    quantite: a.quantite,
+                    isSupplement: a.isSupplement || (a.nom && a.nom.startsWith('+'))
+                })),
                 numeroTable: tableFinale,
                 clientId: idFidele, 
                 codeAuth: idFidele, // On envoie le code secret pour la vérification serveur (Session Fantôme)
