@@ -276,7 +276,8 @@ function genererCategoriesDynamiques() {
     const container = document.getElementById('categoryTabs');
     if (!container) return;
     
-    const categoriesUniques = [...new Set(produits.map(p => p.categorie).filter(Boolean))];
+    // 🔥 FILTRAGE : On récupère les catégories mais on EXCLUT 'supplement'
+    const categoriesUniques = [...new Set(produits.map(p => p.categorie).filter(cat => cat && cat !== 'supplement'))];
     
     let html = `<button class="category-btn active" data-category="all">🍽️ Tout</button>`;
     categoriesUniques.forEach(cat => {
@@ -293,6 +294,7 @@ function afficherProduits() {
     if (!grille) return;
 
     let produitsAffiches = produits;
+    produitsAffiches = produitsAffiches.filter(p => p.categorie !== 'supplement');
     if (categorieActuelle !== "all") {
         produitsAffiches = produits.filter(p => p.categorie === categorieActuelle);
     }

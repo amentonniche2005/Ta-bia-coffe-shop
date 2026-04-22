@@ -896,18 +896,24 @@ function ouvrirModalNouveauProduit() {
             }
         };
 
-        // 🔥 NOUVEAU : La ligne est maintenant une liste déroulante liée à la Base de données !
-        function ajouterLigneSupplement(id = '', nom = '', prix = '') {
+function ajouterLigneSupplement(id = '', nom = '', prix = '') {
             const div = document.createElement('div');
             div.className = 'supplement-row';
             div.style.cssText = 'display: flex; gap: 10px; margin-bottom: 8px;';
             
-            // On crée la liste avec TOUS les produits du stock
-            let optionsHtml = '<option value="">-- Choisir dans le stock --</option>';
-            stockProduits.forEach(p => {
-                const isSelected = (String(p.id) === String(id) || p.nom === nom) ? 'selected' : '';
-                optionsHtml += `<option value="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}" ${isSelected}>${escapeHtml(p.nom)} (${p.prix} DT)</option>`;
-            });
+            // 🔥 FILTRAGE : On ne garde que les produits dont la catégorie est "supplement"
+            const listeSupplementsDisponibles = stockProduits.filter(p => p.categorie === 'supplement');
+
+            let optionsHtml = '<option value="">-- Choisir un ingrédient --</option>';
+            
+            if (listeSupplementsDisponibles.length === 0) {
+                optionsHtml = '<option value="">❌ Aucun produit en catégorie "supplement"</option>';
+            } else {
+                listeSupplementsDisponibles.forEach(p => {
+                    const isSelected = (String(p.id) === String(id) || p.nom === nom) ? 'selected' : '';
+                    optionsHtml += `<option value="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}" ${isSelected}>${escapeHtml(p.nom)} (${p.prix.toFixed(2)} DT)</option>`;
+                });
+            }
 
             div.innerHTML = `
                 <select class="supp-select input-tech" style="flex: 1; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);" onchange="updateSuppPrix(this)">
