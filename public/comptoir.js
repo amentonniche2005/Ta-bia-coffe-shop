@@ -185,29 +185,31 @@ container.innerHTML = commandesFiltrees.map(cmd => {
         let nomAffiche = "";
         let colorTitre = "";
         let badgeTable = "";
+        
+        // 🔥 NOUVEAU : On prépare le visuel du numéro de commande (petit et gris pour ne pas gêner la lecture principale)
+        const formatNumero = `<span style="color:#94a3b8; font-size:0.9rem; font-weight:700; margin-left:8px;">#${cmd.numero}</span>`;
 
         // 🔥 2. ROUTAGE DE L'AFFICHAGE SELON LE STATUT
         if (estEmporter) {
-            // Cas A : À Emporter
-            nomAffiche = estVIP ? `<i class="fas fa-star"></i> ${nomClientStr}` : `🛍️ Emporter #${cmd.numero}`;
+            nomAffiche = (estVIP ? `<i class="fas fa-star"></i> ${nomClientStr}` : `🛍️ À Emporter`) + formatNumero;
             colorTitre = estVIP ? 'color:#ea580c; font-size:1.2rem;' : 'color:#10b981; font-size:1.2rem;';
             badgeTable = `<span class="badge" style="background:#d1fae5; color:#059669; border:1px solid #a7f3d0;"><i class="fas fa-shopping-bag"></i> À Emporter</span>`;
         } 
         else if (estVIP) {
-            // Cas B : VIP sur place
-            nomAffiche = `<i class="fas fa-crown"></i> ${nomClientStr}`;
+            nomAffiche = `<i class="fas fa-crown"></i> ${nomClientStr}` + formatNumero;
             colorTitre = 'color:#ea580c; font-size:1.2rem;';
             badgeTable = `<span class="badge" style="background:#fef5e6; color:#e67e22; border:1px solid #fed7aa;"><i class="fas fa-star"></i> VIP - Table ${cmd.numeroTable}</span>`;
         } 
         else {
-            // Cas C : Client Normal sur place (Priorité au numéro de table)
-            nomAffiche = `📍 Table ${cmd.numeroTable}`;
+            nomAffiche = `📍 Table ${cmd.numeroTable}` + formatNumero;
             colorTitre = 'color:#3b82f6; font-size:1.2rem; font-weight: 800;';
             badgeTable = `<span class="badge" style="background:#dbeafe; color:#2563eb; border:1px solid #bfdbfe;"><i class="fas fa-chair"></i> Sur Place</span>`;
         }
         
         const badgeOrigine = cmd.clientId && !estVIP 
             ? `<span class="badge badge-client"><i class="fas fa-mobile-alt"></i> Web</span>` : ``;
+
+        // ... La suite (vérification si payé, chronomètre, articles) reste identique
 
         // Vérification si c'est payé
         const estPaye = (cmd.methodePaiement === 'en_ligne' || cmd.methodePaiement === 'carte_fidelite' || cmd.methodePaiement === 'Carte Fidélité');
