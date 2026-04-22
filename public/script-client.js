@@ -394,18 +394,37 @@ function ouvrirModalOptions(produit, options) {
         sectionVar.style.display = "none";
     }
 
-    // --- 2. GESTION DES SUPPLÉMENTS ---
+// --- 2. GESTION DES SUPPLÉMENTS ---
     const sectionSupp = document.getElementById("sectionSupplements");
     if (produit.supplements && produit.supplements.length > 0) {
-        const suppHtml = produit.supplements.map((supp, index) => `
-            <label class="option-label" style="background:white; padding:10px; border-radius:8px; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
-                <div style="display:flex; align-items:center;"><input type="checkbox" name="supplementOption" value="${supp.prix}" data-id="${supp.id || supp._id}" data-nom="${supp.nom}" class="supp-input" style="margin-right:10px; transform:scale(1.2);" onchange="mettreAJourTotalModal()">
-                    
-                    <span style="font-weight:600; color:var(--text-main);">${supp.nom}</span>
+        const suppHtml = produit.supplements.map((supp) => {
+            // 🔥 VÉRIFICATION DU STOCK DU SUPPLÉMENT
+            // On cherche l'objet complet du supplément dans notre liste globale de produits
+            const produitReference = produits.find(p => String(p.id) === String(supp.id));
+            const estEnRupture = produitReference && produitReference.stock <= 0 && produitReference.stock !== undefined;
+
+            return `
+            <label class="option-label ${estEnRupture ? 'option-disabled' : ''}" 
+                   style="background:${estEnRupture ? '#f1f5f9' : 'white'}; padding:10px; border-radius:8px; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; cursor:${estEnRupture ? 'not-allowed' : 'pointer'}; opacity:${estEnRupture ? '0.6' : '1'};">
+                <div style="display:flex; align-items:center;">
+                    <input type="checkbox" name="supplementOption" 
+                           value="${supp.prix}" 
+                           data-id="${supp.id}" 
+                           data-nom="${supp.nom}" 
+                           class="supp-input" 
+                           ${estEnRupture ? 'disabled' : ''} 
+                           style="margin-right:10px; transform:scale(1.2);" 
+                           onchange="mettreAJourTotalModal()">
+                    <span style="font-weight:600; color:${estEnRupture ? 'var(--text-muted)' : 'var(--text-main)'};">
+                        ${supp.nom} ${estEnRupture ? '<b style="color:var(--danger); margin-left:5px;">(Rupture)</b>' : ''}
+                    </span>
                 </div>
-                <span style="color:var(--success); font-weight:800; font-size:0.9rem;">+ ${parseFloat(supp.prix).toFixed(3)} DT</span>
+                <span style="color:${estEnRupture ? '#94a3b8' : 'var(--success)'}; font-weight:800; font-size:0.9rem;">
+                    ${estEnRupture ? '---' : '+ ' + parseFloat(supp.prix).toFixed(3) + ' DT'}
+                </span>
             </label>
-        `).join('');
+        `;
+        }).join('');
         
         document.getElementById("supplementsList").innerHTML = suppHtml;
         sectionSupp.style.display = "block";
