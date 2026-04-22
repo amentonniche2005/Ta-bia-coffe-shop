@@ -564,8 +564,22 @@ function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
             const article = ticket.articles[index]; 
             const nouvelleQuantite = article.quantite + delta;
             
-            if (nouvelleQuantite <= 0) ticket.articles.splice(index, 1); 
-            else article.quantite = nouvelleQuantite;
+            if (nouvelleQuantite <= 0) {
+                // 🔥 SÉCURITÉ : Si on supprime le plat principal, on supprime ses suppléments liés !
+                if (!article.isSupplement) {
+                    ticket.articles = ticket.articles.filter(a => a.parentId !== article.uniqueGroupId);
+                }
+                const indexFinal = ticket.articles.indexOf(article);
+                if (indexFinal !== -1) ticket.articles.splice(indexFinal, 1); 
+            } else {
+                article.quantite = nouvelleQuantite;
+                // 🔥 SÉCURITÉ : Si on modifie la quantité, on modifie celle des suppléments liés !
+                if (!article.isSupplement) {
+                    ticket.articles.forEach(a => {
+                        if (a.parentId === article.uniqueGroupId) a.quantite = nouvelleQuantite;
+                    });
+                }
+            }
             
             ticket.total = ticket.articles.reduce((sum, a) => sum + (a.prix * a.quantite), 0);
             sauvegarderTousLesTickets();
@@ -808,48 +822,65 @@ function afficherTicket() {
     if (!ticket || !ticket.articles || ticket.articles.length === 0) { itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; }
     
     let totalArts = 0, html = '';
-    
-    ticket.articles.forEach((item) => {
+    const platsPrincipaux = ticket.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+platsPrincipaux.forEach((item) => {
         const prix = parseFloat(item.prix) || 0; 
         const qte = parseInt(item.quantite) || 1; 
         const itemTotal = prix * qte; 
-        
-        // 🔥 DÉTECTION DU SUPPLÉMENT : par le flag ou le symbole +
-        const isSupp = item.isSupplement === true || (item.nom && item.nom.startsWith('+'));
-        
-        if (!isSupp) totalArts += qte; // On ne compte que les plats principaux dans le compteur d'articles
+        totalArts += qte; // Le compteur d'articles ne compte que les plats
         
         const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null'; 
         const envoyeVar = item.envoye ? 'true' : 'false';
         const badgeCuisine = item.envoye ? '' : `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
 
-        if (isSupp) {
-            // 🔥 AFFICHAGE PREMIUM D'UN SUPPLÉMENT (Décalé, petit, pas de boutons + / -)
-            html += `<div class="ticket-item" style="padding-left: 25px; font-size: 0.9rem; color: var(--text-muted); border-bottom: none; padding-top: 2px;">
+        // 2. On cherche les suppléments rattachés à CE plat
+        const mesSupps = ticket.articles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === item.uniqueGroupId);
+
+        // 3. On affiche le parent
+        html += `<div class="ticket-item" style="border-bottom: ${mesSupps.length > 0 ? 'none' : '1px solid #f1f5f9'}; padding-bottom: ${mesSupps.length > 0 ? '0' : '0.8rem'};">
+                    <div class="item-info">
+                        <div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div>
+                        <div class="item-price">${prix.toFixed(2)} DT / u</div>
+                    </div>
+                    <div class="item-actions">
+                        <div class="qty-control">
+                            <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button>
+                            <span>${qte}</span>
+                            <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button>
+                        </div>
+                        <div class="item-total-price">${itemTotal.toFixed(2)}</div>
+                    </div>
+                 </div>`;
+
+        // 4. On affiche les enfants (suppléments) juste en dessous
+        mesSupps.forEach(supp => {
+            const suppTotal = (parseFloat(supp.prix) * supp.quantite).toFixed(2);
+            html += `<div class="ticket-item" style="padding-left: 25px; font-size: 0.9rem; color: var(--text-muted); border-bottom: none; padding-top: 4px; padding-bottom: 4px;">
                         <div class="item-info">
-                            <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(item.nom.replace('+ ', ''))} ${badgeCuisine}</div>
+                            <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(supp.nom.replace('+ ', ''))} ${!supp.envoye ? badgeCuisine : ''}</div>
                         </div>
                         <div class="item-actions">
-                            <div class="item-total-price" style="font-size: 0.9rem;">+${itemTotal.toFixed(2)}</div>
+                            <div class="item-total-price" style="font-size: 0.9rem;">+${suppTotal}</div>
                         </div>
                      </div>`;
-        } else {
-            // AFFICHAGE CLASSIQUE D'UN PLAT
-            html += `<div class="ticket-item">
-                        <div class="item-info">
-                            <div class="item-name">${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div>
-                            <div class="item-price">${prix.toFixed(2)} DT / u</div>
-                        </div>
-                        <div class="item-actions">
-                            <div class="qty-control">
-                                <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar})"><i class="fas fa-minus"></i></button>
-                                <span>${qte}</span>
-                                <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, ${envoyeVar})"><i class="fas fa-plus"></i></button>
-                            </div>
-                            <div class="item-total-price">${itemTotal.toFixed(2)}</div>
-                        </div>
-                     </div>`;
-        }
+        });
+        
+        // Séparateur final
+        if (mesSupps.length > 0) html += `<div style="border-bottom: 1px solid #f1f5f9; width: 100%; margin-top: 4px;"></div>`;
+    });
+
+    // Sécurité : Afficher les suppléments qui auraient perdu leur parent (orphelins)
+    const orphelins = ticket.articles.filter(a => (a.isSupplement || (a.nom && a.nom.startsWith('+'))) && !a.parentId);
+    orphelins.forEach(supp => {
+        const suppTotal = (parseFloat(supp.prix) * supp.quantite).toFixed(2);
+        html += `<div class="ticket-item" style="padding-left: 25px; font-size: 0.9rem; color: var(--text-muted); padding-top: 4px;">
+                    <div class="item-info">
+                        <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(supp.nom.replace('+ ', ''))}</div>
+                    </div>
+                    <div class="item-actions">
+                        <div class="item-total-price" style="font-size: 0.9rem;">+${suppTotal}</div>
+                    </div>
+                 </div>`;
     });
     
     itemsDiv.innerHTML = html; 
@@ -1453,27 +1484,44 @@ function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomCli
         if (nomClient) { document.getElementById('printClientDiv').style.display = 'flex'; document.getElementById('printClient').textContent = nomClient; } else { document.getElementById('printClientDiv').style.display = 'none'; }
         
         // 🔥 LOGIQUE D'IMPRESSION PREMIUM
+ // 🔥 LOGIQUE D'IMPRESSION PREMIUM (PARENT-ENFANT)
         let htmlArticles = '';
-        panierArticles.forEach(a => {
+        
+        // 1. Isoler les plats principaux
+        const platsPrincipaux = panierArticles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+        
+        platsPrincipaux.forEach(a => {
             const itemTotal = (a.prix * a.quantite).toFixed(3);
-            const isSupp = a.isSupplement === true || (a.nom && a.nom.startsWith('+'));
             
-            if (isSupp) {
-                // Style Supplément Thermique
+            // Le Plat Principal
+            htmlArticles += `
+            <div style="display:flex; justify-content:space-between; margin-top:4px; margin-bottom:2px;">
+                <span style="width:15%; font-weight:bold;">${a.quantite}x</span>
+                <span style="width:55%; font-weight:bold;">${escapeHtml(a.nom)} ${a.variante ? `(${escapeHtml(a.variante)})` : ''}</span>
+                <span style="width:30%; text-align:right; font-weight:bold;">${itemTotal}</span>
+            </div>`;
+            
+            // Ses Suppléments associés
+            const mesSupps = panierArticles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === a.uniqueGroupId);
+            mesSupps.forEach(supp => {
+                const suppTotal = (supp.prix * supp.quantite).toFixed(3);
                 htmlArticles += `
                 <div style="display:flex; justify-content:space-between; margin-bottom:2px; padding-left: 15px;">
-                    <span style="width:70%; font-size:10px; color:#555;">+ ${a.nom.replace('+ ', '')}</span>
-                    <span style="width:30%; text-align:right; font-size:10px; color:#555;">${itemTotal}</span>
+                    <span style="width:70%; font-size:10px; color:#555;">+ ${escapeHtml(supp.nom.replace('+ ', ''))}</span>
+                    <span style="width:30%; text-align:right; font-size:10px; color:#555;">${suppTotal}</span>
                 </div>`;
-            } else {
-                // Style Plat Normal Thermique
-                htmlArticles += `
-                <div style="display:flex; justify-content:space-between; margin-top:4px; margin-bottom:2px;">
-                    <span style="width:15%; font-weight:bold;">${a.quantite}x</span>
-                    <span style="width:55%; font-weight:bold;">${a.nom} ${a.variante ? `(${a.variante})` : ''}</span>
-                    <span style="width:30%; text-align:right; font-weight:bold;">${itemTotal}</span>
-                </div>`;
-            }
+            });
+        });
+        
+        // Sécurité : Suppléments orphelins (au cas où)
+        const orphelins = panierArticles.filter(a => (a.isSupplement || (a.nom && a.nom.startsWith('+'))) && !a.parentId);
+        orphelins.forEach(supp => {
+            const suppTotal = (supp.prix * supp.quantite).toFixed(3);
+            htmlArticles += `
+            <div style="display:flex; justify-content:space-between; margin-bottom:2px; padding-left: 15px;">
+                <span style="width:70%; font-size:10px; color:#555;">+ ${escapeHtml(supp.nom.replace('+ ', ''))}</span>
+                <span style="width:30%; text-align:right; font-size:10px; color:#555;">${suppTotal}</span>
+            </div>`;
         });
 
         document.getElementById('printArticles').innerHTML = htmlArticles + `<div style="border-top:1px dashed black; margin:6px 0;"></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px;"><span>HT</span><span>${ht.toFixed(3)}</span></div><div style="display:flex; justify-content:space-between; font-size:11px; margin-top:2px;"><span>TVA (19%)</span><span>${tva.toFixed(3)}</span></div>`;
