@@ -212,7 +212,18 @@ const Expense = mongoose.model('Expense', new mongoose.Schema({
 
 const Order = mongoose.model('Order', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
-    id: String, numero: String, date: String, timestamp: Number, articles: Array,
+    id: String, numero: String, date: String, timestamp: Number, 
+    // 🔥 CORRECTION ICI : On définit précisément la structure d'un article
+    articles: [{
+        id: String,
+        nom: String,
+        variante: String,
+        quantite: Number,
+        prix: Number,
+        isSupplement: Boolean,    // Pour identifier le supplément
+        uniqueGroupId: Number,    // Identifiant unique de la ligne
+        parentId: Number          // Le lien vers le plat principal
+    }],
     numeroTable: String, statut: { type: String, default: 'en_attente' }, 
     total: Number, clientId: String, clientName: String,
     methodePaiement: { type: String, default: 'sur_place' }
@@ -255,7 +266,18 @@ const Sale = mongoose.model('Sale', new mongoose.Schema({
     timestamp: { type: Number, default: () => Date.now() },
     total: Number, remise: Number,
     typePaiement: String, methodePaiement: { type: String, default: 'especes' },
-    tableOrigine: String, articles: Array
+    tableOrigine: String, 
+    // 🔥 CORRECTION ICI AUSSI POUR LA CAISSE / LES ARCHIVES
+    articles: [{
+        id: String,
+        nom: String,
+        variante: String,
+        quantite: Number,
+        prix: Number,
+        isSupplement: Boolean,
+        uniqueGroupId: Number,
+        parentId: Number
+    }]
 }));
 
 const CashRegister = mongoose.model('CashRegister', new mongoose.Schema({
@@ -275,11 +297,7 @@ const OpenTicket = mongoose.model('OpenTicket', new mongoose.Schema({
 // ========== 3. MIDDLEWARES ET SÉCURITÉ ==========
 app.use(cors());
 app.use(express.json());
-
-// 🚀 ON ACTIVE LE GARDE-BARRIÈRE
 app.use(verifierExistenceCafe);
-
-
 // 🔥 Le portier qui vérifie chaque action du caissier
 async function verifierToken(req, res, next) {
     const tokenFourni = req.headers['authorization'];
