@@ -413,24 +413,33 @@ try {
         const tokenFourni = req.headers['authorization'];
 
         let authValid = false;
+        // Cas A : C'est la Caisse qui envoie
         if (tokenFourni && tokenFourni === vraiCaisseToken) {
             authValid = true;
         }
+        // Cas B : C'est un Serveur sur l'interface Client
         else if (codeEnvoye === vraiCodeServeur) {
             authValid = true;
         }
-        else if (req.body.numeroTable && req.body.numeroTable !== 'Emporter') {
+        // Cas C : C'est un Client VIP (Il peut commander sur place ou à emporter)
+        else if (codeEnvoye) {
             const fidele = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
-            if (fidele) {
-                authValid = true;
-            } else {
-                const tableDb = await TableCode.findOne({ cafeId: req.cafeId, numero: parseInt(req.body.numeroTable) });
-                if (tableDb && tableDb.code === codeEnvoye) authValid = true;
-            }
+            if (fidele) authValid = true;
+        }
+        
+        // Cas D : C'est un Client normal scannant une Table
+        if (!authValid && req.body.numeroTable && req.body.numeroTable !== 'Emporter') {
+            const tableDb = await TableCode.findOne({ cafeId: req.cafeId, numero: parseInt(req.body.numeroTable) });
+            if (tableDb && tableDb.code === codeEnvoye) authValid = true;
+        }
+
+        // Cas E : Commande Web (Paiement en ligne). Pas besoin de code, la banque sécurise.
+        if (!authValid && req.body.methodePaiement === 'en_ligne') {
+            authValid = true;
         }
 
         if (!authValid) {
-            return res.status(403).json({ error: "Ce QR Code a expiré ou le Code Serveur est invalide." });
+            return res.status(403).json({ error: "QRCode expiré ou  Code Incorect" });
         }
 
         let totalSecurise = 0;
@@ -485,7 +494,7 @@ try {
             }
             io.to(req.cafeId).emit('update_stock'); // 🔥 Envoi ciblé au café !
         }
-        else if (codeEnvoye && codeEnvoye !== "00000") {
+        else if (codeEnvoye && codeEnvoye !== vraiCodeServeur) {
             const clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
             if (clientVIP) {
                 clientVIP.totalDepense = parseFloat(((clientVIP.totalDepense || 0) + totalSecurise).toFixed(2));
