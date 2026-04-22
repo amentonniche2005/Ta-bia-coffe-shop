@@ -873,7 +873,8 @@ function ouvrirModalNouveauProduit() {
                         <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="newProdImage" placeholder="Collez le lien .jpg ici"></div>
                         <div class="form-group"><label>Catégorie :</label><select id="newProdCat">
                             <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option><option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="sandwish">🥪 Sandwiches</option><option value="chicha">💨 Chicha</option><option value="Ma9loub">🌮 ma9loub</option><option value="Pizza">🍕 Pizza</option><option value="BagetteFarci">🥖 Bagette Farci</option><option value="Tacos">🌯 Tacos</option><option value="Burger">🍔 Burger</option><option value="Crepes">🦪Crepes</option><option value="plats">🍽 Plats</option><option value="Pasta">🍝 Pasta</option><option value="Libanai">🌯 Libanai</option>
-                        </select></div>
+                            <option value="supplement" style="font-weight:bold; color:var(--primary);">➕ Supplément / Ingrédient</option>
+                            </select></div>
                         <div style="display:flex; gap:10px;">
                             <div class="form-group" style="flex:1;"><label>Prix Achat (DT):</label><input type="number" id="newProdPrixAchat" step="0.01" placeholder="1.0"></div>
                             <div class="form-group" style="flex:1;"><label>Prix Vente (DT):</label><input type="number" id="newProdPrice" step="0.1" placeholder="2.5"></div>
@@ -886,27 +887,53 @@ function ouvrirModalNouveauProduit() {
                 </div>`;
         }
 
-function ajouterLigneSupplement(nom = '', prix = '') {
+// 🔥 NOUVEAU : Fonction pour auto-remplir le prix quand on choisit un supplément
+        window.updateSuppPrix = function(selectElem) {
+            const opt = selectElem.options[selectElem.selectedIndex];
+            const inputPrix = selectElem.parentElement.querySelector('.supp-prix');
+            if (opt.value) {
+                inputPrix.value = opt.getAttribute('data-prix'); // Met le prix par défaut du produit
+            }
+        };
+
+        // 🔥 NOUVEAU : La ligne est maintenant une liste déroulante liée à la Base de données !
+        function ajouterLigneSupplement(id = '', nom = '', prix = '') {
             const div = document.createElement('div');
             div.className = 'supplement-row';
             div.style.cssText = 'display: flex; gap: 10px; margin-bottom: 8px;';
+            
+            // On crée la liste avec TOUS les produits du stock
+            let optionsHtml = '<option value="">-- Choisir dans le stock --</option>';
+            stockProduits.forEach(p => {
+                const isSelected = (String(p.id) === String(id) || p.nom === nom) ? 'selected' : '';
+                optionsHtml += `<option value="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}" ${isSelected}>${escapeHtml(p.nom)} (${p.prix} DT)</option>`;
+            });
+
             div.innerHTML = `
-                <input type="text" placeholder="Nom (ex: Frites)" class="supp-nom input-tech" style="flex: 1; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);" value="${nom}">
+                <select class="supp-select input-tech" style="flex: 1; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);" onchange="updateSuppPrix(this)">
+                    ${optionsHtml}
+                </select>
                 <input type="number" step="0.1" placeholder="Prix (DT)" class="supp-prix input-tech" style="width: 100px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);" value="${prix}">
                 <button onclick="this.parentElement.remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
             `;
             document.getElementById('containerSupplements').appendChild(div);
         }
 
-        // 🔥 FONCTION POUR LIRE LES LIGNES ET CRÉER LE TABLEAU JSON
+        // 🔥 NOUVEAU : On sauvegarde le VRAI ID du produit pour que son stock diminue !
         function extraireSupplements() {
             const rows = document.querySelectorAll('.supplement-row');
             const supps = [];
             rows.forEach(row => {
-                const nom = row.querySelector('.supp-nom').value.trim();
+                const select = row.querySelector('.supp-select');
+                const selectedOpt = select.options[select.selectedIndex];
                 const prix = parseFloat(row.querySelector('.supp-prix').value);
-                if (nom && !isNaN(prix)) {
-                    supps.push({ nom: nom, prix: prix });
+                
+                if (select.value && !isNaN(prix)) {
+                    supps.push({ 
+                        id: select.value, // Le VRAI ID du produit (ex: Fromage)
+                        nom: selectedOpt.getAttribute('data-nom'), 
+                        prix: prix 
+                    });
                 }
             });
             return supps;
@@ -961,6 +988,7 @@ function ouvrirModalEdition(id) {
 
                         <div class="form-group"><label>Lien de la photo (URL) :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="Collez le lien .jpg ici"></div>
                         <div class="form-group"><label>Catégorie :</label><select id="editProdCat">
+                            <option value="supplement" ${p.categorie==='supplement'?'selected':''}>➕ Supplément / Ingrédient</option>
                             <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
                             <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
                             <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
@@ -990,8 +1018,7 @@ function ouvrirModalEdition(id) {
                     </div>
                 </div>`;
                 if (p.supplements && p.supplements.length > 0) {
-                p.supplements.forEach(s => ajouterLigneSupplement(s.nom, s.prix));
-            }
+p.supplements.forEach(s => ajouterLigneSupplement(s.id, s.nom, s.prix));            }
         }
 
 async function sauvegarderEditionProduit(id) {

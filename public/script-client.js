@@ -408,7 +408,7 @@ function ouvrirModalOptions(produit, options) {
         const suppHtml = produit.supplements.map((supp, index) => `
             <label class="option-label" style="background:white; padding:10px; border-radius:8px; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
                 <div style="display:flex; align-items:center;">
-                    <input type="checkbox" name="supplementOption" value="${supp.prix}" data-nom="${supp.nom}" class="supp-input" style="margin-right:10px; transform:scale(1.2);" onchange="mettreAJourTotalModal()">
+                    <input type="checkbox" name="supplementOption" value="${supp.prix}" data-id="${supp.id}" data-nom="${supp.nom}" class="supp-input" style="margin-right:10px; transform:scale(1.2);" onchange="mettreAJourTotalModal()">
                     <span style="font-weight:600; color:var(--text-main);">${supp.nom}</span>
                 </div>
                 <span style="color:var(--success); font-weight:800; font-size:0.9rem;">+ ${parseFloat(supp.prix).toFixed(3)} DT</span>
@@ -469,7 +469,7 @@ function executerAjoutPanier(produit, variante, supplements = []) {
         supplements.forEach(supp => {
             panier.push({
                 cartId: `SUPP_${uniqueGroupId}_${Math.random()}`, // ID Panier Unique
-                baseId: 0, // Faux ID de base (on s'en moque, le prix compte)
+                baseId: supp.id, // Faux ID de base (on s'en moque, le prix compte)
                 id: produit.id, // On envoie l'ID du parent au serveur au cas où
                 nom: `+ ${supp.nom}`, // Le petit "+" pour l'affichage propre
                 variante: null,
@@ -1105,9 +1105,9 @@ document.getElementById("confirmOptionBtn")?.addEventListener("click", (e) => {
                 valeursChoisies = Array.from(checkedBoxes).map(cb => cb.value).join(', ');
             }
             
-            // 🔥 CRÉATION DU TABLEAU DE SUPPLÉMENTS
-            if (checkedSupps.length > 0) {
+                if (checkedSupps.length > 0) {
                 supplementsChoisis = Array.from(checkedSupps).map(box => ({
+                    id: box.getAttribute('data-id'), // 🔥 ON RÉCUPÈRE LE VRAI ID ICI
                     nom: box.getAttribute('data-nom'),
                     prix: box.value
                 }));
