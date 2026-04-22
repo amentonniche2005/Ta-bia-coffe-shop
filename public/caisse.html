@@ -667,10 +667,21 @@ async function envoyerEnCuisine() {
     const articlesAEnvoyer = ticket.articles.filter(a => !a.envoye);
     if (articlesAEnvoyer.length === 0) return showNotification("✅ Déjà envoyés", "#3b82f6");
 
+    // SÉCURITÉ 1 : On bloque immédiatement si internet est coupé
+    if (!navigator.onLine) {
+        return showNotification("📶 Hors-ligne : Impossible d'envoyer en cuisine", "#ef4444");
+    }
+
+    // SÉCURITÉ 2 : On bloque le bouton pour empêcher les clics multiples (Spam)
+    const btnCuisine = document.getElementById('envoyerCuisineBtn');
+    const originalHtml = btnCuisine.innerHTML;
+    btnCuisine.disabled = true;
+    btnCuisine.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...';
+    btnCuisine.style.opacity = "0.7";
+
     let nomTableServeur = currentTable; 
     let nomClientFidele = null;
 
-    // 🔥 1. CORRECTION DE L'ERREUR ROUGE "NaN" DU SERVEUR
     if (currentTable.startsWith('Fidele_')) { 
         nomTableServeur = ticket.numeroTableOrigine || 'Emporter'; 
         nomClientFidele = ticket.label.split(' (')[0]; 
@@ -678,12 +689,10 @@ async function envoyerEnCuisine() {
         nomTableServeur = 'Emporter';
         nomClientFidele = 'Caisse';
     } else if (currentTable.startsWith('WEB_')) {
-        // On trompe le serveur en envoyant "Emporter", mais on cache l'ID dans le nom !
         nomTableServeur = 'Emporter';
         nomClientFidele = currentTable; 
     }
 
-    // 🔥 2. ANTI-DUPLICATION : On prévient la caisse qu'elle est l'auteur de cette commande
     window.tablesEnAttenteEnvoi = window.tablesEnAttenteEnvoi || new Set();
     window.tablesEnAttenteEnvoi.add(currentTable);
 
@@ -710,9 +719,12 @@ async function envoyerEnCuisine() {
                 window.commandesTraiteesTickets.add(newId);
                 tickets[newKey].articles.forEach(a => { if (!a.envoye) a.envoye = true; });
                 
+                // 🔥 CORRECTION DU DERNIER FANTÔME : On nettoie l'ancien nom sur le serveur
+                try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
+
                 delete tickets[currentTable];
                 currentTable = newKey;
-                window.tablesEnAttenteEnvoi.add(newKey); // On protège le nouveau nom
+                window.tablesEnAttenteEnvoi.add(newKey);
             } else {
                 if (!ticket.orderIds) ticket.orderIds = [];
                 if (newId) ticket.orderIds.push(newId);
@@ -724,9 +736,13 @@ async function envoyerEnCuisine() {
             const errData = await response.json(); showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
         }
     } catch (error) { 
-        showNotification("❌ Erreur réseau", "#ef4444"); 
+        showNotification("❌ Erreur réseau : Requête annulée", "#ef4444"); 
     } finally {
-        // Nettoyage de la sécurité anti-doublon après 2 secondes
+        // QUOI QU'IL ARRIVE, on libère le bouton pour la prochaine fois
+        btnCuisine.disabled = false;
+        btnCuisine.innerHTML = originalHtml;
+        btnCuisine.style.opacity = "1";
+
         setTimeout(() => {
             if (window.tablesEnAttenteEnvoi) {
                 window.tablesEnAttenteEnvoi.delete(currentTable);
@@ -1303,8 +1319,10 @@ function afficherModalFermetureCaisse() {
 
     function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomClient) {
         const now = new Date(); const dateStr = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
-        const numTicket = Math.floor(1000 + Math.random() * 9000); const ttc = parseFloat(total); const ht = ttc / 1.19; const tva = ttc - ht;
-        
+        const numTicket = cmd.numero || Math.floor(1000 + Math.random() * 9000); 
+        const ttc = parseFloat(cmd.total) || 0; 
+        const ht = ttc / 1.19; 
+        const tva = ttc - ht;        
         document.getElementById('printDate').textContent = dateStr; document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = numTable;
         if (nomClient) { document.getElementById('printClientDiv').style.display = 'flex'; document.getElementById('printClient').textContent = nomClient; } else { document.getElementById('printClientDiv').style.display = 'none'; }
         
