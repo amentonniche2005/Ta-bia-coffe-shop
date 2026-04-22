@@ -331,7 +331,10 @@ const bouton = rupture
     }).join('');
 }
 
-// ========== GESTION DES VARIANTES (OPTIONS) ==========
+// ========== GESTION DES VARIANTES & SUPPLÉMENTS (PREMIUM) ==========
+
+let prixBaseEnAttente = 0;
+
 function gererClicAjout(event, id) {
     const produit = produits.find(p => p.id === id);
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
@@ -339,8 +342,13 @@ function gererClicAjout(event, id) {
     let optionsTrouvees = null;
 
     if (produit.typeChoix === 'aucun') {
-        executerAjoutPanier(produit, null);
-        animerVersPanierClient(event); // Déclenche l'animation
+        // S'il a des suppléments mais pas de variantes, on ouvre quand même la modale !
+        if (produit.supplements && produit.supplements.length > 0) {
+             ouvrirModalOptions(produit, null);
+        } else {
+             executerAjoutPanier(produit, null, []);
+             animerVersPanierClient(event); 
+        }
         return; 
     }
 
@@ -357,40 +365,84 @@ function gererClicAjout(event, id) {
         }
     }
 
-    if (optionsTrouvees && optionsTrouvees.length > 0) {
+    if ((optionsTrouvees && optionsTrouvees.length > 0) || (produit.supplements && produit.supplements.length > 0)) {
         ouvrirModalOptions(produit, optionsTrouvees);
     } else {
-        executerAjoutPanier(produit, null);
-        animerVersPanierClient(event); // Déclenche l'animation
+        executerAjoutPanier(produit, null, []);
+        animerVersPanierClient(event); 
     }
 }
 
 function ouvrirModalOptions(produit, options) {
     produitEnAttenteOption = produit;
+    prixBaseEnAttente = parseFloat(produit.prix) || 0;
+    
     document.getElementById("optionsTitle").textContent = produit.nom;
-    document.getElementById("optionPriceDisplay").textContent = `(${parseFloat(produit.prix).toFixed(2)} DT)`;
+    document.getElementById("optionPriceDisplay").textContent = `Base : ${prixBaseEnAttente.toFixed(2)} DT`;
     
-    let isMultiple = produit.typeChoix === 'multiple';
-    let typeInput = isMultiple ? 'checkbox' : 'radio';
-    
-    const listHtml = options.map((opt, index) => `
-        <label class="option-label">
-            <input type="${typeInput}" name="varianteOption" value="${opt}" class="option-input" ${(!isMultiple && index === 0) ? 'checked' : ''}>
-            <div class="option-box">
-                <span>${opt}</span>
-                <i class="fas fa-check-circle check-icon"></i>
-            </div>
-        </label>
-    `).join('');
-    
-    document.getElementById("optionsList").innerHTML = listHtml;
+    // --- 1. GESTION DES VARIANTES ---
+    const sectionVar = document.getElementById("sectionVariantes");
+    if (options && options.length > 0) {
+        let isMultiple = produit.typeChoix === 'multiple';
+        let typeInput = isMultiple ? 'checkbox' : 'radio';
+        
+        const listHtml = options.map((opt, index) => `
+            <label class="option-label" style="background:#f8fafc; padding:10px; border-radius:8px; border:1px solid var(--border-color); display:flex; align-items:center; cursor:pointer;">
+                <input type="${typeInput}" name="varianteOption" value="${opt}" class="option-input" style="margin-right:10px; transform:scale(1.2);" ${(!isMultiple && index === 0) ? 'checked' : ''}>
+                <div class="option-box" style="flex:1; font-weight:600; color:var(--text-main);">
+                    <span>${opt}</span>
+                </div>
+            </label>
+        `).join('');
+        
+        document.getElementById("optionsList").innerHTML = listHtml;
+        sectionVar.style.display = "block";
+    } else {
+        document.getElementById("optionsList").innerHTML = "";
+        sectionVar.style.display = "none";
+    }
+
+    // --- 2. GESTION DES SUPPLÉMENTS ---
+    const sectionSupp = document.getElementById("sectionSupplements");
+    if (produit.supplements && produit.supplements.length > 0) {
+        const suppHtml = produit.supplements.map((supp, index) => `
+            <label class="option-label" style="background:white; padding:10px; border-radius:8px; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+                <div style="display:flex; align-items:center;">
+                    <input type="checkbox" name="supplementOption" value="${supp.prix}" data-nom="${supp.nom}" class="supp-input" style="margin-right:10px; transform:scale(1.2);" onchange="mettreAJourTotalModal()">
+                    <span style="font-weight:600; color:var(--text-main);">${supp.nom}</span>
+                </div>
+                <span style="color:var(--success); font-weight:800; font-size:0.9rem;">+ ${parseFloat(supp.prix).toFixed(3)} DT</span>
+            </label>
+        `).join('');
+        
+        document.getElementById("supplementsList").innerHTML = suppHtml;
+        sectionSupp.style.display = "block";
+    } else {
+        document.getElementById("supplementsList").innerHTML = "";
+        sectionSupp.style.display = "none";
+    }
+
+    mettreAJourTotalModal();
     document.getElementById("optionsModal").style.display = "flex";
 }
 
-// ========== PANIER ==========
-function executerAjoutPanier(produit, variante) {
-    const cartId = variante ? `${produit.id}_${variante}` : `${produit.id}`;
+// 🔥 NOUVEAU : Calcul dynamique du prix total en bas de la modale
+function mettreAJourTotalModal() {
+    let total = prixBaseEnAttente;
+    const suppChecked = document.querySelectorAll('input[name="supplementOption"]:checked');
+    
+    suppChecked.forEach(box => {
+        total += parseFloat(box.value) || 0;
+    });
+
+    document.getElementById("prixTotalOptionsBtn").textContent = `(${total.toFixed(2)} DT)`;
+}
+
+function executerAjoutPanier(produit, variante, supplements = []) {
+    // 1. Ajouter le produit principal
+    const cartIdPrincipal = variante ? `${produit.id}_${variante}_${Date.now()}` : `${produit.id}_${Date.now()}`; // Rendu unique à cause des suppléments
     const nomAffiche = variante ? `${produit.nom} (${variante})` : produit.nom;
+    const uniqueGroupId = Date.now(); // Identifiant qui lie la pizza à ses suppléments
 
     if (produit.stock !== undefined) {
         const quantiteTotalePanier = panier.filter(item => item.baseId === produit.id).reduce((sum, item) => sum + item.quantite, 0);
@@ -400,18 +452,32 @@ function executerAjoutPanier(produit, variante) {
         }
     }
 
-    const existant = panier.find(item => item.cartId === cartId);
-    if (existant) {
-        existant.quantite++;
-    } else {
-        panier.push({ 
-            cartId: cartId, 
-            baseId: produit.id,
-            id: produit.id,
-            nom: nomAffiche, 
-            variante: variante,
-            prix: parseFloat(produit.prix), 
-            quantite: 1 
+    panier.push({ 
+        cartId: cartIdPrincipal, 
+        baseId: produit.id,
+        id: produit.id,
+        nom: nomAffiche, 
+        variante: variante,
+        prix: parseFloat(produit.prix), 
+        quantite: 1,
+        isSupplement: false,
+        uniqueGroupId: uniqueGroupId // 🔥 Clé de liaison
+    });
+
+    // 2. Ajouter les suppléments comme des produits séparés
+    if (supplements.length > 0) {
+        supplements.forEach(supp => {
+            panier.push({
+                cartId: `SUPP_${uniqueGroupId}_${Math.random()}`, // ID Panier Unique
+                baseId: `SUPP_${supp.nom}`, // Faux ID de base (on s'en moque, le prix compte)
+                id: produit.id, // On envoie l'ID du parent au serveur au cas où
+                nom: `+ ${supp.nom}`, // Le petit "+" pour l'affichage propre
+                variante: null,
+                prix: parseFloat(supp.prix),
+                quantite: 1,
+                isSupplement: true, // 🔥 Pour que la caisse l'indente !
+                parentId: uniqueGroupId
+            });
         });
     }
 
@@ -421,21 +487,42 @@ function executerAjoutPanier(produit, variante) {
 }
 
 function changerQuantite(cartId, delta) {
-    const article = panier.find(item => item.cartId === cartId);
-    if (!article) return;
-
-    const produitDB = produits.find(p => p.id === article.baseId);
+    const indexArticle = panier.findIndex(item => item.cartId === cartId);
+    if (indexArticle === -1) return;
     
-    if (delta > 0 && produitDB && produitDB.stock !== undefined) {
-        const quantiteTotalePanier = panier.filter(item => item.baseId === article.baseId).reduce((sum, item) => sum + item.quantite, 0);
-        if (quantiteTotalePanier >= produitDB.stock) {
-            afficherNotification("Stock insuffisant", "error");
-            return;
+    const article = panier[indexArticle];
+
+    // Sécurité Stock pour les produits principaux
+    if (!article.isSupplement) {
+        const produitDB = produits.find(p => p.id === article.baseId);
+        if (delta > 0 && produitDB && produitDB.stock !== undefined) {
+            const quantiteTotalePanier = panier.filter(item => item.baseId === article.baseId).reduce((sum, item) => sum + item.quantite, 0);
+            if (quantiteTotalePanier >= produitDB.stock) {
+                afficherNotification("Stock insuffisant", "error");
+                return;
+            }
         }
     }
         
     article.quantite += delta;
-    if (article.quantite <= 0) panier = panier.filter(item => item.cartId !== cartId);
+    
+    // Si la quantité tombe à zéro, on supprime l'article ET ses suppléments associés
+    if (article.quantite <= 0) {
+        if (!article.isSupplement) {
+            // C'est un plat principal, on supprime aussi ses enfants
+            panier = panier.filter(item => item.parentId !== article.uniqueGroupId);
+        }
+        panier = panier.filter(item => item.cartId !== cartId);
+    } else {
+        // 🔥 Si on modifie la quantité d'un plat, il FAUT modifier la quantité de ses suppléments !
+        if (!article.isSupplement) {
+            panier.forEach(item => {
+                if (item.parentId === article.uniqueGroupId) {
+                    item.quantite = article.quantite; // Les suppléments suivent le parent
+                }
+            });
+        }
+    }
     
     sauvegarderPanier();
     mettreAJourUIPanier();
@@ -969,22 +1056,34 @@ function configurerEvenements() {
     document.getElementById("closeCart").onclick = fermerPanier;
     document.getElementById("checkoutBtn").onclick = passerCommande;
     
-document.getElementById("confirmOptionBtn")?.addEventListener("click", (e) => { // <-- Ajout du 'e'
+document.getElementById("confirmOptionBtn")?.addEventListener("click", (e) => {
         const checkedBoxes = document.querySelectorAll('input[name="varianteOption"]:checked');
+        const checkedSupps = document.querySelectorAll('input[name="supplementOption"]:checked'); // 🔥 CAPTURE DES SUPPLÉMENTS
         
         if (produitEnAttenteOption) {
             let valeursChoisies = "";
+            let supplementsChoisis = [];
             
             if (checkedBoxes.length > 0) {
                 valeursChoisies = Array.from(checkedBoxes).map(cb => cb.value).join(', ');
             }
             
-            executerAjoutPanier(produitEnAttenteOption, valeursChoisies);
-            animerVersPanierClient(e); // 🔥 L'animation part du bouton du modal !
+            // 🔥 CRÉATION DU TABLEAU DE SUPPLÉMENTS
+            if (checkedSupps.length > 0) {
+                supplementsChoisis = Array.from(checkedSupps).map(box => ({
+                    nom: box.getAttribute('data-nom'),
+                    prix: box.value
+                }));
+            }
+            
+            // 🔥 ON ENVOIE LES DEUX
+            executerAjoutPanier(produitEnAttenteOption, valeursChoisies, supplementsChoisis);
+            
+            animerVersPanierClient(e); 
             document.getElementById("optionsModal").style.display = "none";
             produitEnAttenteOption = null;
         }
-    });
+    });;
     
     document.getElementById("closeOptions")?.addEventListener("click", () => {
         document.getElementById("optionsModal").style.display = "none";

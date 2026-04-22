@@ -76,16 +76,31 @@
         <span class="cart-price" id="floatingCartTotal">0.00 DT</span>
     </div>
 
-    <div class="options-modal" id="optionsModal" style="display: none;">
-        <div class="options-content">
-            <div class="options-header">
-                <h2 id="optionsTitle">Personnalisez</h2>
-                <button class="close-options" id="closeOptions">&times;</button>
+<div class="options-modal" id="optionsModal" style="display: none;">
+        <div class="options-content" style="padding: 20px; max-width: 400px; width: 90%;">
+            <div class="options-header" style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <h2 id="optionsTitle" style="margin: 0; color: #143621; font-weight: 800; font-size: 1.4rem;">Nom du produit</h2>
+                <button class="close-options" id="closeOptions" style="background: none; border: none; font-size: 1.8rem; color: #94a3b8; cursor: pointer;">&times;</button>
             </div>
-            <p style="color: #64748b; margin-bottom: 15px; font-size: 0.9rem;">Choisissez votre préférence :</p>
-            <div id="optionsList" class="options-list"></div>
-            <button class="checkout-btn add-option-btn" id="confirmOptionBtn" style="margin-top: 15px; background: #db800a; color: white; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer;">
-                Ajouter <span id="optionPriceDisplay"></span>
+            
+            <div id="optionPriceDisplay" style="text-align: center; color: #e67e22; font-weight: 900; font-size: 1.1rem; margin-bottom: 15px;"></div>
+            
+            <div id="sectionVariantes" style="display: none; margin-bottom: 20px;">
+                <div style="font-weight: 800; color: #475569; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 10px;">
+                    <i class="fas fa-list-ul" style="margin-right: 5px;"></i> 1. Choix / Variante
+                </div>
+                <div id="optionsList" class="options-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+
+            <div id="sectionSupplements" style="display: none; margin-bottom: 20px;">
+                <div style="font-weight: 800; color: #475569; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 10px;">
+                    <i class="fas fa-plus-circle" style="margin-right: 5px;"></i> 2. Extras (Payants)
+                </div>
+                <div id="supplementsList" class="options-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+
+            <button class="checkout-btn add-option-btn" id="confirmOptionBtn" style="margin-top: 10px; background: linear-gradient(135deg, #db800a, #e65c00); color: white; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 15px rgba(219, 128, 10, 0.3);">
+                Ajouter <span id="prixTotalOptionsBtn"></span>
             </button>
         </div>
     </div>

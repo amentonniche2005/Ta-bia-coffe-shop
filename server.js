@@ -180,7 +180,11 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     typeChoix: { type: String, default: "unique" },
     seuilAlerte: { type: Number, default: 10 }, 
     unite: String,
-    actif: { type: Boolean, default: true }
+    actif: { type: Boolean, default: true },
+    supplements: [{
+        nom: String,
+        prix: Number
+    }]
 }));
 
 const Movement = mongoose.model('Movement', new mongoose.Schema({
