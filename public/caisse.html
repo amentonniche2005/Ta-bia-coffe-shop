@@ -728,7 +728,7 @@ async function envoyerEnCuisine() {
             })
         });
         
-        if (response.ok) { 
+if (response.ok) { 
             const data = await response.json();
             const newId = data.id || data._id;
             showNotification(`👨‍🍳 Articles envoyés en cuisine !`, "#e67e22"); 
@@ -739,9 +739,17 @@ async function envoyerEnCuisine() {
                 tickets[newKey] = { ...ticket, label: (currentTable === 'Direct' ? '⚡ Direct' : `Comptoir #${data.numero}`) };
                 tickets[newKey].orderIds = [newId];
                 window.commandesTraiteesTickets.add(newId);
-                tickets[newKey].articles.forEach(a => { if (!a.envoye) a.envoye = true; });
                 
-                // 🔥 CORRECTION DU DERNIER FANTÔME : On nettoie l'ancien nom sur le serveur
+                // 🔥 CORRECTION ICI : On ajoute le cadenas et l'ID de la cuisine !
+                tickets[newKey].articles.forEach(a => { 
+                    if (!a.envoye) { 
+                        a.envoye = true; 
+                        a.pret = false;      // On le verrouille
+                        a.cmdId = newId;     // On le lie à la cuisine
+                    } 
+                });
+                
+                // On nettoie l'ancien nom sur le serveur
                 try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
 
                 delete tickets[currentTable];
@@ -750,11 +758,19 @@ async function envoyerEnCuisine() {
             } else {
                 if (!ticket.orderIds) ticket.orderIds = [];
                 if (newId) ticket.orderIds.push(newId);
-                ticket.articles.forEach(a => { if (!a.envoye) a.envoye = true; });
+                
+                // 🔥 CORRECTION ICI AUSSI : Pour les tables normales
+                ticket.articles.forEach(a => { 
+                    if (!a.envoye) { 
+                        a.envoye = true; 
+                        a.pret = false;      // On le verrouille
+                        a.cmdId = newId;     // On le lie à la cuisine
+                    } 
+                });
             }
 
             sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
-        } else { 
+        }else { 
             const errData = await response.json(); showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
         }
     } catch (error) { 
@@ -1017,36 +1033,32 @@ const venteBody = {
         currentTableSelection = currentTable; afficherModalSelectionArticles(ticket.articles);
     }
 
-function afficherModalSelectionArticles(articles) {
+window.afficherModalSelectionArticles = function(articles) {
         const modal = document.getElementById('modalSelectionArticles'); 
         const container = document.getElementById('articlesListeSelection');
         articlesDecomposes = [];
         
-        // 1. Isoler les plats principaux
         const platsPrincipaux = articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
         
-        // 2. Boucler sur les plats principaux et leur attacher leurs suppléments
         platsPrincipaux.forEach((article) => { 
             const articleOriginalIndex = articles.indexOf(article);
             const sesSupplements = articles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === article.uniqueGroupId);
             
-            // On décompose la quantité (ex: 2 Ma9loubs deviennent 2 lignes cliquables)
+            // 🔥 NOUVEAU : On vérifie si l'article est encore bloqué en cuisine
+            const estBloque = article.envoye && !article.pret && article.cmdId;
+            
             for (let i = 0; i < article.quantite; i++) { 
                 let prixUnitaireCombinaison = parseFloat(article.prix) || 0;
                 let nomsSupplements = [];
-                
-                // On prépare le tableau des IDs à supprimer si cette case est cochée
                 let linkedUnitIds = [`${articleOriginalIndex}_${i}`]; 
                 
-                // On ajoute le prix et le nom de chaque supplément
                 sesSupplements.forEach(supp => {
                     prixUnitaireCombinaison += (parseFloat(supp.prix) || 0);
                     nomsSupplements.push(supp.nom.replace('+ ', ''));
                     const suppIndex = articles.indexOf(supp);
-                    linkedUnitIds.push(`${suppIndex}_${i}`); // On lie l'ID du supplément
+                    linkedUnitIds.push(`${suppIndex}_${i}`);
                 });
                 
-                // Formatage du nom pour l'affichage dans la liste
                 let nomAffiche = escapeHtml(article.nom);
                 if (article.variante) nomAffiche += ` <span style="color:var(--primary-orange); font-size:0.85rem;">(${escapeHtml(article.variante)})</span>`;
                 if (nomsSupplements.length > 0) nomAffiche += ` <br><small style="color:var(--text-muted);"><i class="fas fa-plus" style="font-size:0.6rem;"></i> ${escapeHtml(nomsSupplements.join(', '))}</small>`;
@@ -1055,30 +1067,67 @@ function afficherModalSelectionArticles(articles) {
                     id: article.id, 
                     nomAffiche: nomAffiche, 
                     prix: prixUnitaireCombinaison, 
-                    allUnitIds: linkedUnitIds, // Les IDs à supprimer du ticket principal
-                    parentAndSupps: [article, ...sesSupplements] // Les objets complets pour le ticket partiel
+                    allUnitIds: linkedUnitIds, 
+                    parentAndSupps: [article, ...sesSupplements],
+                    bloque: estBloque // 🔥 L'information est sauvegardée ici
                 }); 
             } 
         });
         
         selectedUnits = articlesDecomposes.map(() => false);
-        container.innerHTML = articlesDecomposes.map((unit, index) => `
-            <div class="article-select-item" data-unit-index="${index}" onclick="toggleUnitSelection(${index})">
-                <input type="checkbox" class="article-checkbox" id="check_unit_${index}">
-                <div class="item-info">
-                    <div class="item-name" style="line-height: 1.4;">${unit.nomAffiche}</div>
-                </div>
-                <div class="item-total-price" style="font-weight: 800; color: var(--text-dark);">${unit.prix.toFixed(2)} DT</div>
-            </div>
-        `).join('');
+        
+        container.innerHTML = articlesDecomposes.map((unit, index) => {
+            if (unit.bloque) {
+                // 🔥 DESIGN POUR UN ARTICLE BLOQUÉ (Grisé, sans case à cocher)
+                return `
+                <div class="article-select-item" style="background: #f8fafc; border-color: #e2e8f0; opacity: 0.6; cursor: not-allowed;">
+                    <i class="fas fa-lock" style="color: #d97706; margin-right: 15px; font-size: 1.2rem;" title="En cuisine"></i>
+                    <div class="item-info">
+                        <div class="item-name" style="line-height: 1.4; color: #94a3b8;">${unit.nomAffiche} <span style="color:#d97706; font-size:0.75rem; font-weight:bold; margin-left:5px;">(En cuisine)</span></div>
+                    </div>
+                    <div class="item-total-price" style="font-weight: 800; color: #94a3b8;">${unit.prix.toFixed(2)} DT</div>
+                </div>`;
+            } else {
+                // DESIGN NORMAL (Avec case à cocher)
+                return `
+                <div class="article-select-item" data-unit-index="${index}" onclick="toggleUnitSelection(${index})">
+                    <input type="checkbox" class="article-checkbox" id="check_unit_${index}">
+                    <div class="item-info">
+                        <div class="item-name" style="line-height: 1.4;">${unit.nomAffiche}</div>
+                    </div>
+                    <div class="item-total-price" style="font-weight: 800; color: var(--text-dark);">${unit.prix.toFixed(2)} DT</div>
+                </div>`;
+            }
+        }).join('');
         
         modal.classList.add('active'); 
         mettreAJourTotalUnites();
-    }
+    };
 
     function toggleUnitSelection(unitIndex) { selectedUnits[unitIndex] = !selectedUnits[unitIndex]; const item = document.querySelector(`.article-select-item[data-unit-index="${unitIndex}"]`); const checkbox = document.getElementById(`check_unit_${unitIndex}`); if (selectedUnits[unitIndex]) { item.classList.add('selected'); checkbox.checked = true; } else { item.classList.remove('selected'); checkbox.checked = false; } mettreAJourTotalUnites(); }
-    function selectionnerTousArticles() { selectedUnits = selectedUnits.map(() => true); document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.add('selected'); document.getElementById(`check_unit_${idx}`).checked = true; }); mettreAJourTotalUnites(); }
-    function deselectionnerTousArticles() { selectedUnits = selectedUnits.map(() => false); document.querySelectorAll('.article-select-item').forEach((item, idx) => { item.classList.remove('selected'); document.getElementById(`check_unit_${idx}`).checked = false; }); mettreAJourTotalUnites(); }
+window.selectionnerTousArticles = function() { 
+        // On ne met à true que les articles qui NE SONT PAS bloqués
+        selectedUnits = selectedUnits.map((val, idx) => !articlesDecomposes[idx].bloque); 
+        
+        // On ne coche visuellement que les divs qui ont l'attribut data-unit-index
+        document.querySelectorAll('.article-select-item[data-unit-index]').forEach((item) => { 
+            const idx = item.getAttribute('data-unit-index');
+            item.classList.add('selected'); 
+            document.getElementById(`check_unit_${idx}`).checked = true; 
+        }); 
+        mettreAJourTotalUnites(); 
+    };
+
+    window.deselectionnerTousArticles = function() { 
+        selectedUnits = selectedUnits.map(() => false); 
+        
+        document.querySelectorAll('.article-select-item[data-unit-index]').forEach((item) => { 
+            const idx = item.getAttribute('data-unit-index');
+            item.classList.remove('selected'); 
+            document.getElementById(`check_unit_${idx}`).checked = false; 
+        }); 
+        mettreAJourTotalUnites(); 
+    };
     function mettreAJourTotalUnites() { let total = 0; articlesDecomposes.forEach((unit, index) => { if (selectedUnits[index]) { total += unit.prix; } }); document.getElementById('selectionTotal').innerText = `${total.toFixed(2)} DT`; }
 
 function validerSelectionPaiement() {
@@ -1655,16 +1704,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         document.getElementById('viderTicketBtn').addEventListener('click', () => viderTicket(currentTable));
         document.getElementById('imprimerTicketBtn').addEventListener('click', imprimerTicketCourant);
-        document.getElementById('payerSelectBtn').addEventListener('click', () => {
+document.getElementById('payerSelectBtn').addEventListener('click', () => {
             if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444");
             const ticket = tickets[currentTable];
-            if (!ticket || !ticket.articles.length) return showNotification("❌ Le ticket est vide", "#ef4444");
-            
-            // 🔥 VERROUILLAGE : On cherche si un article est en cuisine
-            const bloquant = ticket.articles.some(a => a.envoye && !a.pret && a.cmdId);
-            if (bloquant) return showNotification("⚠️ Action bloquée : Certains articles sont en cuisine !", "error");
-            
-            currentTableSelection = currentTable; afficherModalSelectionArticles(ticket.articles);
+            if (!ticket || !ticket.articles.length) return showNotification("❌ Le ticket est vide", "#ef4444");            
+            currentTableSelection = currentTable; 
+            afficherModalSelectionArticles(ticket.articles);
         });
         document.getElementById('envoyerCuisineBtn').addEventListener('click', envoyerEnCuisine);
         document.getElementById('payerToutBtn').addEventListener('click', () => { 
