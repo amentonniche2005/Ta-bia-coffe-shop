@@ -164,7 +164,7 @@
                             <div class="space-y-4">
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-300 mb-1">Expiration de l'abonnement <i class="fas fa-calendar text-warning"></i></label>
-                                    <input type="date" id="dateExpiration" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-warning">
+                                    <input type="datetime-local" id="dateExpiration" class="input-tech rounded-xl px-4 py-3 w-full font-mono text-warning">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-300 mb-1">Cloner le menu depuis... <i class="fas fa-copy text-slate-500"></i></label>
@@ -277,16 +277,29 @@
             document.getElementById('liste').innerHTML = '';
         }
 
-        function calculerJoursRestants(dateStr) {
-            if (!dateStr) return { jours: 999, texte: 'Illimité', classe: 'text-success' };
-            const exp = new Date(dateStr);
-            const now = new Date();
-            const diff = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
-            
-            if (diff < 0) return { jours: diff, texte: `Expiré depuis ${Math.abs(diff)}j`, classe: 'text-alert font-bold' };
-            if (diff <= 5) return { jours: diff, texte: `Expire dans ${diff}j`, classe: 'text-warning font-bold' };
-            return { jours: diff, texte: `Expire dans ${diff}j`, classe: 'text-slate-400' };
-        }
+function calculerJoursRestants(dateStr) {
+    if (!dateStr) return { jours: 999, texte: 'Illimité', classe: 'text-success' };
+    
+    const exp = new Date(dateStr);
+    const now = new Date();
+    const diffMs = exp - now; // Différence en millisecondes
+    
+    // Calcul des jours et des heures
+    const diffJours = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHeures = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (diffMs < 0) {
+        return { jours: diffJours, texte: `Expiré`, classe: 'text-alert font-bold' };
+    }
+    if (diffJours === 0) {
+        return { jours: 0, texte: `Expire dans ${diffHeures}h`, classe: 'text-alert font-bold animate-pulse' };
+    }
+    if (diffJours <= 5) {
+        return { jours: diffJours, texte: `Expire dans ${diffJours}j ${diffHeures}h`, classe: 'text-warning font-bold' };
+    }
+    
+    return { jours: diffJours, texte: `Expire dans ${diffJours}j`, classe: 'text-slate-400' };
+}
 
         // --- Logic API ---
         async function chargerCafes() {
@@ -419,7 +432,9 @@
             document.getElementById('caisseToken').value = cafe.caisseToken || '';
             document.getElementById('logoUrl').value = cafe.logoUrl || 'logo.jpg';
             document.getElementById('nombreTables').value = cafe.nombreTables || 20;
-            if(cafe.dateExpiration) document.getElementById('dateExpiration').value = cafe.dateExpiration.split('T')[0];
+            if(cafe.dateExpiration) {
+    document.getElementById('dateExpiration').value = cafe.dateExpiration.substring(0, 16);
+}
 
             // Désactiver le clonage en édition
             document.getElementById('cloneFromId').disabled = true;
