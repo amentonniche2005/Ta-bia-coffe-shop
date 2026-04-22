@@ -234,6 +234,24 @@ button:hover:not(:disabled) {
     background: #e3c496; /* Doré */
     color: #143621; /* Vert */
 }
+/* --- MODAL OPTIONS CAISSE --- */
+        .caisse-selectable-card {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 18px; border: 2px solid var(--border-soft); border-radius: 12px;
+            cursor: pointer; transition: all 0.2s ease; background: #fff; margin-bottom: 8px;
+        }
+        input[type="radio"]:checked + .caisse-selectable-card,
+        input[type="checkbox"]:checked + .caisse-selectable-card {
+            border-color: var(--primary-orange); background: #fff7ed;
+        }
+        input[type="radio"]:checked + .caisse-selectable-card i,
+        input[type="checkbox"]:checked + .caisse-selectable-card i {
+            color: var(--primary-orange);
+        }
+        .caisse-opt-info { display: flex; align-items: center; gap: 12px; font-weight: 700; color: var(--text-dark); }
+        .caisse-opt-price { font-weight: 800; color: var(--success); font-size: 0.95rem; }
+        .caisse-selectable-card.disabled { opacity: 0.4; cursor: not-allowed; background: #f8fafc; }
+        .caisse-rupture-txt { color: var(--danger); font-size: 0.75rem; font-weight: 800; }
     </style>
 </head>
 <body>
@@ -363,7 +381,36 @@ button:hover:not(:disabled) {
         </div>
     </div>
 </div>
+<div id="modalOptionsCaisse" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px; padding: 0; overflow: hidden; background: white;">
+        <div style="padding: 20px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+            <div>
+                <h3 id="caisseOptionsTitle" style="margin: 0; color: var(--primary-green); font-size: 1.4rem;">Produit</h3>
+                <div id="caisseOptionPriceDisplay" style="color: var(--primary-orange); font-weight: 700; font-size: 1rem;">0.00 DT</div>
+            </div>
+            <button class="close-btn" onclick="fermerModalOptionsCaisse()">&times;</button>
+        </div>
+        
+        <div style="padding: 20px; max-height: 50vh; overflow-y: auto;">
+            <div id="caisseSectionVariantes" style="display: none; margin-bottom: 20px;">
+                <div style="font-weight: 800; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 10px;">Préférence (Obligatoire)</div>
+                <div id="caisseOptionsList"></div>
+            </div>
 
+            <div id="caisseSectionSupplements" style="display: none; margin-bottom: 10px;">
+                <div style="font-weight: 800; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 10px;">Extras & Suppléments</div>
+                <div id="caisseSupplementsList"></div>
+            </div>
+        </div>
+
+        <div style="padding: 20px; border-top: 1px solid var(--border-soft);">
+            <button class="btn-valider" onclick="validerOptionsCaisse()" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                <span>Ajouter au ticket</span>
+                <span id="caissePrixTotalOptionsBtn" style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 8px;">0.00 DT</span>
+            </button>
+        </div>
+    </div>
+</div>
 <div id="containerModalPaiement"></div>
 
 <div id="ticketCaisse" class="ticket-caisse">
@@ -423,6 +470,8 @@ button:hover:not(:disabled) {
     let tickets = {}; let currentTable = null; let activeCategory = "all"; let produits = [];
     let derniereTableModal = null; let socket = null; let commandesRecues = []; 
     let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
+    let produitEnAttenteCaisse = null;
+    let prixBaseEnAttenteCaisse = 0;
     let NB_TABLES_MAX = 160;
     for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
@@ -944,14 +993,151 @@ window.afficherTicket = function() {
         document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => { activeCategory = btn.dataset.cat; renderCategories(); renderProducts(); }));
     }
 
-    function renderProducts() {
+function renderProducts() {
         const grid = document.getElementById('productsGrid'); if (!grid) return;
         let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
         if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit</div>'; return; }
-        grid.innerHTML = filtered.map(p => { const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; return `<div class="product-card" data-id="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${p.prix}"><div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div><div class="product-name">${escapeHtml(p.nom)}</div><div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div></div>`; }).join('');
-        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); ajouterAuTicket(currentTable, { id: parseInt(card.dataset.id) || Date.now(), nom: card.dataset.nom, prix: parseFloat(card.dataset.prix) }); }));
-    }
+        
+        grid.innerHTML = filtered.map(p => { 
+            const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
+            return `<div class="product-card" data-id="${p.id}"><div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div><div class="product-name">${escapeHtml(p.nom)}</div><div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div></div>`; 
+        }).join('');
+        
+        // --- ACTION AU CLIC SUR UN PRODUIT ---
+        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { 
+            if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
+            
+            const idProd = card.dataset.id;
+            const produitFull = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
+            if (!produitFull || (produitFull.stock <= 0 && produitFull.stock !== undefined)) return;
 
+            // 🔥 LOGIQUE STRICTE : On lit UNIQUEMENT ce qui vient de gestion-stock.html
+            let optionsTrouvees = null;
+            
+            // Si le produit a des variantes enregistrées en base de données
+            if (produitFull.variantes && produitFull.variantes.trim() !== "") {
+                optionsTrouvees = produitFull.variantes.split(',').map(v => v.trim());
+            }
+
+            // On ouvre le modal SI ET SEULEMENT SI le gérant a configuré des variantes ou des suppléments
+            if ((optionsTrouvees && optionsTrouvees.length > 0) || (produitFull.supplements && produitFull.supplements.length > 0)) {
+                ouvrirModalOptionsCaisse(produitFull, optionsTrouvees);
+            } else {
+                // Si rien n'est configuré dans le stock, on ajoute directement au ticket (Zéro clic supplémentaire)
+                ajouterProduitCaisse(produitFull, null, []);
+            }
+        }));
+    }
+window.ouvrirModalOptionsCaisse = function(produit, options) {
+        produitEnAttenteCaisse = produit;
+        prixBaseEnAttenteCaisse = parseFloat(produit.prix) || 0;
+        
+        document.getElementById("caisseOptionsTitle").textContent = produit.nom;
+        document.getElementById("caisseOptionPriceDisplay").textContent = `${prixBaseEnAttenteCaisse.toFixed(2)} DT`;
+        
+        // 1. Variantes
+        const sectionVar = document.getElementById("caisseSectionVariantes");
+        const containerVar = document.getElementById("caisseOptionsList");
+        if (options && options.length > 0) {
+            const isMultiple = produit.typeChoix === 'multiple';
+            containerVar.innerHTML = options.map((opt, index) => `
+                <label style="display:block; cursor:pointer;">
+                    <input type="${isMultiple ? 'checkbox' : 'radio'}" name="caisseVarOption" value="${opt}" style="display:none;" ${(!isMultiple && index === 0) ? 'checked' : ''}>
+                    <div class="caisse-selectable-card">
+                        <div class="caisse-opt-info"><i class="fas ${isMultiple ? 'fa-square' : 'fa-circle'}"></i> <span>${opt}</span></div>
+                    </div>
+                </label>
+            `).join('');
+            sectionVar.style.display = "block";
+        } else { sectionVar.style.display = "none"; }
+
+        // 2. Suppléments (Vérification du stock)
+        const sectionSupp = document.getElementById("caisseSectionSupplements");
+        const containerSupp = document.getElementById("caisseSupplementsList");
+        if (produit.supplements && produit.supplements.length > 0) {
+            containerSupp.innerHTML = produit.supplements.map(supp => {
+                const ref = produits.find(p => String(p.id) === String(supp.id));
+                const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
+
+                return `
+                    <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'};">
+                        <input type="checkbox" name="caisseSuppOption" value="${supp.prix}" data-id="${supp.id}" data-nom="${supp.nom}" style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModalCaisse()">
+                        <div class="caisse-selectable-card ${estRupture ? 'disabled' : ''}">
+                            <div class="caisse-opt-info"><i class="fas fa-plus-circle"></i> <span>${supp.nom}</span></div>
+                            <div class="opt-price-container">
+                                ${estRupture ? '<span class="caisse-rupture-txt">RUPTURE</span>' : `<span class="caisse-opt-price">+ ${parseFloat(supp.prix).toFixed(2)}</span>`}
+                            </div>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+            sectionSupp.style.display = "block";
+        } else { sectionSupp.style.display = "none"; }
+
+        mettreAJourTotalModalCaisse();
+        document.getElementById("modalOptionsCaisse").classList.add('active');
+    };
+
+    window.mettreAJourTotalModalCaisse = function() {
+        let total = prixBaseEnAttenteCaisse;
+        document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => total += parseFloat(box.value) || 0);
+        document.getElementById("caissePrixTotalOptionsBtn").textContent = `${total.toFixed(2)} DT`;
+    };
+
+    window.fermerModalOptionsCaisse = function() {
+        document.getElementById("modalOptionsCaisse").classList.remove('active');
+        produitEnAttenteCaisse = null;
+    };
+
+    window.validerOptionsCaisse = function() {
+        if (!produitEnAttenteCaisse) return;
+        
+        let varianteChoisie = null;
+        const checkVar = document.querySelectorAll('input[name="caisseVarOption"]:checked');
+        if (checkVar.length > 0) varianteChoisie = Array.from(checkVar).map(cb => cb.value).join(', ');
+
+        let suppsChoisis = [];
+        document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => {
+            suppsChoisis.push({ id: box.getAttribute('data-id'), nom: box.getAttribute('data-nom'), prix: box.value });
+        });
+
+        ajouterProduitCaisse(produitEnAttenteCaisse, varianteChoisie, suppsChoisis);
+        fermerModalOptionsCaisse();
+    };
+
+    // Logique Parent/Enfant adaptée à la caisse
+    window.ajouterProduitCaisse = function(produit, variante, supplements) {
+        const idGroupeUnique = Date.now();
+        
+        // 1. Ajouter le produit principal
+        ajouterAuTicket(currentTable, { 
+            id: produit.id || produit._id, 
+            nom: produit.nom, 
+            variante: variante, 
+            prix: parseFloat(produit.prix) || 0, 
+            quantite: 1, 
+            envoye: false, pret: false, cmdId: null, // N'est pas encore parti en cuisine
+            isSupplement: false, uniqueGroupId: idGroupeUnique, parentId: null 
+        }, false, false);
+        
+        // 2. Ajouter les suppléments
+        if (supplements && supplements.length > 0) {
+            supplements.forEach(supp => {
+                ajouterAuTicket(currentTable, {
+                    id: supp.id || supp._id || `SUPP_${Date.now()}`,
+                    nom: `+ ${supp.nom}`,
+                    variante: null,
+                    prix: parseFloat(supp.prix) || 0,
+                    quantite: 1,
+                    envoye: false, pret: false, cmdId: null,
+                    isSupplement: true, uniqueGroupId: Date.now() + Math.random(), parentId: idGroupeUnique
+                }, false, false);
+            });
+        }
+        
+        afficherTicket();
+        afficherListeTables();
+    };
     function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
         if (!caisseOuverte) { showNotification("❌ Caisse fermée !", "#ef4444"); return; }
         const container = document.getElementById('containerModalPaiement');
