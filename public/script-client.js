@@ -327,8 +327,8 @@ function afficherProduits() {
     if (!grille) return;
 
     let produitsAffiches = produits;
-    produitsAffiches = produitsAffiches.filter(p => p.categorie !== 'supplement');
-    if (categorieActuelle !== "all") {
+produitsAffiches = produitsAffiches.filter(p => p.categorie !== 'supplement' && p.categorie !== 'matiere');  
+  if (categorieActuelle !== "all") {
         produitsAffiches = produits.filter(p => p.categorie === categorieActuelle);
     }
 
