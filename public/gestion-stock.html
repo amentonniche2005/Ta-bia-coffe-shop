@@ -1005,8 +1005,19 @@ function ouvrirModalNouveauProduit() {
                     <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" placeholder="0 si pas de promo"></div>
                 </div>
 
-                <div style="display:flex; gap:10px;">
+<div style="display:flex; gap:10px;">
                     <div class="form-group" id="stockInputSection_new" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
+                    
+                    <div class="form-group" style="flex:1;"><label>Unité:</label>
+                        <select id="newProdUnite">
+                            <option value="u">Pièce (u)</option>
+                            <option value="g">Grammes (g)</option>
+                            <option value="kg">Kilos (kg)</option>
+                            <option value="ml">Millilitres (ml)</option>
+                            <option value="L">Litres (L)</option>
+                        </select>
+                    </div>
+
                     <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10"></div>
                 </div>
                 
@@ -1077,7 +1088,7 @@ async function sauvegarderNouveauProduit() {
     const typeC = document.getElementById('newProdTypeChoix').value;
     const variantesInput = document.getElementById('newProdVariantes').value.trim();
     
-    const produitData = {
+const produitData = {
         nom: document.getElementById('newProdName').value.trim(),
         image: document.getElementById('newProdImage').value.trim(),
         variantes: variantesInput,
@@ -1086,11 +1097,12 @@ async function sauvegarderNouveauProduit() {
         prixAchat: parseFloat(document.getElementById('newProdPrixAchat').value) || 0,
         prix: parseFloat(document.getElementById('newProdPrice').value),
         prixPromo: parseFloat(document.getElementById('newProdPrixPromo').value) || 0,
-        stock: isManuf ? 0 : (parseInt(document.getElementById('newProdStock').value) || 0), // Si recette, stock = 0 physiquement
+        stock: isManuf ? 0 : (parseInt(document.getElementById('newProdStock').value) || 0),
         seuilAlerte: parseInt(document.getElementById('newProdAlerte').value) || 10,
+        unite: document.getElementById('newProdUnite').value, // 🔥 NOUVEAU : Sauvegarde l'unité
         supplements: extraireSupplements(),
-        isManufactured: isManuf,                 // 🔥 ERP: C'est une recette ?
-        recipe: isManuf ? extraireRecette('new') : []  // 🔥 ERP: Les ingrédients
+        isManufactured: isManuf,
+        recipe: isManuf ? extraireRecette('new') : []
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
@@ -1214,8 +1226,19 @@ function ouvrirModalEdition(id) {
                     <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="editProdPrixPromo" step="0.1" value="${p.prixPromo || 0}"></div>
                 </div>
 
-                <div style="display:flex; gap:10px;">
+<div style="display:flex; gap:10px;">
                     <div class="form-group" id="stockInputSection_edit" style="flex:1; display:${isManuf ? 'none' : 'block'};"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
+                    
+                    <div class="form-group" style="flex:1;"><label>Unité:</label>
+                        <select id="editProdUnite">
+                            <option value="u" ${p.unite === 'u' ? 'selected' : ''}>Pièce (u)</option>
+                            <option value="g" ${p.unite === 'g' ? 'selected' : ''}>Grammes (g)</option>
+                            <option value="kg" ${p.unite === 'kg' ? 'selected' : ''}>Kilos (kg)</option>
+                            <option value="ml" ${p.unite === 'ml' ? 'selected' : ''}>Millilitres (ml)</option>
+                            <option value="L" ${p.unite === 'L' ? 'selected' : ''}>Litres (L)</option>
+                        </select>
+                    </div>
+
                     <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
                 </div>
 
@@ -1237,7 +1260,7 @@ async function sauvegarderEditionProduit(id) {
     const typeC = document.getElementById('editProdTypeChoix').value;
     const variantesInput = document.getElementById('editProdVariantes').value.trim();
     
-    const produitData = {
+const produitData = {
         nom: document.getElementById('editProdName').value.trim(),
         image: document.getElementById('editProdImage').value.trim(),
         variantes: variantesInput,
@@ -1248,6 +1271,7 @@ async function sauvegarderEditionProduit(id) {
         prixPromo: parseFloat(document.getElementById('editProdPrixPromo').value) || 0,
         stock: isManuf ? 0 : (parseInt(document.getElementById('editProdStock').value) || 0),
         seuilAlerte: parseInt(document.getElementById('editProdAlerte').value) || 10,
+        unite: document.getElementById('editProdUnite').value, // 🔥 NOUVEAU : Mise à jour de l'unité
         supplements: extraireSupplements(),
         isManufactured: isManuf,
         recipe: isManuf ? extraireRecette('edit') : []
