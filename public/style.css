@@ -1194,3 +1194,59 @@ input:checked + .selectable-card .opt-check-icon {
     align-items: center;
 }
 
+/* Modale Options plus compacte */
+#optionsModal .modal-content {
+    max-width: 450px;
+    width: 95%;
+    max-height: 85vh; /* Empêche de sortir de l'écran */
+    display: flex;
+    flex-direction: column;
+    padding: 0; /* On gère le padding à l'intérieur */
+}
+
+.modal-header-fixed {
+    padding: 20px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.modal-body-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px 20px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.modal-footer-fixed {
+    padding: 15px 20px;
+    border-top: 1px solid #f1f5f9;
+    background: #fff;
+    border-radius: 0 0 20px 20px;
+}
+
+/* Cartes de suppléments plus petites (Style Liste) */
+.option-label {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px !important; /* Plus fin */
+    margin-bottom: 8px !important;
+    border-radius: 12px !important;
+    border: 1px solid #f1f5f9 !important;
+    transition: all 0.2s ease;
+}
+
+.option-label:active {
+    transform: scale(0.98);
+}
+
+.option-input, .supp-input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--primary);
+}
+
+/* Animation de prix */
+#prixTotalOptionsBtn {
+    transition: all 0.3s ease;
+    display: inline-block;
+}
