@@ -351,92 +351,116 @@ function gererClicAjout(event, id) {
     }
 }
 
-function ouvrirModalOptions(produit, options) {
+window.ouvrirModalOptions = function(produit, options) {
     produitEnAttenteOption = produit;
-    prixBaseEnAttente = parseFloat(produit.prix) || 0;
+    prixBaseEnAttente = (produit.prixPromo && produit.prixPromo > 0) ? parseFloat(produit.prixPromo) : parseFloat(produit.prix);    
+    document.getElementById("optionsTitle").textContent = produit.nom;
+    document.getElementById("optionPriceDisplay").textContent = `${prixBaseEnAttente.toFixed(2)} DT`;
     
-    // Structure interne de la modale pour le scroll
-    const modalContent = document.querySelector("#optionsModal .modal-content");
-    modalContent.innerHTML = `
-        <div class="modal-header-fixed">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 id="optionsTitle" style="margin:0; font-size:1.2rem; font-weight:800; color:#1e293b;">${produit.nom}</h3>
-                <span id="closeOptions" style="cursor:pointer; font-size:1.5rem; color:#94a3b8;">&times;</span>
-            </div>
-            <div id="optionPriceDisplay" style="font-weight:600; color:var(--primary); font-size:0.9rem; margin-top:5px;">
-                Base : ${prixBaseEnAttente.toFixed(2)} DT
-            </div>
-        </div>
-
-        <div class="modal-body-scroll">
-            <div id="sectionVariantes" style="display:none; margin-bottom:20px;">
-                <h4 style="font-size:0.9rem; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; letter-spacing:1px;">Variantes</h4>
-                <div id="optionsList" class="options-grid"></div>
-            </div>
-
-            <div id="sectionSupplements" style="display:none;">
-                <h4 style="font-size:0.9rem; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; letter-spacing:1px;">Suppléments</h4>
-                <div id="supplementsList" class="options-grid"></div>
-            </div>
-        </div>
-
-        <div class="modal-footer-fixed">
-            <button id="confirmOptionBtn" class="auth-btn" style="width:100%; margin:0;">
-                Ajouter au panier <span id="prixTotalOptionsBtn">(${prixBaseEnAttente.toFixed(2)} DT)</span>
-            </button>
-        </div>
-    `;
-
-    // Ré-attacher l'événement de fermeture
-    document.getElementById("closeOptions").onclick = () => document.getElementById("optionsModal").style.display = "none";
-    
-    // Ré-attacher l'événement de confirmation
-    document.getElementById("confirmOptionBtn").onclick = (e) => {
-        const checkedVars = document.querySelectorAll('input[name="varianteOption"]:checked');
-        const checkedSupps = document.querySelectorAll('input[name="supplementOption"]:checked');
-        
-        let valeursChoisies = checkedVars.length > 0 ? Array.from(checkedVars).map(cb => cb.value).join(', ') : "";
-        let supplementsChoisis = Array.from(checkedSupps).map(box => ({
-            id: box.getAttribute('data-id'),
-            nom: box.getAttribute('data-nom'),
-            prix: box.value
-        }));
-        
-        executerAjoutPanier(produit.id || produit._id, valeursChoisies, supplementsChoisis);
-        animerVersPanierClient(e);
-        document.getElementById("optionsModal").style.display = "none";
-    };
-
-    // Remplissage des Variantes
+    // =========================================================
+    // 1. SECTION VARIANTES (Nouvelle logique Groupes Intelligents)
+    // =========================================================
     const sectionVar = document.getElementById("sectionVariantes");
-    if (options && options.length > 0) {
-        let typeInput = (produit.typeChoix === 'multiple') ? 'checkbox' : 'radio';
-        document.getElementById("optionsList").innerHTML = options.map((opt, index) => `
-            <label class="option-label">
-                <span style="font-weight:600; color:#1e293b;">${opt}</span>
-                <input type="${typeInput}" name="varianteOption" value="${opt}" class="option-input" ${(typeInput==='radio' && index===0)?'checked':''}>
-            </label>
-        `).join('');
-        sectionVar.style.display = "block";
-    }
+    const containerVar = document.getElementById("optionsList");
 
-    // Remplissage des Suppléments
-    const sectionSupp = document.getElementById("sectionSupplements");
-    if (produit.supplements && produit.supplements.length > 0) {
-        document.getElementById("supplementsList").innerHTML = produit.supplements.map(supp => `
-            <label class="option-label">
-                <div style="display:flex; flex-direction:column;">
-                    <span style="font-weight:700; color:#1e293b;">${supp.nom}</span>
-                    <span style="color:#10b981; font-weight:800; font-size:0.85rem;">+${parseFloat(supp.prix).toFixed(2)} DT</span>
+    if (produit.variantes && produit.variantes.trim() !== "") {
+        // On découpe la chaîne : "Viande[Poulet, Thon] | Sauces*[Mayo, Ketchup]"
+        const groupes = produit.variantes.split('|');
+        
+        containerVar.innerHTML = groupes.map((groupeStr, gIdx) => {
+            const match = groupeStr.match(/(.*)\[(.*)\]/);
+            
+            // Si le gérant a mal tapé, on fait un fallback classique
+            if (!match) {
+                return `<div style="color:red; font-size:0.8rem;">Erreur format : ${groupeStr}</div>`;
+            }
+
+            let titreRaw = match[1].trim();
+            const listeOptions = match[2].split(',');
+            
+            // Détection du mode (Choix Multiple avec l'étoile *)
+            const estMultiple = titreRaw.endsWith('*');
+            const titreAffiche = estMultiple ? titreRaw.replace('*', '') : titreRaw;
+            const typeInput = estMultiple ? 'checkbox' : 'radio';
+
+            return `
+                <div class="variant-group" style="margin-bottom: 18px;">
+                    <div class="section-header">
+                        <span class="section-title">${titreAffiche}</span>
+                        <span class="section-badge ${estMultiple ? 'optional' : ''}">${estMultiple ? 'Plusieurs choix' : '1 Seul choix'}</span>
+                    </div>
+                    <div class="options-grid">
+                        ${listeOptions.map((opt, oIdx) => `
+                            <label style="display:block; cursor:pointer;">
+                                <input type="${typeInput}" 
+                                       name="variant_group_${gIdx}" 
+                                       value="${opt.trim()}" 
+                                       style="display:none;" 
+                                       ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
+                                <div class="selectable-card">
+                                    <div class="opt-info">
+                                        <i class="fas ${estMultiple ? 'fa-check-square' : 'fa-circle'} opt-check-icon"></i>
+                                        <span>${opt.trim()}</span>
+                                    </div>
+                                </div>
+                            </label>
+                        `).join('')}
+                    </div>
                 </div>
-                <input type="checkbox" name="supplementOption" value="${supp.prix}" data-id="${supp.id}" data-nom="${supp.nom}" class="supp-input" onchange="mettreAJourTotalModal()">
-            </label>
-        `).join('');
-        sectionSupp.style.display = "block";
+            `;
+        }).join('');
+        sectionVar.style.display = "block";
+    } else { 
+        sectionVar.style.display = "none"; 
     }
 
+    // =========================================================
+    // 2. SECTION SUPPLÉMENTS (Ancienne logique, intacte avec le stock)
+    // =========================================================
+    const sectionSupp = document.getElementById("sectionSupplements");
+    const containerSupp = document.getElementById("supplementsList");
+    
+if (produit.supplements && produit.supplements.length > 0) {
+        containerSupp.innerHTML = produit.supplements.map(supp => {
+            const ref = produits.find(p => String(p.id) === String(supp.id));
+            const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
+
+            // --- LOGIQUE PROMO SUPPLÉMENTS ---
+            // On vérifie si le produit référencé comme supplément a lui-même un prixPromo
+            const pNormal = parseFloat(supp.prix || 0);
+            const pPromo = (ref && ref.prixPromo > 0) ? parseFloat(ref.prixPromo) : 0;
+            const prixFinalSupp = pPromo > 0 ? pPromo : pNormal;
+
+            const affichagePrixSupp = pPromo > 0 
+                ? `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">+${pNormal.toFixed(2)}</s> <span style="color:#10b981;">+${pPromo.toFixed(2)} DT</span>`
+                : `<span class="opt-price">+ ${pNormal.toFixed(2)} DT</span>`;
+
+            return `
+                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'};">
+                    <input type="checkbox" name="supplementOption" 
+                            value="${prixFinalSupp}" data-id="${supp.id}" data-nom="${supp.nom}" 
+                            style="display:none;" ${estRupture ? 'disabled' : ''} 
+                            onchange="mettreAJourTotalModal()">
+                    <div class="selectable-card ${estRupture ? 'disabled' : ''}">
+                        <div class="opt-info">
+                            <i class="fas fa-plus-circle opt-check-icon"></i>
+                            <span>${supp.nom}</span>
+                        </div>
+                        <div class="opt-price-container">
+                            ${estRupture ? '<span class="rupture-txt">ÉPUISÉ</span>' : affichagePrixSupp}
+                        </div>
+                    </div>
+                </label>
+            `;
+        }).join('');
+        sectionSupp.style.display = "block";
+    } else { 
+        sectionSupp.style.display = "none"; 
+    }
+
+    mettreAJourTotalModal();
     document.getElementById("optionsModal").style.display = "flex";
-}
+};
 
 // 🔥 NOUVEAU : Calcul dynamique du prix total en bas de la modale
 function mettreAJourTotalModal() {
