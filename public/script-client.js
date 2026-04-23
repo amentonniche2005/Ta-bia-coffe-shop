@@ -292,47 +292,32 @@ function afficherProduits() {
         return;
     }
 
-    grille.innerHTML = produitsTries.map(p => {
+grille.innerHTML = produitsTries.map(p => {
         const rupture = p.stock <= 0 && p.stock !== undefined;
         const classeRupture = rupture ? 'sold-out' : '';
-        
-        // 🔥 CORRECTION : On sécurise l'ID avec des guillemets pour éviter les plantages si l'ID contient des lettres
         const bouton = rupture 
             ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
             : `<button class="add-to-cart" onclick="gererClicAjout(event, '${p.id || p._id}')">Ajouter <i class="fas fa-plus"></i></button>`;            
         
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
+        
+        // --- LOGIQUE PROMO ARTICLES ---
         const prixNormal = parseFloat(p.prix || 0).toFixed(2);
         const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
         
-        // S'il y a une promo, on barre l'ancien et on met le nouveau en rouge
         const affichagePrix = (p.prixPromo && p.prixPromo > 0) 
-            ? `<s style="color:#94a3b8; font-size:0.8rem; margin-right:5px;">${prixNormal} DT</s> <span style="color:#e74c3c;">${prixPromo} DT</span>` 
-            : `${prixNormal} DT`;
+            ? `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${prixNormal} DT</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>` 
+            : `<span>${prixNormal} DT</span>`;
 
         return `
             <div class="menu-item ${classeRupture}">
                 <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center;">
-                ${p.prixPromo > 0 ? `<div style="position:absolute; top:5px; left:5px; background:#e74c3c; color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; z-index:2;">PROMO</div>` : ''}
+                    ${p.prixPromo > 0 ? `<div style="position:absolute; top:8px; left:8px; background:#e74c3c; color:white; padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:900; z-index:2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">PROMO</div>` : ''}
                 </div>
                 <div class="item-info">
                     <div>
                         <h3>${p.nom}</h3>
                         <div class="price">${affichagePrix}</div>
-                    </div>
-                    ${bouton}
-                </div>
-            </div>
-        `;
-
-        return `
-            <div class="menu-item ${classeRupture}">
-                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center;">
-                </div>
-                <div class="item-info">
-                    <div>
-                        <h3>${p.nom}</h3>
-                        <div class="price">${prixFormatte} DT</div>
                     </div>
                     ${bouton}
                 </div>
@@ -368,8 +353,7 @@ function gererClicAjout(event, id) {
 
 window.ouvrirModalOptions = function(produit, options) {
     produitEnAttenteOption = produit;
-    prixBaseEnAttente = (produit.prixPromo && produit.prixPromo > 0) ? parseFloat(produit.prixPromo) : parseFloat(produit.prix);
-    
+    prixBaseEnAttente = (produit.prixPromo && produit.prixPromo > 0) ? parseFloat(produit.prixPromo) : parseFloat(produit.prix);    
     document.getElementById("optionsTitle").textContent = produit.nom;
     document.getElementById("optionPriceDisplay").textContent = `${prixBaseEnAttente.toFixed(2)} DT`;
     
@@ -436,24 +420,34 @@ window.ouvrirModalOptions = function(produit, options) {
     const sectionSupp = document.getElementById("sectionSupplements");
     const containerSupp = document.getElementById("supplementsList");
     
-    if (produit.supplements && produit.supplements.length > 0) {
+if (produit.supplements && produit.supplements.length > 0) {
         containerSupp.innerHTML = produit.supplements.map(supp => {
             const ref = produits.find(p => String(p.id) === String(supp.id));
             const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
 
+            // --- LOGIQUE PROMO SUPPLÉMENTS ---
+            // On vérifie si le produit référencé comme supplément a lui-même un prixPromo
+            const pNormal = parseFloat(supp.prix || 0);
+            const pPromo = (ref && ref.prixPromo > 0) ? parseFloat(ref.prixPromo) : 0;
+            const prixFinalSupp = pPromo > 0 ? pPromo : pNormal;
+
+            const affichagePrixSupp = pPromo > 0 
+                ? `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">+${pNormal.toFixed(2)}</s> <span style="color:#10b981;">+${pPromo.toFixed(2)} DT</span>`
+                : `<span class="opt-price">+ ${pNormal.toFixed(2)} DT</span>`;
+
             return `
                 <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'};">
                     <input type="checkbox" name="supplementOption" 
-                           value="${supp.prix}" data-id="${supp.id}" data-nom="${supp.nom}" 
-                           style="display:none;" ${estRupture ? 'disabled' : ''} 
-                           onchange="mettreAJourTotalModal()">
+                            value="${prixFinalSupp}" data-id="${supp.id}" data-nom="${supp.nom}" 
+                            style="display:none;" ${estRupture ? 'disabled' : ''} 
+                            onchange="mettreAJourTotalModal()">
                     <div class="selectable-card ${estRupture ? 'disabled' : ''}">
                         <div class="opt-info">
                             <i class="fas fa-plus-circle opt-check-icon"></i>
                             <span>${supp.nom}</span>
                         </div>
                         <div class="opt-price-container">
-                            ${estRupture ? '<span class="rupture-txt">ÉPUISÉ</span>' : `<span class="opt-price">+ ${parseFloat(supp.prix).toFixed(2)} DT</span>`}
+                            ${estRupture ? '<span class="rupture-txt">ÉPUISÉ</span>' : affichagePrixSupp}
                         </div>
                     </div>
                 </label>
