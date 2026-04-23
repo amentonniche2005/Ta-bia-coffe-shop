@@ -872,7 +872,18 @@ function ouvrirModalNouveauProduit() {
                     <div id="containerSupplements"></div>
                     <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un supplément</button>
                 </div>
-
+                <div class="form-group" style="background: #f0fdf4; padding: 15px; border-radius: 12px; border: 1px solid #bbf7d0;">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#166534; font-weight:800; margin-bottom:0;">
+                        <input type="checkbox" id="newProdIsFormule" onchange="document.getElementById('newMenuBuilderZone').style.display = this.checked ? 'block' : 'none'" style="width:20px; height:20px;">
+                        🌟 Activer le Menu Combo (Déduit les stocks des composants)
+                    </label>
+                    <div id="newMenuBuilderZone" style="display:none; margin-top:15px;">
+                        <div id="newStepsContainer"></div>
+                        <button type="button" onclick="ajouterEtapeMenu('newStepsContainer')" class="btn-action" style="background:#166534; font-size:0.8rem; margin-top:10px;">
+                            <i class="fas fa-plus"></i> Ajouter une étape (ex: Boisson)
+                        </button>
+                    </div>
+                </div>
                 <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
                     <select id="newProdCat">
                         <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option>
@@ -968,7 +979,9 @@ async function sauvegarderNouveauProduit() {
         prix: parseFloat(document.getElementById('newProdPrice').value),
         stock: parseInt(document.getElementById('newProdStock').value) || 0,
         seuilAlerte: parseInt(document.getElementById('newProdAlerte').value) || 10,
-        supplements: extraireSupplements() // 🔥 Tableau JSON construit proprement
+        supplements: extraireSupplements(),
+        isFormule: document.getElementById('newProdIsFormule').checked,
+        formuleSteps: document.getElementById('newProdIsFormule').checked ? extraireMenuSteps('newStepsContainer') : [],
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
@@ -1047,7 +1060,18 @@ function ouvrirModalEdition(id) {
                     <div id="containerSupplements"></div>
                     <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un supplément</button>
                 </div>
-
+                <div class="form-group" style="background: #f0fdf4; padding: 15px; border-radius: 12px; border: 1px solid #bbf7d0;">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#166534; font-weight:800; margin-bottom:0;">
+                        <input type="checkbox" id="editProdIsFormule" ${p.isFormule ? 'checked' : ''} onchange="document.getElementById('editMenuBuilderZone').style.display = this.checked ? 'block' : 'none'" style="width:20px; height:20px;">
+                        🌟 Activer le Menu Combo
+                    </label>
+                    <div id="editMenuBuilderZone" style="display:${p.isFormule ? 'block' : 'none'}; margin-top:15px;">
+                        <div id="editStepsContainer"></div>
+                        <button type="button" onclick="ajouterEtapeMenu('editStepsContainer')" class="btn-action" style="background:#166534; font-size:0.8rem; margin-top:10px;">
+                            <i class="fas fa-plus"></i> Ajouter une étape
+                        </button>
+                    </div>
+                </div>
                 <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
                     <select id="editProdCat">
                         <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
@@ -1088,8 +1112,45 @@ function ouvrirModalEdition(id) {
 if (p.supplements && Array.isArray(p.supplements)) {
         p.supplements.forEach(s => ajouterLigneSupplement(s.id || s._id, s.nom, s.prix)); 
     }
+    // Recharge les étapes du Menu
+    if (p.isFormule && p.formuleSteps) {
+        p.formuleSteps.forEach(step => ajouterEtapeMenu('editStepsContainer', step.titre, step.choixIds));
+    }
 }
+// --- FONCTIONS MENU BUILDER ---
+window.ajouterEtapeMenu = function(containerId, titre = "", choixIds = []) {
+    const container = document.getElementById(containerId);
+    const stepDiv = document.createElement('div');
+    stepDiv.className = 'menu-step-row';
+    stepDiv.style.cssText = "background:white; padding:10px; border-radius:8px; margin-bottom:10px; border:1px solid #e2e8f0;";
+    
+    // On génère la liste avec TOUS les produits pour pouvoir les lier
+    const options = stockProduits
+        .filter(p => p.categorie !== 'supplement' && !p.isFormule)
+        .map(p => `<option value="${p.id}" ${choixIds.includes(String(p.id)) ? 'selected' : ''}>${escapeHtml(p.nom)} (Stock: ${p.stock !== undefined ? p.stock : '∞'})</option>`)
+        .join('');
 
+    stepDiv.innerHTML = `
+        <input type="text" class="step-title" placeholder="Titre (ex: Choix Boisson)" value="${titre}" style="margin-bottom:8px; width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+        <div style="font-size:0.7rem; color:#666; margin-bottom:4px;">Maintenez CTRL (ou CMD) cliqué pour sélectionner plusieurs produits :</div>
+        <select class="step-choices" multiple style="height:120px; width:100%; padding:5px; border:1px solid #ccc; border-radius:6px;">${options}</select>
+        <button type="button" onclick="this.parentElement.remove()" style="color:red; border:none; background:none; cursor:pointer; margin-top:8px; font-weight:bold;"><i class="fas fa-trash"></i> Retirer l'étape</button>
+    `;
+    container.appendChild(stepDiv);
+};
+
+window.extraireMenuSteps = function(containerId) {
+    const steps = [];
+    document.querySelectorAll(`#${containerId} .menu-step-row`).forEach(row => {
+        const titre = row.querySelector('.step-title').value.trim();
+        const select = row.querySelector('.step-choices');
+        const choixIds = Array.from(select.selectedOptions).map(opt => opt.value);
+        if (titre && choixIds.length > 0) {
+            steps.push({ titre, choixIds });
+        }
+    });
+    return steps;
+};
 async function sauvegarderEditionProduit(id) {
     const typeC = document.getElementById('editProdTypeChoix').value;
     const produitData = {
@@ -1102,7 +1163,9 @@ async function sauvegarderEditionProduit(id) {
         prix: parseFloat(document.getElementById('editProdPrice').value),
         stock: parseInt(document.getElementById('editProdStock').value) || 0,
         seuilAlerte: parseInt(document.getElementById('editProdAlerte').value) || 10,
-        supplements: extraireSupplements() // 🔥 Tableau JSON construit proprement
+        supplements: extraireSupplements(),
+        isFormule: document.getElementById('editProdIsFormule').checked,
+        formuleSteps: document.getElementById('editProdIsFormule').checked ? extraireMenuSteps('editStepsContainer') : [] 
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
