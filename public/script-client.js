@@ -474,61 +474,65 @@ function mettreAJourTotalModal() {
     document.getElementById("prixTotalOptionsBtn").textContent = `(${total.toFixed(2)} DT)`;
 }
 
-window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsForces = null) {
-    let produit = null;
-
-    // 1. Déterminer si on a reçu un Objet (depuis la modale) ou un ID (clic direct)
-    if (typeof idOuObjetProduit === 'object' && idOuObjetProduit !== null) {
-        produit = idOuObjetProduit;
-    } else {
-        produit = produits.find(p => String(p.id) === String(idOuObjetProduit) || String(p._id) === String(idOuObjetProduit));
-    }
+window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsChoisis = []) {
+    // 1. Identification robuste du produit (Objet ou ID)
+    let produit = (typeof idOuObjetProduit === 'object' && idOuObjetProduit !== null)
+        ? idOuObjetProduit
+        : produits.find(p => String(p.id) === String(idOuObjetProduit) || String(p._id) === String(idOuObjetProduit));
 
     if (!produit) return;
 
-    // 🔥 CORRECTIF PRIX PROMO : On définit quel prix utiliser AVANT de l'ajouter au panier
-    const prixAUtiliser = (produit.prixPromo && produit.prixPromo > 0) 
-        ? parseFloat(produit.prixPromo) 
-        : parseFloat(produit.prix);
+    // 2. Calcul mathématique sécurisé du prix (Évite le bug des milliards)
+    const pVente = parseFloat(produit.prix) || 0;
+    const pPromo = parseFloat(produit.prixPromo) || 0;
+    
+    // Si une promo existe et est > 0, on l'utilise, sinon prix normal
+    const prixFinal = (pPromo > 0) ? pPromo : pVente;
 
-    let vari = varForcee || null;
-    let suppsChoisis = suppsForces || [];
-
+    // 3. Création du lien de parenté unique pour lier plats et suppléments
     const idGroupeUnique = Date.now(); 
 
-    // 1. Ajouter le produit principal au panier avec le BON PRIX
+    // 4. Ajout du plat principal au panier
     panier.push({ 
         cartId: `MAIN_${idGroupeUnique}`,
-        id: produit.id || produit._id, 
-        baseId: produit.id || produit._id,
-        nom: produit.nom, 
-        variante: vari, 
-        prix: prixAUtiliser, // ✅ Utilise maintenant le prix promo si disponible
+        id: String(produit.id || produit._id), 
+        baseId: String(produit.id || produit._id),
+        nom: String(produit.nom), 
+        variante: varForcee ? String(varForcee) : null, 
+        prix: Number(prixFinal), // Force le format nombre
         quantite: 1,
         isSupplement: false,
         uniqueGroupId: idGroupeUnique,
         parentId: null
     });
 
-    // 2. Ajouter les suppléments
-    if (suppsChoisis.length > 0) {
+    // 5. Ajout des suppléments rattachés (s'il y en a)
+    if (Array.isArray(suppsChoisis) && suppsChoisis.length > 0) {
         suppsChoisis.forEach(supp => {
             panier.push({
-                cartId: `SUPP_${idGroupeUnique}_${Math.random().toString(36).substring(2, 9)}`, 
-                baseId: supp.id || supp._id || `SUPP_BASE`, 
-                id: supp.id || supp._id || `SUPP_${Date.now()}`, 
+                cartId: `SUPP_${idGroupeUnique}_${Math.random().toString(36).substr(2, 5)}`, 
+                baseId: String(supp.id || `SUPP_BASE`), 
+                id: String(supp.id), 
                 nom: `+ ${supp.nom}`, 
                 variante: null,
-                prix: parseFloat(supp.prix) || 0, // Le prix du supplément est déjà géré par la modale
+                prix: Number(parseFloat(supp.prix) || 0), // Le prix promo du supp est déjà calculé par la modale
                 quantite: 1,
                 isSupplement: true, 
                 parentId: idGroupeUnique 
             });
         });
     }
+
+    // 6. Mise à jour de la mémoire et de l'interface
     sauvegarderPanier();
     mettreAJourUIPanier();
     
+    // Rafraîchit visuellement le panier si la modale panier est déjà ouverte
+    if (typeof afficherContenuPanier === 'function') {
+        afficherContenuPanier();
+    }
+    
+    // Fermeture de la modale d'options
     const modal = document.getElementById("optionsModal");
     if(modal) modal.style.display = "none";
     

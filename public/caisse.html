@@ -1197,14 +1197,14 @@ window.validerOptionsCaisse = function() {
     window.ajouterProduitCaisse = function(produit, variante, supplements) {
         const idGroupeUnique = Date.now();
         const prixAUtiliser = (produit.prixPromo && produit.prixPromo > 0) 
-            ? parseFloat(produit.prixPromo) 
-            : parseFloat(produit.prix);
+                          ? parseFloat(produit.prixPromo) 
+                          : parseFloat(produit.prix);
         // 1. Ajouter le produit principal
         ajouterAuTicket(currentTable, { 
             id: produit.id || produit._id, 
             nom: produit.nom, 
             variante: variante, 
-            prix: parseFloat(produit.prix) || 0, 
+            prix: prixAUtiliser, 
             quantite: 1, 
             envoye: false, pret: false, cmdId: null, // N'est pas encore parti en cuisine
             isSupplement: false, uniqueGroupId: idGroupeUnique, parentId: null 

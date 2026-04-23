@@ -689,22 +689,20 @@ async function chargerDashboard() {
         stockProduits = Array.isArray(stock) ? stock : (stock.produits || []); 
 
         let valeurTotaleAchat = 0;
-        let caPotentiel = 0; // 🔥 CORRECTION : Il manquait cette ligne !
+        let caPotentielTotal = 0; // 🔥 Initialisation correcte
         let alertes = 0;
         
-stockProduits.forEach(p => { 
-            // 🔥 On force la conversion en nombres réels
-            const stockReel = Number(p.stock) || 0;
-            const prixAchatReel = parseFloat(p.prixAchat) || 0;
-            const prixVenteNormal = parseFloat(p.prix) || 0;
-            const prixPromoReel = parseFloat(p.prixPromo) || 0;
-            
-            // Logique Prix Promo
-            const prixVenteEffectif = (prixPromoReel > 0) ? prixPromoReel : prixVenteNormal;
+        stockProduits.forEach(p => { 
+            const stockReel = Number(p.stock) || 0; // 🔥 Conversion forcée
+            const pAchat = parseFloat(p.prixAchat) || 0;
+            const pNormal = parseFloat(p.prix) || 0;
+            const pPromo = parseFloat(p.prixPromo) || 0;
 
-            // Calculs mathématiques stricts
-            valeurTotaleAchat += (stockReel * prixAchatReel); 
-            caPotentiel += (stockReel * prixVenteEffectif);
+            // Logique : Priorité Promo
+            const prixVenteActuel = (pPromo > 0) ? pPromo : pNormal;
+
+            valeurTotaleAchat += (stockReel * pAchat); 
+            caPotentielTotal += (stockReel * prixVenteActuel);
 
             if (stockReel <= (Number(p.seuilAlerte) || 10)) alertes++;
         });
@@ -712,11 +710,7 @@ stockProduits.forEach(p => {
         document.getElementById('totalProduits').innerText = stockProduits.length;
         document.getElementById('valeurStock').innerText = formatMoney(valeurTotaleAchat);
         document.getElementById('totalAlertes').innerText = alertes;
-
-        const badge = document.getElementById('badgeAlertes');
-        if(alertes > 0) { badge.className = 'badge badge-critical'; badge.innerText = 'Action Requise'; }
-        else { badge.className = 'badge badge-normal'; badge.innerText = 'Stock Sain'; }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Erreur Dashboard:", e); }
 }
 
         // ========== 2. MODULE STOCK ==========
@@ -770,60 +764,29 @@ function appliquerFiltresEtTriStock() {
 
 function afficherStockDOM(produits) {
     const tbody = document.getElementById('stockTableBody');
-    if (!produits.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-box-open fa-2x" style="display:block; margin-bottom:10px;"></i>Aucun produit</td></tr>';
-        return;
-    }
-
+    if(!produits.length) { tbody.innerHTML = '<tr><td colspan="7">Aucun produit</td></tr>'; return; }
+    
     tbody.innerHTML = produits.map(p => {
-        // 1. Forcer les calculs numériques
         const stockReel = Number(p.stock) || 0;
-        const prixAchatReel = parseFloat(p.prixAchat) || 0;
-        const valAchat = stockReel * prixAchatReel;
+        const pVente = parseFloat(p.prix) || 0;
+        const pPromo = parseFloat(p.prixPromo) || 0;
+        const valAchat = stockReel * (parseFloat(p.prixAchat) || 0);
+        
+        const htmlPrix = (pPromo > 0) 
+            ? `<s style="color:#94a3b8; font-size:0.75rem;">${formatMoney(pVente)}</s><br><strong style="color:#e74c3c;">${formatMoney(pPromo)}</strong>`
+            : `<strong>${formatMoney(pVente)}</strong>`;
 
-        // 2. Logique de la barre de progression
-        const seuil = Number(p.seuilAlerte) || 10;
-        let percent = (stockReel / (seuil * 4)) * 100;
-        if (percent > 100) percent = 100;
-
-        let colorClass = '#27ae60';
-        let badgeClass = 'badge-normal';
-        if (stockReel <= 0) {
-            colorClass = '#e74c3c';
-            badgeClass = 'badge-critical';
-            percent = 100;
-        } else if (stockReel <= seuil) {
-            colorClass = '#f39c12';
-            badgeClass = 'badge-low';
-        }
-
-        // 3. Préparation de l'affichage du prix (Normal vs Promo)
-        const prixNormal = parseFloat(p.prix || 0);
-        const prixPromo = parseFloat(p.prixPromo || 0);
-        const htmlPrix = (prixPromo > 0) 
-            ? `<s style="color:#94a3b8; font-size:0.8rem;">${formatMoney(prixNormal)}</s><br><strong style="color:#e74c3c;">${formatMoney(prixPromo)}</strong>` 
-            : `<strong>${formatMoney(prixNormal)}</strong>`;
-
-        // 4. Génération de la ligne (Exactement 7 colonnes <td>)
         return `
             <tr>
-                <td data-label="Produit"><strong>${escapeHtml(p.nom)}</strong></td>
-                <td data-label="Catégorie"><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
-                <td data-label="Stock">
-                    <div class="stock-level-container">
-                        <span class="badge ${badgeClass}" style="min-width:45px; text-align:center;">${stockReel}</span>
-                        <div class="stock-bar-bg">
-                            <div class="stock-bar-fill" style="width:${percent}%; background:${colorClass}"></div>
-                        </div>
-                    </div>
-                </td>
-                <td data-label="Unité"><span style="color:var(--text-muted); font-size:0.8rem;">${p.unite || 'unité'}</span></td>
-                <td data-label="Prix Vente">${htmlPrix}</td>
-                <td data-label="Valeur Achat" style="font-weight:700; color:var(--primary);">${formatMoney(valAchat)}</td>
-                <td style="text-align:center; min-width: 140px;">
-                    <button class="btn-action btn-success" style="padding:0.4rem 0.6rem;" title="Réception Stock" onclick="ouvrirModalAjoutStock('${p.id || p._id}', '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
-                    <button class="btn-action" style="padding:0.4rem 0.6rem; background: #3498db;" title="Modifier le produit" onclick="ouvrirModalEdition('${p.id || p._id}')"><i class="fas fa-pen"></i></button>
-                    <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem;" title="Supprimer" onclick="supprimerProduit('${p.id || p._id}')"><i class="fas fa-trash"></i></button>
+                <td><strong>${escapeHtml(p.nom)}</strong></td>
+                <td><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
+                <td><span class="badge">${stockReel}</span></td>
+                <td>${p.unite || 'unité'}</td>
+                <td>${htmlPrix}</td> <td style="font-weight:700;">${formatMoney(valAchat)}</td>
+                <td style="text-align:center;">
+                    <button class="btn-action btn-success" onclick="ouvrirModalAjoutStock('${p.id || p._id}', '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
+                    <button class="btn-action" style="background:#3498db;" onclick="ouvrirModalEdition('${p.id || p._id}')"><i class="fas fa-pen"></i></button>
+                    <button class="btn-action btn-danger" onclick="supprimerProduit('${p.id || p._id}')"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>`;
     }).join('');
@@ -1873,8 +1836,6 @@ function ouvrirModalClient() {
                     tsFin = dateFinObj.getTime();
                 }
 
-                // 🔥 Filtrage par Date ET Mode de Paiement
-// 🔥 Filtrage par Date ET Mode de Paiement
                 const ventesFiltrees = toutesLesVentes.filter(v => {
                     const matchDate = v.timestamp >= tsDebut && v.timestamp <= tsFin;
                     const methodeTicket = v.methodePaiement || 'especes'; // Sécurité rétrocompatibilité
@@ -1906,8 +1867,13 @@ function ouvrirModalClient() {
                         const nomBase = art.nom.split('(')[0].trim();
                         
                         if (!statsProds[nomBase]) statsProds[nomBase] = { qte: 0, ca: 0 };
-                        statsProds[nomBase].qte += parseInt(art.quantite || 1);
-                        statsProds[nomBase].ca += (parseFloat(art.prix || 0) * parseInt(art.quantite || 1));
+                        
+                        const qte = Number(art.quantite) || 1;
+                        // 🔥 art.prix contient déjà le prix promo car envoyé par la caisse/client
+                        const prixVendu = parseFloat(art.prix) || 0; 
+
+                        statsProds[nomBase].qte += qte;
+                        statsProds[nomBase].ca += (prixVendu * qte);
                     });
                 });
 
