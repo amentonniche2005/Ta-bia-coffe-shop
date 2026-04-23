@@ -872,16 +872,21 @@ function ouvrirModalNouveauProduit() {
                     <div id="containerSupplements"></div>
                     <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un supplément</button>
                 </div>
-                <div class="form-group" style="background: #f0fdf4; padding: 15px; border-radius: 12px; border: 1px solid #bbf7d0;">
-                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#166534; font-weight:800; margin-bottom:0;">
-                        <input type="checkbox" id="newProdIsFormule" onchange="document.getElementById('newMenuBuilderZone').style.display = this.checked ? 'block' : 'none'" style="width:20px; height:20px;">
-                        🌟 Activer le Menu Combo (Déduit les stocks des composants)
+<div class="form-group" style="background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px;">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:var(--primary-green); font-weight:800; font-size:1.1rem; margin-bottom:0;">
+                        <input type="checkbox" id="newProdIsFormule" onchange="document.getElementById('newMenuBuilderZone').style.display = this.checked ? 'block' : 'none'" style="width:24px; height:24px; accent-color: var(--primary-green);">
+                        🍽️ Activer le Mode "Menu / Formule"
                     </label>
-                    <div id="newMenuBuilderZone" style="display:none; margin-top:15px;">
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">Déduit automatiquement le stock de chaque composant (Sandwich, Boisson...) lors de la vente.</p>
+
+                    <div id="newMenuBuilderZone" style="display:none; margin-top:15px; border-top: 2px dashed #cbd5e1; padding-top: 15px;">
                         <div id="newStepsContainer"></div>
-                        <button type="button" onclick="ajouterEtapeMenu('newStepsContainer')" class="btn-action" style="background:#166534; font-size:0.8rem; margin-top:10px;">
-                            <i class="fas fa-plus"></i> Ajouter une étape (ex: Boisson)
+                        <button type="button" onclick="ajouterEtapeMenu('newStepsContainer')" class="btn-action" style="background:#1e293b; width:100%; justify-content:center; font-size:1rem; margin-top:10px;">
+                            <i class="fas fa-plus-circle"></i> Ajouter une étape (ex: Choix Boisson)
                         </button>
+                        <div style="margin-top: 15px; padding: 12px; background: #fffbeb; border-radius: 8px; border: 1px solid #fde68a; text-align: center; font-weight: bold; color: #d97706; font-size:1.1rem;">
+                            💡 Valeur estimée des produits : <span id="newSuggPrice">0.00</span> DT
+                        </div>
                     </div>
                 </div>
                 <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
@@ -1060,16 +1065,21 @@ function ouvrirModalEdition(id) {
                     <div id="containerSupplements"></div>
                     <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un supplément</button>
                 </div>
-                <div class="form-group" style="background: #f0fdf4; padding: 15px; border-radius: 12px; border: 1px solid #bbf7d0;">
-                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#166534; font-weight:800; margin-bottom:0;">
-                        <input type="checkbox" id="editProdIsFormule" ${p.isFormule ? 'checked' : ''} onchange="document.getElementById('editMenuBuilderZone').style.display = this.checked ? 'block' : 'none'" style="width:20px; height:20px;">
-                        🌟 Activer le Menu Combo
+<div class="form-group" style="background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px;">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:var(--primary-green); font-weight:800; font-size:1.1rem; margin-bottom:0;">
+                        <input type="checkbox" id="newProdIsFormule" onchange="document.getElementById('newMenuBuilderZone').style.display = this.checked ? 'block' : 'none'" style="width:24px; height:24px; accent-color: var(--primary-green);">
+                        🍽️ Activer le Mode "Menu / Formule"
                     </label>
-                    <div id="editMenuBuilderZone" style="display:${p.isFormule ? 'block' : 'none'}; margin-top:15px;">
-                        <div id="editStepsContainer"></div>
-                        <button type="button" onclick="ajouterEtapeMenu('editStepsContainer')" class="btn-action" style="background:#166534; font-size:0.8rem; margin-top:10px;">
-                            <i class="fas fa-plus"></i> Ajouter une étape
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">Déduit automatiquement le stock de chaque composant (Sandwich, Boisson...) lors de la vente.</p>
+
+                    <div id="newMenuBuilderZone" style="display:none; margin-top:15px; border-top: 2px dashed #cbd5e1; padding-top: 15px;">
+                        <div id="newStepsContainer"></div>
+                        <button type="button" onclick="ajouterEtapeMenu('newStepsContainer')" class="btn-action" style="background:#1e293b; width:100%; justify-content:center; font-size:1rem; margin-top:10px;">
+                            <i class="fas fa-plus-circle"></i> Ajouter une étape (ex: Choix Boisson)
                         </button>
+                        <div style="margin-top: 15px; padding: 12px; background: #fffbeb; border-radius: 8px; border: 1px solid #fde68a; text-align: center; font-weight: bold; color: #d97706; font-size:1.1rem;">
+                            💡 Valeur estimée des produits : <span id="newSuggPrice">0.00</span> DT
+                        </div>
                     </div>
                 </div>
                 <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
@@ -1117,26 +1127,76 @@ if (p.supplements && Array.isArray(p.supplements)) {
         p.formuleSteps.forEach(step => ajouterEtapeMenu('editStepsContainer', step.titre, step.choixIds));
     }
 }
-// --- FONCTIONS MENU BUILDER ---
+// ============================================================================
+// 🔥 FONCTIONS DU MENU BUILDER (PREMIUM UX) 🔥
+// ============================================================================
+
 window.ajouterEtapeMenu = function(containerId, titre = "", choixIds = []) {
     const container = document.getElementById(containerId);
     const stepDiv = document.createElement('div');
     stepDiv.className = 'menu-step-row';
-    stepDiv.style.cssText = "background:white; padding:10px; border-radius:8px; margin-bottom:10px; border:1px solid #e2e8f0;";
-    
-    // On génère la liste avec TOUS les produits pour pouvoir les lier
-    const options = stockProduits
-        .filter(p => p.categorie !== 'supplement' && !p.isFormule)
-        .map(p => `<option value="${p.id}" ${choixIds.includes(String(p.id)) ? 'selected' : ''}>${escapeHtml(p.nom)} (Stock: ${p.stock !== undefined ? p.stock : '∞'})</option>`)
-        .join('');
+    stepDiv.style.cssText = "background:white; padding:15px; border-radius:12px; margin-bottom:15px; border:2px solid #cbd5e1; position:relative; box-shadow: 0 4px 6px rgba(0,0,0,0.02);";
+
+    // Filtrer pour ne pas inclure d'autres formules ou des suppléments basiques
+    const produitsEligibles = stockProduits.filter(p => !p.isFormule && p.categorie !== 'supplement');
+
+    // 🌟 Génération des belles cases à cocher
+    let checkboxesHtml = produitsEligibles.map(p => {
+        const isChecked = choixIds.includes(String(p.id)) ? 'checked' : '';
+        return `
+            <label style="display:flex; align-items:center; gap:8px; padding:8px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; transition:0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                <input type="checkbox" class="step-checkbox" value="${p.id}" data-prix="${p.prix}" ${isChecked} style="width:18px; height:18px; accent-color:var(--primary-orange);" onchange="calculerSuggestionPrix('${containerId}')">
+                <div style="flex:1;">
+                    <div style="font-weight:700; font-size:0.85rem; color:#1e293b;">${escapeHtml(p.nom)}</div>
+                    <div style="font-size:0.75rem; color:var(--primary-orange); font-weight:bold;">${parseFloat(p.prix).toFixed(2)} DT</div>
+                </div>
+            </label>
+        `;
+    }).join('');
 
     stepDiv.innerHTML = `
-        <input type="text" class="step-title" placeholder="Titre (ex: Choix Boisson)" value="${titre}" style="margin-bottom:8px; width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
-        <div style="font-size:0.7rem; color:#666; margin-bottom:4px;">Maintenez CTRL (ou CMD) cliqué pour sélectionner plusieurs produits :</div>
-        <select class="step-choices" multiple style="height:120px; width:100%; padding:5px; border:1px solid #ccc; border-radius:6px;">${options}</select>
-        <button type="button" onclick="this.parentElement.remove()" style="color:red; border:none; background:none; cursor:pointer; margin-top:8px; font-weight:bold;"><i class="fas fa-trash"></i> Retirer l'étape</button>
+        <button type="button" onclick="this.parentElement.remove(); calculerSuggestionPrix('${containerId}');" style="position:absolute; top:12px; right:12px; color:#ef4444; border:none; background:#fee2e2; width:30px; height:30px; border-radius:50%; cursor:pointer;"><i class="fas fa-trash"></i></button>
+        <input type="text" class="step-title" placeholder="Titre (Ex: Choisissez votre Boisson)" value="${titre}" style="width:85%; padding:12px; border:2px solid #e2e8f0; border-radius:8px; font-weight:800; font-size:1rem; margin-bottom:12px; color:#1e293b;">
+        <div style="font-size:0.8rem; color:#64748b; margin-bottom:8px; font-weight:700; text-transform:uppercase;">Cochez les produits inclus dans cette étape :</div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:8px; max-height:220px; overflow-y:auto; padding:5px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+            ${checkboxesHtml}
+        </div>
     `;
     container.appendChild(stepDiv);
+    calculerSuggestionPrix(containerId);
+};
+
+// 🌟 Calculateur Automatique
+window.calculerSuggestionPrix = function(containerId) {
+    let maxTotal = 0;
+    
+    // Pour chaque étape, on prend le prix de l'article le plus cher sélectionné
+    document.querySelectorAll(`#${containerId} .menu-step-row`).forEach(row => {
+        let maxEtape = 0;
+        row.querySelectorAll('.step-checkbox:checked').forEach(cb => {
+            const prix = parseFloat(cb.getAttribute('data-prix')) || 0;
+            if (prix > maxEtape) maxEtape = prix;
+        });
+        maxTotal += maxEtape;
+    });
+
+    // On affiche la valeur totale
+    const prefix = containerId === 'newStepsContainer' ? 'new' : 'edit';
+    const suggSpan = document.getElementById(prefix + 'SuggPrice');
+    if(suggSpan) suggSpan.textContent = maxTotal.toFixed(2);
+};
+
+// 🌟 Extracteur pour la base de données
+window.extraireMenuSteps = function(containerId) {
+    const steps = [];
+    document.querySelectorAll(`#${containerId} .menu-step-row`).forEach(row => {
+        const titre = row.querySelector('.step-title').value.trim();
+        const choixIds = Array.from(row.querySelectorAll('.step-checkbox:checked')).map(cb => cb.value);
+        if (titre && choixIds.length > 0) {
+            steps.push({ titre, choixIds });
+        }
+    });
+    return steps;
 };
 
 window.extraireMenuSteps = function(containerId) {
