@@ -682,43 +682,41 @@ function getIconPaiement(methode) {
             }
         }
 
-        // ========== DASHBOARD ==========
 async function chargerDashboard() {
-            try {
-                const stockResp = await fetchSecurise('/api/stock');
-                let stock = await stockResp.json();
-                stockProduits = Array.isArray(stock) ? stock : (stock.produits || []); 
+    try {
+        const stockResp = await fetchSecurise('/api/stock');
+        let stock = await stockResp.json();
+        stockProduits = Array.isArray(stock) ? stock : (stock.produits || []); 
 
-                let valeurTotaleAchat = 0;
-                let alertes = 0;
-                
-// À l'intérieur de chargerDashboard()
-stockProduits.forEach(p => { 
-    const stockReel = Math.max(0, parseInt(p.stock) || 0);
-    const prixAchatReel = parseFloat(p.prixAchat) || 0;
-    
-    // 🔥 LOGIQUE PRIX RÉEL : Priorité au prix promo s'il est > 0
-    const prixVenteEffectif = (p.prixPromo && p.prixPromo > 0) ? parseFloat(p.prixPromo) : parseFloat(p.prix);
+        let valeurTotaleAchat = 0;
+        let caPotentiel = 0; // 🔥 CORRECTION : Il manquait cette ligne !
+        let alertes = 0;
+        
+        stockProduits.forEach(p => { 
+            const stockReel = Math.max(0, parseInt(p.stock) || 0);
+            const prixAchatReel = parseFloat(p.prixAchat) || 0;
+            
+            // 🔥 LOGIQUE PRIX RÉEL : Priorité au prix promo s'il est > 0
+            const prixVenteEffectif = (p.prixPromo && p.prixPromo > 0) ? parseFloat(p.prixPromo) : parseFloat(p.prix);
 
-    // Valeur d'achat (Immobilisation comptable)
-    valeurTotaleAchat += (stockReel * prixAchatReel); 
-    
-    // Valeur de vente potentielle (Chiffre d'affaires attendu)
-    // Vous pouvez créer une nouvelle variable 'caPotentiel' pour l'afficher
-    caPotentiel += (stockReel * prixVenteEffectif);
+            // Valeur d'achat (Immobilisation comptable)
+            valeurTotaleAchat += (stockReel * prixAchatReel); 
+            
+            // Valeur de vente potentielle (Chiffre d'affaires attendu)
+            caPotentiel += (stockReel * prixVenteEffectif);
 
-    if ((p.stock || 0) <= (p.seuilAlerte || 10)) alertes++;
-});
+            if ((p.stock || 0) <= (p.seuilAlerte || 10)) alertes++;
+        });
 
-                document.getElementById('totalProduits').innerText = stockProduits.length;
-                document.getElementById('valeurStock').innerText = formatMoney(valeurTotaleAchat);
-                document.getElementById('totalAlertes').innerText = alertes;
+        document.getElementById('totalProduits').innerText = stockProduits.length;
+        document.getElementById('valeurStock').innerText = formatMoney(valeurTotaleAchat);
+        document.getElementById('totalAlertes').innerText = alertes;
 
-                const badge = document.getElementById('badgeAlertes');
-                if(alertes > 0) { badge.className = 'badge badge-critical'; badge.innerText = 'Action Requise'; }
-                else { badge.className = 'badge badge-normal'; badge.innerText = 'Stock Sain'; }
-            } catch (e) { console.error(e); }
-        }
+        const badge = document.getElementById('badgeAlertes');
+        if(alertes > 0) { badge.className = 'badge badge-critical'; badge.innerText = 'Action Requise'; }
+        else { badge.className = 'badge badge-normal'; badge.innerText = 'Stock Sain'; }
+    } catch (e) { console.error(e); }
+}
 
         // ========== 2. MODULE STOCK ==========
         async function chargerStock() {
@@ -800,10 +798,10 @@ function afficherStockDOM(produits) {
                     <td><span style="color:var(--text-muted); font-size:0.8rem;">${p.unite || 'unité'}</span></td>
                     ${p.prixPromo > 0 ? `<s style="color:#94a3b8; font-size:0.8rem;">${formatMoney(p.prix)}</s> <br><strong style="color:#e74c3c;">${formatMoney(p.prixPromo)}</strong>` : formatMoney(p.prix)}
                     <td style="font-weight:700; color:var(--primary);">${formatMoney(valAchat)}</td>
-                    <td style="text-align:center; min-width: 140px;">
-                        <button class="btn-action btn-success" style="padding:0.4rem 0.6rem;" title="Réception Stock" onclick="ouvrirModalAjoutStock(${p.id}, '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
-                        <button class="btn-action" style="padding:0.4rem 0.6rem; background: #3498db;" title="Modifier le produit" onclick="ouvrirModalEdition(${p.id})"><i class="fas fa-pen"></i></button>
-                        <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem;" title="Supprimer" onclick="supprimerProduit(${p.id})"><i class="fas fa-trash"></i></button>
+<td style="text-align:center; min-width: 140px;">
+                        <button class="btn-action btn-success" style="padding:0.4rem 0.6rem;" title="Réception Stock" onclick="ouvrirModalAjoutStock('${p.id || p._id}', '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
+                        <button class="btn-action" style="padding:0.4rem 0.6rem; background: #3498db;" title="Modifier le produit" onclick="ouvrirModalEdition('${p.id || p._id}')"><i class="fas fa-pen"></i></button>
+                        <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem;" title="Supprimer" onclick="supprimerProduit('${p.id || p._id}')"><i class="fas fa-trash"></i></button>
                     </td>
                 </tr>`;
             }).join('');
@@ -1025,7 +1023,7 @@ function extraireIngredients() {
     return res;
 }
 function ouvrirModalEdition(id) {
-    const p = stockProduits.find(x => x.id === id);
+const p = stockProduits.find(x => String(x.id) === String(id) || String(x._id) === String(id));
     if(!p) return;
     document.getElementById('modalContainer').innerHTML = `
         <div class="modal active">
@@ -1081,9 +1079,9 @@ function ouvrirModalEdition(id) {
                 </div>
 
 <div style="display:flex; gap:10px; margin-bottom:10px;">
-    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="newProdPrixAchat" value="0" step="0.001"></div>
-    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="newProdPrice" step="0.1"></div>
-    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo (Solde):</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" placeholder="0 si pas de promo"></div>
+    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="editProdPrixAchat" value="${p.prixAchat || 0}" step="0.001"></div>
+    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="editProdPrice" value="${p.prix}" step="0.1"></div>
+    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo (Solde):</label><input type="number" id="editProdPrixPromo" step="0.1" value="${p.prixPromo || 0}" placeholder="0 si pas de promo"></div>
 </div>
 
                 <div style="display:flex; gap:10px;">
@@ -1109,9 +1107,9 @@ async function sauvegarderEditionProduit(id) {
         variantes: typeC === 'aucun' ? "" : document.getElementById('editProdVariantes').value.trim(),
         typeChoix: typeC,
         categorie: document.getElementById('editProdCat').value,
-        prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
+prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
         prix: parseFloat(document.getElementById('editProdPrice').value),
-        prixPromo: parseFloat(document.getElementById('newProdPrixPromo').value) || 0, // 🔥 NOUVEAU
+        prixPromo: parseFloat(document.getElementById('editProdPrixPromo').value) || 0, // 🔥 CORRIGÉ (editProdPrixPromo au lieu de newProdPrixPromo)// 🔥 NOUVEAU
         stock: parseInt(document.getElementById('editProdStock').value) || 0,
         seuilAlerte: parseInt(document.getElementById('editProdAlerte').value) || 10,
         supplements: extraireSupplements() // 🔥 Tableau JSON construit proprement
