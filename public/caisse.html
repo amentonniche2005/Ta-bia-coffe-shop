@@ -1011,47 +1011,80 @@ function renderProducts() {
             const produitFull = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
             if (!produitFull || (produitFull.stock <= 0 && produitFull.stock !== undefined)) return;
 
-            // 🔥 LOGIQUE STRICTE : On lit UNIQUEMENT ce qui vient de gestion-stock.html
-            let optionsTrouvees = null;
-            
-            // Si le produit a des variantes enregistrées en base de données
-            if (produitFull.variantes && produitFull.variantes.trim() !== "") {
-                optionsTrouvees = produitFull.variantes.split(',').map(v => v.trim());
-            }
+            // 🔥 LOGIQUE STRICTE : On vérifie juste s'il y a des variantes ou des suppléments
+            const aDesVariantes = produitFull.variantes && produitFull.variantes.trim() !== "";
+            const aDesSupplements = produitFull.supplements && produitFull.supplements.length > 0;
 
-            // On ouvre le modal SI ET SEULEMENT SI le gérant a configuré des variantes ou des suppléments
-            if ((optionsTrouvees && optionsTrouvees.length > 0) || (produitFull.supplements && produitFull.supplements.length > 0)) {
-                ouvrirModalOptionsCaisse(produitFull, optionsTrouvees);
+            if (aDesVariantes || aDesSupplements) {
+                ouvrirModalOptionsCaisse(produitFull); // On ouvre le modal intelligent
             } else {
-                // Si rien n'est configuré dans le stock, on ajoute directement au ticket (Zéro clic supplémentaire)
+                // Produit simple : ajout direct au ticket
                 ajouterProduitCaisse(produitFull, null, []);
             }
         }));
     }
-window.ouvrirModalOptionsCaisse = function(produit, options) {
+window.ouvrirModalOptionsCaisse = function(produit) {
         produitEnAttenteCaisse = produit;
         prixBaseEnAttenteCaisse = parseFloat(produit.prix) || 0;
         
         document.getElementById("caisseOptionsTitle").textContent = produit.nom;
         document.getElementById("caisseOptionPriceDisplay").textContent = `${prixBaseEnAttenteCaisse.toFixed(2)} DT`;
         
-        // 1. Variantes
+        // =========================================================
+        // 1. Variantes (Logique Groupes Intelligents)
+        // =========================================================
         const sectionVar = document.getElementById("caisseSectionVariantes");
         const containerVar = document.getElementById("caisseOptionsList");
-        if (options && options.length > 0) {
-            const isMultiple = produit.typeChoix === 'multiple';
-            containerVar.innerHTML = options.map((opt, index) => `
-                <label style="display:block; cursor:pointer;">
-                    <input type="${isMultiple ? 'checkbox' : 'radio'}" name="caisseVarOption" value="${opt}" style="display:none;" ${(!isMultiple && index === 0) ? 'checked' : ''}>
-                    <div class="caisse-selectable-card">
-                        <div class="caisse-opt-info"><i class="fas ${isMultiple ? 'fa-square' : 'fa-circle'}"></i> <span>${opt}</span></div>
-                    </div>
-                </label>
-            `).join('');
-            sectionVar.style.display = "block";
-        } else { sectionVar.style.display = "none"; }
+        
+        if (produit.variantes && produit.variantes.trim() !== "") {
+            const groupes = produit.variantes.split('|');
+            
+            containerVar.innerHTML = groupes.map((groupeStr, gIdx) => {
+                const match = groupeStr.match(/(.*)\[(.*)\]/);
+                if (!match) return `<div style="color:red; font-size:0.8rem;">Erreur format : ${groupeStr}</div>`;
 
+                let titreRaw = match[1].trim();
+                const listeOptions = match[2].split(',');
+                
+                // Détection du mode (Choix Multiple avec l'étoile *)
+                const estMultiple = titreRaw.endsWith('*');
+                const titreAffiche = estMultiple ? titreRaw.replace('*', '') : titreRaw;
+                const typeInput = estMultiple ? 'checkbox' : 'radio';
+
+                return `
+                    <div class="variant-group" style="margin-bottom: 18px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <span style="font-weight: 800; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">${titreAffiche}</span>
+                            <span style="font-size:0.65rem; font-weight:700; color:var(--text-muted);">${estMultiple ? 'PLUSIEURS CHOIX' : '1 SEUL CHOIX'}</span>
+                        </div>
+                        <div class="options-grid" style="display: flex; flex-direction: column; gap: 8px;">
+                            ${listeOptions.map((opt, oIdx) => `
+                                <label style="display:block; cursor:pointer;">
+                                    <input type="${typeInput}" 
+                                           name="caisse_variant_group_${gIdx}" 
+                                           value="${opt.trim()}" 
+                                           style="display:none;" 
+                                           ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
+                                    <div class="caisse-selectable-card">
+                                        <div class="caisse-opt-info">
+                                            <i class="fas ${estMultiple ? 'fa-check-square' : 'fa-circle'}"></i>
+                                            <span>${opt.trim()}</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            sectionVar.style.display = "block";
+        } else { 
+            sectionVar.style.display = "none"; 
+        }
+
+        // =========================================================
         // 2. Suppléments (Vérification du stock)
+        // =========================================================
         const sectionSupp = document.getElementById("caisseSectionSupplements");
         const containerSupp = document.getElementById("caisseSupplementsList");
         if (produit.supplements && produit.supplements.length > 0) {
@@ -1065,7 +1098,7 @@ window.ouvrirModalOptionsCaisse = function(produit, options) {
                         <div class="caisse-selectable-card ${estRupture ? 'disabled' : ''}">
                             <div class="caisse-opt-info"><i class="fas fa-plus-circle"></i> <span>${supp.nom}</span></div>
                             <div class="opt-price-container">
-                                ${estRupture ? '<span class="caisse-rupture-txt">RUPTURE</span>' : `<span class="caisse-opt-price">+ ${parseFloat(supp.prix).toFixed(2)}</span>`}
+                                ${estRupture ? '<span class="caisse-rupture-txt">RUPTURE</span>' : `<span class="caisse-opt-price">+ ${parseFloat(supp.prix).toFixed(2)} DT</span>`}
                             </div>
                         </div>
                     </label>
@@ -1089,19 +1122,31 @@ window.ouvrirModalOptionsCaisse = function(produit, options) {
         produitEnAttenteCaisse = null;
     };
 
-    window.validerOptionsCaisse = function() {
+window.validerOptionsCaisse = function() {
         if (!produitEnAttenteCaisse) return;
         
-        let varianteChoisie = null;
-        const checkVar = document.querySelectorAll('input[name="caisseVarOption"]:checked');
-        if (checkVar.length > 0) varianteChoisie = Array.from(checkVar).map(cb => cb.value).join(', ');
+        // --- 1. RÉCOLTE DES VARIANTES (Groupes) ---
+        let choixFinaux = [];
+        const groupesHtml = document.querySelectorAll('#caisseOptionsList .variant-group');
+        
+        groupesHtml.forEach((groupe, idx) => {
+            const coches = groupe.querySelectorAll(`input[name="caisse_variant_group_${idx}"]:checked`);
+            if (coches.length > 0) {
+                // S'il y en a plusieurs (Checkbox), on les lie avec un "+"
+                const valeurs = Array.from(coches).map(c => c.value).join('+'); 
+                choixFinaux.push(valeurs);
+            }
+        });
+        const varianteFinale = choixFinaux.join(' / '); // Ex: "Thon / Harissa+Mayo"
 
+        // --- 2. RÉCOLTE DES SUPPLÉMENTS ---
         let suppsChoisis = [];
         document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => {
             suppsChoisis.push({ id: box.getAttribute('data-id'), nom: box.getAttribute('data-nom'), prix: box.value });
         });
 
-        ajouterProduitCaisse(produitEnAttenteCaisse, varianteChoisie, suppsChoisis);
+        // --- 3. AJOUT AU TICKET ---
+        ajouterProduitCaisse(produitEnAttenteCaisse, varianteFinale, suppsChoisis);
         fermerModalOptionsCaisse();
     };
 
