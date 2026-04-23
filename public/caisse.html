@@ -1337,15 +1337,16 @@ async function executerPaiementComplet(articles, totalPaye, remise, methodePaiem
     // 🔥 CORRECTION : On lance l'impression IMMÉDIATEMENT avant que le navigateur bloque la fenêtre
     imprimerTicket(articles, nomOrigine, methodePaiement, totalPaye, (nomOrigine.includes('Fidèle') || nomOrigine.includes('Emporter')) ? ticket.label : null);
 
-    // Remplacez la ligne const venteBody = ... par celle-ci :
-const venteBody = { 
-    id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, 
-    articles: ticket.articles.map(a => ({ 
-        id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix,
-        isSupplement: a.isSupplement, uniqueGroupId: a.uniqueGroupId, parentId: a.parentId // 🔥 Conservation
-    })), 
-    methodePaiement: methodePaiement 
-};
+    // 🔥 ANTI-DOUBLE-DÉSTOCKAGE : Ajout de la propriété envoye: a.envoye
+    const venteBody = { 
+        id: Date.now().toString(), numero: "V" + Math.floor(Math.random() * 10000), total: totalPaye, remise: remise, typePaiement: 'complet', tableOrigine: nomOrigine, 
+        articles: ticket.articles.map(a => ({ 
+            id: a.id, nom: a.nom, variante: a.variante, quantite: a.quantite, prix: a.prix,
+            isSupplement: a.isSupplement, uniqueGroupId: a.uniqueGroupId, parentId: a.parentId,
+            envoye: a.envoye // 🔥 VITAL : Indique au serveur si le stock a déjà été retiré
+        })), 
+        methodePaiement: methodePaiement 
+    };
 
     if (ticket.orderIds && ticket.orderIds.length > 0) ticket.orderIds.forEach(id => window.commandesTraiteesTickets.add(id));
 
@@ -1536,6 +1537,7 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
         for (let i = 0; i < article.quantite; i++) {
             const unitId = `${articleIndex}_${i}`;
             if (!unitIdsASupprimer.includes(unitId)) {
+                // 🔥 CONSERVATION DE L'ÉTAT "ENVOYE" POUR LES ARTICLES RESTANTS
                 const existing = articlesRestants.find(a => a.id === article.id && a.variante === article.variante && a.envoye === article.envoye);
                 if (existing) { existing.quantite++; } else { articlesRestants.push({ id: article.id, nom: article.nom, variante: article.variante, prix: article.prix, quantite: 1, envoye: article.envoye }); }
             }
@@ -1565,7 +1567,6 @@ async function executerPaiementPartiel(articlesAPayer, totalPaye, remise, unitId
     sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
     showNotification(`✅ Payé: ${totalPaye.toFixed(2)} DT`, "#10b981");
 }
-
     async function chargerCommandesCuisineInitiales() {
         try { const response = await fetchSecurise('/api/commandes'); commandesRecues = await response.json(); afficherCommandesWeb(); } catch(e) {}
     }
