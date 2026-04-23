@@ -595,7 +595,11 @@ function ajouterAuTicket(tableNum, produit, updateUI = true, fromServer = false)
             ticket.articles.push({ ...produit, quantite: qteSecurise, prix: prixSecurise, envoye: isEnvoye });
         }
         
-        ticket.total = ticket.articles.reduce((s, a) => s + (parseFloat(a.prix || 0) * parseInt(a.quantite || 1)), 0);
+        ticket.total = ticket.articles.reduce((s, a) => {
+    const prix = parseFloat(a.prix) || 0;
+    const qte = parseInt(a.quantite) || 1;
+    return s + (prix * qte);
+}, 0);
         sauvegarderTousLesTickets();
         if (updateUI) { if (String(currentTable) === String(tableNum)) afficherTicket(); afficherListeTables(); }
     }
@@ -1016,142 +1020,104 @@ grid.innerHTML = filtered.map(p => {
                     </div>`; 
         }).join('');
         
-        // --- ACTION AU CLIC SUR UN PRODUIT ---
-        document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', () => { 
-            if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
-            
-            const idProd = card.dataset.id;
-            const produitFull = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
-            if (!produitFull || (produitFull.stock <= 0 && produitFull.stock !== undefined)) return;
+// --- ACTION AU CLIC SUR UN PRODUIT (Optimisée) ---
+document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', (e) => { 
+    if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
+    
+    const idProd = card.dataset.id;
+    const produitFull = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
+    
+    if (!produitFull || (produitFull.stock <= 0 && produitFull.stock !== undefined)) return;
 
-            // 🔥 LOGIQUE STRICTE : On vérifie juste s'il y a des variantes ou des suppléments
-            const aDesVariantes = produitFull.variantes && produitFull.variantes.trim() !== "";
-            const aDesSupplements = produitFull.supplements && produitFull.supplements.length > 0;
+    // Détection automatique : Est-ce un produit complexe ?
+    const aDesVariantes = produitFull.variantes && produitFull.variantes.trim() !== "";
+    const aDesSupplements = produitFull.supplements && produitFull.supplements.length > 0;
 
-            if (aDesVariantes || aDesSupplements) {
-                ouvrirModalOptionsCaisse(produitFull); // On ouvre le modal intelligent
-            } else {
-                // Produit simple : ajout direct au ticket
-                ajouterProduitCaisse(produitFull, null, []);
-            }
-        }));
+    if (aDesVariantes || aDesSupplements) {
+        ouvrirModalOptionsCaisse(produitFull); // Ouvre la fenêtre pour choisir
+    } else {
+        ajouterProduitCaisse(produitFull, null, []); // Ajout instantané
+        if(navigator.vibrate) navigator.vibrate(20); // Retour tactile
+    }
+}));
     }
 window.ouvrirModalOptionsCaisse = function(produit) {
     produitEnAttenteCaisse = produit;
     
-    // 1. Définition du prix de base (Promo vs Normal)
+    // 1. Définition du prix de base (Priorité à la Promo)
     prixBaseEnAttenteCaisse = (produit.prixPromo && produit.prixPromo > 0) 
         ? parseFloat(produit.prixPromo) 
         : parseFloat(produit.prix);
     
-    // 2. Préparation du HTML Global (Header Fixe)
     let htmlContent = `
         <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-soft); background: #f8fafc; display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <h3 style="margin: 0; color: var(--primary-green); font-size: 1.3rem;">${escapeHtml(produit.nom)}</h3>
-                <div id="caisseOptionPriceDisplay" style="color: var(--primary-orange); font-weight: 700; font-size: 1rem;">${prixBaseEnAttenteCaisse.toFixed(2)} DT</div>
+                <div id="caisseOptionPriceDisplay" style="color: var(--primary-orange); font-weight: 800; font-size: 1.1rem;">${prixBaseEnAttenteCaisse.toFixed(2)} DT</div>
             </div>
-            <button class="close-btn" onclick="fermerModalOptionsCaisse()" style="background:#e2e8f0; border:none; width:32px; height:32px; border-radius:50%; cursor:pointer;">&times;</button>
+            <button class="close-btn" onclick="fermerModalOptionsCaisse()">&times;</button>
         </div>
-        
-        <div style="padding: 20px; overflow-y: auto; max-height: 60vh;" id="caisseOptionsScrollBody">
+        <div style="padding: 20px; overflow-y: auto; max-height: 55vh;">
     `;
 
-    // 3. Section Variantes (Logique Groupes + Design Compact)
+    // 2. Variantes
     if (produit.variantes && produit.variantes.trim() !== "") {
         const groupes = produit.variantes.split('|');
-        
         htmlContent += groupes.map((groupeStr, gIdx) => {
             const match = groupeStr.match(/(.*)\[(.*)\]/);
             if (!match) return '';
-
-            let titreRaw = match[1].trim();
-            const listeOptions = match[2].split(',');
-            const estMultiple = titreRaw.endsWith('*');
-            const titreAffiche = estMultiple ? titreRaw.replace('*', '') : titreRaw;
-            const typeInput = estMultiple ? 'checkbox' : 'radio';
-
+            let titre = match[1].replace('*', '').trim();
+            const estMultiple = match[1].includes('*');
             return `
-                <div class="variant-group" style="margin-bottom: 20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
-                        <span style="font-weight: 800; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">${titreAffiche}</span>
-                        <span style="font-size:0.65rem; font-weight:700; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:var(--text-muted);">${estMultiple ? 'PLUSIEURS CHOIX' : '1 SEUL CHOIX'}</span>
-                    </div>
-                    <div style="display: ${estMultiple ? 'flex' : 'grid'}; grid-template-columns: ${estMultiple ? 'none' : '1fr 1fr'}; flex-wrap: wrap; gap: 8px;">
-                        ${listeOptions.map((opt, oIdx) => `
-                            <label style="display:block; margin:0; cursor:pointer;">
-                                <input type="${typeInput}" 
-                                       name="caisse_variant_group_${gIdx}" 
-                                       value="${opt.trim()}" 
-                                       style="display:none;" 
-                                       ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
-                                <div class="caisse-selectable-card" style="margin-bottom:0; padding: ${estMultiple ? '8px 16px' : '12px'}; border-radius: ${estMultiple ? '30px' : '12px'};">
-                                    <div class="caisse-opt-info" style="font-size: 0.9rem;">
-                                        ${!estMultiple ? `<i class="fas fa-circle" style="font-size:0.8rem; color:#cbd5e1;"></i>` : ''}
-                                        <span>${opt.trim()}</span>
-                                    </div>
-                                </div>
+                <div style="margin-bottom:15px;">
+                    <div style="font-weight:800; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">${titre}</div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                        ${match[2].split(',').map((opt, oIdx) => `
+                            <label style="cursor:pointer;">
+                                <input type="${estMultiple ? 'checkbox' : 'radio'}" name="caisse_variant_group_${gIdx}" value="${opt.trim()}" style="display:none;" ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
+                                <div class="caisse-selectable-card" style="padding:10px; text-align:center; font-size:0.9rem;">${opt.trim()}</div>
                             </label>
                         `).join('')}
                     </div>
-                </div>
-            `;
+                </div>`;
         }).join('');
     }
 
-    // 4. Section Suppléments (Vérification Stock + Promo)
+    // 3. Suppléments avec Logique de Prix Promo
     if (produit.supplements && produit.supplements.length > 0) {
-        htmlContent += `<div style="font-weight: 800; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 10px; margin-top:10px;">Extras & Suppléments</div>`;
-        
+        htmlContent += `<div style="font-weight:800; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; margin:15px 0 8px 0;">Extras</div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">`;
         htmlContent += produit.supplements.map(supp => {
             const ref = produits.find(p => String(p.id) === String(supp.id));
             const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
-
-            // Logique Promo sur les suppléments
             const pNormal = parseFloat(supp.prix || 0);
             const pPromo = (ref && ref.prixPromo > 0) ? parseFloat(ref.prixPromo) : 0;
-            const prixFinalSupp = pPromo > 0 ? pPromo : pNormal;
-
-            const affichagePrixSupp = pPromo > 0 
-                ? `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">+${pNormal.toFixed(2)}</s> <span style="color:var(--success);">+ ${pPromo.toFixed(2)}</span>`
-                : `<span class="caisse-opt-price">+ ${pNormal.toFixed(2)}</span>`;
+            const prixFinal = pPromo > 0 ? pPromo : pNormal;
 
             return `
-                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'}; margin-bottom:8px;">
-                    <input type="checkbox" name="caisseSuppOption" 
-                           value="${prixFinalSupp}" data-id="${supp.id}" data-nom="${supp.nom}" 
-                           style="display:none;" ${estRupture ? 'disabled' : ''} 
-                           onchange="mettreAJourTotalModalCaisse()">
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border:2px solid var(--border-soft); border-radius:12px; background:#fff; transition:0.2s;" class="caisse-selectable-card">
-                        <div style="font-weight:700; color:var(--text-dark);"><i class="fas fa-plus" style="font-size:0.7rem; color:var(--text-muted); margin-right:6px;"></i>${supp.nom}</div>
-                        <div style="font-weight:800; font-size:0.95rem;">
-                            ${estRupture ? '<span class="caisse-rupture-txt">RUPTURE</span>' : affichagePrixSupp}
-                        </div>
+                <label style="cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'};">
+                    <input type="checkbox" name="caisseSuppOption" value="${prixFinal}" data-id="${supp.id}" data-nom="${supp.nom}" style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModalCaisse()">
+                    <div class="caisse-selectable-card" style="padding:10px; flex-direction:column; align-items:center;">
+                        <span style="font-size:0.85rem;">+ ${supp.nom}</span>
+                        <span style="font-weight:800; color:var(--success); font-size:0.8rem;">${pPromo > 0 ? pPromo.toFixed(2) : pNormal.toFixed(2)} DT</span>
                     </div>
-                </label>
-            `;
+                </label>`;
         }).join('');
+        htmlContent += `</div>`;
     }
 
-    htmlContent += `</div>`; // Fin du body scrollable
+    htmlContent += `</div><div style="padding: 15px 20px; border-top: 1px solid #eee;">
+        <button class="btn-valider" onclick="validerOptionsCaisse()" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:18px;">
+            <span>Ajouter au ticket</span>
+            <span id="caissePrixTotalOptionsBtn" style="background:rgba(255,255,255,0.2); padding:4px 10px; border-radius:8px;">0.00 DT</span>
+        </button>
+    </div>`;
 
-    // 5. Footer Fixe avec le bouton de validation
-    htmlContent += `
-        <div style="padding: 16px 20px; border-top: 1px solid var(--border-soft); background: white;">
-            <button class="btn-valider" onclick="validerOptionsCaisse()" style="width: 100%; display: flex; justify-content: space-between; align-items: center; background: var(--success); color: white; border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 1.1rem; cursor: pointer;">
-                <span>Ajouter au ticket</span>
-                <span id="caissePrixTotalOptionsBtn" style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 8px;">0.00 DT</span>
-            </button>
-        </div>
-    `;
-
-    // 6. Injection et Affichage
-    const modalContentDiv = document.querySelector("#modalOptionsCaisse .modal-content");
-    modalContentDiv.innerHTML = htmlContent;
-    modalContentDiv.style.padding = "0"; // Important pour que le header/footer touchent les bords
-
+    const modal = document.getElementById("modalOptionsCaisse");
+    modal.querySelector(".modal-content").innerHTML = htmlContent;
+    modal.querySelector(".modal-content").style.padding = "0";
     mettreAJourTotalModalCaisse();
-    document.getElementById("modalOptionsCaisse").classList.add('active');
+    modal.classList.add('active');
 };
 
     window.mettreAJourTotalModalCaisse = function() {
@@ -1193,41 +1159,42 @@ window.validerOptionsCaisse = function() {
         fermerModalOptionsCaisse();
     };
 
-    // Logique Parent/Enfant adaptée à la caisse
-    window.ajouterProduitCaisse = function(produit, variante, supplements) {
-        const idGroupeUnique = Date.now();
-        const prixAUtiliser = (produit.prixPromo && produit.prixPromo > 0) 
-                          ? parseFloat(produit.prixPromo) 
-                          : parseFloat(produit.prix);
-        // 1. Ajouter le produit principal
-        ajouterAuTicket(currentTable, { 
-            id: produit.id || produit._id, 
-            nom: produit.nom, 
-            variante: variante, 
-            prix: prixAUtiliser, 
-            quantite: 1, 
-            envoye: false, pret: false, cmdId: null, // N'est pas encore parti en cuisine
-            isSupplement: false, uniqueGroupId: idGroupeUnique, parentId: null 
-        }, false, false);
-        
-        // 2. Ajouter les suppléments
-        if (supplements && supplements.length > 0) {
-            supplements.forEach(supp => {
-                ajouterAuTicket(currentTable, {
-                    id: supp.id || supp._id || `SUPP_${Date.now()}`,
-                    nom: `+ ${supp.nom}`,
-                    variante: null,
-                    prix: parseFloat(supp.prix) || 0,
-                    quantite: 1,
-                    envoye: false, pret: false, cmdId: null,
-                    isSupplement: true, uniqueGroupId: Date.now() + Math.random(), parentId: idGroupeUnique
-                }, false, false);
-            });
-        }
-        
-        afficherTicket();
-        afficherListeTables();
-    };
+window.ajouterProduitCaisse = function(produit, variante, supplements) {
+    const idGroupeUnique = Date.now();
+    
+    // 🔥 Sécurité Prix Promo
+    const prixInitial = (produit.prixPromo && produit.prixPromo > 0) 
+        ? parseFloat(produit.prixPromo) 
+        : parseFloat(produit.prix);
+
+    // 1. Produit Principal
+    ajouterAuTicket(currentTable, { 
+        id: String(produit.id || produit._id), 
+        nom: String(produit.nom), 
+        variante: variante, 
+        prix: Number(prixInitial), // Force le format nombre
+        quantite: 1, 
+        envoye: false, pret: false, cmdId: null,
+        isSupplement: false, uniqueGroupId: idGroupeUnique, parentId: null 
+    }, false, false);
+    
+    // 2. Suppléments
+    if (supplements && supplements.length > 0) {
+        supplements.forEach(supp => {
+            ajouterAuTicket(currentTable, {
+                id: String(supp.id),
+                nom: `+ ${supp.nom}`,
+                variante: null,
+                prix: Number(parseFloat(supp.prix) || 0),
+                quantite: 1,
+                envoye: false, isSupplement: true, uniqueGroupId: Date.now() + Math.random(), parentId: idGroupeUnique
+            }, false, false);
+        });
+    }
+    
+    afficherTicket();
+    afficherListeTables();
+};
     function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
         if (!caisseOuverte) { showNotification("❌ Caisse fermée !", "#ef4444"); return; }
         const container = document.getElementById('containerModalPaiement');
