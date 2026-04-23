@@ -196,10 +196,11 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     unite: String,
     actif: { type: Boolean, default: true },
 supplements: [{
-        id: String,     // L'ID du produit supplément (ex: ID du fromage)
-        nom: String,    // Le nom à afficher
+        id: String,     
+        nom: String,    
         prix: Number,
-        unite: String   // Le prix facturé au client
+        quantite: Number, // <--- AJOUTEZ CETTE LIGNE ABSOLUMENT
+        unite: String   
     }],
     isManufactured: { type: Boolean, default: false }, // true si c'est un produit avec recette
     recipe: [{
