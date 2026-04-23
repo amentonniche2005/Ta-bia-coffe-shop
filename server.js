@@ -171,7 +171,8 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true }, // 🔥 LE MARQUEUR
     id: Number, 
     nom: String, 
-    prix: Number, 
+    prix: Number,
+    prixPromo: { type: Number, default: 0 }, 
     prixAchat: { type: Number, default: 0 }, 
     stock: Number, 
     categorie: String, 
@@ -185,9 +186,7 @@ supplements: [{
         id: String,     // L'ID du produit supplément (ex: ID du fromage)
         nom: String,    // Le nom à afficher
         prix: Number    // Le prix facturé au client
-    }],
-    isFormule: { type: Boolean, default: false },
-    formuleSteps: [{ titre: String, choixIds: [String] }]
+    }]
 }));
 
 const Movement = mongoose.model('Movement', new mongoose.Schema({
@@ -936,7 +935,7 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
             if (venteExistante) return res.json({ success: true, message: "Vente ignorée" });
         }
 
-        let vraiTotalReel = 0;
+let vraiTotalReel = 0;
         for (let art of req.body.articles) {
             let produitDb = null;
             
@@ -974,39 +973,6 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
             } else { 
                 vraiTotalReel += (art.prix * art.quantite); 
             }
-
-            // ====================================================================
-            // 🔥 4. NOUVEAU : DÉDUIRE LE STOCK DES COMPOSANTS (MENU BUILDER) 🔥
-            // ====================================================================
-            if (art.subProductIds && Array.isArray(art.subProductIds)) {
-                for (let subId of art.subProductIds) {
-                    if (!subId || isNaN(subId)) continue; // Sécurité anti-crash
-                    
-                    const composantDb = await Product.findOne({ cafeId: req.cafeId, id: Number(subId) });
-                    
-                    if (composantDb && composantDb.stock !== undefined) {
-                        // Déduction du composant (ex: Coca-Cola)
-                        const compMisAJour = await Product.findOneAndUpdate(
-                            { cafeId: req.cafeId, id: composantDb.id }, 
-                            { $inc: { stock: -art.quantite } }, // On enlève selon la quantité du menu
-                            { new: true }
-                        );
-
-                        // Historique de mouvement pour le composant
-                        await new Movement({ 
-                            cafeId: req.cafeId, 
-                            type: 'vente', 
-                            produit: `[Menu] ${compMisAJour.nom}`, // Tag spécial pour comprendre d'où ça vient
-                            produitId: compMisAJour.id, 
-                            quantite: art.quantite, 
-                            ancienStock: compMisAJour.stock + art.quantite,
-                            nouveauStock: compMisAJour.stock, 
-                            raison: `Vente Menu ${req.body.numero}` 
-                        }).save();
-                    }
-                }
-            }
-            // ====================================================================
         }
 
         if (req.body.remise && req.body.remise > 0) vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));

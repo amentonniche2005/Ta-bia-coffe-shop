@@ -998,9 +998,18 @@ function renderProducts() {
         let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
         if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit</div>'; return; }
         
-        grid.innerHTML = filtered.map(p => { 
+grid.innerHTML = filtered.map(p => { 
             const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
-            return `<div class="product-card" data-id="${p.id}"><div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div><div class="product-name">${escapeHtml(p.nom)}</div><div class="product-price">${parseFloat(p.prix).toFixed(2)} DT</div></div>`; 
+            
+            const affichagePrix = (p.prixPromo > 0) 
+                ? `<s style="font-size:0.75rem; color:#94a3b8;">${parseFloat(p.prix).toFixed(2)}</s> <span style="color:#e74c3c;">${parseFloat(p.prixPromo).toFixed(2)} DT</span>`
+                : `${parseFloat(p.prix).toFixed(2)} DT`;
+
+            return `<div class="product-card" data-id="${p.id}">
+                        <div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div>
+                        <div class="product-name">${escapeHtml(p.nom)}</div>
+                        <div class="product-price">${affichagePrix}</div>
+                    </div>`; 
         }).join('');
         
         // --- ACTION AU CLIC SUR UN PRODUIT ---
@@ -1025,7 +1034,7 @@ function renderProducts() {
     }
 window.ouvrirModalOptionsCaisse = function(produit) {
         produitEnAttenteCaisse = produit;
-        prixBaseEnAttenteCaisse = parseFloat(produit.prix) || 0;
+        prixBaseEnAttenteCaisse = (produit.prixPromo && produit.prixPromo > 0) ? parseFloat(produit.prixPromo) : parseFloat(produit.prix);
         
         document.getElementById("caisseOptionsTitle").textContent = produit.nom;
         document.getElementById("caisseOptionPriceDisplay").textContent = `${prixBaseEnAttenteCaisse.toFixed(2)} DT`;

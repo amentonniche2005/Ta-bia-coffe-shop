@@ -692,15 +692,23 @@ async function chargerDashboard() {
                 let valeurTotaleAchat = 0;
                 let alertes = 0;
                 
-                stockProduits.forEach(p => { 
-                    // 🔥 CORRECTION : On utilise le vrai prixAchat et on sécurise le stock
-                    const stockReel = Math.max(0, parseInt(p.stock) || 0);
-                    const prixAchatReel = parseFloat(p.prixAchat) || 0;
-                    
-                    valeurTotaleAchat += (stockReel * prixAchatReel); 
-                    
-                    if ((p.stock || 0) <= (p.seuilAlerte || 10)) alertes++;
-                });
+// À l'intérieur de chargerDashboard()
+stockProduits.forEach(p => { 
+    const stockReel = Math.max(0, parseInt(p.stock) || 0);
+    const prixAchatReel = parseFloat(p.prixAchat) || 0;
+    
+    // 🔥 LOGIQUE PRIX RÉEL : Priorité au prix promo s'il est > 0
+    const prixVenteEffectif = (p.prixPromo && p.prixPromo > 0) ? parseFloat(p.prixPromo) : parseFloat(p.prix);
+
+    // Valeur d'achat (Immobilisation comptable)
+    valeurTotaleAchat += (stockReel * prixAchatReel); 
+    
+    // Valeur de vente potentielle (Chiffre d'affaires attendu)
+    // Vous pouvez créer une nouvelle variable 'caPotentiel' pour l'afficher
+    caPotentiel += (stockReel * prixVenteEffectif);
+
+    if ((p.stock || 0) <= (p.seuilAlerte || 10)) alertes++;
+});
 
                 document.getElementById('totalProduits').innerText = stockProduits.length;
                 document.getElementById('valeurStock').innerText = formatMoney(valeurTotaleAchat);
@@ -790,7 +798,7 @@ function afficherStockDOM(produits) {
                         </div>
                     </td>
                     <td><span style="color:var(--text-muted); font-size:0.8rem;">${p.unite || 'unité'}</span></td>
-                    <td>${formatMoney(p.prix)}</td>
+                    ${p.prixPromo > 0 ? `<s style="color:#94a3b8; font-size:0.8rem;">${formatMoney(p.prix)}</s> <br><strong style="color:#e74c3c;">${formatMoney(p.prixPromo)}</strong>` : formatMoney(p.prix)}
                     <td style="font-weight:700; color:var(--primary);">${formatMoney(valAchat)}</td>
                     <td style="text-align:center; min-width: 140px;">
                         <button class="btn-action btn-success" style="padding:0.4rem 0.6rem;" title="Réception Stock" onclick="ouvrirModalAjoutStock(${p.id}, '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
@@ -872,23 +880,7 @@ function ouvrirModalNouveauProduit() {
                     <div id="containerSupplements"></div>
                     <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un supplément</button>
                 </div>
-<div class="form-group" style="background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px;">
-                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:var(--primary-green); font-weight:800; font-size:1.1rem; margin-bottom:0;">
-                        <input type="checkbox" id="newProdIsFormule" onchange="document.getElementById('newMenuBuilderZone').style.display = this.checked ? 'block' : 'none'" style="width:24px; height:24px; accent-color: var(--primary-green);">
-                        🍽️ Activer le Mode "Menu / Formule"
-                    </label>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">Déduit automatiquement le stock de chaque composant (Sandwich, Boisson...) lors de la vente.</p>
 
-                    <div id="newMenuBuilderZone" style="display:none; margin-top:15px; border-top: 2px dashed #cbd5e1; padding-top: 15px;">
-                        <div id="newStepsContainer"></div>
-                        <button type="button" onclick="ajouterEtapeMenu('newStepsContainer')" class="btn-action" style="background:#1e293b; width:100%; justify-content:center; font-size:1rem; margin-top:10px;">
-                            <i class="fas fa-plus-circle"></i> Ajouter une étape (ex: Choix Boisson)
-                        </button>
-                        <div style="margin-top: 15px; padding: 12px; background: #fffbeb; border-radius: 8px; border: 1px solid #fde68a; text-align: center; font-weight: bold; color: #d97706; font-size:1.1rem;">
-                            💡 Valeur estimée des produits : <span id="newSuggPrice">0.00</span> DT
-                        </div>
-                    </div>
-                </div>
                 <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
                     <select id="newProdCat">
                         <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option>
@@ -900,10 +892,11 @@ function ouvrirModalNouveauProduit() {
                     </select>
                 </div>
 
-                <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="newProdPrixAchat" value="0" step="0.001"></div>
-                    <div class="form-group" style="flex:1;"><label>Prix Vente:</label><input type="number" id="newProdPrice" step="0.1"></div>
-                </div>
+<div style="display:flex; gap:10px; margin-bottom:10px;">
+    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="newProdPrixAchat" value="0" step="0.001"></div>
+    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="newProdPrice" step="0.1"></div>
+    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo (Solde):</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" placeholder="0 si pas de promo"></div>
+</div>
 
                 <div style="display:flex; gap:10px;">
                     <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
@@ -982,11 +975,10 @@ async function sauvegarderNouveauProduit() {
         categorie: document.getElementById('newProdCat').value,
         prixAchat: parseFloat(document.getElementById('newProdPrixAchat').value) || 0,
         prix: parseFloat(document.getElementById('newProdPrice').value),
+        prixPromo: parseFloat(document.getElementById('newProdPrixPromo').value) || 0, // 🔥 NOUVEAU
         stock: parseInt(document.getElementById('newProdStock').value) || 0,
         seuilAlerte: parseInt(document.getElementById('newProdAlerte').value) || 10,
-        supplements: extraireSupplements(),
-        isFormule: document.getElementById('newProdIsFormule').checked,
-        formuleSteps: document.getElementById('newProdIsFormule').checked ? extraireMenuSteps('newStepsContainer') : [],
+        supplements: extraireSupplements() // 🔥 Tableau JSON construit proprement
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
@@ -1065,23 +1057,7 @@ function ouvrirModalEdition(id) {
                     <div id="containerSupplements"></div>
                     <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un supplément</button>
                 </div>
-<div class="form-group" style="background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px;">
-                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:var(--primary-green); font-weight:800; font-size:1.1rem; margin-bottom:0;">
-                        <input type="checkbox" id="newProdIsFormule" onchange="document.getElementById('newMenuBuilderZone').style.display = this.checked ? 'block' : 'none'" style="width:24px; height:24px; accent-color: var(--primary-green);">
-                        🍽️ Activer le Mode "Menu / Formule"
-                    </label>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">Déduit automatiquement le stock de chaque composant (Sandwich, Boisson...) lors de la vente.</p>
 
-                    <div id="newMenuBuilderZone" style="display:none; margin-top:15px; border-top: 2px dashed #cbd5e1; padding-top: 15px;">
-                        <div id="newStepsContainer"></div>
-                        <button type="button" onclick="ajouterEtapeMenu('newStepsContainer')" class="btn-action" style="background:#1e293b; width:100%; justify-content:center; font-size:1rem; margin-top:10px;">
-                            <i class="fas fa-plus-circle"></i> Ajouter une étape (ex: Choix Boisson)
-                        </button>
-                        <div style="margin-top: 15px; padding: 12px; background: #fffbeb; border-radius: 8px; border: 1px solid #fde68a; text-align: center; font-weight: bold; color: #d97706; font-size:1.1rem;">
-                            💡 Valeur estimée des produits : <span id="newSuggPrice">0.00</span> DT
-                        </div>
-                    </div>
-                </div>
                 <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
                     <select id="editProdCat">
                         <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
@@ -1104,10 +1080,11 @@ function ouvrirModalEdition(id) {
                     </select>
                 </div>
 
-                <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="editProdPrixAchat" value="${p.prixAchat || 0}" step="0.001"></div>
-                    <div class="form-group" style="flex:1;"><label>Prix Vente:</label><input type="number" id="editProdPrice" value="${p.prix}"></div>
-                </div>
+<div style="display:flex; gap:10px; margin-bottom:10px;">
+    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="newProdPrixAchat" value="0" step="0.001"></div>
+    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="newProdPrice" step="0.1"></div>
+    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo (Solde):</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" placeholder="0 si pas de promo"></div>
+</div>
 
                 <div style="display:flex; gap:10px;">
                     <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
@@ -1122,95 +1099,8 @@ function ouvrirModalEdition(id) {
 if (p.supplements && Array.isArray(p.supplements)) {
         p.supplements.forEach(s => ajouterLigneSupplement(s.id || s._id, s.nom, s.prix)); 
     }
-    // Recharge les étapes du Menu
-    if (p.isFormule && p.formuleSteps) {
-        p.formuleSteps.forEach(step => ajouterEtapeMenu('editStepsContainer', step.titre, step.choixIds));
-    }
 }
-// ============================================================================
-// 🔥 FONCTIONS DU MENU BUILDER (PREMIUM UX) 🔥
-// ============================================================================
 
-window.ajouterEtapeMenu = function(containerId, titre = "", choixIds = []) {
-    const container = document.getElementById(containerId);
-    const stepDiv = document.createElement('div');
-    stepDiv.className = 'menu-step-row';
-    stepDiv.style.cssText = "background:white; padding:15px; border-radius:12px; margin-bottom:15px; border:2px solid #cbd5e1; position:relative; box-shadow: 0 4px 6px rgba(0,0,0,0.02);";
-
-    // Filtrer pour ne pas inclure d'autres formules ou des suppléments basiques
-    const produitsEligibles = stockProduits.filter(p => !p.isFormule && p.categorie !== 'supplement');
-
-    // 🌟 Génération des belles cases à cocher
-    let checkboxesHtml = produitsEligibles.map(p => {
-        const isChecked = choixIds.includes(String(p.id)) ? 'checked' : '';
-        return `
-            <label style="display:flex; align-items:center; gap:8px; padding:8px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; transition:0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                <input type="checkbox" class="step-checkbox" value="${p.id}" data-prix="${p.prix}" ${isChecked} style="width:18px; height:18px; accent-color:var(--primary-orange);" onchange="calculerSuggestionPrix('${containerId}')">
-                <div style="flex:1;">
-                    <div style="font-weight:700; font-size:0.85rem; color:#1e293b;">${escapeHtml(p.nom)}</div>
-                    <div style="font-size:0.75rem; color:var(--primary-orange); font-weight:bold;">${parseFloat(p.prix).toFixed(2)} DT</div>
-                </div>
-            </label>
-        `;
-    }).join('');
-
-    stepDiv.innerHTML = `
-        <button type="button" onclick="this.parentElement.remove(); calculerSuggestionPrix('${containerId}');" style="position:absolute; top:12px; right:12px; color:#ef4444; border:none; background:#fee2e2; width:30px; height:30px; border-radius:50%; cursor:pointer;"><i class="fas fa-trash"></i></button>
-        <input type="text" class="step-title" placeholder="Titre (Ex: Choisissez votre Boisson)" value="${titre}" style="width:85%; padding:12px; border:2px solid #e2e8f0; border-radius:8px; font-weight:800; font-size:1rem; margin-bottom:12px; color:#1e293b;">
-        <div style="font-size:0.8rem; color:#64748b; margin-bottom:8px; font-weight:700; text-transform:uppercase;">Cochez les produits inclus dans cette étape :</div>
-        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:8px; max-height:220px; overflow-y:auto; padding:5px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
-            ${checkboxesHtml}
-        </div>
-    `;
-    container.appendChild(stepDiv);
-    calculerSuggestionPrix(containerId);
-};
-
-// 🌟 Calculateur Automatique
-window.calculerSuggestionPrix = function(containerId) {
-    let maxTotal = 0;
-    
-    // Pour chaque étape, on prend le prix de l'article le plus cher sélectionné
-    document.querySelectorAll(`#${containerId} .menu-step-row`).forEach(row => {
-        let maxEtape = 0;
-        row.querySelectorAll('.step-checkbox:checked').forEach(cb => {
-            const prix = parseFloat(cb.getAttribute('data-prix')) || 0;
-            if (prix > maxEtape) maxEtape = prix;
-        });
-        maxTotal += maxEtape;
-    });
-
-    // On affiche la valeur totale
-    const prefix = containerId === 'newStepsContainer' ? 'new' : 'edit';
-    const suggSpan = document.getElementById(prefix + 'SuggPrice');
-    if(suggSpan) suggSpan.textContent = maxTotal.toFixed(2);
-};
-
-// 🌟 Extracteur pour la base de données
-window.extraireMenuSteps = function(containerId) {
-    const steps = [];
-    document.querySelectorAll(`#${containerId} .menu-step-row`).forEach(row => {
-        const titre = row.querySelector('.step-title').value.trim();
-        const choixIds = Array.from(row.querySelectorAll('.step-checkbox:checked')).map(cb => cb.value);
-        if (titre && choixIds.length > 0) {
-            steps.push({ titre, choixIds });
-        }
-    });
-    return steps;
-};
-
-window.extraireMenuSteps = function(containerId) {
-    const steps = [];
-    document.querySelectorAll(`#${containerId} .menu-step-row`).forEach(row => {
-        const titre = row.querySelector('.step-title').value.trim();
-        const select = row.querySelector('.step-choices');
-        const choixIds = Array.from(select.selectedOptions).map(opt => opt.value);
-        if (titre && choixIds.length > 0) {
-            steps.push({ titre, choixIds });
-        }
-    });
-    return steps;
-};
 async function sauvegarderEditionProduit(id) {
     const typeC = document.getElementById('editProdTypeChoix').value;
     const produitData = {
@@ -1221,11 +1111,10 @@ async function sauvegarderEditionProduit(id) {
         categorie: document.getElementById('editProdCat').value,
         prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
         prix: parseFloat(document.getElementById('editProdPrice').value),
+        prixPromo: parseFloat(document.getElementById('newProdPrixPromo').value) || 0, // 🔥 NOUVEAU
         stock: parseInt(document.getElementById('editProdStock').value) || 0,
         seuilAlerte: parseInt(document.getElementById('editProdAlerte').value) || 10,
-        supplements: extraireSupplements(),
-        isFormule: document.getElementById('editProdIsFormule').checked,
-        formuleSteps: document.getElementById('editProdIsFormule').checked ? extraireMenuSteps('editStepsContainer') : [] 
+        supplements: extraireSupplements() // 🔥 Tableau JSON construit proprement
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");

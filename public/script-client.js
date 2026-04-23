@@ -302,7 +302,28 @@ function afficherProduits() {
             : `<button class="add-to-cart" onclick="gererClicAjout(event, '${p.id || p._id}')">Ajouter <i class="fas fa-plus"></i></button>`;            
         
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
-        const prixFormatte = parseFloat(p.prix || 0).toFixed(2);
+        const prixNormal = parseFloat(p.prix || 0).toFixed(2);
+        const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
+        
+        // S'il y a une promo, on barre l'ancien et on met le nouveau en rouge
+        const affichagePrix = (p.prixPromo && p.prixPromo > 0) 
+            ? `<s style="color:#94a3b8; font-size:0.8rem; margin-right:5px;">${prixNormal} DT</s> <span style="color:#e74c3c;">${prixPromo} DT</span>` 
+            : `${prixNormal} DT`;
+
+        return `
+            <div class="menu-item ${classeRupture}">
+                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center;">
+                ${p.prixPromo > 0 ? `<div style="position:absolute; top:5px; left:5px; background:#e74c3c; color:white; padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:bold; z-index:2;">PROMO</div>` : ''}
+                </div>
+                <div class="item-info">
+                    <div>
+                        <h3>${p.nom}</h3>
+                        <div class="price">${affichagePrix}</div>
+                    </div>
+                    ${bouton}
+                </div>
+            </div>
+        `;
 
         return `
             <div class="menu-item ${classeRupture}">
@@ -347,7 +368,7 @@ function gererClicAjout(event, id) {
 
 window.ouvrirModalOptions = function(produit, options) {
     produitEnAttenteOption = produit;
-    prixBaseEnAttente = parseFloat(produit.prix) || 0;
+    prixBaseEnAttente = (produit.prixPromo && produit.prixPromo > 0) ? parseFloat(produit.prixPromo) : parseFloat(produit.prix);
     
     document.getElementById("optionsTitle").textContent = produit.nom;
     document.getElementById("optionPriceDisplay").textContent = `${prixBaseEnAttente.toFixed(2)} DT`;
