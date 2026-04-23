@@ -689,17 +689,18 @@ async function chargerDashboard() {
         stockProduits = Array.isArray(stock) ? stock : (stock.produits || []); 
 
         let valeurTotaleAchat = 0;
-        let caPotentielTotal = 0; // 🔥 Initialisation correcte
+        let caPotentielTotal = 0; 
         let alertes = 0;
         
         stockProduits.forEach(p => { 
-            const stockReel = Number(p.stock) || 0; // 🔥 Conversion forcée
+            // 🔥 Conversion forcée en nombres pour éviter le collage des chiffres
+            const stockReel = Number(p.stock) || 0;
             const pAchat = parseFloat(p.prixAchat) || 0;
-            const pNormal = parseFloat(p.prix) || 0;
+            const pVenteNormal = parseFloat(p.prix) || 0;
             const pPromo = parseFloat(p.prixPromo) || 0;
 
-            // Logique : Priorité Promo
-            const prixVenteActuel = (pPromo > 0) ? pPromo : pNormal;
+            // Priorité au prix promo pour le calcul du CA potentiel
+            const prixVenteActuel = (pPromo > 0) ? pPromo : pVenteNormal;
 
             valeurTotaleAchat += (stockReel * pAchat); 
             caPotentielTotal += (stockReel * prixVenteActuel);
@@ -710,6 +711,10 @@ async function chargerDashboard() {
         document.getElementById('totalProduits').innerText = stockProduits.length;
         document.getElementById('valeurStock').innerText = formatMoney(valeurTotaleAchat);
         document.getElementById('totalAlertes').innerText = alertes;
+
+        const badge = document.getElementById('badgeAlertes');
+        if(alertes > 0) { badge.className = 'badge badge-critical'; badge.innerText = 'Action Requise'; }
+        else { badge.className = 'badge badge-normal'; badge.innerText = 'Stock Sain'; }
     } catch (e) { console.error("Erreur Dashboard:", e); }
 }
 
@@ -764,7 +769,10 @@ function appliquerFiltresEtTriStock() {
 
 function afficherStockDOM(produits) {
     const tbody = document.getElementById('stockTableBody');
-    if(!produits.length) { tbody.innerHTML = '<tr><td colspan="7">Aucun produit</td></tr>'; return; }
+    if(!produits.length) { 
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Aucun produit</td></tr>'; 
+        return; 
+    }
     
     tbody.innerHTML = produits.map(p => {
         const stockReel = Number(p.stock) || 0;
@@ -772,17 +780,22 @@ function afficherStockDOM(produits) {
         const pPromo = parseFloat(p.prixPromo) || 0;
         const valAchat = stockReel * (parseFloat(p.prixAchat) || 0);
         
+        // Structure HTML propre pour le prix (Barré si promo)
         const htmlPrix = (pPromo > 0) 
-            ? `<s style="color:#94a3b8; font-size:0.75rem;">${formatMoney(pVente)}</s><br><strong style="color:#e74c3c;">${formatMoney(pPromo)}</strong>`
-            : `<strong>${formatMoney(pVente)}</strong>`;
+            ? `<td><s style="color:#94a3b8; font-size:0.75rem;">${formatMoney(pVente)}</s><br><strong style="color:#e74c3c;">${formatMoney(pPromo)}</strong></td>`
+            : `<td><strong>${formatMoney(pVente)}</strong></td>`;
+
+        const seuil = Number(p.seuilAlerte) || 10;
+        let badgeClass = stockReel <= 0 ? 'badge-critical' : (stockReel <= seuil ? 'badge-low' : 'badge-normal');
 
         return `
             <tr>
                 <td><strong>${escapeHtml(p.nom)}</strong></td>
                 <td><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
-                <td><span class="badge">${stockReel}</span></td>
+                <td><span class="badge ${badgeClass}">${stockReel}</span></td>
                 <td>${p.unite || 'unité'}</td>
-                <td>${htmlPrix}</td> <td style="font-weight:700;">${formatMoney(valAchat)}</td>
+                ${htmlPrix}
+                <td style="font-weight:700; color:var(--primary);">${formatMoney(valAchat)}</td>
                 <td style="text-align:center;">
                     <button class="btn-action btn-success" onclick="ouvrirModalAjoutStock('${p.id || p._id}', '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
                     <button class="btn-action" style="background:#3498db;" onclick="ouvrirModalEdition('${p.id || p._id}')"><i class="fas fa-pen"></i></button>
@@ -1818,138 +1831,147 @@ function ouvrirModalClient() {
         }
 
         // ========== 8. MODULE VENTES ET ARCHIVES (CORRIGÉ AVEC FILTRES MODE PAIEMENT) ==========
-        async function chargerRapportVentes() {
-            try {
-                const res = await fetchSecurise('/api/ventes');
-                toutesLesVentes = await res.json();
+async function chargerRapportVentes() {
+    try {
+        // 1. Récupération des données brute
+        const res = await fetchSecurise('/api/ventes');
+        toutesLesVentes = await res.json();
+        
+        const typeRapport = document.getElementById('typeRapport').value;
+        const methodeFiltre = document.getElementById('filtreMethodeVente').value;
+        const debutStr = document.getElementById('rapportDateDebut').value;
+        const finStr = document.getElementById('rapportDateFin').value;
+        
+        // 2. Gestion stricte des dates
+        const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
+        const tsFin = finStr ? new Date(finStr + "T23:59:59").getTime() : Infinity;
+
+        // 3. Filtrage dynamique (Dates + Mode de paiement)
+        const ventesFiltrees = toutesLesVentes.filter(v => {
+            const matchDate = v.timestamp >= tsDebut && v.timestamp <= tsFin;
+            const methodeTicket = v.methodePaiement || 'especes';
+            
+            // Correction spécifique pour le Wallet VIP (BTE/Flouci)
+            let matchMethode = (methodeFiltre === 'all' || methodeTicket === methodeFiltre);
+            if (methodeFiltre === 'carte_fidelite' && methodeTicket === 'Carte Fidélité') {
+                matchMethode = true;
+            }
+            
+            return matchDate && matchMethode;
+        });
+
+        // Mise en mémoire pour l'export CSV
+        ventesAffichees = ventesFiltrees;
+
+        // 4. CALCUL DES KPIs (SÉCURITÉ MATHÉMATIQUE - Évite les milliards)
+        let totalCA = 0;
+        ventesFiltrees.forEach(v => {
+            totalCA += parseFloat(v.total) || 0; // Force l'addition mathématique
+        });
+
+        const nbTickets = ventesFiltrees.length;
+        const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
+
+        // Affichage des compteurs
+        document.getElementById('kpiCA').textContent = formatMoney(totalCA);
+        document.getElementById('kpiTickets').textContent = nbTickets;
+        document.getElementById('kpiMoyen').textContent = formatMoney(panierMoyen);
+
+        // 5. PALMARÈS DES PRODUITS (Top Ventes)
+        const statsProds = {};
+        ventesFiltrees.forEach(ticket => {
+            if(!ticket.articles) return;
+            ticket.articles.forEach(art => {
+                // On nettoie le nom pour grouper (ex: "Pizza (Thon)" -> "Pizza")
+                const nomBase = art.nom.split('(')[0].trim();
                 
-                const typeRapport = document.getElementById('typeRapport').value;
-                const methodeFiltre = document.getElementById('filtreMethodeVente').value; // 🔥 Le filtre de mode de paiement
-                const debutStr = document.getElementById('rapportDateDebut').value;
-                const finStr = document.getElementById('rapportDateFin').value;
+                if (!statsProds[nomBase]) statsProds[nomBase] = { qte: 0, ca: 0 };
                 
-                // Gestion stricte des dates
-                const tsDebut = debutStr ? new Date(debutStr + "T00:00:00").getTime() : 0;
-                let tsFin = Infinity;
-                if (finStr) {
-                    const dateFinObj = new Date(finStr + "T23:59:59");
-                    tsFin = dateFinObj.getTime();
-                }
+                // On utilise Number et parseFloat pour être sûr
+                const qte = Number(art.quantite) || 1;
+                const prixApplique = parseFloat(art.prix) || 0; 
 
-                const ventesFiltrees = toutesLesVentes.filter(v => {
-                    const matchDate = v.timestamp >= tsDebut && v.timestamp <= tsFin;
-                    const methodeTicket = v.methodePaiement || 'especes'; // Sécurité rétrocompatibilité
-                    
-                    // 🔥 CORRECTION DU FILTRE : On relie l'option du menu à la valeur de la base de données
-                    let matchMethode = (methodeFiltre === 'all' || methodeTicket === methodeFiltre);
-                    if (methodeFiltre === 'carte_fidelite' && methodeTicket === 'Carte Fidélité') {
-                        matchMethode = true;
-                    }
-                    
-                    return matchDate && matchMethode;
-                });
+                statsProds[nomBase].qte += qte;
+                statsProds[nomBase].ca += (prixApplique * qte);
+            });
+        });
 
-                // On stocke pour l'exportation CSV
-                ventesAffichees = ventesFiltrees;
+        // Tri du palmarès
+        const topProduits = Object.keys(statsProds).map(nom => ({
+            nom, qte: statsProds[nom].qte, ca: statsProds[nom].ca
+        })).sort((a, b) => b.qte - a.qte);
 
-                const totalCA = ventesFiltrees.reduce((sum, v) => sum + (parseFloat(v.total) || 0), 0);
-                const nbTickets = ventesFiltrees.length;
-                const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
+        // Rendu du tableau des produits (Gauche)
+        const tBodyProds = document.getElementById('rapportProduitsBody');
+        tBodyProds.innerHTML = topProduits.length === 0 
+            ? '<tr><td colspan="3" class="empty-message">Aucune donnée</td></tr>'
+            : topProduits.map(p => `
+                <tr>
+                    <td><strong>${escapeHtml(p.nom)}</strong></td>
+                    <td style="text-align:center;"><span class="badge badge-neutral">${p.qte}</span></td>
+                    <td style="text-align:right; font-weight:bold; color:var(--success);">${formatMoney(p.ca)}</td>
+                </tr>`).join('');
 
-                document.getElementById('kpiCA').textContent = formatMoney(totalCA);
-                document.getElementById('kpiTickets').textContent = nbTickets;
-                document.getElementById('kpiMoyen').textContent = formatMoney(panierMoyen);
+        // 6. TABLEAU DE DROITE (DÉTAIL OU JOURNAL GROUPÉ)
+        const tBodyTickets = document.getElementById('rapportTicketsBody');
+        const enTete = document.getElementById('enTeteTableauDroite');
+        const titreDroite = document.getElementById('titreTableauDroite');
 
-                const statsProds = {};
-                ventesFiltrees.forEach(ticket => {
-                    if(!ticket.articles) return;
-                    ticket.articles.forEach(art => {
-                        const nomBase = art.nom.split('(')[0].trim();
-                        
-                        if (!statsProds[nomBase]) statsProds[nomBase] = { qte: 0, ca: 0 };
-                        
-                        const qte = Number(art.quantite) || 1;
-                        // 🔥 art.prix contient déjà le prix promo car envoyé par la caisse/client
-                        const prixVendu = parseFloat(art.prix) || 0; 
-
-                        statsProds[nomBase].qte += qte;
-                        statsProds[nomBase].ca += (prixVendu * qte);
-                    });
-                });
-
-                const topProduits = Object.keys(statsProds).map(nom => ({
-                    nom, qte: statsProds[nom].qte, ca: statsProds[nom].ca
-                })).sort((a, b) => b.qte - a.qte);
-
-                const tBodyProds = document.getElementById('rapportProduitsBody');
-                if (topProduits.length === 0) {
-                    tBodyProds.innerHTML = '<tr><td colspan="3" class="empty-message">Aucune vente pour ce filtre</td></tr>';
-                } else {
-                    tBodyProds.innerHTML = topProduits.map(p => `
-                        <tr>
-                            <td><strong>${escapeHtml(p.nom)}</strong></td>
-                            <td style="text-align:center;"><span class="badge badge-neutral">${p.qte}</span></td>
-                            <td style="text-align:right; font-weight:bold; color:var(--success);">${formatMoney(p.ca)}</td>
-                        </tr>
-                    `).join('');
-                }
-
-                const tBodyTickets = document.getElementById('rapportTicketsBody');
-                const enTete = document.getElementById('enTeteTableauDroite');
-                const titreDroite = document.getElementById('titreTableauDroite');
-
-                if (ventesFiltrees.length === 0) {
-                    enTete.innerHTML = '<tr><th>Données</th></tr>';
-                    tBodyTickets.innerHTML = '<tr><td class="empty-message">Aucun enregistrement</td></tr>';
-                    return;
-                }
-
-                if (typeRapport === 'detail') {
-                    titreDroite.innerHTML = "🧾 Journal des Tickets";
-                    enTete.innerHTML = '<tr><th>Heure</th><th>Ticket & Mode</th><th>Total</th><th style="text-align:center;">Détails</th></tr>';
-                    
-                    tBodyTickets.innerHTML = ventesFiltrees.map(v => `
-                        <tr>
-                            <td><div style="font-size:0.8rem; color:var(--text-muted);">${v.date}</div></td>
-                            <td>
-                                <strong>#${v.numero}</strong><div style="font-size:0.7rem;">${escapeHtml(v.tableOrigine)}</div>
-                                <div style="margin-top:4px;">${getIconPaiement(v.methodePaiement || 'especes')}</div>
-                            </td>
-                            <td style="font-weight:bold; color:var(--success);">${formatMoney(v.total)}</td>
-                            <td style="text-align:center;"><button class="btn-action" style="padding:0.4rem; background:var(--info);" onclick="voirDetailTicket('${v.id}')"><i class="fas fa-eye"></i></button></td>
-                        </tr>
-                    `).join('');
-                } 
-                else {
-                    const groupes = {};
-                    ventesFiltrees.forEach(v => {
-                        const businessDate = new Date(v.timestamp - 7200000); // Décalage pour fin de service la nuit
-                        const jour = String(businessDate.getDate()).padStart(2, '0');
-                        const mois = String(businessDate.getMonth() + 1).padStart(2, '0');
-                        const annee = businessDate.getFullYear();
-                        
-                        let cle = '';
-                        if (typeRapport === 'jour') { cle = `${jour}/${mois}/${annee}`; titreDroite.innerHTML = "📅 Journal Quotidien (Clôtures)"; }
-                        if (typeRapport === 'mois') { cle = `${mois}/${annee}`; titreDroite.innerHTML = "📆 Journal Mensuel"; }
-                        if (typeRapport === 'annee') { cle = `${annee}`; titreDroite.innerHTML = "📈 Journal Annuel"; }
-
-                        if (!groupes[cle]) groupes[cle] = { ca: 0, tickets: 0 };
-                        groupes[cle].ca += parseFloat(v.total);
-                        groupes[cle].tickets += 1;
-                    });
-
-                    enTete.innerHTML = '<tr><th>Période</th><th style="text-align:center;">Nb Tickets</th><th style="text-align:right;">Chiffre d\'Affaires</th></tr>';
-                    
-                    tBodyTickets.innerHTML = Object.keys(groupes).map(cle => `
-                        <tr>
-                            <td><strong>${cle}</strong></td>
-                            <td style="text-align:center;"><span class="badge badge-neutral">${groupes[cle].tickets}</span></td>
-                            <td style="text-align:right; font-weight:bold; color:var(--success); font-size:1.1rem;">${formatMoney(groupes[cle].ca)}</td>
-                        </tr>
-                    `).join('');
-                }
-            } catch(e) { console.error("Erreur rapports", e); }
+        if (ventesFiltrees.length === 0) {
+            enTete.innerHTML = '<tr><th>Données</th></tr>';
+            tBodyTickets.innerHTML = '<tr><td class="empty-message">Aucun enregistrement trouvé</td></tr>';
+            return;
         }
+
+        if (typeRapport === 'detail') {
+            titreDroite.innerHTML = "🧾 Journal détaillé des Tickets";
+            enTete.innerHTML = '<tr><th>Heure</th><th>Ticket & Mode</th><th>Total</th><th style="text-align:center;">Détails</th></tr>';
+            
+            tBodyTickets.innerHTML = ventesFiltrees.map(v => `
+                <tr>
+                    <td><div style="font-size:0.8rem; color:var(--text-muted);">${v.date}</div></td>
+                    <td>
+                        <strong>#${v.numero}</strong><div style="font-size:0.7rem;">${escapeHtml(v.tableOrigine)}</div>
+                        <div style="margin-top:4px;">${getIconPaiement(v.methodePaiement || 'especes')}</div>
+                    </td>
+                    <td style="font-weight:bold; color:var(--success);">${formatMoney(v.total)}</td>
+                    <td style="text-align:center;"><button class="btn-action" style="padding:0.4rem; background:var(--info);" onclick="voirDetailTicket('${v.id}')"><i class="fas fa-eye"></i></button></td>
+                </tr>`).join('');
+        } 
+        else {
+            // Logique de regroupement par période (Jour/Mois/Année)
+            const groupes = {};
+            ventesFiltrees.forEach(v => {
+                // Offset de 2h pour les établissements fermant après minuit
+                const businessDate = new Date(v.timestamp - 7200000);
+                const jour = String(businessDate.getDate()).padStart(2, '0');
+                const mois = String(businessDate.getMonth() + 1).padStart(2, '0');
+                const annee = businessDate.getFullYear();
+                
+                let cle = '';
+                if (typeRapport === 'jour') { cle = `${jour}/${mois}/${annee}`; titreDroite.innerHTML = "📅 Journal Quotidien"; }
+                else if (typeRapport === 'mois') { cle = `${mois}/${annee}`; titreDroite.innerHTML = "📆 Journal Mensuel"; }
+                else { cle = `${annee}`; titreDroite.innerHTML = "📈 Journal Annuel"; }
+
+                if (!groupes[cle]) groupes[cle] = { ca: 0, tickets: 0 };
+                groupes[cle].ca += parseFloat(v.total) || 0;
+                groupes[cle].tickets += 1;
+            });
+
+            enTete.innerHTML = '<tr><th>Période</th><th style="text-align:center;">Nb Tickets</th><th style="text-align:right;">Chiffre d\'Affaires</th></tr>';
+            
+            tBodyTickets.innerHTML = Object.keys(groupes).map(cle => `
+                <tr>
+                    <td><strong>${cle}</strong></td>
+                    <td style="text-align:center;"><span class="badge badge-neutral">${groupes[cle].tickets}</span></td>
+                    <td style="text-align:right; font-weight:bold; color:var(--success); font-size:1.1rem;">${formatMoney(groupes[cle].ca)}</td>
+                </tr>`).join('');
+        }
+    } catch(e) { 
+        console.error("Erreur rapports", e);
+        showNotification("Erreur lors de l'analyse des ventes", "var(--danger)");
+    }
+}
 
         function voirDetailTicket(idTicket) {
             const ticket = toutesLesVentes.find(v => v.id === idTicket);
