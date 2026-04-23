@@ -1000,7 +1000,134 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res) => {
+    try {
+        const { orderId, articleId, uniqueGroupId } = req.body;
+        
+        const cmd = await Order.findOne({ cafeId: req.cafeId, id: orderId });
+        if (!cmd) return res.status(404).json({ error: "Commande introuvable" });
 
+        // 1. Trouver l'article dans la commande
+        const artIdx = cmd.articles.findIndex(a => 
+            String(a.id) === String(articleId) && 
+            Number(a.uniqueGroupId) === Number(uniqueGroupId)
+        );
+
+        if (artIdx === -1) return res.status(404).json({ error: "Article non trouvé dans cette commande" });
+        
+        const article = cmd.articles[artIdx];
+
+        // 🟢 SCÉNARIO : COMMANDE EN ATTENTE -> ON REND LE STOCK
+        if (cmd.statut === 'en_attente') {
+            const produitDb = await Product.findOne({ cafeId: req.cafeId, id: article.id });
+            if (produitDb) {
+                if (produitDb.isManufactured && produitDb.recipe) {
+                    for (let item of produitDb.recipe) {
+                        await Product.findOneAndUpdate(
+                            { cafeId: req.cafeId, id: item.ingredientId },
+                            { $inc: { stock: (item.quantity * article.quantite) } }
+                        );
+                    }
+                } else if (produitDb.stock !== undefined) {
+                    await Product.findOneAndUpdate(
+                        { cafeId: req.cafeId, id: produitDb.id },
+                        { $inc: { stock: article.quantite } }
+                    );
+                }
+            }
+            await new Movement({
+                cafeId: req.cafeId, type: 'annulation', produit: article.nom,
+                raison: `Annulation article dans Cmd #${cmd.numero} - Stock rendu`
+            }).save();
+        } 
+        // 🔴 SCÉNARIO : DÉJÀ EN CUISINE -> PERTE
+        else {
+            await new Movement({
+                cafeId: req.cafeId, type: 'perte', produit: article.nom,
+                raison: `Annulation article dans Cmd #${cmd.numero} (Déjà en cuisine) - Perte`
+            }).save();
+        }
+
+        // 2. Retirer l'article (et ses suppléments liés) de la commande en base
+        cmd.articles = cmd.articles.filter(a => 
+            !(String(a.id) === String(articleId) && Number(a.uniqueGroupId) === Number(uniqueGroupId)) &&
+            !(a.parentId === uniqueGroupId)
+        );
+
+        // Si la commande est vide après ça, on la marque comme "paye" (archivée)
+        if (cmd.articles.length === 0) cmd.statut = 'paye';
+
+        await cmd.save();
+        io.to(req.cafeId).emit('update_stock');
+        io.to(req.cafeId).emit('mise_a_jour_commande', { id: cmd.id });
+
+        res.json({ success: true });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
+    try {
+        const { orderIds } = req.body;
+        if (!orderIds || orderIds.length === 0) return res.json({ success: true });
+
+        for (let id of orderIds) {
+            // On cherche la commande (qu'elle vienne du client ou de la caisse)
+            const cmd = await Order.findOne({ cafeId: req.cafeId, id: id });
+            if (!cmd) continue;
+
+            // 🟢 SCÉNARIO : EN ATTENTE -> ON REND LE STOCK
+            if (cmd.statut === 'en_attente') {
+                for (let art of cmd.articles) {
+                    const produitDb = await Product.findOne({ cafeId: req.cafeId, id: art.id });
+                    if (produitDb) {
+                        if (produitDb.isManufactured && produitDb.recipe) {
+                            // On rend chaque ingrédient de la recette
+                            for (let item of produitDb.recipe) {
+                                await Product.findOneAndUpdate(
+                                    { cafeId: req.cafeId, id: item.ingredientId },
+                                    { $inc: { stock: (item.quantity * art.quantite) } }
+                                );
+                            }
+                        } else if (produitDb.stock !== undefined) {
+                            // On rend le produit simple
+                            await Product.findOneAndUpdate(
+                                { cafeId: req.cafeId, id: produitDb.id },
+                                { $inc: { stock: art.quantite } }
+                            );
+                        }
+                    }
+                }
+                // Historique du mouvement
+                await new Movement({
+                    cafeId: req.cafeId, type: 'annulation', produit: "Multi-produits",
+                    raison: `Annulation commande #${cmd.numero} - Ingrédients remis en stock`
+                }).save();
+            } 
+            // 🔴 SCÉNARIO : PRÉPARATION OU PRÊT -> ON NE REND RIEN
+            else {
+                await new Movement({
+                    cafeId: req.cafeId, type: 'perte', produit: "Multi-produits",
+                    raison: `Annulation commande #${cmd.numero} (Déjà en cuisine) - Stock considéré perdu`
+                }).save();
+            }
+
+            // Dans tous les cas, on "tue" la commande pour le KDS et la Caisse
+            // On met 'paye' car ton système filtre déjà les commandes payées
+            cmd.statut = 'paye'; 
+            await cmd.save();
+        }
+
+        io.to(req.cafeId).emit('update_stock');
+        io.to(req.cafeId).emit('mise_a_jour_commande', { id: 'refresh_all' }); // Notifie les clients/cuisine
+        res.json({ success: true, message: "Annulation traitée avec succès" });
+
+    } catch (err) {
+        console.error("Erreur annulation:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 app.put('/api/commandes/partiel-ids', verifierToken, async (req, res) => {
     try {
         const { orderIds, articlesRestants } = req.body;
