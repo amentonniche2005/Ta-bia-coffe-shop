@@ -630,7 +630,10 @@ function afficherContenuPanier() {
             <div class="modern-cart-item" style="flex-direction: column; align-items: stretch; padding: 15px; margin-bottom: 12px; background: white; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #f1f5f9;">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <div class="modern-cart-item-info">
-                        <h4 style="margin:0; font-size:1.1rem; color:#1e293b; font-weight:800;">${mainItem.nom}</h4>
+                        <h4 style="margin:0; font-size:1.1rem; color:#1e293b; font-weight:800;">
+    ${mainItem.nom}
+    ${mainItem.variante ? `<span style="font-size:0.85rem; color:#db800a; font-weight:700; margin-left:6px;">(${mainItem.variante})</span>` : ''}
+</h4>
                         <div class="modern-cart-item-price" style="color:#db800a; font-weight:bold;">${mainItem.prix.toFixed(2)} DT</div>
                     </div>
                     <div class="modern-qty-control" style="display:flex; align-items:center; background:#f8fafc; border-radius:10px; padding:4px; border: 1px solid #e2e8f0;">
