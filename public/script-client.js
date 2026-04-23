@@ -486,27 +486,31 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsF
 
     if (!produit) return;
 
+    // 🔥 CORRECTIF PRIX PROMO : On définit quel prix utiliser AVANT de l'ajouter au panier
+    const prixAUtiliser = (produit.prixPromo && produit.prixPromo > 0) 
+        ? parseFloat(produit.prixPromo) 
+        : parseFloat(produit.prix);
+
     let vari = varForcee || null;
     let suppsChoisis = suppsForces || [];
 
-    // 🔥 CRÉATION DU LIEN DE PARENTÉ UNIQUE POUR CETTE COMMANDE
     const idGroupeUnique = Date.now(); 
 
-    // 1. Ajouter le produit principal au panier
+    // 1. Ajouter le produit principal au panier avec le BON PRIX
     panier.push({ 
         cartId: `MAIN_${idGroupeUnique}`,
         id: produit.id || produit._id, 
         baseId: produit.id || produit._id,
         nom: produit.nom, 
         variante: vari, 
-        prix: parseFloat(produit.prix), 
+        prix: prixAUtiliser, // ✅ Utilise maintenant le prix promo si disponible
         quantite: 1,
         isSupplement: false,
         uniqueGroupId: idGroupeUnique,
         parentId: null
     });
 
-    // 2. Ajouter les suppléments comme des produits séparés, mais liés !
+    // 2. Ajouter les suppléments
     if (suppsChoisis.length > 0) {
         suppsChoisis.forEach(supp => {
             panier.push({
@@ -515,7 +519,7 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsF
                 id: supp.id || supp._id || `SUPP_${Date.now()}`, 
                 nom: `+ ${supp.nom}`, 
                 variante: null,
-                prix: parseFloat(supp.prix) || 0,
+                prix: parseFloat(supp.prix) || 0, // Le prix du supplément est déjà géré par la modale
                 quantite: 1,
                 isSupplement: true, 
                 parentId: idGroupeUnique 
@@ -525,7 +529,6 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsF
     sauvegarderPanier();
     mettreAJourUIPanier();
     
-    // Fermeture automatique de la modale d'options si elle était ouverte
     const modal = document.getElementById("optionsModal");
     if(modal) modal.style.display = "none";
     
