@@ -477,25 +477,30 @@ button:hover:not(:disabled) {
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
     // 🔥 MOTEUR ERP CAISSE : Calcule la disponibilité réelle d'un article
 // 🔥 MOTEUR ERP CAISSE : Calcule le stock APRES simulation du ticket en cours !
+// 🔥 MOTEUR ERP CAISSE : Calcule le stock APRES simulation du ticket en cours !
 window.calculerStockReel = function(produit, simulerPanier = true) {
     let consommation = {};
     
     // 1. On calcule combien d'ingrédients le ticket actuel a DÉJÀ consommé
     if (simulerPanier && typeof currentTable !== 'undefined' && currentTable && tickets[currentTable]) {
         tickets[currentTable].articles.forEach(art => {
-            const pDB = produits.find(p => String(p.id) === String(art.id) || String(p._id) === String(art.id) || String(p.nom) === String(art.nom));
-            if (pDB) {
-                const qte = parseInt(art.quantite) || 0;
-                if (pDB.isManufactured && pDB.recipe) {
-                    pDB.recipe.forEach(item => {
-                        const ingId = String(item.ingredientId);
-                        if (!consommation[ingId]) consommation[ingId] = 0;
-                        consommation[ingId] += (Number(item.quantity) * qte);
-                    });
-                } else if (!pDB.isManufactured) {
-                    const idDb = String(pDB.id || pDB._id);
-                    if (!consommation[idDb]) consommation[idDb] = 0;
-                    consommation[idDb] += qte;
+            // 🔥 CORRECTION CRITIQUE : On ne simule la déduction QUE pour les articles NON envoyés !
+            // (Ceux envoyés ont déjà été déduits de la vraie base de données par le serveur)
+            if (!art.envoye) {
+                const pDB = produits.find(p => String(p.id) === String(art.id) || String(p._id) === String(art.id) || String(p.nom) === String(art.nom));
+                if (pDB) {
+                    const qte = parseInt(art.quantite) || 0;
+                    if (pDB.isManufactured && pDB.recipe) {
+                        pDB.recipe.forEach(item => {
+                            const ingId = String(item.ingredientId);
+                            if (!consommation[ingId]) consommation[ingId] = 0;
+                            consommation[ingId] += (Number(item.quantity) * qte);
+                        });
+                    } else if (!pDB.isManufactured) {
+                        const idDb = String(pDB.id || pDB._id);
+                        if (!consommation[idDb]) consommation[idDb] = 0;
+                        consommation[idDb] += qte;
+                    }
                 }
             }
         });
@@ -517,7 +522,6 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
         const stockInitialIng = Number(ingredient.stock) || 0;
         const dejaConsomme = consommation[String(item.ingredientId)] || 0;
         
-        // C'est ici que la magie opère : on soustrait ce qui est déjà dans le ticket !
         const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
 
         const quantiteRequise = Number(item.quantity) || 0;
@@ -804,12 +808,10 @@ async function envoyerEnCuisine() {
     const articlesAEnvoyer = ticket.articles.filter(a => !a.envoye);
     if (articlesAEnvoyer.length === 0) return showNotification("✅ Déjà envoyés", "#3b82f6");
 
-    // SÉCURITÉ 1 : On bloque immédiatement si internet est coupé
     if (!navigator.onLine) {
         return showNotification("📶 Hors-ligne : Impossible d'envoyer en cuisine", "#ef4444");
     }
 
-    // SÉCURITÉ 2 : On bloque le bouton pour empêcher les clics multiples (Spam)
     const btnCuisine = document.getElementById('envoyerCuisineBtn');
     const originalHtml = btnCuisine.innerHTML;
     btnCuisine.disabled = true;
@@ -838,20 +840,20 @@ async function envoyerEnCuisine() {
             method: 'POST', 
             body: JSON.stringify({ 
                 articles: articlesAEnvoyer.map(a => ({ 
-    id: a.id, 
-    nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, 
-    prix: a.prix, 
-    quantite: a.quantite,
-    isSupplement: a.isSupplement,            // 🔥
-    uniqueGroupId: a.uniqueGroupId,          // 🔥
-    parentId: a.parentId                     // 🔥
-})), 
+                    id: a.id, 
+                    nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, 
+                    prix: a.prix, 
+                    quantite: a.quantite,
+                    isSupplement: a.isSupplement,             
+                    uniqueGroupId: a.uniqueGroupId,          
+                    parentId: a.parentId                     
+                })), 
                 numeroTable: nomTableServeur, clientName: nomClientFidele, clientId: null,
                 codeAuth: "00000", methodePaiement: "sur_place"
             })
         });
         
-if (response.ok) { 
+        if (response.ok) { 
             const data = await response.json();
             const newId = data.id || data._id;
             showNotification(`👨‍🍳 Articles envoyés en cuisine !`, "#e67e22"); 
@@ -863,16 +865,14 @@ if (response.ok) {
                 tickets[newKey].orderIds = [newId];
                 window.commandesTraiteesTickets.add(newId);
                 
-                // 🔥 CORRECTION ICI : On ajoute le cadenas et l'ID de la cuisine !
                 tickets[newKey].articles.forEach(a => { 
                     if (!a.envoye) { 
                         a.envoye = true; 
-                        a.pret = false;      // On le verrouille
-                        a.cmdId = newId;     // On le lie à la cuisine
+                        a.pret = false;      
+                        a.cmdId = newId;     
                     } 
                 });
                 
-                // On nettoie l'ancien nom sur le serveur
                 try { await fetchSecurise('/api/tickets-ouverts', { method: 'POST', body: JSON.stringify({ tableNum: currentTable, ticketData: { articles: [], total: 0 } }) }); } catch(e){}
 
                 delete tickets[currentTable];
@@ -882,24 +882,27 @@ if (response.ok) {
                 if (!ticket.orderIds) ticket.orderIds = [];
                 if (newId) ticket.orderIds.push(newId);
                 
-                // 🔥 CORRECTION ICI AUSSI : Pour les tables normales
                 ticket.articles.forEach(a => { 
                     if (!a.envoye) { 
                         a.envoye = true; 
-                        a.pret = false;      // On le verrouille
-                        a.cmdId = newId;     // On le lie à la cuisine
+                        a.pret = false;      
+                        a.cmdId = newId;     
                     } 
                 });
             }
 
-            sauvegarderTousLesTickets(); afficherTicket(); afficherListeTables();
-        }else { 
-            const errData = await response.json(); showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
+            sauvegarderTousLesTickets(); 
+            afficherTicket(); 
+            afficherListeTables();
+            renderProducts(); // 🔥 Force le rafraîchissement visuel de la grille après l'envoi
+            
+        } else { 
+            const errData = await response.json(); 
+            showNotification("❌ " + (errData.error || "Refusé par le serveur"), "#ef4444"); 
         }
     } catch (error) { 
         showNotification("❌ Erreur réseau : Requête annulée", "#ef4444"); 
     } finally {
-        // QUOI QU'IL ARRIVE, on libère le bouton pour la prochaine fois
         btnCuisine.disabled = false;
         btnCuisine.innerHTML = originalHtml;
         btnCuisine.style.opacity = "1";
