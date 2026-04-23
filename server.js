@@ -198,7 +198,8 @@ const Product = mongoose.model('Product', new mongoose.Schema({
 supplements: [{
         id: String,     // L'ID du produit supplément (ex: ID du fromage)
         nom: String,    // Le nom à afficher
-        prix: Number    // Le prix facturé au client
+        prix: Number,
+        unite: String   // Le prix facturé au client
     }],
     isManufactured: { type: Boolean, default: false }, // true si c'est un produit avec recette
     recipe: [{
@@ -234,15 +235,18 @@ const Order = mongoose.model('Order', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     id: String, numero: String, date: String, timestamp: Number, 
     // 🔥 CORRECTION ICI : On définit précisément la structure d'un article
-    articles: [{
+articles: [{
         id: String,
         nom: String,
         variante: String,
         quantite: Number,
         prix: Number,
-        isSupplement: Boolean,    // Pour identifier le supplément
-        uniqueGroupId: Number,    // Identifiant unique de la ligne
-        parentId: Number          // Le lien vers le plat principal
+        isSupplement: Boolean,    
+        uniqueGroupId: Number,    
+        parentId: Number,
+        qteRecette: Number,    // NOUVEAU
+        uniteRecette: String,  // NOUVEAU
+        envoye: Boolean
     }],
     numeroTable: String, statut: { type: String, default: 'en_attente' }, 
     total: Number, clientId: String, clientName: String,
@@ -288,7 +292,7 @@ const Sale = mongoose.model('Sale', new mongoose.Schema({
     typePaiement: String, methodePaiement: { type: String, default: 'especes' },
     tableOrigine: String, 
     // 🔥 CORRECTION ICI AUSSI POUR LA CAISSE / LES ARCHIVES
-    articles: [{
+articles: [{
         id: String,
         nom: String,
         variante: String,
@@ -296,7 +300,10 @@ const Sale = mongoose.model('Sale', new mongoose.Schema({
         prix: Number,
         isSupplement: Boolean,
         uniqueGroupId: Number,
-        parentId: Number
+        parentId: Number,
+        qteRecette: Number,    // NOUVEAU
+        uniteRecette: String,  // NOUVEAU
+        envoye: Boolean
     }]
 }));
 
