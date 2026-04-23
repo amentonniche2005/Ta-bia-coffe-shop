@@ -650,28 +650,28 @@ window.toggleRecipeSection = function(isManufactured, prefix = 'new') {
 };
 
 // 🔥 MOTEUR ERP : Ajouter une ligne d'ingrédient
-window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unite = 'g') {
+window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unitVal = '') {
     const div = document.createElement('div');
     div.className = 'recette-row';
     div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: center;';
     
-    let optionsHtml = '<option value="">-- Choisir Matière Première --</option>';
-    stockProduits.forEach(p => {
-        const isSelected = (String(p.id) === String(idIng)) ? 'selected' : '';
-        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)} (En stock: ${p.stock})</option>`;
+    let optionsHtml = '<option value="" data-unite="">-- Choisir Composant --</option>';
+    const composantsPossibles = stockProduits.filter(p => p.isManufactured === false);
+    
+    composantsPossibles.forEach(p => {
+        const isSelected = (String(p.id) === String(idIng) || String(p._id) === String(idIng)) ? 'selected' : '';
+        // 🔥 On stocke l'unité dans un attribut data-unite
+        optionsHtml += `<option value="${p.id || p._id}" data-unite="${p.unite || 'u'}" ${isSelected}>${escapeHtml(p.nom)}</option>`;
     });
 
     div.innerHTML = `
-        <select class="rec-select" style="flex: 2; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
+        <select class="rec-select" style="flex: 2; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);" 
+                onchange="this.nextElementSibling.nextElementSibling.innerText = this.options[this.selectedIndex].dataset.unite">
             ${optionsHtml}
         </select>
         <input type="number" step="0.01" class="rec-qte" placeholder="Qté" value="${qte}" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
-        <select class="rec-unit" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
-            <option value="g" ${unite === 'g' ? 'selected' : ''}>g</option>
-            <option value="ml" ${unite === 'ml' ? 'selected' : ''}>ml</option>
-            <option value="u" ${unite === 'u' ? 'selected' : ''}>Unité</option>
-        </select>
-        <button type="button" onclick="this.closest('.recette-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
+        <span class="unit-label" style="font-size: 0.8rem; color: var(--text-muted); min-width: 30px; font-weight:bold;">${unitVal || '...'}</span>
+        <button type="button" onclick="this.closest('.recette-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer;"><i class="fas fa-times"></i></button>
     `;
     document.getElementById(`containerRecette_${prefix}`).appendChild(div);
 };
@@ -884,10 +884,13 @@ function afficherStockDOM(produits) {
                     <div style="margin-top:4px;">${typeBadge}</div>
                 </td>
                 <td data-label="Catégorie"><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
-                <td data-label="Stock">
-                    <span class="badge ${badgeClass}" style="font-size:1.1rem;">${stockReel}</span>
-                    ${p.isManufactured ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px;">Max Possible</div>` : ''}
-                </td>
+<td data-label="Stock">
+    <span class="badge ${badgeClass}" style="font-size:1.1rem; display: flex; align-items: center; justify-content: center; gap: 4px;">
+        ${stockReel} 
+        <small style="font-size:0.65rem; font-weight:400; text-transform:lowercase;">${p.unite || 'u'}</small>
+    </span>
+    ${p.isManufactured ? `<div style="font-size:0.65rem; color:var(--info); margin-top:3px; font-weight:700;">PRODUIT COMPOSÉ</div>` : ''}
+</td>
                 <td data-label="Unité">${p.unite || 'unité'}</td>
                 ${htmlPrix}
                 <td data-label="Val. Achat" style="font-weight:700;">${formatMoney(valAchat)}</td>
@@ -1118,35 +1121,6 @@ const produitData = {
             showNotification("Erreur serveur", "var(--danger)");
         }
     } catch (e) { showNotification("Erreur de sauvegarde", "var(--danger)"); }
-}
-function ajouterLigneIngredient(idIng = '', qte = '1') {
-    const div = document.createElement('div');
-    div.className = 'ingredient-row';
-    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
-    
-    let options = '<option value="">-- Ingrédient --</option>';
-    stockProduits.forEach(p => {
-        const isSel = (String(p.id) === String(idIng)) ? 'selected' : '';
-        options += `<option value="${p.id}" ${isSel}>${p.nom}</option>`;
-    });
-
-    div.innerHTML = `
-        <select class="ing-select" style="flex: 2; padding: 0.4rem; border-radius: 8px; border: 1px solid var(--border-color);">${options}</select>
-        <input type="number" step="0.01" class="ing-qte" style="flex: 1; padding: 0.4rem; border-radius: 8px; border: 1px solid var(--border-color);" value="${qte}">
-        <button onclick="this.parentElement.remove()" style="border:none; background:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
-    `;
-    document.getElementById('containerIngredients').appendChild(div);
-}
-
-function extraireIngredients() {
-    const rows = document.querySelectorAll('.ingredient-row');
-    const res = [];
-    rows.forEach(r => {
-        const id = r.querySelector('.ing-select').value;
-        const qte = parseFloat(r.querySelector('.ing-qte').value);
-        if (id && qte) res.push({ id, quantite: qte });
-    });
-    return res;
 }
 function ouvrirModalEdition(id) {
     const p = stockProduits.find(x => String(x.id) === String(id) || String(x._id) === String(id));
@@ -1466,7 +1440,7 @@ function demarrerInventaire() {
             const tbody = document.getElementById('inventaireTableBody');
             
             // 🔥 CORRECTION : On exclut les produits manufacturés de l'audit physique
-            const produitsAInventorier = stockProduits.filter(p => !p.isManufactured);
+            const produitsAInventorier = stockProduits.filter(p => p.isManufactured === false);
 
             if(!produitsAInventorier.length) { 
                 tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Aucune matière première en base</td></tr>'; 
