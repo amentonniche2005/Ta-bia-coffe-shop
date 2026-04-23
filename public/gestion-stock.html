@@ -1056,55 +1056,65 @@ window.updateSuppPrix = function(selectElem) {
     }
 };
 
-window.ajouterLigneSupplement = function(id = '', nom = '', prix = '') {
+// 🔥 1. REMPLACER ajouterLigneSupplement
+// 🔥 1. REMPLACER ajouterLigneSupplement (Avec le data-prix remis en place)
+window.ajouterLigneSupplement = function(id = '', nom = '', prix = '', qte = '', uniteRecue = '') {
     const div = document.createElement('div');
     div.className = 'supplement-row';
-    div.style.cssText = 'display: flex; gap: 10px; margin-bottom: 8px;';
+    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: center;';
     
-    // 🔥 CORRECTION : On élimine le filtre ! TOUS les produits du stock sont maintenant disponibles.
-    const listeSupplementsDisponibles = stockProduits;
-    let optionsHtml = '<option value="">-- Choisir un produit en supplément --</option>';
+    let optionsHtml = '<option value="" data-unite="..." data-prix="0">-- Choisir Matière / Produit --</option>';
     
-    if (listeSupplementsDisponibles.length === 0) {
-        optionsHtml = '<option value="">❌ Aucun produit en base</option>';
-    } else {
-        listeSupplementsDisponibles.forEach(p => {
-            const isSelected = (String(p.id) === String(id) || String(p.nom) === String(nom)) ? 'selected' : '';
-            const defaultPrix = p.prix || 0;
-            // On affiche la catégorie pour aider le gérant à se repérer
-            const nomCategorie = getCatName(p.categorie); 
-            optionsHtml += `<option value="${p.id || p._id}" data-nom="${escapeHtml(p.nom)}" data-prix="${defaultPrix}" ${isSelected}>${escapeHtml(p.nom)} [${nomCategorie}]</option>`;
-        });
-    }
+    // On propose toutes les matières premières ou produits simples
+    const composantsPossibles = stockProduits.filter(p => p.isManufactured === false);
+    let uniteDeBase = uniteRecue || '...';
+
+    composantsPossibles.forEach(p => {
+        const isSelected = (String(p.id) === String(id) || String(p._id) === String(id)) ? 'selected' : '';
+        const uniteProd = p.unite || 'u';
+        const defaultPrix = p.prix || 0; // 🔥 ON RÉCUPÈRE LE PRIX
+        
+        if (isSelected) uniteDeBase = uniteProd;
+        
+        // 🔥 ON RAJOUTE data-prix ICI POUR QUE LE SCRIPT PUISSE LE LIRE
+        optionsHtml += `<option value="${p.id || p._id}" data-unite="${uniteProd}" data-nom="${escapeHtml(p.nom)}" data-prix="${defaultPrix}" ${isSelected}>${escapeHtml(p.nom)}</option>`;
+    });
 
     div.innerHTML = `
-        <select class="supp-select" style="flex: 1; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);" onchange="updateSuppPrix(this)">
+        <select class="supp-select" style="flex: 2; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;" 
+                onchange="this.parentElement.querySelector('.unit-label').innerText = this.options[this.selectedIndex].getAttribute('data-unite'); updateSuppPrix(this);">
             ${optionsHtml}
         </select>
-        <input type="number" step="0.1" placeholder="Prix (DT)" class="supp-prix" style="width: 100px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);" value="${prix}">
+        <input type="number" step="0.01" class="supp-qte" placeholder="Qté" value="${qte}" style="width: 70px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <span class="unit-label" style="font-size: 0.85rem; color: var(--primary); font-weight:bold; min-width: 25px; text-align:center;">${uniteDeBase}</span>
+        <input type="number" step="0.1" placeholder="Prix (DT)" class="supp-prix" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);" value="${prix}">
         <button type="button" onclick="this.closest('.supplement-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
     `;
     document.getElementById('containerSupplements').appendChild(div);
 };
 
-function extraireSupplements() {
+// 🔥 2. REMPLACER extraireSupplements
+window.extraireSupplements = function() {
     const rows = document.querySelectorAll('.supplement-row');
     const supps = [];
     rows.forEach(row => {
         const select = row.querySelector('.supp-select');
         const prixInput = row.querySelector('.supp-prix');
+        const qteInput = row.querySelector('.supp-qte');
         
-        if (select && select.value && prixInput && prixInput.value !== "") {
+        if (select && select.value && prixInput && prixInput.value !== "" && qteInput && qteInput.value !== "") {
             const selectedOption = select.options[select.selectedIndex];
             supps.push({ 
-                id: select.value,  // 🔥 AJOUT : Capture de l'ID pour la base de données
+                id: select.value,  
                 nom: selectedOption.getAttribute('data-nom'), 
-                prix: parseFloat(prixInput.value) || 0
+                prix: parseFloat(prixInput.value) || 0,
+                quantite: parseFloat(qteInput.value) || 0,
+                unite: selectedOption.getAttribute('data-unite') || 'u'
             });
         }
     });
     return supps;
-}
+};
 
 async function sauvegarderNouveauProduit() {
     const isManuf = document.getElementById('newProdIsManufactured').value === 'true';
@@ -1244,7 +1254,7 @@ function ouvrirModalEdition(id) {
         </div>`;
     
     if (p.supplements && Array.isArray(p.supplements)) {
-        p.supplements.forEach(s => ajouterLigneSupplement(s.id || s._id, s.nom, s.prix)); 
+        p.supplements.forEach(s => ajouterLigneSupplement(s.id, s.nom, s.prix, s.quantite, s.unite)); 
     }
     // Recharge la recette existante si c'est un produit manufacturé
     if (isManuf && p.recipe && Array.isArray(p.recipe)) {

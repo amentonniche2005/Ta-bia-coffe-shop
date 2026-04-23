@@ -920,13 +920,15 @@ async function envoyerEnCuisine() {
     try {
         const response = await fetchSecurise('/api/commandes', {
             method: 'POST', 
-            body: JSON.stringify({ 
+body: JSON.stringify({ 
                 articles: articlesAEnvoyer.map(a => ({ 
                     id: a.id, 
                     nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, 
                     prix: a.prix, 
                     quantite: a.quantite,
-                    isSupplement: a.isSupplement,             
+                    isSupplement: a.isSupplement,
+                    qteRecette: a.qteRecette,     // 🔥 NOUVEAU : On transmet la qté
+                    uniteRecette: a.uniteRecette, // 🔥 NOUVEAU : On transmet l'unité
                     uniqueGroupId: a.uniqueGroupId,          
                     parentId: a.parentId                     
                 })), 
@@ -1255,7 +1257,7 @@ window.ouvrirModalOptionsCaisse = function(produit) {
 
             return `
                 <label style="cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'};">
-                    <input type="checkbox" name="caisseSuppOption" value="${prixFinal}" data-id="${supp.id}" data-nom="${supp.nom}" style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModalCaisse()">
+                    <input type="checkbox" name="caisseSuppOption" value="${prixFinal}" data-id="${supp.id}" data-nom="${supp.nom}" data-qte="${supp.quantite}" data-unite="${supp.unite}" style="display:none;" onchange="mettreAJourTotalModalCaisse()">
                     <div class="caisse-selectable-card" style="padding:10px; flex-direction:column; align-items:center;">
                         <span style="font-size:0.85rem;">+ ${supp.nom}</span>
                         <span style="font-weight:800; color:var(--success); font-size:0.8rem;">${pPromo > 0 ? pPromo.toFixed(2) : pNormal.toFixed(2)} DT</span>
@@ -1279,12 +1281,13 @@ window.ouvrirModalOptionsCaisse = function(produit) {
     modal.classList.add('active');
 };
 
-    window.mettreAJourTotalModalCaisse = function() {
-        let total = prixBaseEnAttenteCaisse;
-        document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => total += parseFloat(box.value) || 0);
-        document.getElementById("caissePrixTotalOptionsBtn").textContent = `${total.toFixed(2)} DT`;
-    };
-
+window.mettreAJourTotalModalCaisse = function() {
+    let total = prixBaseEnAttenteCaisse;
+    document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => {
+        total += parseFloat(box.value) || 0;
+    });
+    document.getElementById("caissePrixTotalOptionsBtn").textContent = `${total.toFixed(2)} DT`;
+};
     window.fermerModalOptionsCaisse = function() {
         document.getElementById("modalOptionsCaisse").classList.remove('active');
         produitEnAttenteCaisse = null;
@@ -1308,9 +1311,16 @@ window.validerOptionsCaisse = function() {
         const varianteFinale = choixFinaux.join(' / '); // Ex: "Thon / Harissa+Mayo"
 
         // --- 2. RÉCOLTE DES SUPPLÉMENTS ---
+// --- 2. RÉCOLTE DES SUPPLÉMENTS ---
         let suppsChoisis = [];
         document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => {
-            suppsChoisis.push({ id: box.getAttribute('data-id'), nom: box.getAttribute('data-nom'), prix: box.value });
+            suppsChoisis.push({ 
+                id: box.getAttribute('data-id'), 
+                nom: box.getAttribute('data-nom'), 
+                prix: box.value,
+                quantiteRecette: parseFloat(box.getAttribute('data-qte')) || 0, // 🔥 NOUVEAU
+                uniteRecette: box.getAttribute('data-unite') || 'u'             // 🔥 NOUVEAU
+            });
         });
 
         // --- 3. AJOUT AU TICKET ---
@@ -1326,16 +1336,16 @@ window.ajouterProduitCaisse = function(produit, variante, supplements) {
         ? parseFloat(produit.prixPromo) 
         : parseFloat(produit.prix);
 
-    // 1. Produit Principal
-    ajouterAuTicket(currentTable, { 
-        id: String(produit.id || produit._id), 
-        nom: String(produit.nom), 
-        variante: variante, 
-        prix: Number(prixInitial), // Force le format nombre
-        quantite: 1, 
-        envoye: false, pret: false, cmdId: null,
-        isSupplement: false, uniqueGroupId: idGroupeUnique, parentId: null 
-    }, false, false);
+ajouterAuTicket(currentTable, {
+    id: String(supp.id),
+    nom: `+ ${supp.nom}`,
+    variante: null,
+    prix: Number(parseFloat(supp.prix) || 0),
+    quantite: 1,
+    qteRecette: supp.quantiteRecette, // 🔥 NOUVEAU
+    uniteRecette: supp.uniteRecette,  // 🔥 NOUVEAU
+    envoye: false, isSupplement: true, uniqueGroupId: Date.now() + Math.random(), parentId: idGroupeUnique
+}, false, false);
     
     // 2. Suppléments
     if (supplements && supplements.length > 0) {

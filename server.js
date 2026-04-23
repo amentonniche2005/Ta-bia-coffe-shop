@@ -525,14 +525,20 @@ app.post('/api/commandes', async (req, res) => {
                             }
                         }
                     }
-                } else if (itemDb.stock !== undefined) {
+} else if (itemDb.stock !== undefined) {
+                    // 🔥 MAGIE ERP : Gestion des quantités pour les suppléments
+                    let qteReelle = qteCmd;
+                    if (art.isSupplement && art.qteRecette) {
+                        qteReelle = convertirUnite(art.qteRecette, art.uniteRecette, itemDb.unite) * qteCmd;
+                    }
+
                     const updateSimple = await Product.findOneAndUpdate(
-                        { cafeId: req.cafeId, id: itemDb.id }, { $inc: { stock: -qteCmd } }, { new: true }
+                        { cafeId: req.cafeId, id: itemDb.id }, { $inc: { stock: -qteReelle } }, { new: true }
                     );
                     if (updateSimple) {
                         await new Movement({ 
                             cafeId: req.cafeId, type: 'commande', produit: updateSimple.nom, produitId: updateSimple.id, 
-                            quantite: qteCmd, ancienStock: updateSimple.stock + qteCmd, nouveauStock: updateSimple.stock, raison: `Cmd #${numeroCmd}` 
+                            quantite: qteReelle, ancienStock: updateSimple.stock + qteReelle, nouveauStock: updateSimple.stock, raison: `Cmd #${numeroCmd}` 
                         }).save();
                     }
                 }
@@ -985,14 +991,25 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
                                 }
                             }
                         }
-                    } else if (produitDb.stock !== undefined) {
+} else if (produitDb.stock !== undefined) {
+                        // 🔥 MAGIE ERP : Gestion des quantités pour les suppléments
+                        let qteReelle = art.quantite;
+                        if (art.isSupplement && art.qteRecette) {
+                            qteReelle = convertirUnite(art.qteRecette, art.uniteRecette, produitDb.unite) * art.quantite;
+                        }
+
                         const produitMisAJour = await Product.findOneAndUpdate(
-                            { cafeId: req.cafeId, id: produitDb.id }, { $inc: { stock: -art.quantite } }, { new: true }
+                            { cafeId: req.cafeId, id: produitDb.id },
+                            { $inc: { stock: -qteReelle } },
+                            { new: true }
                         );
+
                         if (produitMisAJour) {
                             await new Movement({
                                 cafeId: req.cafeId, type: 'vente', produit: produitMisAJour.nom, produitId: produitMisAJour.id,
-                                quantite: art.quantite, ancienStock: produitMisAJour.stock + art.quantite, nouveauStock: produitMisAJour.stock,
+                                quantite: qteReelle,
+                                ancienStock: produitMisAJour.stock + qteReelle,
+                                nouveauStock: produitMisAJour.stock,
                                 raison: `Vente #${req.body.numero}`
                             }).save();
                         }
@@ -1039,8 +1056,17 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
                             );
                         }
                     }
-                } else if (produitDb.stock !== undefined) {
-                    await Product.findOneAndUpdate({ cafeId: req.cafeId, id: produitDb.id }, { $inc: { stock: article.quantite } });
+} else if (produitDb.stock !== undefined) {
+                    // 🔥 MAGIE ERP : Rendre la bonne quantité au stock
+                    let qteReelle = article.quantite;
+                    if (article.isSupplement && article.qteRecette) {
+                        qteReelle = convertirUnite(article.qteRecette, article.uniteRecette, produitDb.unite) * article.quantite;
+                    }
+
+                    await Product.findOneAndUpdate(
+                        { cafeId: req.cafeId, id: produitDb.id },
+                        { $inc: { stock: qteReelle } } // On additionne (+)
+                    );
                 }
             }
             await new Movement({
@@ -1085,8 +1111,18 @@ app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
                                     );
                                 }
                             }
-                        } else if (produitDb.stock !== undefined) {
-                            await Product.findOneAndUpdate({ cafeId: req.cafeId, id: produitDb.id }, { $inc: { stock: art.quantite } });
+} else if (produitDb.stock !== undefined) {
+                            // 🔥 MAGIE ERP : Rendre la bonne quantité au stock
+                            let qteReelle = art.quantite;
+                            if (art.isSupplement && art.qteRecette) {
+                                qteReelle = convertirUnite(art.qteRecette, art.uniteRecette, produitDb.unite) * art.quantite;
+                            }
+
+                            // On rend le produit simple ou le supplément
+                            await Product.findOneAndUpdate(
+                                { cafeId: req.cafeId, id: produitDb.id },
+                                { $inc: { stock: qteReelle } } // On additionne (+)
+                            );
                         }
                     }
                 }
