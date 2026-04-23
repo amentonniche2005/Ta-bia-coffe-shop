@@ -692,20 +692,21 @@ async function chargerDashboard() {
         let caPotentiel = 0; // 🔥 CORRECTION : Il manquait cette ligne !
         let alertes = 0;
         
-        stockProduits.forEach(p => { 
-            const stockReel = Math.max(0, parseInt(p.stock) || 0);
+stockProduits.forEach(p => { 
+            // 🔥 On force la conversion en nombres réels
+            const stockReel = Number(p.stock) || 0;
             const prixAchatReel = parseFloat(p.prixAchat) || 0;
+            const prixVenteNormal = parseFloat(p.prix) || 0;
+            const prixPromoReel = parseFloat(p.prixPromo) || 0;
             
-            // 🔥 LOGIQUE PRIX RÉEL : Priorité au prix promo s'il est > 0
-            const prixVenteEffectif = (p.prixPromo && p.prixPromo > 0) ? parseFloat(p.prixPromo) : parseFloat(p.prix);
+            // Logique Prix Promo
+            const prixVenteEffectif = (prixPromoReel > 0) ? prixPromoReel : prixVenteNormal;
 
-            // Valeur d'achat (Immobilisation comptable)
+            // Calculs mathématiques stricts
             valeurTotaleAchat += (stockReel * prixAchatReel); 
-            
-            // Valeur de vente potentielle (Chiffre d'affaires attendu)
             caPotentiel += (stockReel * prixVenteEffectif);
 
-            if ((p.stock || 0) <= (p.seuilAlerte || 10)) alertes++;
+            if (stockReel <= (Number(p.seuilAlerte) || 10)) alertes++;
         });
 
         document.getElementById('totalProduits').innerText = stockProduits.length;
@@ -768,44 +769,65 @@ function appliquerFiltresEtTriStock() {
         }
 
 function afficherStockDOM(produits) {
-            const tbody = document.getElementById('stockTableBody');
-            if(!produits.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-box-open fa-2x" style="display:block; margin-bottom:10px;"></i>Aucun produit</td></tr>'; return; }
-            
-            tbody.innerHTML = produits.map(p => {
-                // 🔥 CORRECTION : Calcul propre de la valeur
-                const stockReel = Math.max(0, parseInt(p.stock) || 0);
-                const prixAchatReel = parseFloat(p.prixAchat) || 0;
-                const valAchat = stockReel * prixAchatReel;
-                
-                const seuil = p.seuilAlerte || 10;
-                let percent = (p.stock / (seuil * 4)) * 100;
-                if(percent > 100) percent = 100;
-                
-                let colorClass = '#27ae60'; let badgeClass = 'badge-normal';
-                if(p.stock <= 0) { colorClass = '#e74c3c'; badgeClass = 'badge-critical'; percent = 100; }
-                else if (p.stock <= seuil) { colorClass = '#f39c12'; badgeClass = 'badge-low'; }
+    const tbody = document.getElementById('stockTableBody');
+    if (!produits.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-message"><i class="fas fa-box-open fa-2x" style="display:block; margin-bottom:10px;"></i>Aucun produit</td></tr>';
+        return;
+    }
 
-                return `
-                <tr>
-                    <td><strong>${escapeHtml(p.nom)}</strong></td>
-                    <td><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
-                    <td>
-                        <div class="stock-level-container">
-                            <span class="badge ${badgeClass}" style="min-width:45px; text-align:center;">${p.stock}</span>
-                            <div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${percent}%; background:${colorClass}"></div></div>
-                        </div>
-                    </td>
-                    <td><span style="color:var(--text-muted); font-size:0.8rem;">${p.unite || 'unité'}</span></td>
-                    ${p.prixPromo > 0 ? `<s style="color:#94a3b8; font-size:0.8rem;">${formatMoney(p.prix)}</s> <br><strong style="color:#e74c3c;">${formatMoney(p.prixPromo)}</strong>` : formatMoney(p.prix)}
-                    <td style="font-weight:700; color:var(--primary);">${formatMoney(valAchat)}</td>
-<td style="text-align:center; min-width: 140px;">
-                        <button class="btn-action btn-success" style="padding:0.4rem 0.6rem;" title="Réception Stock" onclick="ouvrirModalAjoutStock('${p.id || p._id}', '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
-                        <button class="btn-action" style="padding:0.4rem 0.6rem; background: #3498db;" title="Modifier le produit" onclick="ouvrirModalEdition('${p.id || p._id}')"><i class="fas fa-pen"></i></button>
-                        <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem;" title="Supprimer" onclick="supprimerProduit('${p.id || p._id}')"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>`;
-            }).join('');
+    tbody.innerHTML = produits.map(p => {
+        // 1. Forcer les calculs numériques
+        const stockReel = Number(p.stock) || 0;
+        const prixAchatReel = parseFloat(p.prixAchat) || 0;
+        const valAchat = stockReel * prixAchatReel;
+
+        // 2. Logique de la barre de progression
+        const seuil = Number(p.seuilAlerte) || 10;
+        let percent = (stockReel / (seuil * 4)) * 100;
+        if (percent > 100) percent = 100;
+
+        let colorClass = '#27ae60';
+        let badgeClass = 'badge-normal';
+        if (stockReel <= 0) {
+            colorClass = '#e74c3c';
+            badgeClass = 'badge-critical';
+            percent = 100;
+        } else if (stockReel <= seuil) {
+            colorClass = '#f39c12';
+            badgeClass = 'badge-low';
         }
+
+        // 3. Préparation de l'affichage du prix (Normal vs Promo)
+        const prixNormal = parseFloat(p.prix || 0);
+        const prixPromo = parseFloat(p.prixPromo || 0);
+        const htmlPrix = (prixPromo > 0) 
+            ? `<s style="color:#94a3b8; font-size:0.8rem;">${formatMoney(prixNormal)}</s><br><strong style="color:#e74c3c;">${formatMoney(prixPromo)}</strong>` 
+            : `<strong>${formatMoney(prixNormal)}</strong>`;
+
+        // 4. Génération de la ligne (Exactement 7 colonnes <td>)
+        return `
+            <tr>
+                <td data-label="Produit"><strong>${escapeHtml(p.nom)}</strong></td>
+                <td data-label="Catégorie"><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
+                <td data-label="Stock">
+                    <div class="stock-level-container">
+                        <span class="badge ${badgeClass}" style="min-width:45px; text-align:center;">${stockReel}</span>
+                        <div class="stock-bar-bg">
+                            <div class="stock-bar-fill" style="width:${percent}%; background:${colorClass}"></div>
+                        </div>
+                    </div>
+                </td>
+                <td data-label="Unité"><span style="color:var(--text-muted); font-size:0.8rem;">${p.unite || 'unité'}</span></td>
+                <td data-label="Prix Vente">${htmlPrix}</td>
+                <td data-label="Valeur Achat" style="font-weight:700; color:var(--primary);">${formatMoney(valAchat)}</td>
+                <td style="text-align:center; min-width: 140px;">
+                    <button class="btn-action btn-success" style="padding:0.4rem 0.6rem;" title="Réception Stock" onclick="ouvrirModalAjoutStock('${p.id || p._id}', '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
+                    <button class="btn-action" style="padding:0.4rem 0.6rem; background: #3498db;" title="Modifier le produit" onclick="ouvrirModalEdition('${p.id || p._id}')"><i class="fas fa-pen"></i></button>
+                    <button class="btn-action btn-danger" style="padding:0.4rem 0.6rem;" title="Supprimer" onclick="supprimerProduit('${p.id || p._id}')"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+    }).join('');
+}
 async function appliquerBranding() {
     try {
         // 1. On récupère les réglages depuis ton API /api/branding
