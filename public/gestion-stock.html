@@ -1056,22 +1056,24 @@ window.updateSuppPrix = function(selectElem) {
     }
 };
 
-function ajouterLigneSupplement(id = '', nom = '', prix = '') {
+window.ajouterLigneSupplement = function(id = '', nom = '', prix = '') {
     const div = document.createElement('div');
     div.className = 'supplement-row';
     div.style.cssText = 'display: flex; gap: 10px; margin-bottom: 8px;';
     
-    // On ne propose QUE la catégorie "supplement"
-    const listeSupplementsDisponibles = stockProduits.filter(p => p.categorie === 'supplement');
-    let optionsHtml = '<option value="">-- Choisir un supplément --</option>';
+    // 🔥 CORRECTION : On élimine le filtre ! TOUS les produits du stock sont maintenant disponibles.
+    const listeSupplementsDisponibles = stockProduits;
+    let optionsHtml = '<option value="">-- Choisir un produit en supplément --</option>';
     
     if (listeSupplementsDisponibles.length === 0) {
-        optionsHtml = '<option value="">❌ Aucun produit catégorie "supplement"</option>';
+        optionsHtml = '<option value="">❌ Aucun produit en base</option>';
     } else {
         listeSupplementsDisponibles.forEach(p => {
             const isSelected = (String(p.id) === String(id) || String(p.nom) === String(nom)) ? 'selected' : '';
             const defaultPrix = p.prix || 0;
-            optionsHtml += `<option value="${p.id}" data-nom="${escapeHtml(p.nom)}" data-prix="${defaultPrix}" ${isSelected}>${escapeHtml(p.nom)} (${defaultPrix.toFixed(2)} DT)</option>`;
+            // On affiche la catégorie pour aider le gérant à se repérer
+            const nomCategorie = getCatName(p.categorie); 
+            optionsHtml += `<option value="${p.id || p._id}" data-nom="${escapeHtml(p.nom)}" data-prix="${defaultPrix}" ${isSelected}>${escapeHtml(p.nom)} [${nomCategorie}]</option>`;
         });
     }
 
@@ -1083,7 +1085,7 @@ function ajouterLigneSupplement(id = '', nom = '', prix = '') {
         <button type="button" onclick="this.closest('.supplement-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
     `;
     document.getElementById('containerSupplements').appendChild(div);
-}
+};
 
 function extraireSupplements() {
     const rows = document.querySelectorAll('.supplement-row');
