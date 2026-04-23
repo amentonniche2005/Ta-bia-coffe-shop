@@ -1201,20 +1201,42 @@ window.ajouterProduitCaisse = function(produit, variante, supplements) {
         container.innerHTML = `<div id="modalPaiement" class="modal-overlay active"><div class="modal-content"><div class="modal-header"><h3><i class="fas fa-wallet"></i> ${isPartial ? 'Paiement Partiel' : 'Encaissement'}</h3><button type="button" class="close-btn" id="closePaiementBtn">&times;</button></div><div class="montant-total" id="modalTotal">${total.toFixed(2)} DT</div><div class="form-group"><label>Remise (%)</label><div style="display:flex; gap:10px;"><input type="number" id="remiseInput" step="0.1" min="0" max="100" value="0"><button type="button" id="appliquerRemiseBtn" class="btn-valider" style="flex:0 0 auto; padding: 0 20px;"><i class="fas fa-check"></i></button></div></div><div class="form-group"><label>Mode de paiement</label><select id="selectModePaiement"><option value="especes">💰 Espèces</option><option value="carte">💳 Carte Bancaire</option><option value="ticket_resto">🎫 Ticket Resto</option></select></div><div class="form-group" id="montantRecuDiv"><label>Montant reçu (DT)</label><input type="number" id="montantRecuInput" step="0.1" value="${total.toFixed(2)}"></div><div id="monnaieDiv" style="display:none; text-align:center; padding:15px; background:#ecfdf5; border-radius:12px; color:var(--success); font-weight:bold; font-size:1.2rem; margin-bottom:15px; border:2px solid #a7f3d0;"><i class="fas fa-exchange-alt"></i> À rendre : <span id="monnaieRendre">0.00</span> DT</div><div class="modal-buttons"><button type="button" id="validerPaiementBtn" class="btn-valider">Valider</button></div></div></div>`;
         const modal = document.getElementById("modalPaiement"); let remiseActuelle = 0; let totalAvecRemise = total;
         const remiseInput = document.getElementById("remiseInput"); const appliquerRemise = document.getElementById("appliquerRemiseBtn"); const modalTotal = document.getElementById("modalTotal"); const montantRecuInput = document.getElementById("montantRecuInput"); const monnaieDiv = document.getElementById("monnaieDiv"); const monnaieSpan = document.getElementById("monnaieRendre"); const selectMode = document.getElementById("selectModePaiement"); const montantRecuDiv = document.getElementById("montantRecuDiv");
-        const updateTotal = () => { totalAvecRemise = total * (1 - remiseActuelle/100); modalTotal.innerText = totalAvecRemise.toFixed(2) + " DT"; montantRecuInput.value = totalAvecRemise.toFixed(2); calculerMonnaie(); };
+        const updateTotal = () => {
+    totalAvecRemise = Math.round((total * (1 - remiseActuelle/100)) * 1000) / 1000;
+    modalTotal.innerText = totalAvecRemise.toFixed(3) + " DT";
+    montantRecuInput.value = totalAvecRemise.toFixed(3);
+    calculerMonnaie();
+};
         const calculerMonnaie = () => { const recu = parseFloat(montantRecuInput.value) || 0; const monnaie = recu - totalAvecRemise; if(recu > 0 && monnaie >= 0) { monnaieSpan.innerText = monnaie.toFixed(2); monnaieDiv.style.display = "block"; } else { monnaieDiv.style.display = "none"; } };
         appliquerRemise.onclick = () => { let val = parseFloat(remiseInput.value) || 0; if(val<0) val=0; if(val>100) val=100; remiseActuelle = val; remiseInput.value = val; updateTotal(); };
         montantRecuInput.addEventListener('input', calculerMonnaie);
         selectMode.addEventListener('change', () => { montantRecuDiv.style.display = (selectMode.value === "especes") ? "block" : "none"; monnaieDiv.style.display = "none"; });
         
-        document.getElementById("validerPaiementBtn").onclick = async () => {
-            if(selectMode.value === "especes") { const recu = parseFloat(montantRecuInput.value) || 0; if(recu < totalAvecRemise) { showNotification("❌ Montant insuffisant", "#ef4444"); return; } }
-            document.getElementById("validerPaiementBtn").disabled = true; document.getElementById("validerPaiementBtn").innerHTML = "⏳...";
-            try {
-                if (isPartial) await executerPaiementPartiel(ticketArticles, totalAvecRemise, remiseActuelle, selectedData, selectMode.value);
-                else await executerPaiementComplet(ticketArticles, totalAvecRemise, remiseActuelle, selectMode.value);
-            } catch (error) {} finally { modal.remove(); }
-        };
+document.getElementById("validerPaiementBtn").onclick = async () => {
+    const recu = parseFloat(montantRecuInput.value) || 0;
+
+    if (selectMode.value === "especes") {
+        // 🔥 CORRECTION : On arrondit à 3 décimales pour comparer des millimes réels
+        // On utilise une marge d'erreur de 0.001 pour éviter les bugs de virgule infinie
+        if (recu < (totalAvecRemise - 0.0001)) { 
+            showNotification("❌ Montant insuffisant", "#ef4444");
+            return;
+        }
+    }
+
+    document.getElementById("validerPaiementBtn").disabled = true;
+    document.getElementById("validerPaiementBtn").innerHTML = "⏳...";
+    
+    try {
+        if (isPartial) await executerPaiementPartiel(ticketArticles, totalAvecRemise, remiseActuelle, selectedData, selectMode.value);
+        else await executerPaiementComplet(ticketArticles, totalAvecRemise, remiseActuelle, selectMode.value);
+        modal.remove(); // On ferme la modale seulement si l'exécution a réussi
+    } catch (error) {
+        document.getElementById("validerPaiementBtn").disabled = false;
+        document.getElementById("validerPaiementBtn").innerHTML = "Valider";
+        showNotification("❌ Erreur lors du paiement", "#ef4444");
+    }
+};
         document.getElementById("closePaiementBtn").onclick = () => modal.remove();
     }
 
