@@ -1193,4 +1193,101 @@ input:checked + .selectable-card .opt-check-icon {
     justify-content: space-between;
     align-items: center;
 }
+/* --- OPTIMISATION DU MODAL OPTIONS (ANTI-SCROLL FATIGUE) --- */
+#optionsModal .options-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh; /* Le modal ne dépassera jamais 85% de l'écran */
+    overflow: hidden; /* Coupe ce qui déborde */
+    padding: 0 !important;
+}
+
+#optionsModal .options-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    flex-shrink: 0; /* Ne rétrécit pas */
+    background: white;
+    z-index: 10;
+}
+
+#optionsModal .options-body {
+    padding: 20px;
+    overflow-y: auto; /* LE SCROLL SE FAIT UNIQUEMENT ICI */
+    flex-grow: 1;
+    -webkit-overflow-scrolling: touch; /* Scroll fluide sur iPhone */
+}
+
+#optionsModal .options-footer {
+    padding: 16px 20px;
+    background: white;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.04);
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+/* --- DESIGN EN "CHIPS" (PASTILLES) POUR CHOIX MULTIPLES --- */
+.chips-container {
+    display: flex;
+    flex-wrap: wrap; /* Revient à la ligne automatiquement */
+    gap: 10px;
+}
+
+.opt-chip {
+    padding: 8px 16px;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+input:checked + .opt-chip {
+    background: #fff7ed;
+    border-color: var(--primary-orange, #db800a);
+    color: var(--primary-orange, #db800a);
+}
+
+/* --- GRILLE COMPACTE POUR CHOIX UNIQUES --- */
+.radio-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2 Colonnes ! */
+    gap: 10px;
+}
+
+.compact-card {
+    padding: 12px;
+    border: 2px solid #f1f5f9;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+input:checked + .compact-card {
+    border-color: var(--primary-orange, #db800a);
+    background: #fff7ed;
+}
+
+input:checked + .compact-card i { color: var(--primary-orange, #db800a); }
+
+/* Ligne ultra compacte pour les suppléments payants */
+.supp-line-card {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border: 1px solid #f1f5f9; border-radius: 12px;
+    margin-bottom: 8px; cursor: pointer; transition: 0.2s;
+}
+input:checked + .supp-line-card { border-color: #10b981; background: #ecfdf5; }
 

@@ -344,59 +344,59 @@ function gererClicAjout(event, id) {
         animerVersPanierClient(event); 
     }
 }
-
 window.ouvrirModalOptions = function(produit, options) {
     produitEnAttenteOption = produit;
     prixBaseEnAttente = parseFloat(produit.prix) || 0;
     
-    document.getElementById("optionsTitle").textContent = produit.nom;
-    document.getElementById("optionPriceDisplay").textContent = `${prixBaseEnAttente.toFixed(2)} DT`;
+    // 1. HEADER FIXE
+    let htmlContent = `
+        <div class="options-header">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0; font-size:1.3rem; color:#1e293b; line-height:1.2;">${escapeHtml(produit.nom)}</h3>
+                <button id="closeOptionsInside" style="background:#f1f5f9; border:none; width:30px; height:30px; border-radius:50%; color:#64748b; font-size:1.2rem; cursor:pointer;">&times;</button>
+            </div>
+            <div style="color:var(--primary-orange, #db800a); font-weight:800; margin-top:5px;">${prixBaseEnAttente.toFixed(2)} DT</div>
+        </div>
+        <div class="options-body">
+    `;
     
-    // =========================================================
-    // 1. SECTION VARIANTES (Nouvelle logique Groupes Intelligents)
-    // =========================================================
-    const sectionVar = document.getElementById("sectionVariantes");
-    const containerVar = document.getElementById("optionsList");
-
+    // 2. BODY SCROLLABLE - SECTION VARIANTES
+    htmlContent += `<div id="sectionVariantes" style="${options && options.length > 0 ? 'display:block;' : 'display:none;'}">`;
+    
     if (produit.variantes && produit.variantes.trim() !== "") {
-        // On découpe la chaîne : "Viande[Poulet, Thon] | Sauces*[Mayo, Ketchup]"
         const groupes = produit.variantes.split('|');
         
-        containerVar.innerHTML = groupes.map((groupeStr, gIdx) => {
+        htmlContent += groupes.map((groupeStr, gIdx) => {
             const match = groupeStr.match(/(.*)\[(.*)\]/);
-            
-            // Si le gérant a mal tapé, on fait un fallback classique
-            if (!match) {
-                return `<div style="color:red; font-size:0.8rem;">Erreur format : ${groupeStr}</div>`;
-            }
+            if (!match) return '';
 
             let titreRaw = match[1].trim();
             const listeOptions = match[2].split(',');
-            
-            // Détection du mode (Choix Multiple avec l'étoile *)
             const estMultiple = titreRaw.endsWith('*');
             const titreAffiche = estMultiple ? titreRaw.replace('*', '') : titreRaw;
             const typeInput = estMultiple ? 'checkbox' : 'radio';
 
+            // 🔥 MAGIE UI : Si c'est multiple = CHIPS, Si c'est unique = GRID 2 COLONNES
+            const containerClass = estMultiple ? 'chips-container' : 'radio-grid';
+            const cardClass = estMultiple ? 'opt-chip' : 'compact-card';
+
             return `
-                <div class="variant-group" style="margin-bottom: 18px;">
-                    <div class="section-header">
-                        <span class="section-title">${titreAffiche}</span>
-                        <span class="section-badge ${estMultiple ? 'optional' : ''}">${estMultiple ? 'Plusieurs choix' : '1 Seul choix'}</span>
+                <div class="variant-group" style="margin-bottom: 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
+                        <span style="font-weight:800; color:#1e293b; font-size:0.95rem;">${titreAffiche}</span>
+                        <span style="font-size:0.65rem; font-weight:700; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#64748b;">${estMultiple ? 'PLUSIEURS CHOIX' : 'OBLIGATOIRE'}</span>
                     </div>
-                    <div class="options-grid">
+                    <div class="${containerClass}">
                         ${listeOptions.map((opt, oIdx) => `
-                            <label style="display:block; cursor:pointer;">
+                            <label style="display:block; margin:0;">
                                 <input type="${typeInput}" 
                                        name="variant_group_${gIdx}" 
                                        value="${opt.trim()}" 
                                        style="display:none;" 
                                        ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
-                                <div class="selectable-card">
-                                    <div class="opt-info">
-                                        <i class="fas ${estMultiple ? 'fa-check-square' : 'fa-circle'} opt-check-icon"></i>
-                                        <span>${opt.trim()}</span>
-                                    </div>
+                                <div class="${cardClass}">
+                                    ${!estMultiple ? `<i class="fas fa-circle" style="font-size:0.8rem; color:#cbd5e1;"></i>` : ''}
+                                    <span>${opt.trim()}</span>
                                 </div>
                             </label>
                         `).join('')}
@@ -404,47 +404,87 @@ window.ouvrirModalOptions = function(produit, options) {
                 </div>
             `;
         }).join('');
-        sectionVar.style.display = "block";
-    } else { 
-        sectionVar.style.display = "none"; 
     }
+    htmlContent += `</div>`;
 
-    // =========================================================
-    // 2. SECTION SUPPLÉMENTS (Ancienne logique, intacte avec le stock)
-    // =========================================================
-    const sectionSupp = document.getElementById("sectionSupplements");
-    const containerSupp = document.getElementById("supplementsList");
-    
+    // 3. BODY SCROLLABLE - SECTION SUPPLÉMENTS
+    htmlContent += `<div id="sectionSupplements" style="${produit.supplements && produit.supplements.length > 0 ? 'display:block;' : 'display:none;'} margin-top: 10px;">`;
     if (produit.supplements && produit.supplements.length > 0) {
-        containerSupp.innerHTML = produit.supplements.map(supp => {
+        htmlContent += `<div style="font-weight:800; color:#1e293b; font-size:0.95rem; margin-bottom:10px;">Extras payants</div>`;
+        htmlContent += produit.supplements.map(supp => {
             const ref = produits.find(p => String(p.id) === String(supp.id));
             const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
 
             return `
-                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'};">
+                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'};">
                     <input type="checkbox" name="supplementOption" 
                            value="${supp.prix}" data-id="${supp.id}" data-nom="${supp.nom}" 
                            style="display:none;" ${estRupture ? 'disabled' : ''} 
                            onchange="mettreAJourTotalModal()">
-                    <div class="selectable-card ${estRupture ? 'disabled' : ''}">
-                        <div class="opt-info">
-                            <i class="fas fa-plus-circle opt-check-icon"></i>
-                            <span>${supp.nom}</span>
-                        </div>
-                        <div class="opt-price-container">
-                            ${estRupture ? '<span class="rupture-txt">ÉPUISÉ</span>' : `<span class="opt-price">+ ${parseFloat(supp.prix).toFixed(2)} DT</span>`}
+                    <div class="supp-line-card">
+                        <div style="font-weight:600; color:#1e293b;"><i class="fas fa-plus" style="font-size:0.7rem; color:#94a3b8; margin-right:5px;"></i> ${supp.nom}</div>
+                        <div style="font-weight:800; color:${estRupture ? '#ef4444' : '#10b981'}; font-size:0.9rem;">
+                            ${estRupture ? 'RUPTURE' : `+${parseFloat(supp.prix).toFixed(2)} DT`}
                         </div>
                     </div>
                 </label>
             `;
         }).join('');
-        sectionSupp.style.display = "block";
-    } else { 
-        sectionSupp.style.display = "none"; 
     }
+    htmlContent += `</div></div>`; // Fin de sectionSupplements et fin de options-body
+
+    // 4. FOOTER FIXE
+    htmlContent += `
+        <div class="options-footer">
+            <button id="confirmOptionBtnDynamic" style="width:100%; background:var(--primary-green, #143621); color:white; border:none; padding:16px; border-radius:14px; font-weight:800; font-size:1.05rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                <span>Ajouter au panier</span>
+                <span id="prixTotalOptionsBtnDisplay" style="background:rgba(255,255,255,0.2); padding:4px 10px; border-radius:8px;">${prixBaseEnAttente.toFixed(2)} DT</span>
+            </button>
+        </div>
+    `;
+
+    // 5. INJECTION ET ÉVÉNEMENTS
+    const modalContentDiv = document.querySelector("#optionsModal .options-content");
+    modalContentDiv.innerHTML = htmlContent;
+
+    document.getElementById("closeOptionsInside").onclick = () => {
+        document.getElementById("optionsModal").style.display = "none";
+    };
+
+    document.getElementById("confirmOptionBtnDynamic").onclick = (e) => {
+        // Même logique de récolte que tout à l'heure
+        let choixFinaux = [];
+        document.querySelectorAll('.variant-group').forEach((groupe, idx) => {
+            const coches = groupe.querySelectorAll(`input[name="variant_group_${idx}"]:checked`);
+            if (coches.length > 0) {
+                choixFinaux.push(Array.from(coches).map(c => c.value).join('+'));
+            }
+        });
+        const varianteFinale = choixFinaux.join(' / ');
+
+        let supplementsChoisis = [];
+        document.querySelectorAll('input[name="supplementOption"]:checked').forEach(box => {
+            supplementsChoisis.push({ id: box.getAttribute('data-id'), nom: box.getAttribute('data-nom'), prix: box.value });
+        });
+
+        executerAjoutPanier(produitEnAttenteOption, varianteFinale, supplementsChoisis);
+        animerVersPanierClient(e); 
+        document.getElementById("optionsModal").style.display = "none";
+        produitEnAttenteOption = null;
+    };
 
     mettreAJourTotalModal();
     document.getElementById("optionsModal").style.display = "flex";
+};
+
+// Petite mise à jour pour pointer vers le nouvel ID d'affichage du prix
+window.mettreAJourTotalModal = function() {
+    let total = prixBaseEnAttente;
+    document.querySelectorAll('input[name="supplementOption"]:checked').forEach(box => {
+        total += parseFloat(box.value) || 0;
+    });
+    const affichage = document.getElementById("prixTotalOptionsBtnDisplay");
+    if (affichage) affichage.textContent = `${total.toFixed(2)} DT`;
 };
 
 // 🔥 NOUVEAU : Calcul dynamique du prix total en bas de la modale
