@@ -324,42 +324,22 @@ function afficherProduits() {
 
 let prixBaseEnAttente = 0;
 
+// ✅ LA NOUVELLE FONCTION PROPRE :
 function gererClicAjout(event, id) {
-    // 🔥 CORRECTION : On sécurise la recherche de l'ID en le forçant en texte (String)
+    // 1. On trouve le produit
     const produit = produits.find(p => String(p.id) === String(id) || String(p._id) === String(id));
     if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
 
-    let optionsTrouvees = null;
+    // 2. On vérifie s'il a des options configurées dans la base de données
+    const aDesVariantes = produit.variantes && produit.variantes.trim() !== "";
+    const aDesSupplements = produit.supplements && produit.supplements.length > 0;
 
-    if (produit.typeChoix === 'aucun') {
-        // S'il a des suppléments mais pas de variantes, on ouvre quand même la modale !
-        if (produit.supplements && produit.supplements.length > 0) {
-             ouvrirModalOptions(produit, null);
-        } else {
-             // 🔥 CORRECTION : On envoie uniquement l'ID à la fonction
-             executerAjoutPanier(produit.id || produit._id);
-             animerVersPanierClient(event); 
-        }
-        return; 
-    }
-
-    if (produit.variantes && produit.variantes.trim() !== "") {
-        optionsTrouvees = produit.variantes.split(',').map(v => v.trim());
-    } 
-    else {
-        const nomLower = (produit.nom || "").toLowerCase();
-        for (let config of variantesConfig) {
-            if (config.mots.some(mot => nomLower.includes(mot))) {
-                optionsTrouvees = config.options;
-                break;
-            }
-        }
-    }
-
-    if ((optionsTrouvees && optionsTrouvees.length > 0) || (produit.supplements && produit.supplements.length > 0)) {
-        ouvrirModalOptions(produit, optionsTrouvees);
+    // 3. Routage intelligent
+    if (aDesVariantes || aDesSupplements) {
+        // Il y a des choix à faire -> On ouvre le beau Pop-up
+        ouvrirModalOptions(produit);
     } else {
-        // 🔥 CORRECTION : On envoie uniquement l'ID à la fonction
+        // C'est un produit simple (ex: Bouteille d'eau) -> Ajout Express en 1 clic
         executerAjoutPanier(produit.id || produit._id);
         animerVersPanierClient(event); 
     }
@@ -372,31 +352,69 @@ window.ouvrirModalOptions = function(produit, options) {
     document.getElementById("optionsTitle").textContent = produit.nom;
     document.getElementById("optionPriceDisplay").textContent = `${prixBaseEnAttente.toFixed(2)} DT`;
     
-    // 1. GÉNÉRATION DES VARIANTES
+    // =========================================================
+    // 1. SECTION VARIANTES (Nouvelle logique Groupes Intelligents)
+    // =========================================================
     const sectionVar = document.getElementById("sectionVariantes");
     const containerVar = document.getElementById("optionsList");
-    if (options && options.length > 0) {
-        const isMultiple = produit.typeChoix === 'multiple';
-        containerVar.innerHTML = options.map((opt, index) => `
-            <label style="display:block; cursor:pointer;">
-                <input type="${isMultiple ? 'checkbox' : 'radio'}" 
-                       name="varianteOption" 
-                       value="${opt}" 
-                       style="display:none;" 
-                       ${(!isMultiple && index === 0) ? 'checked' : ''}> <div class="selectable-card">
-                    <div class="opt-info">
-                        <i class="fas ${isMultiple ? 'fa-square' : 'fa-circle'}"></i>
-                        <span>${opt}</span>
+
+    if (produit.variantes && produit.variantes.trim() !== "") {
+        // On découpe la chaîne : "Viande[Poulet, Thon] | Sauces*[Mayo, Ketchup]"
+        const groupes = produit.variantes.split('|');
+        
+        containerVar.innerHTML = groupes.map((groupeStr, gIdx) => {
+            const match = groupeStr.match(/(.*)\[(.*)\]/);
+            
+            // Si le gérant a mal tapé, on fait un fallback classique
+            if (!match) {
+                return `<div style="color:red; font-size:0.8rem;">Erreur format : ${groupeStr}</div>`;
+            }
+
+            let titreRaw = match[1].trim();
+            const listeOptions = match[2].split(',');
+            
+            // Détection du mode (Choix Multiple avec l'étoile *)
+            const estMultiple = titreRaw.endsWith('*');
+            const titreAffiche = estMultiple ? titreRaw.replace('*', '') : titreRaw;
+            const typeInput = estMultiple ? 'checkbox' : 'radio';
+
+            return `
+                <div class="variant-group" style="margin-bottom: 18px;">
+                    <div class="section-header">
+                        <span class="section-title">${titreAffiche}</span>
+                        <span class="section-badge ${estMultiple ? 'optional' : ''}">${estMultiple ? 'Plusieurs choix' : '1 Seul choix'}</span>
+                    </div>
+                    <div class="options-grid">
+                        ${listeOptions.map((opt, oIdx) => `
+                            <label style="display:block; cursor:pointer;">
+                                <input type="${typeInput}" 
+                                       name="variant_group_${gIdx}" 
+                                       value="${opt.trim()}" 
+                                       style="display:none;" 
+                                       ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
+                                <div class="selectable-card">
+                                    <div class="opt-info">
+                                        <i class="fas ${estMultiple ? 'fa-check-square' : 'fa-circle'} opt-check-icon"></i>
+                                        <span>${opt.trim()}</span>
+                                    </div>
+                                </div>
+                            </label>
+                        `).join('')}
                     </div>
                 </div>
-            </label>
-        `).join('');
+            `;
+        }).join('');
         sectionVar.style.display = "block";
-    } else { sectionVar.style.display = "none"; }
+    } else { 
+        sectionVar.style.display = "none"; 
+    }
 
-    // 2. GÉNÉRATION DES SUPPLÉMENTS (AVEC GESTION RUPTURE)
+    // =========================================================
+    // 2. SECTION SUPPLÉMENTS (Ancienne logique, intacte avec le stock)
+    // =========================================================
     const sectionSupp = document.getElementById("sectionSupplements");
     const containerSupp = document.getElementById("supplementsList");
+    
     if (produit.supplements && produit.supplements.length > 0) {
         containerSupp.innerHTML = produit.supplements.map(supp => {
             const ref = produits.find(p => String(p.id) === String(supp.id));
@@ -410,18 +428,20 @@ window.ouvrirModalOptions = function(produit, options) {
                            onchange="mettreAJourTotalModal()">
                     <div class="selectable-card ${estRupture ? 'disabled' : ''}">
                         <div class="opt-info">
-                            <i class="fas fa-plus-circle"></i>
+                            <i class="fas fa-plus-circle opt-check-icon"></i>
                             <span>${supp.nom}</span>
                         </div>
                         <div class="opt-price-container">
-                            ${estRupture ? '<span class="rupture-txt">ÉPUISÉ</span>' : `<span class="opt-price">+ ${parseFloat(supp.prix).toFixed(2)}</span>`}
+                            ${estRupture ? '<span class="rupture-txt">ÉPUISÉ</span>' : `<span class="opt-price">+ ${parseFloat(supp.prix).toFixed(2)} DT</span>`}
                         </div>
                     </div>
                 </label>
             `;
         }).join('');
         sectionSupp.style.display = "block";
-    } else { sectionSupp.style.display = "none"; }
+    } else { 
+        sectionSupp.style.display = "none"; 
+    }
 
     mettreAJourTotalModal();
     document.getElementById("optionsModal").style.display = "flex";
@@ -1132,33 +1152,42 @@ function configurerEvenements() {
     document.getElementById("checkoutBtn").onclick = passerCommande;
     
 document.getElementById("confirmOptionBtn")?.addEventListener("click", (e) => {
-        const checkedBoxes = document.querySelectorAll('input[name="varianteOption"]:checked');
-        const checkedSupps = document.querySelectorAll('input[name="supplementOption"]:checked'); // 🔥 CAPTURE DES SUPPLÉMENTS
-        
         if (produitEnAttenteOption) {
-            let valeursChoisies = "";
+            
+            // --- 1. RÉCOLTE DES VARIANTES (Groupes) ---
+            let choixFinaux = [];
+            const groupesHtml = document.querySelectorAll('.variant-group');
+            
+            groupesHtml.forEach((groupe, idx) => {
+                const coches = groupe.querySelectorAll(`input[name="variant_group_${idx}"]:checked`);
+                if (coches.length > 0) {
+                    // S'il y en a plusieurs (Checkbox), on les lie avec un "+"
+                    const valeurs = Array.from(coches).map(c => c.value).join('+'); 
+                    choixFinaux.push(valeurs);
+                }
+            });
+            const varianteFinale = choixFinaux.join(' / '); // Ex: "Poulet / Harissa+Mayo"
+
+            // --- 2. RÉCOLTE DES SUPPLÉMENTS PAYANTS ---
             let supplementsChoisis = [];
+            const checkedSupps = document.querySelectorAll('input[name="supplementOption"]:checked');
             
-            if (checkedBoxes.length > 0) {
-                valeursChoisies = Array.from(checkedBoxes).map(cb => cb.value).join(', ');
-            }
-            
-                if (checkedSupps.length > 0) {
+            if (checkedSupps.length > 0) {
                 supplementsChoisis = Array.from(checkedSupps).map(box => ({
-                    id: box.getAttribute('data-id'), // 🔥 ON RÉCUPÈRE LE VRAI ID ICI
+                    id: box.getAttribute('data-id'),
                     nom: box.getAttribute('data-nom'),
                     prix: box.value
                 }));
             }
             
-            // 🔥 ON ENVOIE LES DEUX
-            executerAjoutPanier(produitEnAttenteOption, valeursChoisies, supplementsChoisis);
+            // --- 3. ENVOI AU PANIER GLOBAL ---
+            executerAjoutPanier(produitEnAttenteOption, varianteFinale, supplementsChoisis);
             
             animerVersPanierClient(e); 
             document.getElementById("optionsModal").style.display = "none";
             produitEnAttenteOption = null;
         }
-    });;
+    });
     
     document.getElementById("closeOptions")?.addEventListener("click", () => {
         document.getElementById("optionsModal").style.display = "none";
