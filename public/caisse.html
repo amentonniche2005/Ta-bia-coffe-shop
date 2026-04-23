@@ -484,22 +484,28 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
     // 1. On calcule combien d'ingrédients le ticket actuel a DÉJÀ consommé
     if (simulerPanier && typeof currentTable !== 'undefined' && currentTable && tickets[currentTable]) {
         tickets[currentTable].articles.forEach(art => {
-            // 🔥 CORRECTION CRITIQUE : On ne simule la déduction QUE pour les articles NON envoyés !
-            // (Ceux envoyés ont déjà été déduits de la vraie base de données par le serveur)
             if (!art.envoye) {
                 const pDB = produits.find(p => String(p.id) === String(art.id) || String(p._id) === String(art.id) || String(p.nom) === String(art.nom));
                 if (pDB) {
                     const qte = parseInt(art.quantite) || 0;
                     if (pDB.isManufactured && pDB.recipe) {
                         pDB.recipe.forEach(item => {
-                            const ingId = String(item.ingredientId);
-                            if (!consommation[ingId]) consommation[ingId] = 0;
-                            consommation[ingId] += (Number(item.quantity) * qte);
+                            const ingredient = produits.find(ing => String(ing.id) === String(item.ingredientId));
+                            if (ingredient) {
+                                const ingId = String(ingredient.id);
+                                if (!consommation[ingId]) consommation[ingId] = 0;
+                                consommation[ingId] += (window.convertirUniteClient(Number(item.quantity), item.unit, ingredient.unite) * qte);
+                            }
                         });
                     } else if (!pDB.isManufactured) {
                         const idDb = String(pDB.id || pDB._id);
                         if (!consommation[idDb]) consommation[idDb] = 0;
-                        consommation[idDb] += qte;
+                        // 🟢 Si c'est un supplément, on convertit la quantité !
+                        if (art.isSupplement && art.qteRecette) {
+                            consommation[idDb] += (window.convertirUniteClient(Number(art.qteRecette), art.uniteRecette, pDB.unite) * qte);
+                        } else {
+                            consommation[idDb] += qte;
+                        }
                     }
                 }
             }
@@ -520,14 +526,12 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
         if (!ingredient) return 0;
         
         const stockInitialIng = Number(ingredient.stock) || 0;
-        const dejaConsomme = consommation[String(item.ingredientId)] || 0;
+        const dejaConsomme = consommation[String(ingredient.id)] || 0;
         
         const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
-
-        const quantiteRequise = Number(item.quantity) || 0;
-        const safeQte = quantiteRequise > 0 ? quantiteRequise : 1;
+        const quantiteConvertie = window.convertirUniteClient(Number(item.quantity), item.unit, ingredient.unite);
         
-        const possible = Math.floor(stockDispo / safeQte);
+        const possible = Math.floor(stockDispo / (quantiteConvertie > 0 ? quantiteConvertie : 1));
         if (possible < maxRealisable) maxRealisable = possible;
     }
     return maxRealisable === Infinity ? 0 : maxRealisable;
@@ -1336,18 +1340,19 @@ window.ajouterProduitCaisse = function(produit, variante, supplements) {
         ? parseFloat(produit.prixPromo) 
         : parseFloat(produit.prix);
 
-ajouterAuTicket(currentTable, {
-    id: String(supp.id),
-    nom: `+ ${supp.nom}`,
-    variante: null,
-    prix: Number(parseFloat(supp.prix) || 0),
-    quantite: 1,
-    qteRecette: supp.quantiteRecette, // 🔥 NOUVEAU
-    uniteRecette: supp.uniteRecette,  // 🔥 NOUVEAU
-    envoye: false, isSupplement: true, uniqueGroupId: Date.now() + Math.random(), parentId: idGroupeUnique
-}, false, false);
+    // 1. Ajouter le produit principal
+    ajouterAuTicket(currentTable, {
+        id: String(produit.id || produit._id),
+        nom: produit.nom,
+        variante: variante,
+        prix: prixInitial,
+        quantite: 1,
+        envoye: false, 
+        isSupplement: false, 
+        uniqueGroupId: idGroupeUnique
+    }, false, false);
     
-    // 2. Suppléments
+    // 2. Ajouter les Suppléments liés
     if (supplements && supplements.length > 0) {
         supplements.forEach(supp => {
             ajouterAuTicket(currentTable, {
@@ -1356,7 +1361,12 @@ ajouterAuTicket(currentTable, {
                 variante: null,
                 prix: Number(parseFloat(supp.prix) || 0),
                 quantite: 1,
-                envoye: false, isSupplement: true, uniqueGroupId: Date.now() + Math.random(), parentId: idGroupeUnique
+                qteRecette: supp.quantiteRecette, // 🔥 C'est ici qu'on attache la qté !
+                uniteRecette: supp.uniteRecette,  // 🔥 Et l'unité !
+                envoye: false, 
+                isSupplement: true, 
+                uniqueGroupId: Date.now() + Math.random(), 
+                parentId: idGroupeUnique
             }, false, false);
         });
     }
