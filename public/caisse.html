@@ -1001,11 +1001,15 @@ function renderProducts() {
 grid.innerHTML = filtered.map(p => { 
             const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
             
+            // 🔥 LOGIQUE VISUELLE PROMO
+            const prixNormal = parseFloat(p.prix || 0).toFixed(2);
+            const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
+            
             const affichagePrix = (p.prixPromo > 0) 
-                ? `<s style="font-size:0.75rem; color:#94a3b8;">${parseFloat(p.prix).toFixed(2)}</s> <span style="color:#e74c3c;">${parseFloat(p.prixPromo).toFixed(2)} DT</span>`
-                : `${parseFloat(p.prix).toFixed(2)} DT`;
+                ? `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>`
+                : `<span style="font-weight:800;">${prixNormal} DT</span>`;
 
-            return `<div class="product-card" data-id="${p.id}">
+            return `<div class="product-card" data-id="${p.id || p._id}">
                         <div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div>
                         <div class="product-name">${escapeHtml(p.nom)}</div>
                         <div class="product-price">${affichagePrix}</div>
@@ -1033,92 +1037,122 @@ grid.innerHTML = filtered.map(p => {
         }));
     }
 window.ouvrirModalOptionsCaisse = function(produit) {
-        produitEnAttenteCaisse = produit;
-        prixBaseEnAttenteCaisse = (produit.prixPromo && produit.prixPromo > 0) ? parseFloat(produit.prixPromo) : parseFloat(produit.prix);
+    produitEnAttenteCaisse = produit;
+    
+    // 1. Définition du prix de base (Promo vs Normal)
+    prixBaseEnAttenteCaisse = (produit.prixPromo && produit.prixPromo > 0) 
+        ? parseFloat(produit.prixPromo) 
+        : parseFloat(produit.prix);
+    
+    // 2. Préparation du HTML Global (Header Fixe)
+    let htmlContent = `
+        <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-soft); background: #f8fafc; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h3 style="margin: 0; color: var(--primary-green); font-size: 1.3rem;">${escapeHtml(produit.nom)}</h3>
+                <div id="caisseOptionPriceDisplay" style="color: var(--primary-orange); font-weight: 700; font-size: 1rem;">${prixBaseEnAttenteCaisse.toFixed(2)} DT</div>
+            </div>
+            <button class="close-btn" onclick="fermerModalOptionsCaisse()" style="background:#e2e8f0; border:none; width:32px; height:32px; border-radius:50%; cursor:pointer;">&times;</button>
+        </div>
         
-        document.getElementById("caisseOptionsTitle").textContent = produit.nom;
-        document.getElementById("caisseOptionPriceDisplay").textContent = `${prixBaseEnAttenteCaisse.toFixed(2)} DT`;
-        
-        // =========================================================
-        // 1. Variantes (Logique Groupes Intelligents)
-        // =========================================================
-        const sectionVar = document.getElementById("caisseSectionVariantes");
-        const containerVar = document.getElementById("caisseOptionsList");
-        
-        if (produit.variantes && produit.variantes.trim() !== "") {
-            const groupes = produit.variantes.split('|');
-            
-            containerVar.innerHTML = groupes.map((groupeStr, gIdx) => {
-                const match = groupeStr.match(/(.*)\[(.*)\]/);
-                if (!match) return `<div style="color:red; font-size:0.8rem;">Erreur format : ${groupeStr}</div>`;
+        <div style="padding: 20px; overflow-y: auto; max-height: 60vh;" id="caisseOptionsScrollBody">
+    `;
 
-                let titreRaw = match[1].trim();
-                const listeOptions = match[2].split(',');
-                
-                // Détection du mode (Choix Multiple avec l'étoile *)
-                const estMultiple = titreRaw.endsWith('*');
-                const titreAffiche = estMultiple ? titreRaw.replace('*', '') : titreRaw;
-                const typeInput = estMultiple ? 'checkbox' : 'radio';
+    // 3. Section Variantes (Logique Groupes + Design Compact)
+    if (produit.variantes && produit.variantes.trim() !== "") {
+        const groupes = produit.variantes.split('|');
+        
+        htmlContent += groupes.map((groupeStr, gIdx) => {
+            const match = groupeStr.match(/(.*)\[(.*)\]/);
+            if (!match) return '';
 
-                return `
-                    <div class="variant-group" style="margin-bottom: 18px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                            <span style="font-weight: 800; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">${titreAffiche}</span>
-                            <span style="font-size:0.65rem; font-weight:700; color:var(--text-muted);">${estMultiple ? 'PLUSIEURS CHOIX' : '1 SEUL CHOIX'}</span>
-                        </div>
-                        <div class="options-grid" style="display: flex; flex-direction: column; gap: 8px;">
-                            ${listeOptions.map((opt, oIdx) => `
-                                <label style="display:block; cursor:pointer;">
-                                    <input type="${typeInput}" 
-                                           name="caisse_variant_group_${gIdx}" 
-                                           value="${opt.trim()}" 
-                                           style="display:none;" 
-                                           ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
-                                    <div class="caisse-selectable-card">
-                                        <div class="caisse-opt-info">
-                                            <i class="fas ${estMultiple ? 'fa-check-square' : 'fa-circle'}"></i>
-                                            <span>${opt.trim()}</span>
-                                        </div>
+            let titreRaw = match[1].trim();
+            const listeOptions = match[2].split(',');
+            const estMultiple = titreRaw.endsWith('*');
+            const titreAffiche = estMultiple ? titreRaw.replace('*', '') : titreRaw;
+            const typeInput = estMultiple ? 'checkbox' : 'radio';
+
+            return `
+                <div class="variant-group" style="margin-bottom: 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
+                        <span style="font-weight: 800; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">${titreAffiche}</span>
+                        <span style="font-size:0.65rem; font-weight:700; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:var(--text-muted);">${estMultiple ? 'PLUSIEURS CHOIX' : '1 SEUL CHOIX'}</span>
+                    </div>
+                    <div style="display: ${estMultiple ? 'flex' : 'grid'}; grid-template-columns: ${estMultiple ? 'none' : '1fr 1fr'}; flex-wrap: wrap; gap: 8px;">
+                        ${listeOptions.map((opt, oIdx) => `
+                            <label style="display:block; margin:0; cursor:pointer;">
+                                <input type="${typeInput}" 
+                                       name="caisse_variant_group_${gIdx}" 
+                                       value="${opt.trim()}" 
+                                       style="display:none;" 
+                                       ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
+                                <div class="caisse-selectable-card" style="margin-bottom:0; padding: ${estMultiple ? '8px 16px' : '12px'}; border-radius: ${estMultiple ? '30px' : '12px'};">
+                                    <div class="caisse-opt-info" style="font-size: 0.9rem;">
+                                        ${!estMultiple ? `<i class="fas fa-circle" style="font-size:0.8rem; color:#cbd5e1;"></i>` : ''}
+                                        <span>${opt.trim()}</span>
                                     </div>
-                                </label>
-                            `).join('')}
+                                </div>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 4. Section Suppléments (Vérification Stock + Promo)
+    if (produit.supplements && produit.supplements.length > 0) {
+        htmlContent += `<div style="font-weight: 800; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 10px; margin-top:10px;">Extras & Suppléments</div>`;
+        
+        htmlContent += produit.supplements.map(supp => {
+            const ref = produits.find(p => String(p.id) === String(supp.id));
+            const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
+
+            // Logique Promo sur les suppléments
+            const pNormal = parseFloat(supp.prix || 0);
+            const pPromo = (ref && ref.prixPromo > 0) ? parseFloat(ref.prixPromo) : 0;
+            const prixFinalSupp = pPromo > 0 ? pPromo : pNormal;
+
+            const affichagePrixSupp = pPromo > 0 
+                ? `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">+${pNormal.toFixed(2)}</s> <span style="color:var(--success);">+ ${pPromo.toFixed(2)}</span>`
+                : `<span class="caisse-opt-price">+ ${pNormal.toFixed(2)}</span>`;
+
+            return `
+                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'}; margin-bottom:8px;">
+                    <input type="checkbox" name="caisseSuppOption" 
+                           value="${prixFinalSupp}" data-id="${supp.id}" data-nom="${supp.nom}" 
+                           style="display:none;" ${estRupture ? 'disabled' : ''} 
+                           onchange="mettreAJourTotalModalCaisse()">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border:2px solid var(--border-soft); border-radius:12px; background:#fff; transition:0.2s;" class="caisse-selectable-card">
+                        <div style="font-weight:700; color:var(--text-dark);"><i class="fas fa-plus" style="font-size:0.7rem; color:var(--text-muted); margin-right:6px;"></i>${supp.nom}</div>
+                        <div style="font-weight:800; font-size:0.95rem;">
+                            ${estRupture ? '<span class="caisse-rupture-txt">RUPTURE</span>' : affichagePrixSupp}
                         </div>
                     </div>
-                `;
-            }).join('');
-            sectionVar.style.display = "block";
-        } else { 
-            sectionVar.style.display = "none"; 
-        }
+                </label>
+            `;
+        }).join('');
+    }
 
-        // =========================================================
-        // 2. Suppléments (Vérification du stock)
-        // =========================================================
-        const sectionSupp = document.getElementById("caisseSectionSupplements");
-        const containerSupp = document.getElementById("caisseSupplementsList");
-        if (produit.supplements && produit.supplements.length > 0) {
-            containerSupp.innerHTML = produit.supplements.map(supp => {
-                const ref = produits.find(p => String(p.id) === String(supp.id));
-                const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
+    htmlContent += `</div>`; // Fin du body scrollable
 
-                return `
-                    <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'};">
-                        <input type="checkbox" name="caisseSuppOption" value="${supp.prix}" data-id="${supp.id}" data-nom="${supp.nom}" style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModalCaisse()">
-                        <div class="caisse-selectable-card ${estRupture ? 'disabled' : ''}">
-                            <div class="caisse-opt-info"><i class="fas fa-plus-circle"></i> <span>${supp.nom}</span></div>
-                            <div class="opt-price-container">
-                                ${estRupture ? '<span class="caisse-rupture-txt">RUPTURE</span>' : `<span class="caisse-opt-price">+ ${parseFloat(supp.prix).toFixed(2)} DT</span>`}
-                            </div>
-                        </div>
-                    </label>
-                `;
-            }).join('');
-            sectionSupp.style.display = "block";
-        } else { sectionSupp.style.display = "none"; }
+    // 5. Footer Fixe avec le bouton de validation
+    htmlContent += `
+        <div style="padding: 16px 20px; border-top: 1px solid var(--border-soft); background: white;">
+            <button class="btn-valider" onclick="validerOptionsCaisse()" style="width: 100%; display: flex; justify-content: space-between; align-items: center; background: var(--success); color: white; border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 1.1rem; cursor: pointer;">
+                <span>Ajouter au ticket</span>
+                <span id="caissePrixTotalOptionsBtn" style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 8px;">0.00 DT</span>
+            </button>
+        </div>
+    `;
 
-        mettreAJourTotalModalCaisse();
-        document.getElementById("modalOptionsCaisse").classList.add('active');
-    };
+    // 6. Injection et Affichage
+    const modalContentDiv = document.querySelector("#modalOptionsCaisse .modal-content");
+    modalContentDiv.innerHTML = htmlContent;
+    modalContentDiv.style.padding = "0"; // Important pour que le header/footer touchent les bords
+
+    mettreAJourTotalModalCaisse();
+    document.getElementById("modalOptionsCaisse").classList.add('active');
+};
 
     window.mettreAJourTotalModalCaisse = function() {
         let total = prixBaseEnAttenteCaisse;
@@ -1162,7 +1196,9 @@ window.validerOptionsCaisse = function() {
     // Logique Parent/Enfant adaptée à la caisse
     window.ajouterProduitCaisse = function(produit, variante, supplements) {
         const idGroupeUnique = Date.now();
-        
+        const prixAUtiliser = (produit.prixPromo && produit.prixPromo > 0) 
+            ? parseFloat(produit.prixPromo) 
+            : parseFloat(produit.prix);
         // 1. Ajouter le produit principal
         ajouterAuTicket(currentTable, { 
             id: produit.id || produit._id, 
