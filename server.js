@@ -466,7 +466,7 @@ try {
             return res.status(403).json({ error: "QRCode expiré ou  Code Incorect" });
         }
 
-let totalSecurise = 0;
+        let totalSecurise = 0;
         let articlesSecurises = [];
         for (let art of req.body.articles) {
             let produitDb = null;
@@ -487,12 +487,19 @@ let totalSecurise = 0;
                 produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
             }
 
-            if (produitDb) {
-                // Si c'est un supplément, on garde le prix que le client a coché
-                let prixApplique = art.isSupplement ? art.prix : produitDb.prix;
+               if (produitDb) {
+                // 🔥 CORRECTIF : Le serveur vérifie d'abord s'il y a une promo en base de données
+                let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) 
+                    ? produitDb.prixPromo 
+                    : produitDb.prix;
+
+                // Pour un article normal, on force le prix de la DB (promo ou normal)
+                // Pour un supplément, on garde le prix envoyé par la caisse
+                let prixApplique = art.isSupplement ? art.prix : prixBaseDb;
+                
                 totalSecurise += (prixApplique * art.quantite);
                 
-                // On s'assure que l'ID propre (Number) est sauvegardé pour le stock
+                // On enregistre le prix réellement appliqué dans l'objet de l'article
                 articlesSecurises.push({ ...art, prix: prixApplique, id: produitDb.id, nom: nomPropre }); 
             } else {
                 totalSecurise += (art.prix * art.quantite);
@@ -955,8 +962,15 @@ let vraiTotalReel = 0;
                 produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
             }
             
-            if (produitDb) {
-                let prixApplique = art.isSupplement ? art.prix : produitDb.prix;
+                if (produitDb) {
+                // 🔥 CORRECTIF PROMO : Priorité au prix promo stocké en base
+                let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) 
+                    ? produitDb.prixPromo 
+                    : produitDb.prix;
+
+                let prixApplique = art.isSupplement ? art.prix : prixBaseDb;
+                
+                // ⚠️ Correction du nom de la variable (vraiTotalReel au lieu de totalSecurise)
                 vraiTotalReel += (prixApplique * art.quantite); 
                 
                 if (produitDb.stock !== undefined) {

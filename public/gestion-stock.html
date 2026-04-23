@@ -689,32 +689,20 @@ async function chargerDashboard() {
         stockProduits = Array.isArray(stock) ? stock : (stock.produits || []); 
 
         let valeurTotaleAchat = 0;
-        let caPotentielTotal = 0; 
         let alertes = 0;
         
         stockProduits.forEach(p => { 
-            // 🔥 Conversion forcée en nombres pour éviter le collage des chiffres
+            // 🔥 Utilisation de Number() pour éviter de coller les chiffres
             const stockReel = Number(p.stock) || 0;
             const pAchat = parseFloat(p.prixAchat) || 0;
-            const pVenteNormal = parseFloat(p.prix) || 0;
-            const pPromo = parseFloat(p.prixPromo) || 0;
-
-            // Priorité au prix promo pour le calcul du CA potentiel
-            const prixVenteActuel = (pPromo > 0) ? pPromo : pVenteNormal;
 
             valeurTotaleAchat += (stockReel * pAchat); 
-            caPotentielTotal += (stockReel * prixVenteActuel);
-
             if (stockReel <= (Number(p.seuilAlerte) || 10)) alertes++;
         });
 
         document.getElementById('totalProduits').innerText = stockProduits.length;
         document.getElementById('valeurStock').innerText = formatMoney(valeurTotaleAchat);
         document.getElementById('totalAlertes').innerText = alertes;
-
-        const badge = document.getElementById('badgeAlertes');
-        if(alertes > 0) { badge.className = 'badge badge-critical'; badge.innerText = 'Action Requise'; }
-        else { badge.className = 'badge badge-normal'; badge.innerText = 'Stock Sain'; }
     } catch (e) { console.error("Erreur Dashboard:", e); }
 }
 
@@ -769,33 +757,27 @@ function appliquerFiltresEtTriStock() {
 
 function afficherStockDOM(produits) {
     const tbody = document.getElementById('stockTableBody');
-    if(!produits.length) { 
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Aucun produit</td></tr>'; 
-        return; 
-    }
-    
+    if (!produits.length) { tbody.innerHTML = '<tr><td colspan="7">Aucun produit</td></tr>'; return; }
+
     tbody.innerHTML = produits.map(p => {
         const stockReel = Number(p.stock) || 0;
         const pVente = parseFloat(p.prix) || 0;
         const pPromo = parseFloat(p.prixPromo) || 0;
         const valAchat = stockReel * (parseFloat(p.prixAchat) || 0);
-        
-        // Structure HTML propre pour le prix (Barré si promo)
+
+        // 🔥 Toujours dans un <td> pour ne pas casser l'alignement
         const htmlPrix = (pPromo > 0) 
             ? `<td><s style="color:#94a3b8; font-size:0.75rem;">${formatMoney(pVente)}</s><br><strong style="color:#e74c3c;">${formatMoney(pPromo)}</strong></td>`
             : `<td><strong>${formatMoney(pVente)}</strong></td>`;
 
-        const seuil = Number(p.seuilAlerte) || 10;
-        let badgeClass = stockReel <= 0 ? 'badge-critical' : (stockReel <= seuil ? 'badge-low' : 'badge-normal');
-
         return `
             <tr>
-                <td><strong>${escapeHtml(p.nom)}</strong></td>
-                <td><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
-                <td><span class="badge ${badgeClass}">${stockReel}</span></td>
-                <td>${p.unite || 'unité'}</td>
+                <td data-label="Produit"><strong>${escapeHtml(p.nom)}</strong></td>
+                <td data-label="Catégorie"><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
+                <td data-label="Stock"><span class="badge">${stockReel}</span></td>
+                <td data-label="Unité">${p.unite || 'unité'}</td>
                 ${htmlPrix}
-                <td style="font-weight:700; color:var(--primary);">${formatMoney(valAchat)}</td>
+                <td data-label="Val. Achat" style="font-weight:700;">${formatMoney(valAchat)}</td>
                 <td style="text-align:center;">
                     <button class="btn-action btn-success" onclick="ouvrirModalAjoutStock('${p.id || p._id}', '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
                     <button class="btn-action" style="background:#3498db;" onclick="ouvrirModalEdition('${p.id || p._id}')"><i class="fas fa-pen"></i></button>
@@ -1864,10 +1846,10 @@ async function chargerRapportVentes() {
         ventesAffichees = ventesFiltrees;
 
         // 4. CALCUL DES KPIs (SÉCURITÉ MATHÉMATIQUE - Évite les milliards)
-        let totalCA = 0;
-        ventesFiltrees.forEach(v => {
-            totalCA += parseFloat(v.total) || 0; // Force l'addition mathématique
-        });
+let totalCA = 0;
+ventesFiltrees.forEach(v => {
+    totalCA += parseFloat(v.total) || 0; // Additionne des nombres, pas du texte !
+});
 
         const nbTickets = ventesFiltrees.length;
         const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
