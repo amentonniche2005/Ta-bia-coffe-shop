@@ -5,6 +5,54 @@ let produits = [];
 let categorieActuelle = "all";
 let clientId = null;
 let NB_TABLES_MAX = 160;
+// 🔥 MOTEUR ERP CLIENT : Calcule le stock réel d'un article
+// 🔥 MOTEUR ERP CLIENT : Calcule le stock réel tenant compte du panier
+window.calculerStockReel = function(produit, simulerPanier = true) {
+    let consommation = {};
+    
+    if (simulerPanier && typeof panier !== 'undefined' && panier.length > 0) {
+        panier.forEach(art => {
+            const pDB = produits.find(p => String(p.id) === String(art.baseId) || String(p._id) === String(art.baseId));
+            if (pDB) {
+                const qte = parseInt(art.quantite) || 0;
+                if (pDB.isManufactured && pDB.recipe) {
+                    pDB.recipe.forEach(item => {
+                        const ingId = String(item.ingredientId);
+                        if (!consommation[ingId]) consommation[ingId] = 0;
+                        consommation[ingId] += (Number(item.quantity) * qte);
+                    });
+                } else if (!pDB.isManufactured) {
+                    const idDb = String(pDB.id || pDB._id);
+                    if (!consommation[idDb]) consommation[idDb] = 0;
+                    consommation[idDb] += qte;
+                }
+            }
+        });
+    }
+
+    if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
+        const idProd = String(produit.id || produit._id);
+        const dejaConsomme = consommation[idProd] || 0;
+        return produit.stock !== undefined ? Math.max(0, Number(produit.stock) - dejaConsomme) : 999;
+    }
+    
+    let maxRealisable = Infinity;
+    for (let item of produit.recipe) {
+        const ingredient = produits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
+        if (!ingredient) return 0;
+        
+        const stockInitialIng = Number(ingredient.stock) || 0;
+        const dejaConsomme = consommation[String(item.ingredientId)] || 0;
+        const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
+
+        const quantiteRequise = Number(item.quantity) || 0;
+        const safeQte = quantiteRequise > 0 ? quantiteRequise : 1;
+        
+        const possible = Math.floor(stockDispo / safeQte);
+        if (possible < maxRealisable) maxRealisable = possible;
+    }
+    return maxRealisable === Infinity ? 0 : maxRealisable;
+};
 // 🎵 MOTEUR AUDIO (Sons natifs sans fichiers)
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(type) {
@@ -273,6 +321,7 @@ function genererCategoriesDynamiques() {
 }
 
 // ========== AFFICHAGE DES PRODUITS ==========
+// ========== AFFICHAGE DES PRODUITS ==========
 function afficherProduits() {
     const grille = document.getElementById("menuGrid");
     if (!grille) return;
@@ -283,8 +332,9 @@ function afficherProduits() {
         produitsAffiches = produits.filter(p => p.categorie === categorieActuelle);
     }
 
-    const enStock = produitsAffiches.filter(p => p.stock > 0 || p.stock === undefined);
-    const enRupture = produitsAffiches.filter(p => p.stock <= 0 && p.stock !== undefined);
+    // 🔥 CORRECTION ERP : On trie en utilisant le stock calculé
+    const enStock = produitsAffiches.filter(p => window.calculerStockReel(p) > 0 || p.stock === undefined);
+    const enRupture = produitsAffiches.filter(p => window.calculerStockReel(p) <= 0 && p.stock !== undefined);
     const produitsTries = [...enStock, ...enRupture];
 
     if (produitsTries.length === 0) {
@@ -292,8 +342,11 @@ function afficherProduits() {
         return;
     }
 
-grille.innerHTML = produitsTries.map(p => {
-        const rupture = p.stock <= 0 && p.stock !== undefined;
+    grille.innerHTML = produitsTries.map(p => {
+        // 🔥 CORRECTION ERP : On vérifie la rupture virtuelle
+        const stockActuel = window.calculerStockReel(p);
+        const rupture = stockActuel <= 0 && p.stock !== undefined;
+        
         const classeRupture = rupture ? 'sold-out' : '';
         const bouton = rupture 
             ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
@@ -332,20 +385,18 @@ let prixBaseEnAttente = 0;
 
 // ✅ LA NOUVELLE FONCTION PROPRE :
 function gererClicAjout(event, id) {
-    // 1. On trouve le produit
     const produit = produits.find(p => String(p.id) === String(id) || String(p._id) === String(id));
-    if (!produit || (produit.stock <= 0 && produit.stock !== undefined)) return;
+    
+    // 🔥 CORRECTION ERP :
+    const stockActuel = window.calculerStockReel(produit);
+    if (!produit || (stockActuel <= 0 && produit.stock !== undefined)) return;
 
-    // 2. On vérifie s'il a des options configurées dans la base de données
     const aDesVariantes = produit.variantes && produit.variantes.trim() !== "";
     const aDesSupplements = produit.supplements && produit.supplements.length > 0;
 
-    // 3. Routage intelligent
     if (aDesVariantes || aDesSupplements) {
-        // Il y a des choix à faire -> On ouvre le beau Pop-up
         ouvrirModalOptions(produit);
     } else {
-        // C'est un produit simple (ex: Bouteille d'eau) -> Ajout Express en 1 clic
         executerAjoutPanier(produit.id || produit._id);
         animerVersPanierClient(event); 
     }
@@ -547,11 +598,16 @@ function changerQuantite(cartId, delta) {
 
     // Sécurité Stock pour les produits principaux
     if (!article.isSupplement) {
-        const produitDB = produits.find(p => p.id === article.baseId);
-        if (delta > 0 && produitDB && produitDB.stock !== undefined) {
-            const quantiteTotalePanier = panier.filter(item => item.baseId === article.baseId).reduce((sum, item) => sum + item.quantite, 0);
-            if (quantiteTotalePanier >= produitDB.stock) {
-                afficherNotification("Stock insuffisant", "error");
+        const produitDB = produits.find(p => String(p.id) === String(article.baseId) || String(p._id) === String(article.baseId));
+        if (delta > 0 && produitDB) {
+            // 🔥 CORRECTION ERP : On calcule le stock maximum possible EN SIMULANT LE PANIER ACTUEL
+            // L'astuce est de calculer le stock APRES avoir ajouté virtuellement la quantité,
+            // ou plus simplement, en vérifiant si on a ENCORE de la place pour le delta
+            const stockRestant = window.calculerStockReel(produitDB, true); // true = prend en compte le panier
+            
+            // Si on demande +1 et qu'il reste 0 (ou moins que 1) en stock réel (panier inclus)
+            if (stockRestant < delta) {
+                afficherNotification("❌ Stock insuffisant (ingrédients épuisés)", "error");
                 return;
             }
         }

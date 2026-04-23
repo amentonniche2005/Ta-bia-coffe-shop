@@ -186,6 +186,12 @@ supplements: [{
         id: String,     // L'ID du produit supplément (ex: ID du fromage)
         nom: String,    // Le nom à afficher
         prix: Number    // Le prix facturé au client
+    }],
+    isManufactured: { type: Boolean, default: false }, // true si c'est un produit avec recette
+    recipe: [{
+        ingredientId: { type: String }, // ID du produit utilisé comme ingrédient
+        quantity: { type: Number },     // Quantité nécessaire pour 1 unité du produit fini
+        unit: { type: String }          // g, ml, unité, etc.
     }]
 }));
 
@@ -427,10 +433,10 @@ app.get('/api/stock', async (req, res) => {
 
 // 🔥 ROUTE COMMANDE (SÉCURISÉE AVEC VÉRIFICATION DU CODE TABLE)
 app.post('/api/commandes', async (req, res) => {
-try {
+    try {
         const codeEnvoye = String(req.body.codeAuth);
         
-        // 🔥 1. ON RÉCUPÈRE LES CLÉS DYNAMIQUES DU CAFÉ
+        // 1. RÉCUPÉRATION DES CLÉS DYNAMIQUES DU CAFÉ
         const config = await StoreSettings.findOne({ cafeId: req.cafeId, type: 'branding' });
         const vraiCodeServeur = (config && config.codeServeur) ? config.codeServeur : '00000';
         const vraiCaisseToken = (config && config.caisseToken) ? config.caisseToken : '12345678';
@@ -445,73 +451,62 @@ try {
         else if (codeEnvoye === vraiCodeServeur) {
             authValid = true;
         }
-        // Cas C : C'est un Client VIP (Il peut commander sur place ou à emporter)
+        // Cas C : C'est un Client VIP
         else if (codeEnvoye) {
             const fidele = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
             if (fidele) authValid = true;
         }
         
-        // Cas D : C'est un Client normal scannant une Table
+        // Cas D : Scan Table
         if (!authValid && req.body.numeroTable && req.body.numeroTable !== 'Emporter') {
             const tableDb = await TableCode.findOne({ cafeId: req.cafeId, numero: parseInt(req.body.numeroTable) });
             if (tableDb && tableDb.code === codeEnvoye) authValid = true;
         }
 
-        // Cas E : Commande Web (Paiement en ligne). Pas besoin de code, la banque sécurise.
+        // Cas E : Commande Web
         if (!authValid && req.body.methodePaiement === 'en_ligne') {
             authValid = true;
         }
 
         if (!authValid) {
-            return res.status(403).json({ error: "QRCode expiré ou  Code Incorect" });
+            return res.status(403).json({ error: "QRCode expiré ou Code Incorrect" });
         }
 
+        // 2. SÉCURISATION DES PRIX ET ARTICLES
         let totalSecurise = 0;
         let articlesSecurises = [];
+
         for (let art of req.body.articles) {
             let produitDb = null;
-            
-            // 🔥 1. Nettoyer le nom
             let nomPropre = art.nom;
-            if (nomPropre && nomPropre.startsWith('+ ')) {
-                nomPropre = nomPropre.substring(2).trim();
-            }
-            
-            // 🔥 2. Chercher par ID
+            if (nomPropre && nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
+
             if (art.id && !isNaN(art.id)) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
-            }
-            
-            // 🔥 3. Chercher par Nom (Sécurité Supplément)
+            } 
             if (!produitDb && nomPropre) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
             }
 
-               if (produitDb) {
-                // 🔥 CORRECTIF : Le serveur vérifie d'abord s'il y a une promo en base de données
-                let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) 
-                    ? produitDb.prixPromo 
-                    : produitDb.prix;
-
-                // Pour un article normal, on force le prix de la DB (promo ou normal)
-                // Pour un supplément, on garde le prix envoyé par la caisse
+            if (produitDb) {
+                // LOGIQUE PRIX PROMO
+                let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) ? produitDb.prixPromo : produitDb.prix;
                 let prixApplique = art.isSupplement ? art.prix : prixBaseDb;
                 
                 totalSecurise += (prixApplique * art.quantite);
-                
-                // On enregistre le prix réellement appliqué dans l'objet de l'article
-                articlesSecurises.push({ ...art, prix: prixApplique, id: produitDb.id, nom: nomPropre }); 
+                articlesSecurises.push({ ...art, prix: prixApplique, id: produitDb.id, nom: art.nom }); 
             } else {
                 totalSecurise += (art.prix * art.quantite);
                 articlesSecurises.push(art);
             }
         }
-        totalSecurise = parseFloat(totalSecurise.toFixed(2));
 
+        totalSecurise = parseFloat(totalSecurise.toFixed(2));
         let messageBonus = null;
         const cmdId = Date.now().toString();
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
 
+        // 3. CAS PAIEMENT VIP (DÉSTOCKAGE IMMÉDIAT)
         if (req.body.methodePaiement === 'carte_fidelite') {
             const clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
             
@@ -519,11 +514,11 @@ try {
             if (clientVIP.solde < totalSecurise) return res.status(400).json({ error: `Solde insuffisant (${clientVIP.solde.toFixed(2)} DT).` });
 
             clientVIP.solde = parseFloat((clientVIP.solde - totalSecurise).toFixed(2));
-            clientVIP.totalDepense = parseFloat(((clientVIP.totalDepense || 0) + totalSecurise).toFixed(2));
             clientVIP.points = parseFloat(((clientVIP.points || 0) + totalSecurise).toFixed(2));
             messageBonus = `✨ Vous avez gagné ${totalSecurise.toFixed(2)} points fidélité !`;
             await clientVIP.save();
 
+            // Création de la vente VIP
             await new Sale({
                 cafeId: req.cafeId, id: cmdId, numero: numeroCmd, total: totalSecurise, remise: 0,
                 typePaiement: 'complet', methodePaiement: 'Carte Fidélité',
@@ -531,38 +526,61 @@ try {
                 date: new Date().toLocaleString('fr-FR'), timestamp: Date.now()
             }).save();
 
-for (let art of articlesSecurises) {
-                const qte = parseInt(art.quantite) || 1;
-                // 🔥 SÉCURITÉ AJOUTÉE ICI : On vérifie que c'est bien un nombre
-                if (art.id && !isNaN(art.id)) {
-                    const produitMisAJour = await Product.findOneAndUpdate(
-                        { cafeId: req.cafeId, id: Number(art.id) }, { $inc: { stock: -qte } }, { new: true }
-                    );
+            // 🔥 DÉSTOCKAGE INTELLIGENT (ERP) POUR VIP
+            for (let art of articlesSecurises) {
+                const qteCmd = parseInt(art.quantite) || 1;
+                const itemDb = await Product.findOne({ cafeId: req.cafeId, id: art.id });
 
-                    if (produitMisAJour && produitMisAJour.stock !== undefined) {
+                if (itemDb) {
+                    if (itemDb.isManufactured && itemDb.recipe && itemDb.recipe.length > 0) {
+                        // Cas Recette (Pizza, Café...)
+                        for (let comp of itemDb.recipe) {
+                            const ing = await Product.findOneAndUpdate(
+                                { cafeId: req.cafeId, id: comp.ingredientId },
+                                { $inc: { stock: -(comp.quantity * qteCmd) } },
+                                { new: true }
+                            );
+                            if (ing) {
+                                await new Movement({
+                                    cafeId: req.cafeId, type: 'vente_vip', produit: ing.nom, produitId: ing.id,
+                                    quantite: (comp.quantity * qteCmd),
+                                    ancienStock: ing.stock + (comp.quantity * qteCmd), nouveauStock: ing.stock,
+                                    raison: `Composant de : ${itemDb.nom} (Achat VIP #${numeroCmd})`
+                                }).save();
+                            }
+                        }
+                    } else if (itemDb.stock !== undefined) {
+                        // Cas Produit Simple (Soda, Eau...)
+                        const updateSimple = await Product.findOneAndUpdate(
+                            { cafeId: req.cafeId, id: itemDb.id },
+                            { $inc: { stock: -qteCmd } },
+                            { new: true }
+                        );
                         await new Movement({ 
-                            cafeId: req.cafeId, type: 'vente_vip', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
-                            quantite: qte, ancienStock: produitMisAJour.stock + qte, nouveauStock: produitMisAJour.stock, raison: `Achat VIP #${numeroCmd}` 
+                            cafeId: req.cafeId, type: 'vente_vip', produit: updateSimple.nom, produitId: updateSimple.id, 
+                            quantite: qteCmd, ancienStock: updateSimple.stock + qteCmd, nouveauStock: updateSimple.stock, 
+                            raison: `Achat VIP #${numeroCmd}` 
                         }).save();
                     }
                 }
             }
-            io.to(req.cafeId).emit('update_stock'); // 🔥 Envoi ciblé au café !
-        }
+            io.to(req.cafeId).emit('update_stock');
+        } 
+        // CAS COMMANDE NORMALE (Gains de points seulement)
         else if (codeEnvoye && codeEnvoye !== vraiCodeServeur) {
             const clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
             if (clientVIP) {
-                clientVIP.totalDepense = parseFloat(((clientVIP.totalDepense || 0) + totalSecurise).toFixed(2));
                 clientVIP.points = parseFloat(((clientVIP.points || 0) + totalSecurise).toFixed(2));
-                messageBonus = `✨ Vous avez gagné ${totalSecurise.toFixed(2)} points fidélité avec cette commande !`;
+                messageBonus = `✨ Vous avez gagné ${totalSecurise.toFixed(2)} points !`;
                 await clientVIP.save();
             }
         }
 
+        // 4. SAUVEGARDE DE LA COMMANDE POUR LA CUISINE
         const isEnLigne = req.body.methodePaiement === 'en_ligne';
         const cmd = new Order({ 
             ...req.body, 
-            cafeId: req.cafeId, // 🔥 Sauvegarde l'appartenance
+            cafeId: req.cafeId,
             articles: articlesSecurises, id: cmdId, numero: numeroCmd, 
             date: new Date().toLocaleString('fr-FR'), timestamp: Date.now(),
             total: totalSecurise, statut: isEnLigne ? 'attente_paiement' : 'en_attente' 
@@ -570,14 +588,14 @@ for (let art of articlesSecurises) {
         await cmd.save();
 
         if (isEnLigne) {
-            const simulateurUrl = `/api/simulateur-paiement/${cmdId}`;
-            return res.status(201).json({ ...cmd._doc, payUrl: simulateurUrl, bonusInfo: messageBonus });
+            return res.status(201).json({ ...cmd._doc, payUrl: `/api/simulateur-paiement/${cmdId}`, bonusInfo: messageBonus });
         }
 
-        io.to(req.cafeId).emit('nouvelle_commande', cmd); // 🔥 Alerte la bonne cuisine !
+        io.to(req.cafeId).emit('nouvelle_commande', cmd);
         res.status(201).json({ ...cmd._doc, bonusInfo: messageBonus });
 
     } catch (err) { 
+        console.error("Erreur Commande:", err);
         res.status(500).json({ error: err.message }); 
     }
 });
@@ -942,50 +960,64 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
             if (venteExistante) return res.json({ success: true, message: "Vente ignorée" });
         }
 
-let vraiTotalReel = 0;
+        let vraiTotalReel = 0;
+
         for (let art of req.body.articles) {
-            let produitDb = null;
-            
-            // 🔥 1. Nettoyer le nom pour enlever le "+ " des suppléments
             let nomPropre = art.nom;
-            if (nomPropre && nomPropre.startsWith('+ ')) {
-                nomPropre = nomPropre.substring(2).trim();
-            }
-            
-            // 🔥 2. Chercher par ID d'abord (Sécurisé)
+            if (nomPropre && nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
+
+            let produitDb = null;
             if (art.id && !isNaN(art.id)) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
             } 
-            
-            // 🔥 3. FALLBACK : Chercher par le VRAI nom si l'ID a échoué
             if (!produitDb && nomPropre) {
                 produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
             }
-            
-                if (produitDb) {
-                // 🔥 CORRECTIF PROMO : Priorité au prix promo stocké en base
-                let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) 
-                    ? produitDb.prixPromo 
-                    : produitDb.prix;
 
+            if (produitDb) {
+                // --- 1. CALCUL DU PRIX (LOGIQUE PROMO) ---
+                let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) ? produitDb.prixPromo : produitDb.prix;
                 let prixApplique = art.isSupplement ? art.prix : prixBaseDb;
-                
-                // ⚠️ Correction du nom de la variable (vraiTotalReel au lieu de totalSecurise)
-                vraiTotalReel += (prixApplique * art.quantite); 
-                
-                if (produitDb.stock !== undefined) {
+                vraiTotalReel += (prixApplique * art.quantite);
+
+                // --- 2. GESTION DU STOCK (LOGIQUE ERP RECETTE) ---
+                if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
+                    // 🔥 CAS PRODUIT AVEC RECETTE (Ex: Pizza) -> On décrémente les COMPOSANTS
+                    for (let item of produitDb.recipe) {
+                        const ingredient = await Product.findOneAndUpdate(
+                            { cafeId: req.cafeId, id: item.ingredientId },
+                            { $inc: { stock: -(item.quantity * art.quantite) } },
+                            { new: true }
+                        );
+
+                        if (ingredient) {
+                            await new Movement({
+                                cafeId: req.cafeId, type: 'vente', produit: ingredient.nom, produitId: ingredient.id,
+                                quantite: (item.quantity * art.quantite),
+                                ancienStock: ingredient.stock + (item.quantity * art.quantite),
+                                nouveauStock: ingredient.stock,
+                                raison: `Composant de : ${produitDb.nom} (Vente ${req.body.numero})`
+                            }).save();
+                        }
+                    }
+                } else if (produitDb.stock !== undefined) {
+                    // 🔥 CAS PRODUIT COMPTABLE (Ex: Soda) -> On décrémente l'ARTICLE lui-même
                     const produitMisAJour = await Product.findOneAndUpdate(
-                        { cafeId: req.cafeId, id: produitDb.id }, { $inc: { stock: -art.quantite } }, { new: true }
+                        { cafeId: req.cafeId, id: produitDb.id },
+                        { $inc: { stock: -art.quantite } },
+                        { new: true }
                     );
 
-                    await new Movement({ 
-                        cafeId: req.cafeId, type: 'vente', produit: produitMisAJour.nom, produitId: produitMisAJour.id, 
-                        quantite: art.quantite, ancienStock: produitMisAJour.stock + art.quantite,
-                        nouveauStock: produitMisAJour.stock, raison: `Vente ${req.body.numero}` 
+                    await new Movement({
+                        cafeId: req.cafeId, type: 'vente', produit: produitMisAJour.nom, produitId: produitMisAJour.id,
+                        quantite: art.quantite,
+                        ancienStock: produitMisAJour.stock + art.quantite,
+                        nouveauStock: produitMisAJour.stock,
+                        raison: `Vente ${req.body.numero}`
                     }).save();
                 }
-            } else { 
-                vraiTotalReel += (art.prix * art.quantite); 
+            } else {
+                vraiTotalReel += (art.prix * art.quantite);
             }
         }
 
@@ -994,7 +1026,10 @@ let vraiTotalReel = 0;
         await new Sale({ ...req.body, cafeId: req.cafeId, total: vraiTotalReel }).save();
         io.to(req.cafeId).emit('update_stock');
         res.json({ success: true, totalSecurise: vraiTotalReel });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.put('/api/commandes/partiel-ids', verifierToken, async (req, res) => {

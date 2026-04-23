@@ -475,7 +475,59 @@ button:hover:not(:disabled) {
     let NB_TABLES_MAX = 160;
     for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
+    // 🔥 MOTEUR ERP CAISSE : Calcule la disponibilité réelle d'un article
+// 🔥 MOTEUR ERP CAISSE : Calcule le stock APRES simulation du ticket en cours !
+window.calculerStockReel = function(produit, simulerPanier = true) {
+    let consommation = {};
+    
+    // 1. On calcule combien d'ingrédients le ticket actuel a DÉJÀ consommé
+    if (simulerPanier && typeof currentTable !== 'undefined' && currentTable && tickets[currentTable]) {
+        tickets[currentTable].articles.forEach(art => {
+            const pDB = produits.find(p => String(p.id) === String(art.id) || String(p._id) === String(art.id) || String(p.nom) === String(art.nom));
+            if (pDB) {
+                const qte = parseInt(art.quantite) || 0;
+                if (pDB.isManufactured && pDB.recipe) {
+                    pDB.recipe.forEach(item => {
+                        const ingId = String(item.ingredientId);
+                        if (!consommation[ingId]) consommation[ingId] = 0;
+                        consommation[ingId] += (Number(item.quantity) * qte);
+                    });
+                } else if (!pDB.isManufactured) {
+                    const idDb = String(pDB.id || pDB._id);
+                    if (!consommation[idDb]) consommation[idDb] = 0;
+                    consommation[idDb] += qte;
+                }
+            }
+        });
+    }
 
+    // 2. Si c'est un produit simple direct
+    if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
+        const idProd = String(produit.id || produit._id);
+        const dejaConsomme = consommation[idProd] || 0;
+        return produit.stock !== undefined ? Math.max(0, Number(produit.stock) - dejaConsomme) : 999;
+    }
+    
+    // 3. Si c'est une recette, on calcule combien on peut ENCORE en faire
+    let maxRealisable = Infinity;
+    for (let item of produit.recipe) {
+        const ingredient = produits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
+        if (!ingredient) return 0;
+        
+        const stockInitialIng = Number(ingredient.stock) || 0;
+        const dejaConsomme = consommation[String(item.ingredientId)] || 0;
+        
+        // C'est ici que la magie opère : on soustrait ce qui est déjà dans le ticket !
+        const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
+
+        const quantiteRequise = Number(item.quantity) || 0;
+        const safeQte = quantiteRequise > 0 ? quantiteRequise : 1;
+        
+        const possible = Math.floor(stockDispo / safeQte);
+        if (possible < maxRealisable) maxRealisable = possible;
+    }
+    return maxRealisable === Infinity ? 0 : maxRealisable;
+};
     function escapeHtml(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
 
     function showNotification(msg, bg = "#1e293b") { 
@@ -605,41 +657,59 @@ function ajouterAuTicket(tableNum, produit, updateUI = true, fromServer = false)
     }
 
 function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
-        const ticket = tickets[tableNum]; if (!ticket) return;
-        
-        const index = ticket.articles.findIndex(a => 
-            String(a.id) === String(produitId) && 
-            (a.variante || null) === (variante || null) && 
-            a.envoye === isEnvoye
-        );
-        
-        if (index !== -1) {
-            const article = ticket.articles[index]; 
-            const nouvelleQuantite = article.quantite + delta;
+    const ticket = tickets[tableNum]; 
+    if (!ticket) return;
+    
+    const index = ticket.articles.findIndex(a => 
+        String(a.id) === String(produitId) && 
+        (a.variante || null) === (variante || null) && 
+        a.envoye === isEnvoye
+    );
+    
+    if (index !== -1) {
+        const article = ticket.articles[index]; 
+
+        // 🔥 CORRECTION ERP : SÉCURITÉ AU CLIC SUR LE BOUTON "+"
+        if (delta > 0 && !article.isSupplement) {
+            // On cherche le produit dans le catalogue de la caisse
+            const produitDB = produits.find(p => String(p.id) === String(article.id) || String(p._id) === String(article.id) || String(p.nom) === String(article.nom));
             
-            if (nouvelleQuantite <= 0) {
-                // 🔥 SÉCURITÉ : Si on supprime le plat principal, on supprime ses suppléments liés !
-                if (!article.isSupplement) {
-                    ticket.articles = ticket.articles.filter(a => a.parentId !== article.uniqueGroupId);
-                }
-                const indexFinal = ticket.articles.indexOf(article);
-                if (indexFinal !== -1) ticket.articles.splice(indexFinal, 1); 
-            } else {
-                article.quantite = nouvelleQuantite;
-                // 🔥 SÉCURITÉ : Si on modifie la quantité, on modifie celle des suppléments liés !
-                if (!article.isSupplement) {
-                    ticket.articles.forEach(a => {
-                        if (a.parentId === article.uniqueGroupId) a.quantite = nouvelleQuantite;
-                    });
+            if (produitDB) {
+                // On calcule s'il reste assez d'ingrédients EN SIMULANT le ticket actuel (true)
+                const dispo = window.calculerStockReel(produitDB, true); 
+                
+                if (dispo < delta) {
+                    showNotification("❌ Stock insuffisant (ingrédients épuisés)", "#ef4444");
+                    return; // On bloque l'ajout !
                 }
             }
-            
-            ticket.total = ticket.articles.reduce((sum, a) => sum + (a.prix * a.quantite), 0);
-            sauvegarderTousLesTickets();
-            if (String(currentTable) === String(tableNum)) afficherTicket();
-            afficherListeTables();
         }
+        
+        const nouvelleQuantite = article.quantite + delta;
+        
+        if (nouvelleQuantite <= 0) {
+            // 🔥 SÉCURITÉ : Si on supprime le plat principal, on supprime ses suppléments liés !
+            if (!article.isSupplement) {
+                ticket.articles = ticket.articles.filter(a => a.parentId !== article.uniqueGroupId);
+            }
+            const indexFinal = ticket.articles.indexOf(article);
+            if (indexFinal !== -1) ticket.articles.splice(indexFinal, 1); 
+        } else {
+            article.quantite = nouvelleQuantite;
+            // 🔥 SÉCURITÉ : Si on modifie la quantité, on modifie celle des suppléments liés !
+            if (!article.isSupplement) {
+                ticket.articles.forEach(a => {
+                    if (a.parentId === article.uniqueGroupId) a.quantite = nouvelleQuantite;
+                });
+            }
+        }
+        
+        ticket.total = ticket.articles.reduce((sum, a) => sum + (a.prix * a.quantite), 0);
+        sauvegarderTousLesTickets();
+        if (String(currentTable) === String(tableNum)) afficherTicket();
+        afficherListeTables();
     }
+}
 
     async function nettoyerCommandesCuisine(tableNum) {
         try {
@@ -998,49 +1068,64 @@ window.afficherTicket = function() {
     }
 
 function renderProducts() {
-        const grid = document.getElementById('productsGrid'); if (!grid) return;
-        let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
-        if (!filtered.length) { grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit</div>'; return; }
-        
-grid.innerHTML = filtered.map(p => { 
-            const stockColor = p.stock <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
-            
-            // 🔥 LOGIQUE VISUELLE PROMO
-            const prixNormal = parseFloat(p.prix || 0).toFixed(2);
-            const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
-            
-            const affichagePrix = (p.prixPromo > 0) 
-                ? `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>`
-                : `<span style="font-weight:800;">${prixNormal} DT</span>`;
+    const grid = document.getElementById('productsGrid'); 
+    if (!grid) return;
 
-            return `<div class="product-card" data-id="${p.id || p._id}">
-                        <div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">Stock: ${p.stock !== undefined ? p.stock : '∞'}</div>
-                        <div class="product-name">${escapeHtml(p.nom)}</div>
-                        <div class="product-price">${affichagePrix}</div>
-                    </div>`; 
-        }).join('');
-        
-// --- ACTION AU CLIC SUR UN PRODUIT (Optimisée) ---
-document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', (e) => { 
-    if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
-    
-    const idProd = card.dataset.id;
-    const produitFull = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
-    
-    if (!produitFull || (produitFull.stock <= 0 && produitFull.stock !== undefined)) return;
-
-    // Détection automatique : Est-ce un produit complexe ?
-    const aDesVariantes = produitFull.variantes && produitFull.variantes.trim() !== "";
-    const aDesSupplements = produitFull.supplements && produitFull.supplements.length > 0;
-
-    if (aDesVariantes || aDesSupplements) {
-        ouvrirModalOptionsCaisse(produitFull); // Ouvre la fenêtre pour choisir
-    } else {
-        ajouterProduitCaisse(produitFull, null, []); // Ajout instantané
-        if(navigator.vibrate) navigator.vibrate(20); // Retour tactile
+    let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
+    if (!filtered.length) { 
+        grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit</div>'; 
+        return; 
     }
-}));
-    }
+        
+    grid.innerHTML = filtered.map(p => { 
+        // 🔥 CORRECTION ERP : On utilise le stock calculé
+        const stockActuel = window.calculerStockReel(p, true);
+        const stockColor = stockActuel <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
+        
+        // LOGIQUE VISUELLE PROMO
+        const prixNormal = parseFloat(p.prix || 0).toFixed(2);
+        const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
+        
+        const affichagePrix = (p.prixPromo > 0) 
+            ? `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>`
+            : `<span style="font-weight:800;">${prixNormal} DT</span>`;
+
+        // Si c'est un produit à recette, on met un petit icône visuel
+        const iconeRecette = p.isManufactured ? `<i class="fas fa-blender" style="font-size:0.6rem; color:#8b5cf6;"></i> ` : '';
+
+        return `<div class="product-card" data-id="${p.id || p._id}" style="opacity: ${stockActuel <= 0 ? '0.5' : '1'};">
+                    <div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">${iconeRecette}Stock: ${stockActuel}</div>
+                    <div class="product-name">${escapeHtml(p.nom)}</div>
+                    <div class="product-price">${affichagePrix}</div>
+                </div>`; 
+    }).join('');
+        
+    // --- ACTION AU CLIC SUR UN PRODUIT (Sécurisée ERP) ---
+    document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', (e) => { 
+        if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
+        
+        const idProd = card.dataset.id;
+        const produitFull = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
+        
+        // 🔥 CORRECTION ERP : On vérifie la rupture selon le stock virtuel
+        const stockActuel = window.calculerStockReel(produitFull);
+        if (!produitFull || stockActuel <= 0) {
+            showNotification("❌ Produit en rupture de stock (Vérifiez les ingrédients)", "var(--danger)");
+            return;
+        }
+
+        // Détection automatique : Est-ce un produit complexe ?
+        const aDesVariantes = produitFull.variantes && produitFull.variantes.trim() !== "";
+        const aDesSupplements = produitFull.supplements && produitFull.supplements.length > 0;
+
+        if (aDesVariantes || aDesSupplements) {
+            ouvrirModalOptionsCaisse(produitFull); // Ouvre la fenêtre pour choisir
+        } else {
+            ajouterProduitCaisse(produitFull, null, []); // Ajout instantané
+            if(navigator.vibrate) navigator.vibrate(20); // Retour tactile
+        }
+    }));
+}
 window.ouvrirModalOptionsCaisse = function(produit) {
     produitEnAttenteCaisse = produit;
     

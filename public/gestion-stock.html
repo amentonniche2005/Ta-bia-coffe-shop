@@ -617,7 +617,77 @@ button:hover:not(:disabled) {
         let stockTri = { colonne: 'nom', asc: true };
         let toutesLesVentes = [];
         let ventesAffichees = [];
+        // 🔥 MOTEUR DE CALCUL ERP : Calcule le stock réalisable selon la recette
+// 🔥 MOTEUR ERP : Calcul du stock virtuel d'une recette
+// 🔥 MOTEUR ERP : Calcul du stock virtuel sécurisé
+window.calculerStockReel = function(produit) {
+    if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
+        return Number(produit.stock) || 0; // Matière première
+    }
+    
+    let maxRealisable = Infinity;
+    for (let item of produit.recipe) {
+        const ingredient = stockProduits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
+        if (!ingredient) return 0; // Ingrédient introuvable = 0 produit possible
+        
+        const stockIng = Number(ingredient.stock) || 0;
+        const quantiteRequise = Number(item.quantity) || 0;
+        
+        // 🛡️ SÉCURITÉ : Empêche la division par zéro si erreur de saisie
+        const safeQte = quantiteRequise > 0 ? quantiteRequise : 1; 
+        
+        const possible = Math.floor(stockIng / safeQte);
+        if (possible < maxRealisable) maxRealisable = possible;
+    }
+    return maxRealisable === Infinity ? 0 : maxRealisable;
+};
 
+// 🔥 MOTEUR ERP : Afficher/Cacher la zone Recette
+window.toggleRecipeSection = function(isManufactured, prefix = 'new') {
+    const isMan = isManufactured === 'true' || isManufactured === true;
+    document.getElementById(`recipeSection_${prefix}`).style.display = isMan ? 'block' : 'none';
+    document.getElementById(`stockInputSection_${prefix}`).style.display = isMan ? 'none' : 'block';
+};
+
+// 🔥 MOTEUR ERP : Ajouter une ligne d'ingrédient
+window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unite = 'g') {
+    const div = document.createElement('div');
+    div.className = 'recette-row';
+    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: center;';
+    
+    let optionsHtml = '<option value="">-- Choisir Matière Première --</option>';
+    stockProduits.forEach(p => {
+        const isSelected = (String(p.id) === String(idIng)) ? 'selected' : '';
+        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)} (En stock: ${p.stock})</option>`;
+    });
+
+    div.innerHTML = `
+        <select class="rec-select" style="flex: 2; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
+            ${optionsHtml}
+        </select>
+        <input type="number" step="0.01" class="rec-qte" placeholder="Qté" value="${qte}" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <select class="rec-unit" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
+            <option value="g" ${unite === 'g' ? 'selected' : ''}>g</option>
+            <option value="ml" ${unite === 'ml' ? 'selected' : ''}>ml</option>
+            <option value="u" ${unite === 'u' ? 'selected' : ''}>Unité</option>
+        </select>
+        <button type="button" onclick="this.closest('.recette-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
+    `;
+    document.getElementById(`containerRecette_${prefix}`).appendChild(div);
+};
+
+// 🔥 MOTEUR ERP : Récolter les ingrédients choisis
+window.extraireRecette = function(prefix = 'new') {
+    const rows = document.querySelectorAll(`#containerRecette_${prefix} .recette-row`);
+    const recipe = [];
+    rows.forEach(row => {
+        const id = row.querySelector('.rec-select').value;
+        const qte = parseFloat(row.querySelector('.rec-qte').value);
+        const unit = row.querySelector('.rec-unit').value;
+        if (id && qte > 0) recipe.push({ ingredientId: id, quantity: qte, unit: unit });
+    });
+    return recipe;
+};
         const escapeHtml = (text) => {
             if (!text) return text;
             return String(text).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
@@ -691,13 +761,19 @@ async function chargerDashboard() {
         let valeurTotaleAchat = 0;
         let alertes = 0;
         
-        stockProduits.forEach(p => { 
-            // 🔥 Utilisation de Number() pour éviter de coller les chiffres
-            const stockReel = Number(p.stock) || 0;
+stockProduits.forEach(p => { 
+            // On calcule le stock pour l'affichage des alertes
+            const stockActuel = calculerStockReel(p);
             const pAchat = parseFloat(p.prixAchat) || 0;
 
-            valeurTotaleAchat += (stockReel * pAchat); 
-            if (stockReel <= (Number(p.seuilAlerte) || 10)) alertes++;
+            // 🔥 CORRECTION : Le capital ne se calcule QUE sur les produits physiques
+            if (!p.isManufactured) {
+                const stockPhysique = Number(p.stock) || 0;
+                valeurTotaleAchat += (stockPhysique * pAchat); 
+            }
+
+            // L'alerte se base sur le stock calculé (virtuel ou physique)
+            if (stockActuel <= (Number(p.seuilAlerte) || 10)) alertes++;
         });
 
         document.getElementById('totalProduits').innerText = stockProduits.length;
@@ -717,37 +793,56 @@ async function chargerDashboard() {
         }
 
 function appliquerFiltresEtTriStock() {
-            const cat = document.getElementById('categorieFilter').value;
-            const etat = document.getElementById('etatFilter').value;
-            const search = document.getElementById('searchFilter').value.toLowerCase();
-            
-            let filtered = stockProduits.filter(p => {
-                const matchCat = cat === 'all' || p.categorie === cat;
-                const matchSearch = p.nom.toLowerCase().includes(search);
-                let matchEtat = true;
-                if(etat === 'rupture') matchEtat = p.stock <= 0;
-                if(etat === 'alerte') matchEtat = p.stock > 0 && p.stock <= (p.seuilAlerte || 10);
-                if(etat === 'normal') matchEtat = p.stock > (p.seuilAlerte || 10);
-                return matchCat && matchSearch && matchEtat;
-            });
+    const cat = document.getElementById('categorieFilter').value;
+    const etat = document.getElementById('etatFilter').value;
+    const search = document.getElementById('searchFilter').value.toLowerCase();
+    
+    // 1. Filtrage (Recherche, Catégorie, État du stock)
+    let filtered = stockProduits.filter(p => {
+        const matchCat = cat === 'all' || p.categorie === cat;
+        const matchSearch = p.nom.toLowerCase().includes(search);
+        
+        // 🔥 Le filtre lit le VRAI stock (calculé pour les recettes, physique pour les matières)
+        const stockActuel = calculerStockReel(p);
+        const seuil = Number(p.seuilAlerte) || 10;
 
-            filtered.sort((a, b) => {
-                let valA, valB;
-                if(stockTri.colonne === 'nom') { valA = a.nom.toLowerCase(); valB = b.nom.toLowerCase(); }
-                if(stockTri.colonne === 'stock') { valA = a.stock; valB = b.stock; }
-                if(stockTri.colonne === 'prix') { valA = a.prix; valB = b.prix; }
-                // 🔥 CORRECTION : Tri basé sur le vrai prix d'achat
-                if(stockTri.colonne === 'valeur') { 
-                    valA = Math.max(0, parseInt(a.stock) || 0) * (parseFloat(a.prixAchat) || 0); 
-                    valB = Math.max(0, parseInt(b.stock) || 0) * (parseFloat(b.prixAchat) || 0); 
-                }
-                
-                if (valA < valB) return stockTri.asc ? -1 : 1;
-                if (valA > valB) return stockTri.asc ? 1 : -1;
-                return 0;
-            });
-            afficherStockDOM(filtered);
+        let matchEtat = true;
+        if(etat === 'rupture') matchEtat = stockActuel <= 0;
+        if(etat === 'alerte') matchEtat = stockActuel > 0 && stockActuel <= seuil;
+        if(etat === 'normal') matchEtat = stockActuel > seuil;
+        
+        return matchCat && matchSearch && matchEtat;
+    });
+
+    // 2. Tri des colonnes (Nom, Stock, Prix, Valeur)
+    filtered.sort((a, b) => {
+        let valA, valB;
+        
+        if(stockTri.colonne === 'nom') { 
+            valA = a.nom.toLowerCase(); 
+            valB = b.nom.toLowerCase(); 
         }
+        if(stockTri.colonne === 'stock') { 
+            valA = calculerStockReel(a); 
+            valB = calculerStockReel(b); 
+        }
+        if(stockTri.colonne === 'prix') { 
+            valA = a.prix; 
+            valB = b.prix; 
+        }
+        if(stockTri.colonne === 'valeur') { 
+            valA = calculerStockReel(a) * (parseFloat(a.prixAchat) || 0); 
+            valB = calculerStockReel(b) * (parseFloat(b.prixAchat) || 0); 
+        }
+        
+        if (valA < valB) return stockTri.asc ? -1 : 1;
+        if (valA > valB) return stockTri.asc ? 1 : -1;
+        return 0;
+    });
+    
+    // 3. Affichage
+    afficherStockDOM(filtered);
+}
 
         function trierStock(colonne) {
             if(stockTri.colonne === colonne) stockTri.asc = !stockTri.asc;
@@ -760,26 +855,44 @@ function afficherStockDOM(produits) {
     if (!produits.length) { tbody.innerHTML = '<tr><td colspan="7">Aucun produit</td></tr>'; return; }
 
     tbody.innerHTML = produits.map(p => {
-        const stockReel = Number(p.stock) || 0;
+        // 🔥 NOUVEAU : Calcul du stock virtuel si produit manufacturé
+        const stockReel = calculerStockReel(p);
+        
         const pVente = parseFloat(p.prix) || 0;
         const pPromo = parseFloat(p.prixPromo) || 0;
         const valAchat = stockReel * (parseFloat(p.prixAchat) || 0);
 
-        // 🔥 Toujours dans un <td> pour ne pas casser l'alignement
         const htmlPrix = (pPromo > 0) 
             ? `<td><s style="color:#94a3b8; font-size:0.75rem;">${formatMoney(pVente)}</s><br><strong style="color:#e74c3c;">${formatMoney(pPromo)}</strong></td>`
             : `<td><strong>${formatMoney(pVente)}</strong></td>`;
 
+        const typeBadge = p.isManufactured 
+            ? `<span class="badge" style="background:#f3e8ff; color:#7e22ce; font-size:0.7rem;"><i class="fas fa-blender"></i> Assemblage</span>`
+            : `<span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.7rem;"><i class="fas fa-box"></i> Matière</span>`;
+
+        const seuil = Number(p.seuilAlerte) || 10;
+        let badgeClass = stockReel <= 0 ? 'badge-critical' : (stockReel <= seuil ? 'badge-low' : 'badge-normal');
+
+        const btnReception = p.isManufactured 
+            ? `<button class="btn-action" style="background:#cbd5e1; cursor:not-allowed;" title="Impossible de recevoir un produit manufacturé"><i class="fas fa-ban"></i></button>`
+            : `<button class="btn-action btn-success" onclick="ouvrirModalAjoutStock('${p.id || p._id}', '${escapeHtml(p.nom)}')"><i class="fas fa-truck-loading"></i></button>`;
+
         return `
             <tr>
-                <td data-label="Produit"><strong>${escapeHtml(p.nom)}</strong></td>
+                <td data-label="Produit">
+                    <strong>${escapeHtml(p.nom)}</strong>
+                    <div style="margin-top:4px;">${typeBadge}</div>
+                </td>
                 <td data-label="Catégorie"><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
-                <td data-label="Stock"><span class="badge">${stockReel}</span></td>
+                <td data-label="Stock">
+                    <span class="badge ${badgeClass}" style="font-size:1.1rem;">${stockReel}</span>
+                    ${p.isManufactured ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px;">Max Possible</div>` : ''}
+                </td>
                 <td data-label="Unité">${p.unite || 'unité'}</td>
                 ${htmlPrix}
                 <td data-label="Val. Achat" style="font-weight:700;">${formatMoney(valAchat)}</td>
                 <td style="text-align:center;">
-                    <button class="btn-action btn-success" onclick="ouvrirModalAjoutStock('${p.id || p._id}', '${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i></button>
+                    ${btnReception}
                     <button class="btn-action" style="background:#3498db;" onclick="ouvrirModalEdition('${p.id || p._id}')"><i class="fas fa-pen"></i></button>
                     <button class="btn-action btn-danger" onclick="supprimerProduit('${p.id || p._id}')"><i class="fas fa-trash"></i></button>
                 </td>
@@ -830,11 +943,26 @@ window.onload = appliquerBranding;
 function ouvrirModalNouveauProduit() {
     document.getElementById('modalContainer').innerHTML = `
         <div class="modal active">
-            <div class="modal-content" style="max-width:500px;">
+            <div class="modal-content" style="max-width:550px;">
                 <div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
                 
                 <div class="form-group"><label>Nom du produit :</label><input type="text" id="newProdName"></div>
                 <div class="form-group"><label>URL de la photo :</label><input type="text" id="newProdImage" placeholder="Lien .jpg"></div>
+                
+                <div class="form-group">
+                    <label>Type d'article :</label>
+                    <select id="newProdIsManufactured" onchange="toggleRecipeSection(this.value, 'new')" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
+                        <option value="false">📦 Matière / Produit Simple (Stock direct)</option>
+                        <option value="true">👨‍🍳 Produit Manufacturé (Recette / Assemblage)</option>
+                    </select>
+                </div>
+
+                <div id="recipeSection_new" style="display:none; background:#e8f4fd; padding:15px; border-radius:12px; border:1px solid #b6d4fe; margin-bottom:15px;">
+                    <label style="font-weight:800; color:#0369a1;"><i class="fas fa-blender"></i> Fiche Recette (Composants) :</label>
+                    <p style="font-size:0.75rem; color:#475569; margin-bottom:10px;">Le stock sera calculé automatiquement selon ces ingrédients.</p>
+                    <div id="containerRecette_new"></div>
+                    <button type="button" onclick="ajouterLigneRecette('new')" class="btn-action" style="background:#0284c7; color:white; font-size:0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un ingrédient</button>
+                </div>
                 
                 <div class="form-group">
                     <label>Type de choix client :</label>
@@ -844,10 +972,10 @@ function ouvrirModalNouveauProduit() {
                         <option value="multiple">☑️ Plusieurs choix</option>
                     </select>
                 </div>
-<div class="form-group">
+                <div class="form-group" id="divNewVariantes" style="display:none;">
                     <label>Options & Variantes (Optionnel) :</label>
                     <input type="text" id="newProdVariantes" placeholder="Ex: Viande[Thon,Poulet] | Sauces*[Mayo,Ketchup]">
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; line-height: 1.4;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
                         Laissez vide si le produit n'a pas d'options. <br>
                         <b>Syntaxe :</b> Groupe[Choix1, Choix2] | Ajoutez <b>*</b> pour choix multiples.
                     </div>
@@ -870,14 +998,14 @@ function ouvrirModalNouveauProduit() {
                     </select>
                 </div>
 
-<div style="display:flex; gap:10px; margin-bottom:10px;">
-    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="newProdPrixAchat" value="0" step="0.001"></div>
-    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="newProdPrice" step="0.1"></div>
-    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo (Solde):</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" placeholder="0 si pas de promo"></div>
-</div>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="newProdPrixAchat" value="0" step="0.001"></div>
+                    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="newProdPrice" step="0.1"></div>
+                    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" placeholder="0 si pas de promo"></div>
+                </div>
 
                 <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
+                    <div class="form-group" id="stockInputSection_new" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
                     <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10"></div>
                 </div>
                 
@@ -944,8 +1072,10 @@ function extraireSupplements() {
 }
 
 async function sauvegarderNouveauProduit() {
+    const isManuf = document.getElementById('newProdIsManufactured').value === 'true';
     const typeC = document.getElementById('newProdTypeChoix').value;
     const variantesInput = document.getElementById('newProdVariantes').value.trim();
+    
     const produitData = {
         nom: document.getElementById('newProdName').value.trim(),
         image: document.getElementById('newProdImage').value.trim(),
@@ -954,10 +1084,12 @@ async function sauvegarderNouveauProduit() {
         categorie: document.getElementById('newProdCat').value,
         prixAchat: parseFloat(document.getElementById('newProdPrixAchat').value) || 0,
         prix: parseFloat(document.getElementById('newProdPrice').value),
-        prixPromo: parseFloat(document.getElementById('newProdPrixPromo').value) || 0, // 🔥 NOUVEAU
-        stock: parseInt(document.getElementById('newProdStock').value) || 0,
+        prixPromo: parseFloat(document.getElementById('newProdPrixPromo').value) || 0,
+        stock: isManuf ? 0 : (parseInt(document.getElementById('newProdStock').value) || 0), // Si recette, stock = 0 physiquement
         seuilAlerte: parseInt(document.getElementById('newProdAlerte').value) || 10,
-        supplements: extraireSupplements() // 🔥 Tableau JSON construit proprement
+        supplements: extraireSupplements(),
+        isManufactured: isManuf,                 // 🔥 ERP: C'est une recette ?
+        recipe: isManuf ? extraireRecette('new') : []  // 🔥 ERP: Les ingrédients
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
@@ -1004,15 +1136,32 @@ function extraireIngredients() {
     return res;
 }
 function ouvrirModalEdition(id) {
-const p = stockProduits.find(x => String(x.id) === String(id) || String(x._id) === String(id));
+    const p = stockProduits.find(x => String(x.id) === String(id) || String(x._id) === String(id));
     if(!p) return;
+    
+    const isManuf = p.isManufactured === true;
+
     document.getElementById('modalContainer').innerHTML = `
         <div class="modal active">
-            <div class="modal-content" style="max-width:500px;">
+            <div class="modal-content" style="max-width:550px;">
                 <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
                 
                 <div class="form-group"><label>Nom :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
                 <div class="form-group"><label>URL Photo :</label><input type="text" id="editProdImage" value="${p.image || ''}"></div>
+
+                <div class="form-group">
+                    <label>Type d'article :</label>
+                    <select id="editProdIsManufactured" onchange="toggleRecipeSection(this.value, 'edit')" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
+                        <option value="false" ${!isManuf ? 'selected' : ''}>📦 Matière / Produit Simple (Stock direct)</option>
+                        <option value="true" ${isManuf ? 'selected' : ''}>👨‍🍳 Produit Manufacturé (Recette / Assemblage)</option>
+                    </select>
+                </div>
+
+                <div id="recipeSection_edit" style="display:${isManuf ? 'block' : 'none'}; background:#e8f4fd; padding:15px; border-radius:12px; border:1px solid #b6d4fe; margin-bottom:15px;">
+                    <label style="font-weight:800; color:#0369a1;"><i class="fas fa-blender"></i> Fiche Recette (Composants) :</label>
+                    <div id="containerRecette_edit"></div>
+                    <button type="button" onclick="ajouterLigneRecette('edit')" class="btn-action" style="background:#0284c7; color:white; font-size:0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un ingrédient</button>
+                </div>
 
                 <div class="form-group">
                     <label>Type de choix client :</label>
@@ -1022,7 +1171,7 @@ const p = stockProduits.find(x => String(x.id) === String(id) || String(x._id) =
                         <option value="multiple" ${p.typeChoix==='multiple'?'selected':''}>☑️ Multiple</option>
                     </select>
                 </div>
-<div class="form-group">
+                <div class="form-group" id="divEditVariantes" style="display:${p.typeChoix==='aucun'?'none':'block'};">
                     <label>Options & Variantes :</label>
                     <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Viande[Thon,Poulet] | Sauces*[Mayo,Ketchup]">
                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
@@ -1058,30 +1207,35 @@ const p = stockProduits.find(x => String(x.id) === String(id) || String(x._id) =
                     </select>
                 </div>
 
-<div style="display:flex; gap:10px; margin-bottom:10px;">
-    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="editProdPrixAchat" value="${p.prixAchat || 0}" step="0.001"></div>
-    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="editProdPrice" value="${p.prix}" step="0.1"></div>
-    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo (Solde):</label><input type="number" id="editProdPrixPromo" step="0.1" value="${p.prixPromo || 0}" placeholder="0 si pas de promo"></div>
-</div>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="editProdPrixAchat" value="${p.prixAchat || 0}" step="0.001"></div>
+                    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="editProdPrice" value="${p.prix}" step="0.1"></div>
+                    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="editProdPrixPromo" step="0.1" value="${p.prixPromo || 0}"></div>
+                </div>
 
                 <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:1;"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
+                    <div class="form-group" id="stockInputSection_edit" style="flex:1; display:${isManuf ? 'none' : 'block'};"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
                     <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
                 </div>
 
-                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit(${p.id})"><i class="fas fa-sync"></i> Mettre à jour</button></div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit('${p.id || p._id}')"><i class="fas fa-sync"></i> Mettre à jour</button></div>
             </div>
         </div>`;
     
-    // Recharge les suppléments existants
-if (p.supplements && Array.isArray(p.supplements)) {
+    if (p.supplements && Array.isArray(p.supplements)) {
         p.supplements.forEach(s => ajouterLigneSupplement(s.id || s._id, s.nom, s.prix)); 
+    }
+    // Recharge la recette existante si c'est un produit manufacturé
+    if (isManuf && p.recipe && Array.isArray(p.recipe)) {
+        p.recipe.forEach(r => ajouterLigneRecette('edit', r.ingredientId, r.quantity, r.unit));
     }
 }
 
 async function sauvegarderEditionProduit(id) {
+    const isManuf = document.getElementById('editProdIsManufactured').value === 'true';
     const typeC = document.getElementById('editProdTypeChoix').value;
     const variantesInput = document.getElementById('editProdVariantes').value.trim();
+    
     const produitData = {
         nom: document.getElementById('editProdName').value.trim(),
         image: document.getElementById('editProdImage').value.trim(),
@@ -1090,10 +1244,12 @@ async function sauvegarderEditionProduit(id) {
         categorie: document.getElementById('editProdCat').value,
         prixAchat: parseFloat(document.getElementById('editProdPrixAchat').value) || 0,
         prix: parseFloat(document.getElementById('editProdPrice').value),
-        prixPromo: parseFloat(document.getElementById('editProdPrixPromo').value) || 0, // 🔥 CORRIGÉ (editProdPrixPromo au lieu de newProdPrixPromo)// 🔥 NOUVEAU
-        stock: parseInt(document.getElementById('editProdStock').value) || 0,
+        prixPromo: parseFloat(document.getElementById('editProdPrixPromo').value) || 0,
+        stock: isManuf ? 0 : (parseInt(document.getElementById('editProdStock').value) || 0),
         seuilAlerte: parseInt(document.getElementById('editProdAlerte').value) || 10,
-        supplements: extraireSupplements() // 🔥 Tableau JSON construit proprement
+        supplements: extraireSupplements(),
+        isManufactured: isManuf,
+        recipe: isManuf ? extraireRecette('edit') : []
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
@@ -1162,16 +1318,23 @@ async function sauvegarderEditionProduit(id) {
         }
 
 function exporterStockCSV() {
-            let csv = "Produit,Catégorie,Stock_Actuel,Seuil_Alerte,Unité,Prix_Achat,Prix_Vente,Valeur_Stock_Totale\n";
+            // 🔥 CORRECTION : Entêtes plus précises pour l'ERP
+            let csv = "Produit,Catégorie,Type,Stock_Physique,Disponibilite_Virtuelle,Unité,Prix_Achat,Prix_Vente,Valeur_Immobilisee\n";
+            
             stockProduits.forEach(p => {
-                // 🔥 CORRECTION : Ajout de pAchat
+                const stockPhysique = Number(p.stock) || 0;
+                const dispoVirtuelle = calculerStockReel(p);
                 const pAchat = parseFloat(p.prixAchat) || 0;
-                const valStock = Math.max(0, parseInt(p.stock) || 0) * pAchat;
+                const typeProd = p.isManufactured ? "Manufacturé (Recette)" : "Matière Première";
                 
-                csv += `"${p.nom}","${getCatName(p.categorie)}",${p.stock},${p.seuilAlerte || 10},"${p.unite || ''}",${pAchat},${p.prix},${valStock.toFixed(3)}\n`;
+                // La valeur du stock ne se calcule QUE sur le stock physique réel
+                const valStock = !p.isManufactured ? (Math.max(0, stockPhysique) * pAchat) : 0;
+                
+                csv += `"${p.nom}","${getCatName(p.categorie)}","${typeProd}",${stockPhysique},${dispoVirtuelle},"${p.unite || ''}",${pAchat},${p.prix},${valStock.toFixed(3)}\n`;
             });
+            
             const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Stock_${new Date().toISOString().slice(0,10)}.csv`;
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Stock_ERP_${new Date().toISOString().slice(0,10)}.csv`;
             a.click(); URL.revokeObjectURL(a.href);
         }
 
@@ -1239,15 +1402,17 @@ function exporterStockCSV() {
                 }
 
                 // Filtrer les produits dont le stock est <= à leur propre seuil (ou 10 par défaut)
-                const alertes = stockProduits.filter(p => p.stock !== undefined && p.stock <= (p.seuilAlerte || 10));
-
+                    const alertes = stockProduits.filter(p => {
+                    const stockActuel = calculerStockReel(p);
+                    return stockActuel <= (Number(p.seuilAlerte) || 10);
+                });
                 if(!alertes.length) { 
                     tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-check-circle fa-2x" style="color:var(--success); display:block; margin-bottom:10px;"></i>Aucune alerte à traiter. Tout va bien !</td></tr>'; 
                     return; 
                 }
 
                 tbody.innerHTML = alertes.map(p => {
-                    const isRupture = p.stock <= 0;
+                    const isRupture = calculerStockReel(p) <= 0;
                     return `
                     <tr style="background: ${isRupture ? '#fff5f5' : '#fffbeb'}">
                         <td>
@@ -1255,7 +1420,7 @@ function exporterStockCSV() {
                             <div style="font-size:0.75rem; color:var(--text-muted);">${isRupture ? 'Rupture' : 'Stock critique'}</div>
                         </td>
                         <td><strong style="color:var(--danger);">${escapeHtml(p.nom)}</strong></td>
-                        <td><span class="badge ${isRupture ? 'badge-critical' : 'badge-low'}" style="font-size:1rem;">${p.stock}</span></td>
+                        <td><span class="badge ${isRupture ? 'badge-critical' : 'badge-low'}" style="font-size:1rem;">${calculerStockReel(p)}</span></td>
                         <td><span style="color:var(--text-muted);">Seuil: ${p.seuilAlerte || 10}</span></td>
                         <td style="text-align:right;">
                             <button class="btn-action btn-success" style="padding:0.4rem 0.8rem;" onclick="ouvrirModalAjoutStock(${p.id},'${escapeHtml(p.nom)}')"><i class="fas fa-plus"></i> Commander</button>
@@ -1273,15 +1438,20 @@ function demarrerInventaire() {
             document.getElementById('inventaireForm').style.display = 'block';
             const tbody = document.getElementById('inventaireTableBody');
             
-            if(!stockProduits.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Aucun produit en base</td></tr>'; return; }
+            // 🔥 CORRECTION : On exclut les produits manufacturés de l'audit physique
+            const produitsAInventorier = stockProduits.filter(p => !p.isManufactured);
 
-            tbody.innerHTML = stockProduits.map(p => {
-                // 🔥 CORRECTION : Utilisation du prix d'achat
+            if(!produitsAInventorier.length) { 
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Aucune matière première en base</td></tr>'; 
+                return; 
+            }
+
+            tbody.innerHTML = produitsAInventorier.map(p => {
                 const stockReel = parseInt(p.stock) || 0;
                 const prixAchatCalc = parseFloat(p.prixAchat) || 0;
 
                 return `
-                <tr data-id="${p.id}" data-theorique="${stockReel}" data-prixachat="${prixAchatCalc}">
+                <tr data-id="${p.id || p._id}" data-theorique="${stockReel}" data-prixachat="${prixAchatCalc}">
                     <td><strong>${escapeHtml(p.nom)}</strong><div style="font-size:0.7rem; color:var(--text-muted);">${p.unite || 'unité'}</div></td>
                     <td style="text-align:center; font-size:1.1rem; color:var(--text-muted); font-weight:600;">${stockReel}</td>
                     <td style="text-align:center;"><input type="number" class="inv-physique" value="${stockReel}" oninput="calculerEcartInventaire()"></td>
