@@ -660,41 +660,52 @@ function ajouterAuTicket(tableNum, produit, updateUI = true, fromServer = false)
         if (updateUI) { if (String(currentTable) === String(tableNum)) afficherTicket(); afficherListeTables(); }
     }
 
-async function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) {
+// Verrou de sécurité global pour éviter les doubles clics rapides
+window.isModifyingQuantity = false;
+
+async function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye, uniqueGroupId = null) {
+    // 1. Verrou : Si une modification est déjà en cours, on ignore le clic
+    if (window.isModifyingQuantity) return;
+    
     const ticket = tickets[tableNum]; 
     if (!ticket) return;
     
-    const index = ticket.articles.findIndex(a => 
-        String(a.id) === String(produitId) && 
-        (a.variante || null) === (variante || null) && 
-        a.envoye === isEnvoye
-    );
+    // 2. Recherche précise : on utilise le uniqueGroupId si disponible, sinon la méthode classique
+    const index = ticket.articles.findIndex(a => {
+        if (uniqueGroupId) {
+            return String(a.uniqueGroupId) === String(uniqueGroupId) && a.envoye === isEnvoye;
+        }
+        return String(a.id) === String(produitId) && 
+               (a.variante || null) === (variante || null) && 
+               a.envoye === isEnvoye;
+    });
     
     if (index !== -1) {
+        window.isModifyingQuantity = true; // On active le verrou
+        
         const article = ticket.articles[index]; 
+        const nouvelleQuantite = article.quantite + delta;
 
-        // 1. SÉCURITÉ AJOUT (+) : Vérification du stock virtuel
+        // SÉCURITÉ AJOUT (+)
         if (delta > 0 && !article.isSupplement) {
-            const produitDB = produits.find(p => String(p.id) === String(article.id) || String(p._id) === String(article.id) || String(p.nom) === String(article.nom));
+            const produitDB = produits.find(p => String(p.id) === String(article.id) || String(p._id) === String(article.id));
             if (produitDB) {
                 const dispo = window.calculerStockReel(produitDB, true); 
                 if (dispo < delta) {
                     showNotification("❌ Stock insuffisant", "#ef4444");
+                    window.isModifyingQuantity = false;
                     return; 
                 }
             }
         }
         
-        const nouvelleQuantite = article.quantite + delta;
-        
-        // 2. LOGIQUE DE SUPPRESSION (QUANTITÉ <= 0)
+        // LOGIQUE DE SUPPRESSION (QUANTITÉ <= 0)
         if (nouvelleQuantite <= 0) {
             const msgConfirm = isEnvoye 
-                ? "⚠️ Cet article est déjà en cuisine. Voulez-vous vraiment l'ANNULER ?\n(Le stock sera rendu si la préparation n'a pas commencé)" 
-                : "Retirer cet article du ticket ?";
+                ? "⚠️ Annuler cet article en cuisine ?" 
+                : "Retirer cet article ?";
 
             if (confirm(msgConfirm)) {
-                // Cas A : Article déjà envoyé en cuisine -> On informe le serveur
                 if (isEnvoye && article.cmdId) {
                     try {
                         const response = await fetchSecurise('/api/commandes/annuler-article-unique', {
@@ -705,46 +716,47 @@ async function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye) 
                                 uniqueGroupId: article.uniqueGroupId
                             })
                         });
-                        if (!response.ok) throw new Error("Erreur serveur");
-                        showNotification("✅ Article annulé en cuisine");
+                        if (!response.ok) throw new Error();
+                        showNotification("✅ Annulé");
                     } catch (e) {
-                        showNotification("❌ Erreur lors de l'annulation serveur", "error");
-                        return; // On arrête tout pour ne pas désynchroniser la caisse
+                        showNotification("❌ Erreur serveur", "error");
+                        window.isModifyingQuantity = false;
+                        return;
                     }
                 }
-
-                // Cas B : Nettoyage local du ticket (Plat + ses suppléments)
+                // Suppression locale (Plat + Suppléments)
                 ticket.articles = ticket.articles.filter(a => 
-                    !(String(a.id) === String(article.id) && a.uniqueGroupId === article.uniqueGroupId && a.envoye === isEnvoye) &&
-                    !(a.parentId === article.uniqueGroupId)
+                    !(String(a.uniqueGroupId) === String(article.uniqueGroupId)) &&
+                    !(String(a.parentId) === String(article.uniqueGroupId))
                 );
-            } else {
-                return; // L'utilisateur a annulé l'action
             }
         } 
-        // 3. LOGIQUE DE MISE À JOUR SIMPLE
+        // MISE À JOUR SIMPLE
         else {
             article.quantite = nouvelleQuantite;
-            // Si c'est un plat, on met à jour la quantité de ses suppléments liés
+            // Synchronisation des suppléments
             if (!article.isSupplement) {
                 ticket.articles.forEach(a => {
-                    if (a.parentId === article.uniqueGroupId) a.quantite = nouvelleQuantite;
+                    if (String(a.parentId) === String(article.uniqueGroupId)) {
+                        a.quantite = nouvelleQuantite;
+                    }
                 });
             }
         }
         
-        // Mise à jour finale du ticket
         ticket.total = ticket.articles.reduce((sum, a) => sum + (parseFloat(a.prix) * a.quantite), 0);
-        sauvegarderTousLesTickets();
+        await sauvegarderTousLesTickets();
         
         if (String(currentTable) === String(tableNum)) {
             afficherTicket();
-            renderProducts(); // Rafraîchit les visuels de stock
+            renderProducts();
         }
         afficherListeTables();
+        
+        // 3. Libération du verrou après un court délai (anti-rebond)
+        setTimeout(() => { window.isModifyingQuantity = false; }, 100);
     }
 }
-
     async function nettoyerCommandesCuisine(tableNum) {
         try {
             await fetchSecurise(`/api/commandes/table/${tableNum}/paye`, { method: 'PUT' });
@@ -1038,7 +1050,7 @@ window.afficherTicket = function() {
     else labelSpan.innerText = `Table ${currentTable}`;
     
     if (!ticket || !ticket.articles || ticket.articles.length === 0) { 
-        itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-shopping-basket" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; 
+        itemsDiv.innerHTML = '<div class="empty-message"><i class="fas fa-trash-alt" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 10px;"></i>Ticket vide</div>'; 
         totalSpan.innerText = "0.00 DT"; countSpan.innerText = "0 art."; return; 
     }
     
@@ -1053,47 +1065,50 @@ window.afficherTicket = function() {
         
         const varianteVar = item.variante ? `'${item.variante.replace(/'/g, "\\'")}'` : 'null'; 
         const envoyeVar = item.envoye ? 'true' : 'false';
+        const groupId = item.uniqueGroupId ? `'${item.uniqueGroupId}'` : 'null';
         
         let badgeCuisine = '';
         let lockIcon = '';
-        let zoneQuantite = ''; 
-        
-        // 🔥 LOGIQUE DE SUPPRESSION (BOUTON POUBELLE)
-        // On crée un bouton qui retire toute la quantité d'un coup
-        const btnSupprimer = `
-            <button onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -${qte}, ${envoyeVar})" 
-                    style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:1.1rem; margin-right:10px; padding:5px;" 
-                    title="Supprimer l'article">
-                <i class="fas ${item.envoye ? 'fa-times-circle' : 'fa-trash-alt'}"></i>
+        let zoneAction = ''; 
+
+        // 🔥 BOUTON POUBELLE (Avec stopPropagation et groupId)
+        const btnTrash = `
+            <button onclick="event.stopPropagation(); modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -${qte}, ${envoyeVar}, ${groupId})" 
+                    style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:1.2rem; margin-right:15px; display:flex; align-items:center;" 
+                    title="Supprimer">
+                <i class="fas ${item.envoye ? 'fa-minus-circle' : 'fa-trash-alt'}"></i>
             </button>`;
 
         if (!item.envoye) {
             badgeCuisine = `<span style="background:#fee2e2; color:#b91c1c; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;">Nouveau</span>`;
-            zoneQuantite = `
-                <div class="qty-control">
-                    <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, false)"><i class="fas fa-minus"></i></button>
-                    <span>${qte}</span>
-                    <button type="button" onclick="modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, false)"><i class="fas fa-plus"></i></button>
+            zoneAction = `
+                <div style="display:flex; align-items:center;">
+                    ${btnTrash}
+                    <div class="qty-control">
+                        <button type="button" onclick="event.stopPropagation(); modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, false, ${groupId})"><i class="fas fa-minus"></i></button>
+                        <span>${qte}</span>
+                        <button type="button" onclick="event.stopPropagation(); modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, 1, false, ${groupId})"><i class="fas fa-plus"></i></button>
+                    </div>
                 </div>`;
         } else if (!item.pret && item.cmdId) {
             badgeCuisine = `<span style="background:#fef3c7; color:#d97706; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;"><i class="fas fa-fire fa-fade"></i> En cuisine</span>`;
             lockIcon = `<i class="fas fa-lock" style="color:#d97706; font-size:0.9rem; margin-right:6px;"></i>`;
-            zoneQuantite = `<span style="font-weight:900; font-size:1.1rem; color:#d97706; margin-right:10px;">${qte}x</span>`;
+            zoneAction = `<div style="display:flex; align-items:center;">${btnTrash} <span style="font-weight:900; font-size:1.1rem; color:#d97706; margin-left:10px;">${qte}x</span></div>`;
         } else {
             badgeCuisine = `<span style="background:#dcfce7; color:#166534; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:5px;"><i class="fas fa-check-double"></i> Prêt</span>`;
-            zoneQuantite = `<span style="font-weight:900; font-size:1.1rem; color:#166534; margin-right:10px;">${qte}x</span>`;
+            zoneAction = `<div style="display:flex; align-items:center;">${btnTrash} <span style="font-weight:900; font-size:1.1rem; color:#166534; margin-left:10px;">${qte}x</span></div>`;
         }
 
         const mesSupps = ticket.articles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === item.uniqueGroupId);
 
-        html += `<div class="ticket-item" style="border-bottom: ${mesSupps.length > 0 ? 'none' : '1px solid #f1f5f9'}; padding-bottom: ${mesSupps.length > 0 ? '0' : '0.8rem'};">
+        html += `<div class="ticket-item" style="border-bottom: ${mesSupps.length > 0 ? 'none' : '1px solid #f1f5f9'};">
                     <div class="item-info">
                         <div class="item-name">${lockIcon}${escapeHtml(item.nom)} ${item.variante ? ` <span style="font-size:0.75rem; color:var(--primary-orange);">(${item.variante})</span>` : ''} ${badgeCuisine}</div>
                         <div class="item-price">${prix.toFixed(2)} DT / u</div>
                     </div>
                     <div class="item-actions">
-                        ${btnSupprimer} ${zoneQuantite}
-                        <div class="item-total-price">${itemTotal.toFixed(2)}</div>
+                        ${zoneAction}
+                        <div class="item-total-price" style="margin-left:15px;">${itemTotal.toFixed(2)}</div>
                     </div>
                  </div>`;
 
@@ -1101,7 +1116,7 @@ window.afficherTicket = function() {
             const suppTotal = (parseFloat(supp.prix) * supp.quantite).toFixed(2);
             html += `<div class="ticket-item" style="padding-left: 25px; font-size: 0.9rem; color: var(--text-muted); border-bottom: none; padding-top: 4px; padding-bottom: 4px;">
                         <div class="item-info">
-                            <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(supp.nom.replace('+ ', ''))} ${!supp.envoye ? badgeCuisine : ''}</div>
+                            <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(supp.nom.replace('+ ', ''))}</div>
                         </div>
                         <div class="item-actions">
                             <div class="item-total-price" style="font-size: 0.9rem;">+${suppTotal}</div>
@@ -1110,19 +1125,6 @@ window.afficherTicket = function() {
         });
 
         if (mesSupps.length > 0) html += `<div style="border-bottom: 1px solid #f1f5f9; width: 100%; margin-top: 4px;"></div>`;
-    });
-
-    const orphelins = ticket.articles.filter(a => (a.isSupplement || (a.nom && a.nom.startsWith('+'))) && !a.parentId);
-    orphelins.forEach(supp => {
-        const suppTotal = (parseFloat(supp.prix) * supp.quantite).toFixed(2);
-        html += `<div class="ticket-item" style="padding-left: 25px; font-size: 0.9rem; color: var(--text-muted); padding-top: 4px;">
-                    <div class="item-info">
-                        <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(supp.nom.replace('+ ', ''))}</div>
-                    </div>
-                    <div class="item-actions">
-                        <div class="item-total-price" style="font-size: 0.9rem;">+${suppTotal}</div>
-                    </div>
-                 </div>`;
     });
     
     itemsDiv.innerHTML = html; 
