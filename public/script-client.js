@@ -5,9 +5,7 @@ let produits = [];
 let categorieActuelle = "all";
 let clientId = null;
 let NB_TABLES_MAX = 160;
-// 🔥 MOTEUR ERP CLIENT : Calcule le stock réel d'un article
-// 🔥 MOTEUR ERP CLIENT : Calcule le stock réel tenant compte du panier
-// 🔥 MOTEUR ERP CLIENT : Calcule le stock réel tenant compte du panier ET DES SUPPLÉMENTS
+window.escapeHtml = function(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; };
 window.calculerStockReel = function(produit, simulerPanier = true) {
     let consommation = {};
     
@@ -543,7 +541,7 @@ window.ouvrirModalOptions = function(produit, options) {
 };
 
 // 🔥 NOUVEAU : Calcul dynamique du prix total en bas de la modale
-function mettreAJourTotalModal() {
+window.mettreAJourTotalModal = function() {
     let total = prixBaseEnAttente;
     const suppChecked = document.querySelectorAll('input[name="supplementOption"]:checked');
     
