@@ -617,9 +617,19 @@ button:hover:not(:disabled) {
         let stockTri = { colonne: 'nom', asc: true };
         let toutesLesVentes = [];
         let ventesAffichees = [];
-        // 🔥 MOTEUR DE CALCUL ERP : Calcule le stock réalisable selon la recette
-// 🔥 MOTEUR ERP : Calcul du stock virtuel d'une recette
-// 🔥 MOTEUR ERP : Calcul du stock virtuel sécurisé
+        const CONVERSIONS = {
+            'mg': 0.001, 'g': 1, 'kg': 1000,
+            'ml': 1, 'cl': 10, 'L': 1000,
+            'cac': 5, 'cas': 15,
+            'u': 1, 'portion': 1
+        };
+
+        window.convertirQuantite = function(valeur, uniteSource, uniteCible) {
+            const facteurSource = CONVERSIONS[uniteSource] || 1;
+            const facteurCible = CONVERSIONS[uniteCible] || 1;
+            return (valeur * facteurSource) / facteurCible;
+        };
+// 🔥 MOTEUR ERP : Calcul du stock virtuel sécurisé (AVEC CONVERSION)
 window.calculerStockReel = function(produit) {
     if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
         return Number(produit.stock) || 0; // Matière première
@@ -631,10 +641,14 @@ window.calculerStockReel = function(produit) {
         if (!ingredient) return 0; // Ingrédient introuvable = 0 produit possible
         
         const stockIng = Number(ingredient.stock) || 0;
-        const quantiteRequise = Number(item.quantity) || 0;
+        const unitStock = ingredient.unite || 'g'; // L'unité du sac en réserve
+        const unitRecette = item.unit || 'g';      // L'unité dans la recette
         
-        // 🛡️ SÉCURITÉ : Empêche la division par zéro si erreur de saisie
-        const safeQte = quantiteRequise > 0 ? quantiteRequise : 1; 
+        // 🔥 On convertit la quantité de la recette vers l'unité du stock
+        const qteRecetteConvertie = window.convertirQuantite(Number(item.quantity) || 0, unitRecette, unitStock);
+        
+        // 🛡️ SÉCURITÉ : Empêche la division par zéro
+        const safeQte = qteRecetteConvertie > 0 ? qteRecetteConvertie : 1; 
         
         const possible = Math.floor(stockIng / safeQte);
         if (possible < maxRealisable) maxRealisable = possible;

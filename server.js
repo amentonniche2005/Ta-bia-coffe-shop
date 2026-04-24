@@ -13,7 +13,19 @@ const io = socketIo(server, { cors: { origin: "*" } });
 
 const PORT = process.env.PORT || 3000;
 const SUPER_ADMIN_TOKEN = process.env.SUPER_ADMIN_TOKEN || 'SARBINI_BOSS_2026';
+// 🔥 MOTEUR DE CONVERSION DES UNITÉS ERP
+const CONVERSIONS = {
+    'mg': 0.001, 'g': 1, 'kg': 1000,
+    'ml': 1, 'cl': 10, 'L': 1000,
+    'cac': 5, 'cas': 15,
+    'u': 1, 'portion': 1
+};
 
+function calculerQuantiteDestockage(qteRecette, uniteRecette, uniteStock) {
+    const facteurRecette = CONVERSIONS[uniteRecette] || 1;
+    const facteurStock = CONVERSIONS[uniteStock] || 1;
+    return (qteRecette * facteurRecette) / facteurStock;
+}
 // 🛡️ B. LE GARDE-BARRIÈRE (Bloque les faux sites ET les abonnements impayés)
 const verifierExistenceCafe = async (req, res, next) => {
     const host = req.headers.host || ''; 
@@ -497,22 +509,27 @@ app.post('/api/commandes', async (req, res) => {
                     totalSecurise += (prixApplique * qteCmd);
                     articlesSecurises.push({ ...art, prix: prixApplique });
 
-                    // 🔥 DÉSTOCKAGE DU SUPPLÉMENT IMMÉDIAT
+                    // 🔥 DÉSTOCKAGE DU SUPPLÉMENT AVEC CONVERSION
                     if (configSupp && configSupp.ingredientId) {
                         let queryIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
-                        const qteADeduireTotal = (configSupp.quantiteADeduire || 0) * qteCmd;
+                        const ingDb = await Product.findOne({ cafeId: req.cafeId, ...queryIng });
+                        
+                        if (ingDb) {
+                            const qteBase = (configSupp.quantiteADeduire || 0) * qteCmd;
+                            const qteADeduireTotal = calculerQuantiteDestockage(qteBase, configSupp.unite || 'g', ingDb.unite || 'g');
 
-                        const ing = await Product.findOneAndUpdate(
-                            { cafeId: req.cafeId, ...queryIng },
-                            { $inc: { stock: -qteADeduireTotal } },
-                            { new: true }
-                        );
-                        if (ing) {
-                            await new Movement({
-                                cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id || ing._id,
-                                quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
-                                raison: `Supplément : ${nomPropre} pour ${parentDb.nom}`
-                            }).save();
+                            const ing = await Product.findOneAndUpdate(
+                                { cafeId: req.cafeId, ...queryIng },
+                                { $inc: { stock: -qteADeduireTotal } },
+                                { new: true }
+                            );
+                            if (ing) {
+                                await new Movement({
+                                    cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id || ing._id,
+                                    quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
+                                    raison: `Supplément : ${nomPropre} pour ${parentDb.nom}`
+                                }).save();
+                            }
                         }
                     }
                 } else {
@@ -521,7 +538,7 @@ app.post('/api/commandes', async (req, res) => {
                 }
             } 
             // ==========================================
-            // CAS 2 : C'EST UN PRODUIT NORMAL
+            // CAS 2 : C'EST UN PRODUIT NORMAL (Matière ou Recette)
             // ==========================================
             else {
                 let produitDb = null;
@@ -536,23 +553,28 @@ app.post('/api/commandes', async (req, res) => {
                     totalSecurise += (prixBaseDb * qteCmd);
                     articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, baseId: produitDb.id || produitDb._id, nom: produitDb.nom });
 
-                    // 🔥 DÉSTOCKAGE DU PRODUIT IMMÉDIAT
+                    // 🔥 DÉSTOCKAGE DU PRODUIT AVEC CONVERSION
                     if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
                         for (let comp of produitDb.recipe) {
                             let queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                            const qteADeduireTotal = (comp.quantity || 0) * qteCmd;
+                            const ingDb = await Product.findOne({ cafeId: req.cafeId, ...queryIng });
+                            
+                            if (ingDb) {
+                                const qteBase = (comp.quantity || 0) * qteCmd;
+                                const qteADeduireTotal = calculerQuantiteDestockage(qteBase, comp.unit || 'g', ingDb.unite || 'g');
 
-                            const ing = await Product.findOneAndUpdate(
-                                { cafeId: req.cafeId, ...queryIng },
-                                { $inc: { stock: -qteADeduireTotal } },
-                                { new: true }
-                            );
-                            if (ing) {
-                                await new Movement({
-                                    cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id || ing._id,
-                                    quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
-                                    raison: `Composant de : ${produitDb.nom}`
-                                }).save();
+                                const ing = await Product.findOneAndUpdate(
+                                    { cafeId: req.cafeId, ...queryIng },
+                                    { $inc: { stock: -qteADeduireTotal } },
+                                    { new: true }
+                                );
+                                if (ing) {
+                                    await new Movement({
+                                        cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id || ing._id,
+                                        quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
+                                        raison: `Composant de : ${produitDb.nom}`
+                                    }).save();
+                                }
                             }
                         }
                     } else if (produitDb.stock !== undefined && !produitDb.isManufactured) {
@@ -579,7 +601,7 @@ app.post('/api/commandes', async (req, res) => {
         
         io.to(req.cafeId).emit('update_stock');
 
-        // 🔥 GESTION DES PAIEMENTS VIP (Logique Originale Intacte)
+        // 🔥 GESTION DES PAIEMENTS VIP
         let messageBonus = null;
         if (req.body.methodePaiement === 'carte_fidelite') {
             const clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
@@ -587,7 +609,7 @@ app.post('/api/commandes', async (req, res) => {
             if (clientVIP.solde < totalSecurise) return res.status(400).json({ error: `Solde insuffisant.` });
 
             clientVIP.solde = parseFloat((clientVIP.solde - totalSecurise).toFixed(2));
-            clientVIP.points = parseFloat(((clientVIP.points || 0) + totalSecurise).toFixed(2)); // 🔥 GAGNE SES POINTS
+            clientVIP.points = parseFloat(((clientVIP.points || 0) + totalSecurise).toFixed(2));
             messageBonus = `✨ Vous avez gagné ${totalSecurise.toFixed(2)} points fidélité !`;
             await clientVIP.save();
 
@@ -1132,17 +1154,13 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
         const commande = await Order.findOne({ cafeId: req.cafeId, id: orderId });
         if (!commande) return res.status(404).json({ error: "Commande introuvable" });
 
-        // 1. On vérifie si on rend le stock (uniquement si en attente)
         const doitRestituerStock = (commande.statut === 'en_attente');
-
-        // 2. On trouve l'article principal et ses suppléments dans la commande
         const itemsDuGroupe = commande.articles.filter(a => 
             String(a.uniqueGroupId) === String(uniqueGroupId) || String(a.parentId) === String(uniqueGroupId)
         );
 
         if (doitRestituerStock) {
             for (let art of itemsDuGroupe) {
-                // 🔥 LA CORRECTION : On ne rend le stock que pour UNE SEULE unité (quantité: 1)
                 let nomPropre = art.nom || "";
                 if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
 
@@ -1155,27 +1173,47 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
                 if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
 
                 if (produitDb) {
-                    if (produitDb.isManufactured && produitDb.recipe) {
-                        for (let comp of produitDb.recipe) {
-                            const qteARendre = (comp.quantity || 0) * 1; // Uniquement 1 unité
-                            const qIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                            await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
+                    // SI C'EST UN SUPPLÉMENT (Il a un parentId)
+                    if (art.isSupplement && art.parentId) {
+                        const configSupp = produitDb.supplements?.find(s => s.nom === nomPropre);
+                        if (configSupp && configSupp.ingredientId) {
+                            const qIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
+                            const ingDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
+                            if (ingDb) {
+                                // Conversion pour 1 seule unité
+                                const qteARendre = calculerQuantiteDestockage((configSupp.quantiteADeduire || 0) * 1, configSupp.unite || 'g', ingDb.unite || 'g');
+                                await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
+                            }
                         }
-                    } else {
+                    } 
+                    // SI C'EST UN PLAT AVEC RECETTE
+                    else if (produitDb.isManufactured && produitDb.recipe) {
+                        for (let comp of produitDb.recipe) {
+                            const qIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
+                            const ingDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
+                            if (ingDb) {
+                                // Conversion pour 1 seule unité
+                                const qteARendre = calculerQuantiteDestockage((comp.quantity || 0) * 1, comp.unit || 'g', ingDb.unite || 'g');
+                                await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
+                            }
+                        }
+                    } 
+                    // SI C'EST UN PRODUIT SIMPLE (Ex: Canette)
+                    else {
                         await Product.findOneAndUpdate({ cafeId: req.cafeId, _id: produitDb._id }, { $inc: { stock: 1 } });
                     }
                 }
             }
         }
 
-        // 3. MISE À JOUR DE LA QUANTITÉ DANS LA COMMANDE (Décrémentation de 1)
+        // On baisse la quantité de 1
         for (let art of commande.articles) {
             if (String(art.uniqueGroupId) === String(uniqueGroupId) || String(art.parentId) === String(uniqueGroupId)) {
                 art.quantite -= 1;
             }
         }
 
-        // 4. Nettoyage des articles tombés à 0
+        // Nettoyage
         commande.articles = commande.articles.filter(a => a.quantite > 0);
         
         if (commande.articles.length === 0) {
@@ -1184,13 +1222,13 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
         } else {
             commande.total = commande.articles.reduce((sum, a) => sum + (a.prix * a.quantite), 0);
             await commande.save();
-            // 🔥 SIGNAL À LA CUISINE : Le ticket change (ex: de 2x Pizza à 1x Pizza)
             io.to(req.cafeId).emit('mise_a_jour_commande', commande);
         }
 
         io.to(req.cafeId).emit('update_stock');
         res.json({ success: true });
     } catch (err) {
+        console.error("Erreur annulation unique:", err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -1204,7 +1242,6 @@ app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
             const commande = await Order.findOne({ cafeId: req.cafeId, id: orderId });
             if (!commande) continue;
 
-            // 🔥 RESTITUTION CONDITIONNELLE : Uniquement si 'en_attente'
             if (commande.statut === 'en_attente') {
                 for (let art of commande.articles) {
                     const qteCmd = parseInt(art.quantite) || 1;
@@ -1214,23 +1251,35 @@ app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
                     if (art.isSupplement && art.parentId) {
                         const parentArticle = commande.articles.find(a => String(a.uniqueGroupId) === String(art.parentId));
                         const idParent = parentArticle?.baseId || parentArticle?.id;
-                        let parentDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idParent) }, { _id: idParent }] });
+                        let parentDb = null;
+                        if (idParent) parentDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idParent) }, { _id: idParent }] });
+                        
                         const configSupp = parentDb?.supplements?.find(s => s.nom === nomPropre);
                         
                         if (configSupp?.ingredientId) {
-                            const qteARendre = (configSupp.quantiteADeduire || 0) * qteCmd;
                             const queryIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
-                            await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } });
+                            const ingDb = await Product.findOne({ cafeId: req.cafeId, ...queryIng });
+                            if (ingDb) {
+                                // Conversion avec la quantité totale
+                                const qteARendre = calculerQuantiteDestockage((configSupp.quantiteADeduire || 0) * qteCmd, configSupp.unite || 'g', ingDb.unite || 'g');
+                                await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } });
+                            }
                         }
                     } else {
                         const idSrc = art.baseId || art.id;
-                        let pDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idSrc) }, { _id: idSrc }] });
+                        let pDb = null;
+                        if (idSrc) pDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idSrc) }, { _id: idSrc }] });
+                        
                         if (pDb) {
                             if (pDb.isManufactured && pDb.recipe) {
                                 for (let comp of pDb.recipe) {
-                                    const qteARendre = (comp.quantity || 0) * qteCmd;
                                     const qIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                                    await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
+                                    const ingDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
+                                    if (ingDb) {
+                                        // Conversion avec la quantité totale
+                                        const qteARendre = calculerQuantiteDestockage((comp.quantity || 0) * qteCmd, comp.unit || 'g', ingDb.unite || 'g');
+                                        await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
+                                    }
                                 }
                             } else {
                                 await Product.findOneAndUpdate({ cafeId: req.cafeId, id: pDb.id || pDb._id }, { $inc: { stock: qteCmd } });
@@ -1239,9 +1288,7 @@ app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
                     }
                 }
             }
-            // On supprime la commande de la base
             await Order.deleteOne({ cafeId: req.cafeId, id: orderId });
-            // On avertit la cuisine
             io.to(req.cafeId).emit('mise_a_jour_commande', { id: orderId, statut: 'annulee' });
         }
         io.to(req.cafeId).emit('update_stock');

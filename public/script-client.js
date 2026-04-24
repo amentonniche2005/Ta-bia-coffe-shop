@@ -5,7 +5,20 @@ let produits = [];
 let categorieActuelle = "all";
 let clientId = null;
 let NB_TABLES_MAX = 160;
+const CONVERSIONS = {
+    'mg': 0.001, 'g': 1, 'kg': 1000,
+    'ml': 1, 'cl': 10, 'L': 1000,
+    'cac': 5, 'cas': 15,
+    'u': 1, 'portion': 1
+};
+
+window.convertirQuantite = function(valeur, uniteSource, uniteCible) {
+    const facteurSource = CONVERSIONS[uniteSource] || 1;
+    const facteurCible = CONVERSIONS[uniteCible] || 1;
+    return (valeur * facteurSource) / facteurCible;
+};
 window.escapeHtml = function(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; };
+// 🔥 MOTEUR ERP CLIENT : Calcule le stock réel tenant compte du panier et des CONVERSIONS D'UNITÉS
 window.calculerStockReel = function(produit, simulerPanier = true) {
     let consommation = {};
     
@@ -24,10 +37,17 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
                         if (parentDB && parentDB.supplements) {
                             const nomClean = art.nom.replace('+ ', '').trim();
                             const suppConfig = parentDB.supplements.find(s => s.nom === nomClean || s.nom === art.nom);
+                            
                             if (suppConfig && suppConfig.ingredientId) {
                                 const ingId = String(suppConfig.ingredientId);
+                                const ingredientDB = produits.find(p => String(p.id) === ingId || String(p._id) === ingId);
+                                const unitStock = ingredientDB ? (ingredientDB.unite || 'g') : 'g';
+                                
+                                // 🔥 CONVERSION
+                                const qteConvertie = window.convertirQuantite(Number(suppConfig.quantiteADeduire) || 0, suppConfig.unite || 'g', unitStock);
+                                
                                 if (!consommation[ingId]) consommation[ingId] = 0;
-                                consommation[ingId] += (Number(suppConfig.quantiteADeduire) * qte);
+                                consommation[ingId] += (qteConvertie * qte);
                             }
                         }
                     }
@@ -39,8 +59,14 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
                         if (pDB.isManufactured && pDB.recipe) {
                             pDB.recipe.forEach(item => {
                                 const ingId = String(item.ingredientId);
+                                const ingredientDB = produits.find(p => String(p.id) === ingId || String(p._id) === ingId);
+                                const unitStock = ingredientDB ? (ingredientDB.unite || 'g') : 'g';
+                                
+                                // 🔥 CONVERSION
+                                const qteConvertie = window.convertirQuantite(Number(item.quantity) || 0, item.unit || 'g', unitStock);
+                                
                                 if (!consommation[ingId]) consommation[ingId] = 0;
-                                consommation[ingId] += (Number(item.quantity) * qte);
+                                consommation[ingId] += (qteConvertie * qte);
                             });
                         } else if (!pDB.isManufactured) {
                             const idDb = String(pDB.id || pDB._id);
@@ -65,11 +91,16 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
         if (!ingredient) return 0;
         
         const stockInitialIng = Number(ingredient.stock) || 0;
+        const unitStock = ingredient.unite || 'g'; 
+        const unitRecette = item.unit || 'g';      
+        
+        // 🔥 CONVERSION
+        const qteRecetteConvertie = window.convertirQuantite(Number(item.quantity) || 0, unitRecette, unitStock);
+        
         const dejaConsomme = consommation[String(item.ingredientId)] || 0;
         const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
 
-        const quantiteRequise = Number(item.quantity) || 0;
-        const safeQte = quantiteRequise > 0 ? quantiteRequise : 1;
+        const safeQte = qteRecetteConvertie > 0 ? qteRecetteConvertie : 1;
         
         const possible = Math.floor(stockDispo / safeQte);
         if (possible < maxRealisable) maxRealisable = possible;

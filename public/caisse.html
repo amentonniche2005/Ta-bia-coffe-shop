@@ -466,7 +466,19 @@ button:hover:not(:disabled) {
         if (reponse.status === 403) { alert("Session expirée."); localStorage.removeItem('tabia_caisse_token'); window.location.href = '/caisse-login.html'; }
         return reponse;
     }
+    // 🔥 MOTEUR DE CONVERSION DES UNITÉS ERP
+    const CONVERSIONS = {
+        'mg': 0.001, 'g': 1, 'kg': 1000,
+        'ml': 1, 'cl': 10, 'L': 1000,
+        'cac': 5, 'cas': 15,
+        'u': 1, 'portion': 1
+    };
 
+    window.convertirQuantite = function(valeur, uniteSource, uniteCible) {
+        const facteurSource = CONVERSIONS[uniteSource] || 1;
+        const facteurCible = CONVERSIONS[uniteCible] || 1;
+        return (valeur * facteurSource) / facteurCible;
+    };
     let tickets = {}; let currentTable = null; let activeCategory = "all"; let produits = [];
     let derniereTableModal = null; let socket = null; let commandesRecues = []; 
     let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
@@ -476,7 +488,7 @@ button:hover:not(:disabled) {
     for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
     // 🔥 MOTEUR ERP CAISSE : Calcule la disponibilité réelle d'un article
-// 🔥 MOTEUR ERP CAISSE : Calcule le stock APRES simulation du ticket en cours !
+// 🔥 MOTEUR ERP CAISSE : Calcule le stock APRES simulation du ticket en cours (AVEC CONVERSION)
 window.calculerStockReel = function(produit, simulerPanier = true) {
     let consommation = {};
     
@@ -499,10 +511,17 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
                         if (parentDB && parentDB.supplements) {
                             const nomClean = art.nom.replace('+ ', '').trim();
                             const suppConfig = parentDB.supplements.find(s => s.nom === nomClean || s.nom === art.nom);
+                            
                             if (suppConfig && suppConfig.ingredientId) {
                                 const ingId = String(suppConfig.ingredientId);
+                                const ingredientDB = produits.find(p => String(p.id) === ingId || String(p._id) === ingId);
+                                const unitStock = ingredientDB ? (ingredientDB.unite || 'g') : 'g';
+                                
+                                // 🔥 CONVERSION DE LA CONSOMMATION VIRTUELLE
+                                const qteConvertie = window.convertirQuantite(Number(suppConfig.quantiteADeduire) || 0, suppConfig.unite || 'g', unitStock);
+                                
                                 if (!consommation[ingId]) consommation[ingId] = 0;
-                                consommation[ingId] += (Number(suppConfig.quantiteADeduire) * qte);
+                                consommation[ingId] += (qteConvertie * qte);
                             }
                         }
                     }
@@ -514,8 +533,14 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
                         if (pDB.isManufactured && pDB.recipe) {
                             pDB.recipe.forEach(item => {
                                 const ingId = String(item.ingredientId);
+                                const ingredientDB = produits.find(p => String(p.id) === ingId || String(p._id) === ingId);
+                                const unitStock = ingredientDB ? (ingredientDB.unite || 'g') : 'g';
+                                
+                                // 🔥 CONVERSION DE LA CONSOMMATION VIRTUELLE
+                                const qteConvertie = window.convertirQuantite(Number(item.quantity) || 0, item.unit || 'g', unitStock);
+                                
                                 if (!consommation[ingId]) consommation[ingId] = 0;
-                                consommation[ingId] += (Number(item.quantity) * qte);
+                                consommation[ingId] += (qteConvertie * qte);
                             });
                         } else if (!pDB.isManufactured) {
                             const idDb = String(pDB.id || pDB._id);
@@ -541,11 +566,16 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
         if (!ingredient) return 0;
         
         const stockInitialIng = Number(ingredient.stock) || 0;
+        const unitStock = ingredient.unite || 'g'; 
+        const unitRecette = item.unit || 'g';      
+        
+        // 🔥 CONVERSION POUR LE MAXIMUM RÉALISABLE
+        const qteRecetteConvertie = window.convertirQuantite(Number(item.quantity) || 0, unitRecette, unitStock);
+        
         const dejaConsomme = consommation[String(item.ingredientId)] || 0;
         const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
 
-        const quantiteRequise = Number(item.quantity) || 0;
-        const safeQte = quantiteRequise > 0 ? quantiteRequise : 1;
+        const safeQte = qteRecetteConvertie > 0 ? qteRecetteConvertie : 1;
         
         const possible = Math.floor(stockDispo / safeQte);
         if (possible < maxRealisable) maxRealisable = possible;
