@@ -1295,6 +1295,9 @@ if (p.supplements && Array.isArray(p.supplements)) {
     if (isManuf && p.recipe && Array.isArray(p.recipe)) {
         p.recipe.forEach(r => ajouterLigneRecette('edit', r.ingredientId, r.quantity, r.unit));
     }
+    setTimeout(() => {
+        gererAffichagePrix('edit');
+    }, 10);
 }
 
 async function sauvegarderEditionProduit(id) {

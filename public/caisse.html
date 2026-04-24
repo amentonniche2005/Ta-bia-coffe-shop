@@ -706,15 +706,34 @@ async function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye, 
         const article = ticket.articles[index]; 
         const nouvelleQuantite = article.quantite + delta;
 
-        // SÉCURITÉ AJOUT (+)
+// 🔥 SÉCURITÉ ERP : VÉRIFICATION GLOBALE (Plat + Suppléments)
         if (delta > 0 && !article.isSupplement) {
-            const produitDB = produits.find(p => String(p.id) === String(article.id) || String(p._id) === String(article.id));
+            const produitDB = produits.find(p => String(p.id) === String(article.baseId || article.id) || String(p._id) === String(article.baseId || article.id));
             if (produitDB) {
+                // 1. Vérif Stock du Plat
                 const dispo = window.calculerStockReel(produitDB, true); 
                 if (dispo < delta) {
-                    showNotification("❌ Stock insuffisant", "#ef4444");
+                    showNotification("❌ Stock du plat insuffisant", "#ef4444");
                     window.isModifyingQuantity = false;
                     return; 
+                }
+
+                // 2. Vérif Stock des Suppléments rattachés !
+                const sesSupplements = ticket.articles.filter(s => String(s.parentId) === String(article.uniqueGroupId));
+                for (let supp of sesSupplements) {
+                    const configSupp = produitDB.supplements?.find(s => s.nom === supp.nom.replace('+ ', '').trim());
+                    if (configSupp && configSupp.ingredientId) {
+                        const ingDB = produits.find(p => String(p.id) === String(configSupp.ingredientId) || String(p._id) === String(configSupp.ingredientId));
+                        if (ingDB) {
+                            const stockIngRestant = window.calculerStockReel(ingDB, true);
+                            const qteRequise = parseFloat(configSupp.quantiteADeduire) || 0;
+                            if (stockIngRestant < (qteRequise * delta)) {
+                                showNotification(`❌ Rupture sur le supplément : ${supp.nom}`, "#ef4444");
+                                window.isModifyingQuantity = false;
+                                return; // On bloque tout l'ajout !
+                            }
+                        }
+                    }
                 }
             }
         }

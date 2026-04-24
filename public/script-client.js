@@ -623,19 +623,33 @@ function changerQuantite(cartId, delta) {
     
     const article = panier[indexArticle];
 
-    // Sécurité Stock pour les produits principaux
-    if (!article.isSupplement) {
+    // 🔥 SÉCURITÉ ERP : VÉRIFICATION GLOBALE (Plat + Suppléments) LORS D'UN AJOUT (+)
+    if (delta > 0 && !article.isSupplement) {
+        // 1. Vérif Stock du Plat Principal
         const produitDB = produits.find(p => String(p.id) === String(article.baseId) || String(p._id) === String(article.baseId));
-        if (delta > 0 && produitDB) {
-            // 🔥 CORRECTION ERP : On calcule le stock maximum possible EN SIMULANT LE PANIER ACTUEL
-            // L'astuce est de calculer le stock APRES avoir ajouté virtuellement la quantité,
-            // ou plus simplement, en vérifiant si on a ENCORE de la place pour le delta
-            const stockRestant = window.calculerStockReel(produitDB, true); // true = prend en compte le panier
-            
-            // Si on demande +1 et qu'il reste 0 (ou moins que 1) en stock réel (panier inclus)
+        if (produitDB) {
+            const stockRestant = window.calculerStockReel(produitDB, true); 
             if (stockRestant < delta) {
-                afficherNotification("❌ Stock insuffisant (ingrédients épuisés)", "error");
+                afficherNotification("❌ Stock insuffisant pour ce plat", "error");
                 return;
+            }
+
+            // 2. Vérif Stock des Suppléments rattachés à ce plat !
+            const sesSupplements = panier.filter(s => String(s.parentId) === String(article.uniqueGroupId));
+            for (let supp of sesSupplements) {
+                const configSupp = produitDB.supplements?.find(s => s.nom === supp.nom.replace('+ ', '').trim());
+                if (configSupp && configSupp.ingredientId) {
+                    const ingDB = produits.find(p => String(p.id) === String(configSupp.ingredientId) || String(p._id) === String(configSupp.ingredientId));
+                    if (ingDB) {
+                        const stockIngRestant = window.calculerStockReel(ingDB, true);
+                        const qteRequise = parseFloat(configSupp.quantiteADeduire) || 0;
+                        // S'il ne reste pas assez d'ingrédient pour multiplier ce supplément
+                        if (stockIngRestant < (qteRequise * delta)) {
+                            afficherNotification(`❌ Stock insuffisant pour l'extra : ${supp.nom}`, "error");
+                            return; // On bloque tout l'ajout !
+                        }
+                    }
+                }
             }
         }
     }
@@ -645,16 +659,15 @@ function changerQuantite(cartId, delta) {
     // Si la quantité tombe à zéro, on supprime l'article ET ses suppléments associés
     if (article.quantite <= 0) {
         if (!article.isSupplement) {
-            // C'est un plat principal, on supprime aussi ses enfants
-            panier = panier.filter(item => item.parentId !== article.uniqueGroupId);
+            panier = panier.filter(item => String(item.parentId) !== String(article.uniqueGroupId));
         }
         panier = panier.filter(item => item.cartId !== cartId);
     } else {
-        // 🔥 Si on modifie la quantité d'un plat, il FAUT modifier la quantité de ses suppléments !
+        // Les suppléments suivent le parent
         if (!article.isSupplement) {
             panier.forEach(item => {
-                if (item.parentId === article.uniqueGroupId) {
-                    item.quantite = article.quantite; // Les suppléments suivent le parent
+                if (String(item.parentId) === String(article.uniqueGroupId)) {
+                    item.quantite = article.quantite; 
                 }
             });
         }
