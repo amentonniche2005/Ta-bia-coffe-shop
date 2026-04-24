@@ -497,25 +497,20 @@ window.ouvrirModalOptions = function(produit, options) {
     
     if (produit.supplements && produit.supplements.length > 0) {
         containerSupp.innerHTML = produit.supplements.map(supp => {
-            // 🔥 CORRECTION STOCK : On utilise "ingredientId" pour trouver la matière première
-            const ref = produits.find(p => String(p.id) === String(supp.ingredientId) || String(p._id) === String(supp.ingredientId));
+            const ref = produits.find(p => String(p.id) === String(supp.ingredientId || supp.id) || String(p._id) === String(supp.ingredientId || supp.id));
             
-            // Calcul précis de la rupture (On vérifie s'il y a assez de grammes/unités)
             let estRupture = false;
             if (ref) {
-                const stockRestant = window.calculerStockReel(ref, true); // true = prend en compte le panier
+                const stockRestant = window.calculerStockReel(ref, true); 
                 const qteRequise = parseFloat(supp.quantiteADeduire) || 0;
-                if (stockRestant < qteRequise) {
-                    estRupture = true;
-                }
+                if (stockRestant < qteRequise) estRupture = true;
             }
 
-            // 🔥 CORRECTION PROMO : On lit le "prixPromo" configuré DANS le supplément
+            // 🔥 LA CORRECTION : On lit la promo configurée POUR LE SUPPLÉMENT !
             const pNormal = parseFloat(supp.prix || 0);
             const pPromo = parseFloat(supp.prixPromo || 0);
             const prixFinalSupp = pPromo > 0 ? pPromo : pNormal;
 
-            // Affichage visuel (Barré si promo)
             const affichagePrixSupp = pPromo > 0 
                 ? `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">+${pNormal.toFixed(2)}</s> <span style="color:#10b981; font-weight:900;">+${pPromo.toFixed(2)} DT</span>`
                 : `<span class="opt-price">+ ${pNormal.toFixed(2)} DT</span>`;
@@ -529,7 +524,7 @@ window.ouvrirModalOptions = function(produit, options) {
                     <div class="selectable-card ${estRupture ? 'disabled' : ''}">
                         <div class="opt-info">
                             <i class="fas fa-plus-circle opt-check-icon"></i>
-                            <span>${supp.nom}</span>
+                            <span>${escapeHtml(supp.nom)}</span>
                         </div>
                         <div class="opt-price-container">
                             ${estRupture ? '<span class="rupture-txt" style="color:var(--danger); font-weight:800; font-size:0.8rem;">ÉPUISÉ</span>' : affichagePrixSupp}

@@ -1273,22 +1273,25 @@ window.ouvrirModalOptionsCaisse = function(produit) {
         }).join('');
     }
 
-    // 3. Suppléments avec Logique de Prix Promo
+// 3. Suppléments avec Logique de Prix Promo
     if (produit.supplements && produit.supplements.length > 0) {
         htmlContent += `<div style="font-weight:800; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; margin:15px 0 8px 0;">Extras</div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">`;
         htmlContent += produit.supplements.map(supp => {
-            // On s'assure d'avoir un prix valide
-            const pNormal = parseFloat(supp.prix) || 0;
-            const pPromo = parseFloat(supp.prixPromo) || 0;
+            const ref = produits.find(p => String(p.id) === String(supp.ingredientId || supp.id) || String(p._id) === String(supp.ingredientId || supp.id));
+            const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
+            
+            // 🔥 LA CORRECTION : On lit la promo configurée POUR LE SUPPLÉMENT, pas pour le produit isolé !
+            const pNormal = parseFloat(supp.prix || 0);
+            const pPromo = parseFloat(supp.prixPromo || 0); 
             const prixFinal = pPromo > 0 ? pPromo : pNormal;
 
             return `
-                <label style="cursor: pointer;">
-                    <input type="checkbox" name="caisseSuppOption" value="${prixFinal}" data-id="${supp.id || supp.ingredientId || Date.now()}" data-nom="${supp.nom}" style="display:none;" onchange="mettreAJourTotalModalCaisse()">
-                    <div class="caisse-selectable-card" style="padding:10px; flex-direction:column; align-items:center;">
-                        <span style="font-size:0.85rem;">+ ${supp.nom}</span>
-                        <span style="font-weight:800; color:var(--success); font-size:0.8rem;">+${prixFinal.toFixed(2)} DT</span>
+                <label style="cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'};">
+                    <input type="checkbox" name="caisseSuppOption" value="${prixFinal}" data-id="${supp.ingredientId || supp.id || ''}" data-nom="${supp.nom}" style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModalCaisse()">
+                    <div class="caisse-selectable-card ${estRupture ? 'disabled' : ''}" style="padding:10px; flex-direction:column; align-items:center;">
+                        <span style="font-size:0.85rem;">+ ${escapeHtml(supp.nom)}</span>
+                        ${estRupture ? '<span class="caisse-rupture-txt">ÉPUISÉ</span>' : `<span style="font-weight:800; color:var(--success); font-size:0.8rem;">+${prixFinal.toFixed(2)} DT</span>`}
                     </div>
                 </label>`;
         }).join('');
