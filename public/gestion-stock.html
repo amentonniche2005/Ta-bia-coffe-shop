@@ -617,32 +617,26 @@ button:hover:not(:disabled) {
         let stockTri = { colonne: 'nom', asc: true };
         let toutesLesVentes = [];
         let ventesAffichees = [];
-window.convertirUniteClient = function(qteRecette, uniteRecette, uniteStock) {
-    if (!uniteRecette || !uniteStock || uniteRecette === uniteStock) return qteRecette;
-    if (uniteRecette === 'g' && uniteStock === 'kg') return qteRecette / 1000;
-    if (uniteRecette === 'kg' && uniteStock === 'g') return qteRecette * 1000;
-    if (uniteRecette === 'ml' && uniteStock === 'L') return qteRecette / 1000;
-    if (uniteRecette === 'L' && uniteStock === 'ml') return qteRecette * 1000;
-    return qteRecette;
-};
+        // 🔥 MOTEUR DE CALCUL ERP : Calcule le stock réalisable selon la recette
+// 🔥 MOTEUR ERP : Calcul du stock virtuel d'une recette
+// 🔥 MOTEUR ERP : Calcul du stock virtuel sécurisé
 window.calculerStockReel = function(produit) {
     if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
-        return Number(produit.stock) || 0; // Matière première ou Supplément simple
+        return Number(produit.stock) || 0; // Matière première
     }
     
     let maxRealisable = Infinity;
     for (let item of produit.recipe) {
         const ingredient = stockProduits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
-        if (!ingredient) return 0; // Ingrédient introuvable
+        if (!ingredient) return 0; // Ingrédient introuvable = 0 produit possible
         
         const stockIng = Number(ingredient.stock) || 0;
-        const quantiteRequiseBrute = Number(item.quantity) || 0;
-        const safeQteBrute = quantiteRequiseBrute > 0 ? quantiteRequiseBrute : 1; 
+        const quantiteRequise = Number(item.quantity) || 0;
         
-        // 🟢 MAGIE ERP : On convertit le besoin dans l'unité de la base de données
-        const quantiteConvertie = window.convertirUniteClient(safeQteBrute, item.unit, ingredient.unite);
+        // 🛡️ SÉCURITÉ : Empêche la division par zéro si erreur de saisie
+        const safeQte = quantiteRequise > 0 ? quantiteRequise : 1; 
         
-        const possible = Math.floor(stockIng / quantiteConvertie);
+        const possible = Math.floor(stockIng / safeQte);
         if (possible < maxRealisable) maxRealisable = possible;
     }
     return maxRealisable === Infinity ? 0 : maxRealisable;
@@ -656,55 +650,40 @@ window.toggleRecipeSection = function(isManufactured, prefix = 'new') {
 };
 
 // 🔥 MOTEUR ERP : Ajouter une ligne d'ingrédient
-// 🔥 MOTEUR ERP : Ajouter une ligne d'ingrédient avec l'unité FIXÉE du produit source
-window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', uniteRecue = '') {
+window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unite = 'g') {
     const div = document.createElement('div');
     div.className = 'recette-row';
     div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: center;';
     
-    let optionsHtml = '<option value="" data-unite="...">-- Choisir Matière / Supplément --</option>';
-    
-    // On permet de choisir n'importe quel produit non-manufacturé
-    const composantsPossibles = stockProduits.filter(p => p.isManufactured === false);
-    
-    let uniteDeBase = uniteRecue || '...';
-
-    composantsPossibles.forEach(p => {
-        const isSelected = (String(p.id) === String(idIng) || String(p._id) === String(idIng)) ? 'selected' : '';
-        const uniteProd = p.unite || 'u';
-        if (isSelected) uniteDeBase = uniteProd;
-        optionsHtml += `<option value="${p.id || p._id}" data-unite="${uniteProd}" ${isSelected}>${escapeHtml(p.nom)}</option>`;
+    let optionsHtml = '<option value="">-- Choisir Matière Première --</option>';
+    stockProduits.forEach(p => {
+        const isSelected = (String(p.id) === String(idIng)) ? 'selected' : '';
+        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)} (En stock: ${p.stock})</option>`;
     });
 
     div.innerHTML = `
-        <select class="rec-select" style="flex: 2; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;" 
-                onchange="this.parentElement.querySelector('.unit-label').innerText = this.options[this.selectedIndex].getAttribute('data-unite')">
+        <select class="rec-select" style="flex: 2; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
             ${optionsHtml}
         </select>
         <input type="number" step="0.01" class="rec-qte" placeholder="Qté" value="${qte}" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
-        
-        <span class="unit-label" style="font-size: 0.85rem; color: var(--primary); font-weight:bold; min-width: 30px; text-align:center;">${uniteDeBase}</span>
-        
-        <input type="hidden" class="rec-unit" value="automatique"> 
-
+        <select class="rec-unit" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
+            <option value="g" ${unite === 'g' ? 'selected' : ''}>g</option>
+            <option value="ml" ${unite === 'ml' ? 'selected' : ''}>ml</option>
+            <option value="u" ${unite === 'u' ? 'selected' : ''}>Unité</option>
+        </select>
         <button type="button" onclick="this.closest('.recette-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
     `;
     document.getElementById(`containerRecette_${prefix}`).appendChild(div);
 };
 
 // 🔥 MOTEUR ERP : Récolter les ingrédients choisis
-// 🔥 MOTEUR ERP : Récolter les ingrédients choisis
 window.extraireRecette = function(prefix = 'new') {
     const rows = document.querySelectorAll(`#containerRecette_${prefix} .recette-row`);
     const recipe = [];
     rows.forEach(row => {
-        const select = row.querySelector('.rec-select');
-        const id = select.value;
+        const id = row.querySelector('.rec-select').value;
         const qte = parseFloat(row.querySelector('.rec-qte').value);
-        
-        // On récupère l'unité directement depuis l'option sélectionnée !
-        const unit = select.options[select.selectedIndex].getAttribute('data-unite') || 'u';
-        
+        const unit = row.querySelector('.rec-unit').value;
         if (id && qte > 0) recipe.push({ ingredientId: id, quantity: qte, unit: unit });
     });
     return recipe;
@@ -876,7 +855,9 @@ function afficherStockDOM(produits) {
     if (!produits.length) { tbody.innerHTML = '<tr><td colspan="7">Aucun produit</td></tr>'; return; }
 
     tbody.innerHTML = produits.map(p => {
+        // 🔥 NOUVEAU : Calcul du stock virtuel si produit manufacturé
         const stockReel = calculerStockReel(p);
+        
         const pVente = parseFloat(p.prix) || 0;
         const pPromo = parseFloat(p.prixPromo) || 0;
         const valAchat = stockReel * (parseFloat(p.prixAchat) || 0);
@@ -904,12 +885,10 @@ function afficherStockDOM(produits) {
                 </td>
                 <td data-label="Catégorie"><span class="badge badge-neutral">${getCatName(p.categorie)}</span></td>
                 <td data-label="Stock">
-                    <span class="badge ${badgeClass}" style="font-size:1.1rem; display:flex; align-items:center; gap:4px;">
-                        ${stockReel} <small style="font-size:0.7rem; font-weight:normal;">${p.unite || 'u'}</small>
-                    </span>
-                    ${p.isManufactured ? `<div style="font-size:0.65rem; color:var(--info); margin-top:3px; font-weight:700;">PRODUIT COMPOSÉ</div>` : ''}
+                    <span class="badge ${badgeClass}" style="font-size:1.1rem;">${stockReel}</span>
+                    ${p.isManufactured ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px;">Max Possible</div>` : ''}
                 </td>
-                <td data-label="Unité" style="font-weight:600; color:var(--text-muted);">${p.unite || 'u'}</td>
+                <td data-label="Unité">${p.unite || 'unité'}</td>
                 ${htmlPrix}
                 <td data-label="Val. Achat" style="font-weight:700;">${formatMoney(valAchat)}</td>
                 <td style="text-align:center;">
@@ -1009,7 +988,7 @@ function ouvrirModalNouveauProduit() {
                 </div>
 
                 <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
-                    <select id="newProdCat">
+                    <select id="newProdCat" onchange="gererAffichagePrix('new')">
                         <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option>
                         <option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="sandwish">🥪 Sandwiches</option>
                         <option value="chicha">💨 Chicha</option><option value="Ma9loub">🌮 Ma9loub</option><option value="Pizza">🍕 Pizza</option>
@@ -1056,64 +1035,79 @@ window.updateSuppPrix = function(selectElem) {
     }
 };
 
-// 🔥 1. REMPLACER ajouterLigneSupplement
-// 🔥 1. REMPLACER ajouterLigneSupplement (Avec le data-prix remis en place)
-window.ajouterLigneSupplement = function(id = '', nom = '', prix = '', qte = '', uniteRecue = '') {
+// 🔥 NOUVELLE LOGIQUE ERP : Les suppléments déduisent des matières premières
+window.ajouterLigneSupplement = function(nom = '', prix = '', ingredientId = '', qte = '50', unite = 'g') {
     const div = document.createElement('div');
     div.className = 'supplement-row';
-    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: center;';
+    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; background: #fdfaf6; padding: 10px; border-radius: 8px; border: 1px solid #e3c496;';
     
-    let optionsHtml = '<option value="" data-unite="..." data-prix="0">-- Choisir Matière / Produit --</option>';
-    
-    // On propose toutes les matières premières ou produits simples
-    const composantsPossibles = stockProduits.filter(p => p.isManufactured === false);
-    let uniteDeBase = uniteRecue || '...';
-
-    composantsPossibles.forEach(p => {
-        const isSelected = (String(p.id) === String(id) || String(p._id) === String(id)) ? 'selected' : '';
-        const uniteProd = p.unite || 'u';
-        const defaultPrix = p.prix || 0; // 🔥 ON RÉCUPÈRE LE PRIX
-        
-        if (isSelected) uniteDeBase = uniteProd;
-        
-        // 🔥 ON RAJOUTE data-prix ICI POUR QUE LE SCRIPT PUISSE LE LIRE
-        optionsHtml += `<option value="${p.id || p._id}" data-unite="${uniteProd}" data-nom="${escapeHtml(p.nom)}" data-prix="${defaultPrix}" ${isSelected}>${escapeHtml(p.nom)}</option>`;
+    // On liste TOUS les produits simples (matières premières ou autres) pour déduire dedans
+    const matieresPremieres = stockProduits.filter(p => !p.isManufactured);
+    let optionsHtml = '<option value="">-- Sans lien stock (Texte seul) --</option>';
+    matieresPremieres.forEach(p => {
+        const isSel = (String(p.id) === String(ingredientId) || String(p._id) === String(ingredientId)) ? 'selected' : '';
+        optionsHtml += `<option value="${p.id || p._id}" ${isSel}>${escapeHtml(p.nom)} (Stock: ${p.stock})</option>`;
     });
 
     div.innerHTML = `
-        <select class="supp-select" style="flex: 2; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;" 
-                onchange="this.parentElement.querySelector('.unit-label').innerText = this.options[this.selectedIndex].getAttribute('data-unite'); updateSuppPrix(this);">
-            ${optionsHtml}
-        </select>
-        <input type="number" step="0.01" class="supp-qte" placeholder="Qté" value="${qte}" style="width: 70px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
-        <span class="unit-label" style="font-size: 0.85rem; color: var(--primary); font-weight:bold; min-width: 25px; text-align:center;">${uniteDeBase}</span>
-        <input type="number" step="0.1" placeholder="Prix (DT)" class="supp-prix" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);" value="${prix}">
-        <button type="button" onclick="this.closest('.supplement-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
+        <div style="flex: 1; min-width: 130px;">
+            <input type="text" class="supp-nom" placeholder="Nom (Ex: Extra Mozza)" value="${nom}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
+        </div>
+        <div style="flex: 1; min-width: 150px;">
+            <select class="supp-ing" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">${optionsHtml}</select>
+        </div>
+        <div style="width: 90px;">
+            <input type="number" class="supp-qte" placeholder="Qté à enlever" value="${qte}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" title="Combien on enlève du stock">
+        </div>
+        <div style="width: 90px;">
+            <input type="number" step="0.1" class="supp-prix" placeholder="Prix Vente" value="${prix}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid var(--success); color: var(--success); font-weight: bold;">
+        </div>
+        <button type="button" onclick="this.closest('.supplement-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-trash"></i></button>
     `;
     document.getElementById('containerSupplements').appendChild(div);
 };
 
-// 🔥 2. REMPLACER extraireSupplements
 window.extraireSupplements = function() {
     const rows = document.querySelectorAll('.supplement-row');
     const supps = [];
     rows.forEach(row => {
-        const select = row.querySelector('.supp-select');
-        const prixInput = row.querySelector('.supp-prix');
-        const qteInput = row.querySelector('.supp-qte');
+        const nom = row.querySelector('.supp-nom').value.trim();
+        const prix = parseFloat(row.querySelector('.supp-prix').value) || 0;
+        const ingredientId = row.querySelector('.supp-ing').value;
+        const qte = parseFloat(row.querySelector('.supp-qte').value) || 0;
         
-        if (select && select.value && prixInput && prixInput.value !== "" && qteInput && qteInput.value !== "") {
-            const selectedOption = select.options[select.selectedIndex];
+        if (nom) {
             supps.push({ 
-                id: select.value,  
-                nom: selectedOption.getAttribute('data-nom'), 
-                prix: parseFloat(prixInput.value) || 0,
-                quantite: parseFloat(qteInput.value) || 0,
-                unite: selectedOption.getAttribute('data-unite') || 'u'
+                nom: nom, 
+                prix: prix, 
+                ingredientId: ingredientId,
+                quantiteADeduire: qte,
+                unite: 'g' // Par défaut, tu pourras le rendre dynamique plus tard si besoin
             });
         }
     });
     return supps;
+};
+
+// 🔥 SÉCURITÉ : Griser le prix de vente si c'est une matière première
+window.gererAffichagePrix = function(prefix) {
+    const cat = document.getElementById(`${prefix}ProdCat`).value;
+    const inputPrixVente = document.getElementById(`${prefix}ProdPrice`);
+    const inputPrixPromo = document.getElementById(`${prefix}ProdPrixPromo`);
+    
+    if (cat === 'matiere') {
+        inputPrixVente.value = 0;
+        inputPrixPromo.value = 0;
+        inputPrixVente.closest('.form-group').style.opacity = '0.4';
+        inputPrixPromo.closest('.form-group').style.opacity = '0.4';
+        inputPrixVente.readOnly = true;
+        inputPrixPromo.readOnly = true;
+    } else {
+        inputPrixVente.closest('.form-group').style.opacity = '1';
+        inputPrixPromo.closest('.form-group').style.opacity = '1';
+        inputPrixVente.readOnly = false;
+        inputPrixPromo.readOnly = false;
+    }
 };
 
 async function sauvegarderNouveauProduit() {
@@ -1152,7 +1146,35 @@ const produitData = {
         }
     } catch (e) { showNotification("Erreur de sauvegarde", "var(--danger)"); }
 }
+function ajouterLigneIngredient(idIng = '', qte = '1') {
+    const div = document.createElement('div');
+    div.className = 'ingredient-row';
+    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+    
+    let options = '<option value="">-- Ingrédient --</option>';
+    stockProduits.forEach(p => {
+        const isSel = (String(p.id) === String(idIng)) ? 'selected' : '';
+        options += `<option value="${p.id}" ${isSel}>${p.nom}</option>`;
+    });
 
+    div.innerHTML = `
+        <select class="ing-select" style="flex: 2; padding: 0.4rem; border-radius: 8px; border: 1px solid var(--border-color);">${options}</select>
+        <input type="number" step="0.01" class="ing-qte" style="flex: 1; padding: 0.4rem; border-radius: 8px; border: 1px solid var(--border-color);" value="${qte}">
+        <button onclick="this.parentElement.remove()" style="border:none; background:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
+    `;
+    document.getElementById('containerIngredients').appendChild(div);
+}
+
+function extraireIngredients() {
+    const rows = document.querySelectorAll('.ingredient-row');
+    const res = [];
+    rows.forEach(r => {
+        const id = r.querySelector('.ing-select').value;
+        const qte = parseFloat(r.querySelector('.ing-qte').value);
+        if (id && qte) res.push({ id, quantite: qte });
+    });
+    return res;
+}
 function ouvrirModalEdition(id) {
     const p = stockProduits.find(x => String(x.id) === String(id) || String(x._id) === String(id));
     if(!p) return;
@@ -1204,7 +1226,7 @@ function ouvrirModalEdition(id) {
                 </div>
 
                 <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
-                    <select id="editProdCat">
+                    <select id="editProdCat" onchange="gererAffichagePrix('edit')">
                         <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
                         <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
                         <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
@@ -1253,9 +1275,9 @@ function ouvrirModalEdition(id) {
             </div>
         </div>`;
     
-    if (p.supplements && Array.isArray(p.supplements)) {
-        p.supplements.forEach(s => ajouterLigneSupplement(s.id, s.nom, s.prix, s.quantite, s.unite)); 
-    }
+if (p.supplements && Array.isArray(p.supplements)) {
+    p.supplements.forEach(s => ajouterLigneSupplement(s.id || s._id, s.nom, s.prix)); 
+}
     // Recharge la recette existante si c'est un produit manufacturé
     if (isManuf && p.recipe && Array.isArray(p.recipe)) {
         p.recipe.forEach(r => ajouterLigneRecette('edit', r.ingredientId, r.quantity, r.unit));

@@ -13,20 +13,7 @@ const io = socketIo(server, { cors: { origin: "*" } });
 
 const PORT = process.env.PORT || 3000;
 const SUPER_ADMIN_TOKEN = process.env.SUPER_ADMIN_TOKEN || 'SARBINI_BOSS_2026';
-// 🔥 MOTEUR ERP : Conversion automatique des unités entre la Recette et le Stock
-function convertirUnite(qteRecette, uniteRecette, uniteStock) {
-    if (!uniteRecette || !uniteStock || uniteRecette === uniteStock) return qteRecette;
-    
-    // Conversion Poids
-    if (uniteRecette === 'g' && uniteStock === 'kg') return qteRecette / 1000;
-    if (uniteRecette === 'kg' && uniteStock === 'g') return qteRecette * 1000;
-    
-    // Conversion Volume
-    if (uniteRecette === 'ml' && uniteStock === 'L') return qteRecette / 1000;
-    if (uniteRecette === 'L' && uniteStock === 'ml') return qteRecette * 1000;
-    
-    return qteRecette; // Par défaut (ex: pièce vers pièce)
-}
+
 // 🛡️ B. LE GARDE-BARRIÈRE (Bloque les faux sites ET les abonnements impayés)
 const verifierExistenceCafe = async (req, res, next) => {
     const host = req.headers.host || ''; 
@@ -184,7 +171,7 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true }, // 🔥 LE MARQUEUR
     id: Number, 
     nom: String, 
-    prix: Number,
+    prix: { type: Number, default: 0 },
     prixPromo: { type: Number, default: 0 }, 
     prixAchat: { type: Number, default: 0 }, 
     stock: Number, 
@@ -196,11 +183,12 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     unite: String,
     actif: { type: Boolean, default: true },
 supplements: [{
-        id: String,     
-        nom: String,    
-        prix: Number,
-        quantite: Number, // <--- AJOUTEZ CETTE LIGNE ABSOLUMENT
-        unite: String   
+        nom: String,                // Nom affiché au client (ex: "Double Fromage")
+        prix: Number,               // Prix facturé (ex: 2.500)
+        prixPromo: { type: Number, default: 0 }, 
+        ingredientId: String,       // L'ID de la matière première à déduire (ex: ID de la Mozzarella)
+        quantiteADeduire: Number,   // Combien on enlève du stock (ex: 50)
+        unite: String               // Unité de la déduction (ex: 'g')
     }],
     isManufactured: { type: Boolean, default: false }, // true si c'est un produit avec recette
     recipe: [{
@@ -236,18 +224,15 @@ const Order = mongoose.model('Order', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     id: String, numero: String, date: String, timestamp: Number, 
     // 🔥 CORRECTION ICI : On définit précisément la structure d'un article
-articles: [{
+    articles: [{
         id: String,
         nom: String,
         variante: String,
         quantite: Number,
         prix: Number,
-        isSupplement: Boolean,    
-        uniqueGroupId: Number,    
-        parentId: Number,
-        qteRecette: Number,    // NOUVEAU
-        uniteRecette: String,  // NOUVEAU
-        envoye: Boolean
+        isSupplement: Boolean,    // Pour identifier le supplément
+        uniqueGroupId: Number,    // Identifiant unique de la ligne
+        parentId: Number          // Le lien vers le plat principal
     }],
     numeroTable: String, statut: { type: String, default: 'en_attente' }, 
     total: Number, clientId: String, clientName: String,
@@ -293,7 +278,7 @@ const Sale = mongoose.model('Sale', new mongoose.Schema({
     typePaiement: String, methodePaiement: { type: String, default: 'especes' },
     tableOrigine: String, 
     // 🔥 CORRECTION ICI AUSSI POUR LA CAISSE / LES ARCHIVES
-articles: [{
+    articles: [{
         id: String,
         nom: String,
         variante: String,
@@ -301,10 +286,7 @@ articles: [{
         prix: Number,
         isSupplement: Boolean,
         uniqueGroupId: Number,
-        parentId: Number,
-        qteRecette: Number,    // NOUVEAU
-        uniteRecette: String,  // NOUVEAU
-        envoye: Boolean
+        parentId: Number
     }]
 }));
 
@@ -491,7 +473,7 @@ app.post('/api/commandes', async (req, res) => {
 
             if (produitDb) {
                 let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) ? produitDb.prixPromo : produitDb.prix;
-                let prixApplique = art.isSupplement ? art.prix : prixBaseDb;
+                let prixApplique = art.isSupplement ? art.prix : prixBaseDb; // Le prix du supp. vient du client, validé côté front
                 totalSecurise += (prixApplique * art.quantite);
                 articlesSecurises.push({ ...art, prix: prixApplique, id: produitDb.id, nom: art.nom }); 
             } else {
@@ -504,49 +486,70 @@ app.post('/api/commandes', async (req, res) => {
         const cmdId = Date.now().toString();
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
 
-        // 🔥 3. NOUVEAU : DÉSTOCKAGE IMMÉDIAT DÈS LA COMMANDE (POUR TOUT LE MONDE)
+        // 🔥 3. NOUVEAU : DÉSTOCKAGE IMMÉDIAT DÈS LA COMMANDE (LOGIQUE ERP)
         for (let art of articlesSecurises) {
             const qteCmd = parseInt(art.quantite) || 1;
             const itemDb = await Product.findOne({ cafeId: req.cafeId, id: art.id });
 
             if (itemDb) {
-                if (itemDb.isManufactured && itemDb.recipe && itemDb.recipe.length > 0) {
-                    for (let comp of itemDb.recipe) {
-                        // 🟢 NOUVEAU : On cherche le produit ingrédient (Matière ou Supplément)
-                        const ingBase = await Product.findOne({ cafeId: req.cafeId, id: comp.ingredientId });
+                // CAS 1 : C'est un SUPPLÉMENT lié à une matière première
+                if (art.isSupplement && art.parentId) {
+                    const parentArticle = articlesSecurises.find(a => a.uniqueGroupId === art.parentId);
+                    if (parentArticle) {
+                        const parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(parentArticle.id) });
+                        const configSupp = parentDb?.supplements?.find(s => s.nom === art.nom);
                         
-                        if (ingBase) {
-                            // 🟢 NOUVEAU : Calcul de la quantité convertie (ex: 150g -> 0.15kg)
-                            const qteADeduire = convertirUnite(comp.quantity, comp.unit, ingBase.unite) * qteCmd;
-                            
+                        if (configSupp && configSupp.ingredientId) {
                             const ing = await Product.findOneAndUpdate(
-                                { cafeId: req.cafeId, id: comp.ingredientId },
-                                { $inc: { stock: -qteADeduire } },
+                                { cafeId: req.cafeId, id: configSupp.ingredientId },
+                                { $inc: { stock: -(configSupp.quantiteADeduire * qteCmd) } },
                                 { new: true }
                             );
                             if (ing) {
                                 await new Movement({
                                     cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id,
-                                    quantite: qteADeduire, ancienStock: ing.stock + qteADeduire, nouveauStock: ing.stock,
-                                    raison: `Composant de : ${itemDb.nom} (Cmd #${numeroCmd})`
+                                    quantite: (configSupp.quantiteADeduire * qteCmd), 
+                                    ancienStock: ing.stock + (configSupp.quantiteADeduire * qteCmd), 
+                                    nouveauStock: ing.stock,
+                                    raison: `Supplément : ${art.nom} pour ${parentDb.nom} (Cmd #${numeroCmd})`
                                 }).save();
                             }
                         }
                     }
-} else if (itemDb.stock !== undefined) {
-                    // 🔥 MAGIE ERP : Gestion des quantités pour les suppléments
-                    let qteReelle = qteCmd;
-                    if (art.isSupplement && art.qteRecette) {
-                        qteReelle = convertirUnite(art.qteRecette, art.uniteRecette, itemDb.unite) * qteCmd;
+                }
+                // CAS 2 : C'est un PRODUIT MANUFACTURÉ (Recette de base)
+                else if (itemDb.isManufactured && itemDb.recipe && itemDb.recipe.length > 0) {
+                    for (let comp of itemDb.recipe) {
+                        const ing = await Product.findOneAndUpdate(
+                            { cafeId: req.cafeId, id: comp.ingredientId },
+                            { $inc: { stock: -(comp.quantity * qteCmd) } },
+                            { new: true }
+                        );
+                        if (ing) {
+                            await new Movement({
+                                cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id,
+                                quantite: (comp.quantity * qteCmd), 
+                                ancienStock: ing.stock + (comp.quantity * qteCmd), 
+                                nouveauStock: ing.stock,
+                                raison: `Composant de : ${itemDb.nom} (Cmd #${numeroCmd})`
+                            }).save();
+                        }
                     }
-
+                } 
+                // CAS 3 : C'est un PRODUIT SIMPLE (Stock direct)
+                else if (itemDb.stock !== undefined && !itemDb.isManufactured) {
                     const updateSimple = await Product.findOneAndUpdate(
-                        { cafeId: req.cafeId, id: itemDb.id }, { $inc: { stock: -qteReelle } }, { new: true }
+                        { cafeId: req.cafeId, id: itemDb.id }, 
+                        { $inc: { stock: -qteCmd } }, 
+                        { new: true }
                     );
                     if (updateSimple) {
                         await new Movement({ 
                             cafeId: req.cafeId, type: 'commande', produit: updateSimple.nom, produitId: updateSimple.id, 
-                            quantite: qteReelle, ancienStock: updateSimple.stock + qteReelle, nouveauStock: updateSimple.stock, raison: `Cmd #${numeroCmd}` 
+                            quantite: qteCmd, 
+                            ancienStock: updateSimple.stock + qteCmd, 
+                            nouveauStock: updateSimple.stock, 
+                            raison: `Cmd #${numeroCmd}` 
                         }).save();
                     }
                 }
@@ -955,145 +958,212 @@ app.get('/api/ventes', verifierToken, async (req, res) => {
 
 app.post('/api/ventes', verifierToken, async (req, res) => {
     try {
+        // 1. Éviter les doublons si un ID est fourni
         if (req.body.id) {
             const venteExistante = await Sale.findOne({ cafeId: req.cafeId, id: req.body.id.toString() });
-            if (venteExistante) return res.json({ success: true, message: "Vente ignorée" });
+            if (venteExistante) return res.json({ success: true, message: "Vente ignorée (déjà enregistrée)" });
         }
 
         let vraiTotalReel = 0;
+        const articlesPourVente = [];
 
+        // 2. Parcours des articles pour sécuriser les prix et gérer les stocks
         for (let art of req.body.articles) {
+            let produitDb = null;
             let nomPropre = art.nom;
             if (nomPropre && nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
 
-            let produitDb = null;
-            if (art.id && !isNaN(art.id)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
-            if (!produitDb && nomPropre) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
+            // Recherche du produit en base (par ID ou par Nom)
+            if (art.id && !isNaN(art.id)) {
+                produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
+            } 
+            if (!produitDb && nomPropre) {
+                produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
+            }
 
             if (produitDb) {
+                // --- A. CALCUL DU PRIX SÉCURISÉ ---
+                // On prend le prix promo si disponible, sinon le prix normal
                 let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) ? produitDb.prixPromo : produitDb.prix;
+                
+                // Si c'est un supplément, on utilise le prix envoyé par la caisse (car le prix peut varier selon le plat)
+                // Sinon on utilise le prix sécurisé de la base de données
                 let prixApplique = art.isSupplement ? art.prix : prixBaseDb;
                 vraiTotalReel += (prixApplique * art.quantite);
 
-                // 🔥 GESTION DU STOCK (AVEC CONVERSION D'UNITÉS)
+                // --- B. GESTION DU STOCK (LOGIQUE ERP RÉELLE) ---
+                // On ne déstocke que si l'article n'a pas déjà été traité par la cuisine
                 if (!art.envoye) {
-                    if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
-                        for (let item of produitDb.recipe) {
-                            // 🟢 On cherche la matière première pour lire son unité
-                            const ingBase = await Product.findOne({ cafeId: req.cafeId, id: item.ingredientId });
-                            if (ingBase) {
-                                const qteADeduire = convertirUnite(item.quantity, item.unit, ingBase.unite) * art.quantite;
-
-                                const ingredient = await Product.findOneAndUpdate(
-                                    { cafeId: req.cafeId, id: item.ingredientId },
-                                    { $inc: { stock: -qteADeduire } },
+                    
+                    // CAS 1 : C'est un SUPPLÉMENT lié à une matière première
+                    if (art.isSupplement && art.parentId) {
+                        // On retrouve le plat parent dans la commande pour identifier la règle de déstockage
+                        const parentArticle = req.body.articles.find(a => a.uniqueGroupId === art.parentId);
+                        if (parentArticle) {
+                            const parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(parentArticle.id) });
+                            
+                            // On cherche la configuration du supplément dans le produit parent
+                            const configSupp = parentDb?.supplements?.find(s => s.nom === art.nom);
+                            
+                            if (configSupp && configSupp.ingredientId) {
+                                // Déstockage de la matière première associée au supplément (ex: Mozzarella)
+                                const ing = await Product.findOneAndUpdate(
+                                    { cafeId: req.cafeId, id: configSupp.ingredientId },
+                                    { $inc: { stock: -(configSupp.quantiteADeduire * art.quantite) } },
                                     { new: true }
                                 );
-
-                                if (ingredient) {
+                                
+                                if (ing) {
                                     await new Movement({
-                                        cafeId: req.cafeId, type: 'vente', produit: ingredient.nom, produitId: ingredient.id,
-                                        quantite: qteADeduire, ancienStock: ingredient.stock + qteADeduire, nouveauStock: ingredient.stock,
-                                        raison: `Composant de : ${produitDb.nom} (Vente #${req.body.numero})`
+                                        cafeId: req.cafeId, type: 'vente', produit: ing.nom, produitId: ing.id,
+                                        quantite: (configSupp.quantiteADeduire * art.quantite),
+                                        ancienStock: ing.stock + (configSupp.quantiteADeduire * art.quantite),
+                                        nouveauStock: ing.stock,
+                                        raison: `Supplément : ${art.nom} pour ${parentDb.nom} (Vente #${req.body.numero})`
                                     }).save();
                                 }
                             }
                         }
-} else if (produitDb.stock !== undefined) {
-                        // 🔥 MAGIE ERP : Gestion des quantités pour les suppléments
-                        let qteReelle = art.quantite;
-                        if (art.isSupplement && art.qteRecette) {
-                            qteReelle = convertirUnite(art.qteRecette, art.uniteRecette, produitDb.unite) * art.quantite;
-                        }
+                    }
+                    // CAS 2 : C'est un PRODUIT MANUFACTURÉ (Recette de base)
+                    else if (produitDb.isManufactured && produitDb.recipe?.length > 0) {
+                        for (let item of produitDb.recipe) {
+                            const ingredient = await Product.findOneAndUpdate(
+                                { cafeId: req.cafeId, id: item.ingredientId },
+                                { $inc: { stock: -(item.quantity * art.quantite) } },
+                                { new: true }
+                            );
 
+                            if (ingredient) {
+                                await new Movement({
+                                    cafeId: req.cafeId, type: 'vente', produit: ingredient.nom, produitId: ingredient.id,
+                                    quantite: (item.quantity * art.quantite),
+                                    ancienStock: ingredient.stock + (item.quantity * art.quantite),
+                                    nouveauStock: ingredient.stock,
+                                    raison: `Ingrédient de : ${produitDb.nom} (Vente #${req.body.numero})`
+                                }).save();
+                            }
+                        }
+                    } 
+                    // CAS 3 : C'est un PRODUIT SIMPLE (Ex: Canette de boisson)
+                    else if (produitDb.stock !== undefined && !produitDb.isManufactured) {
                         const produitMisAJour = await Product.findOneAndUpdate(
                             { cafeId: req.cafeId, id: produitDb.id },
-                            { $inc: { stock: -qteReelle } },
+                            { $inc: { stock: -art.quantite } },
                             { new: true }
                         );
 
                         if (produitMisAJour) {
                             await new Movement({
                                 cafeId: req.cafeId, type: 'vente', produit: produitMisAJour.nom, produitId: produitMisAJour.id,
-                                quantite: qteReelle,
-                                ancienStock: produitMisAJour.stock + qteReelle,
+                                quantite: art.quantite,
+                                ancienStock: produitMisAJour.stock + art.quantite,
                                 nouveauStock: produitMisAJour.stock,
-                                raison: `Vente #${req.body.numero}`
+                                raison: `Vente directe #${req.body.numero}`
                             }).save();
                         }
                     }
                 }
             } else {
+                // Produit non trouvé en base : on applique le prix envoyé par défaut
                 vraiTotalReel += (art.prix * art.quantite);
             }
         }
 
-        if (req.body.remise && req.body.remise > 0) vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));
+        // 3. Application de la remise globale si elle existe
+        if (req.body.remise && req.body.remise > 0) {
+            vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));
+        }
 
-        await new Sale({ ...req.body, cafeId: req.cafeId, total: vraiTotalReel }).save();
+        // 4. Enregistrement final de la vente
+        const nouvelleVente = new Sale({ 
+            ...req.body, 
+            cafeId: req.cafeId, 
+            total: vraiTotalReel,
+            timestamp: Date.now() 
+        });
+        await nouvelleVente.save();
+
+        // 5. Notification en temps réel pour mettre à jour les écrans de stock
         io.to(req.cafeId).emit('update_stock');
-        res.json({ success: true, totalSecurise: vraiTotalReel });
+
+        res.json({ 
+            success: true, 
+            totalSecurise: vraiTotalReel,
+            message: "Vente et déstockage ERP terminés avec succès" 
+        });
 
     } catch (err) {
-        console.error("Erreur Vente:", err);
-        res.status(500).json({ error: err.message });
+        console.error("Erreur critique lors de la vente:", err);
+        res.status(500).json({ error: "Erreur système lors du traitement de la vente" });
     }
 });
 app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res) => {
     try {
         const { orderId, articleId, uniqueGroupId } = req.body;
+        
         const cmd = await Order.findOne({ cafeId: req.cafeId, id: orderId });
         if (!cmd) return res.status(404).json({ error: "Commande introuvable" });
 
-        const artIdx = cmd.articles.findIndex(a => String(a.id) === String(articleId) && Number(a.uniqueGroupId) === Number(uniqueGroupId));
+        // 1. Trouver l'article dans la commande
+        const artIdx = cmd.articles.findIndex(a => 
+            String(a.id) === String(articleId) && 
+            Number(a.uniqueGroupId) === Number(uniqueGroupId)
+        );
+
         if (artIdx === -1) return res.status(404).json({ error: "Article non trouvé dans cette commande" });
         
         const article = cmd.articles[artIdx];
 
-        // 🟢 SCÉNARIO : COMMANDE EN ATTENTE -> ON REND LE STOCK (AVEC CONVERSION)
+        // 🟢 SCÉNARIO : COMMANDE EN ATTENTE -> ON REND LE STOCK
         if (cmd.statut === 'en_attente') {
             const produitDb = await Product.findOne({ cafeId: req.cafeId, id: article.id });
             if (produitDb) {
                 if (produitDb.isManufactured && produitDb.recipe) {
                     for (let item of produitDb.recipe) {
-                        const ingBase = await Product.findOne({ cafeId: req.cafeId, id: item.ingredientId });
-                        if (ingBase) {
-                            const qteARendre = convertirUnite(item.quantity, item.unit, ingBase.unite) * article.quantite;
-                            await Product.findOneAndUpdate(
-                                { cafeId: req.cafeId, id: item.ingredientId }, { $inc: { stock: qteARendre } }
-                            );
-                        }
+                        await Product.findOneAndUpdate(
+                            { cafeId: req.cafeId, id: item.ingredientId },
+                            { $inc: { stock: (item.quantity * article.quantite) } }
+                        );
                     }
-} else if (produitDb.stock !== undefined) {
-                    // 🔥 MAGIE ERP : Rendre la bonne quantité au stock
-                    let qteReelle = article.quantite;
-                    if (article.isSupplement && article.qteRecette) {
-                        qteReelle = convertirUnite(article.qteRecette, article.uniteRecette, produitDb.unite) * article.quantite;
-                    }
-
+                } else if (produitDb.stock !== undefined) {
                     await Product.findOneAndUpdate(
                         { cafeId: req.cafeId, id: produitDb.id },
-                        { $inc: { stock: qteReelle } } // On additionne (+)
+                        { $inc: { stock: article.quantite } }
                     );
                 }
             }
             await new Movement({
-                cafeId: req.cafeId, type: 'annulation', produit: article.nom, raison: `Annulation article dans Cmd #${cmd.numero} - Stock rendu`
+                cafeId: req.cafeId, type: 'annulation', produit: article.nom,
+                raison: `Annulation article dans Cmd #${cmd.numero} - Stock rendu`
             }).save();
-        } else {
+        } 
+        // 🔴 SCÉNARIO : DÉJÀ EN CUISINE -> PERTE
+        else {
             await new Movement({
-                cafeId: req.cafeId, type: 'perte', produit: article.nom, raison: `Annulation article dans Cmd #${cmd.numero} (Déjà en cuisine) - Perte`
+                cafeId: req.cafeId, type: 'perte', produit: article.nom,
+                raison: `Annulation article dans Cmd #${cmd.numero} (Déjà en cuisine) - Perte`
             }).save();
         }
 
-        cmd.articles = cmd.articles.filter(a => !(String(a.id) === String(articleId) && Number(a.uniqueGroupId) === Number(uniqueGroupId)) && !(a.parentId === uniqueGroupId));
-        if (cmd.articles.length === 0) cmd.statut = 'paye';
-        await cmd.save();
+        // 2. Retirer l'article (et ses suppléments liés) de la commande en base
+        cmd.articles = cmd.articles.filter(a => 
+            !(String(a.id) === String(articleId) && Number(a.uniqueGroupId) === Number(uniqueGroupId)) &&
+            !(a.parentId === uniqueGroupId)
+        );
 
+        // Si la commande est vide après ça, on la marque comme "paye" (archivée)
+        if (cmd.articles.length === 0) cmd.statut = 'paye';
+
+        await cmd.save();
         io.to(req.cafeId).emit('update_stock');
         io.to(req.cafeId).emit('mise_a_jour_commande', { id: cmd.id });
+
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
     try {
@@ -1101,50 +1171,54 @@ app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
         if (!orderIds || orderIds.length === 0) return res.json({ success: true });
 
         for (let id of orderIds) {
+            // On cherche la commande (qu'elle vienne du client ou de la caisse)
             const cmd = await Order.findOne({ cafeId: req.cafeId, id: id });
             if (!cmd) continue;
 
-            // 🟢 SCÉNARIO : EN ATTENTE -> ON REND LE STOCK (AVEC CONVERSION)
+            // 🟢 SCÉNARIO : EN ATTENTE -> ON REND LE STOCK
             if (cmd.statut === 'en_attente') {
                 for (let art of cmd.articles) {
                     const produitDb = await Product.findOne({ cafeId: req.cafeId, id: art.id });
                     if (produitDb) {
                         if (produitDb.isManufactured && produitDb.recipe) {
+                            // On rend chaque ingrédient de la recette
                             for (let item of produitDb.recipe) {
-                                const ingBase = await Product.findOne({ cafeId: req.cafeId, id: item.ingredientId });
-                                if (ingBase) {
-                                    const qteARendre = convertirUnite(item.quantity, item.unit, ingBase.unite) * art.quantite;
-                                    await Product.findOneAndUpdate(
-                                        { cafeId: req.cafeId, id: item.ingredientId }, { $inc: { stock: qteARendre } }
-                                    );
-                                }
+                                await Product.findOneAndUpdate(
+                                    { cafeId: req.cafeId, id: item.ingredientId },
+                                    { $inc: { stock: (item.quantity * art.quantite) } }
+                                );
                             }
-} else if (produitDb.stock !== undefined) {
-                            // 🔥 MAGIE ERP : Rendre la bonne quantité au stock
-                            let qteReelle = art.quantite;
-                            if (art.isSupplement && art.qteRecette) {
-                                qteReelle = convertirUnite(art.qteRecette, art.uniteRecette, produitDb.unite) * art.quantite;
-                            }
-
-                            // On rend le produit simple ou le supplément
+                        } else if (produitDb.stock !== undefined) {
+                            // On rend le produit simple
                             await Product.findOneAndUpdate(
                                 { cafeId: req.cafeId, id: produitDb.id },
-                                { $inc: { stock: qteReelle } } // On additionne (+)
+                                { $inc: { stock: art.quantite } }
                             );
                         }
                     }
                 }
-                await new Movement({ cafeId: req.cafeId, type: 'annulation', produit: "Multi-produits", raison: `Annulation commande #${cmd.numero} - Ingrédients remis en stock` }).save();
-            } else {
-                await new Movement({ cafeId: req.cafeId, type: 'perte', produit: "Multi-produits", raison: `Annulation commande #${cmd.numero} (Déjà en cuisine) - Stock considéré perdu` }).save();
+                // Historique du mouvement
+                await new Movement({
+                    cafeId: req.cafeId, type: 'annulation', produit: "Multi-produits",
+                    raison: `Annulation commande #${cmd.numero} - Ingrédients remis en stock`
+                }).save();
+            } 
+            // 🔴 SCÉNARIO : PRÉPARATION OU PRÊT -> ON NE REND RIEN
+            else {
+                await new Movement({
+                    cafeId: req.cafeId, type: 'perte', produit: "Multi-produits",
+                    raison: `Annulation commande #${cmd.numero} (Déjà en cuisine) - Stock considéré perdu`
+                }).save();
             }
 
+            // Dans tous les cas, on "tue" la commande pour le KDS et la Caisse
+            // On met 'paye' car ton système filtre déjà les commandes payées
             cmd.statut = 'paye'; 
             await cmd.save();
         }
 
         io.to(req.cafeId).emit('update_stock');
-        io.to(req.cafeId).emit('mise_a_jour_commande', { id: 'refresh_all' }); 
+        io.to(req.cafeId).emit('mise_a_jour_commande', { id: 'refresh_all' }); // Notifie les clients/cuisine
         res.json({ success: true, message: "Annulation traitée avec succès" });
 
     } catch (err) {

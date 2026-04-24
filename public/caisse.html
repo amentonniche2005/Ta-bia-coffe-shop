@@ -484,28 +484,22 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
     // 1. On calcule combien d'ingrédients le ticket actuel a DÉJÀ consommé
     if (simulerPanier && typeof currentTable !== 'undefined' && currentTable && tickets[currentTable]) {
         tickets[currentTable].articles.forEach(art => {
+            // 🔥 CORRECTION CRITIQUE : On ne simule la déduction QUE pour les articles NON envoyés !
+            // (Ceux envoyés ont déjà été déduits de la vraie base de données par le serveur)
             if (!art.envoye) {
                 const pDB = produits.find(p => String(p.id) === String(art.id) || String(p._id) === String(art.id) || String(p.nom) === String(art.nom));
                 if (pDB) {
                     const qte = parseInt(art.quantite) || 0;
                     if (pDB.isManufactured && pDB.recipe) {
                         pDB.recipe.forEach(item => {
-                            const ingredient = produits.find(ing => String(ing.id) === String(item.ingredientId));
-                            if (ingredient) {
-                                const ingId = String(ingredient.id);
-                                if (!consommation[ingId]) consommation[ingId] = 0;
-                                consommation[ingId] += (window.convertirUniteClient(Number(item.quantity), item.unit, ingredient.unite) * qte);
-                            }
+                            const ingId = String(item.ingredientId);
+                            if (!consommation[ingId]) consommation[ingId] = 0;
+                            consommation[ingId] += (Number(item.quantity) * qte);
                         });
                     } else if (!pDB.isManufactured) {
                         const idDb = String(pDB.id || pDB._id);
                         if (!consommation[idDb]) consommation[idDb] = 0;
-                        // 🟢 Si c'est un supplément, on convertit la quantité !
-                        if (art.isSupplement && art.qteRecette) {
-                            consommation[idDb] += (window.convertirUniteClient(Number(art.qteRecette), art.uniteRecette, pDB.unite) * qte);
-                        } else {
-                            consommation[idDb] += qte;
-                        }
+                        consommation[idDb] += qte;
                     }
                 }
             }
@@ -526,12 +520,14 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
         if (!ingredient) return 0;
         
         const stockInitialIng = Number(ingredient.stock) || 0;
-        const dejaConsomme = consommation[String(ingredient.id)] || 0;
+        const dejaConsomme = consommation[String(item.ingredientId)] || 0;
         
         const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
-        const quantiteConvertie = window.convertirUniteClient(Number(item.quantity), item.unit, ingredient.unite);
+
+        const quantiteRequise = Number(item.quantity) || 0;
+        const safeQte = quantiteRequise > 0 ? quantiteRequise : 1;
         
-        const possible = Math.floor(stockDispo / (quantiteConvertie > 0 ? quantiteConvertie : 1));
+        const possible = Math.floor(stockDispo / safeQte);
         if (possible < maxRealisable) maxRealisable = possible;
     }
     return maxRealisable === Infinity ? 0 : maxRealisable;
@@ -924,15 +920,13 @@ async function envoyerEnCuisine() {
     try {
         const response = await fetchSecurise('/api/commandes', {
             method: 'POST', 
-body: JSON.stringify({ 
+            body: JSON.stringify({ 
                 articles: articlesAEnvoyer.map(a => ({ 
                     id: a.id, 
                     nom: a.variante ? `${a.nom} (${a.variante})` : a.nom, 
                     prix: a.prix, 
                     quantite: a.quantite,
-                    isSupplement: a.isSupplement,
-                    qteRecette: a.qteRecette,     // 🔥 NOUVEAU : On transmet la qté
-                    uniteRecette: a.uniteRecette, // 🔥 NOUVEAU : On transmet l'unité
+                    isSupplement: a.isSupplement,             
                     uniqueGroupId: a.uniqueGroupId,          
                     parentId: a.parentId                     
                 })), 
@@ -1261,7 +1255,7 @@ window.ouvrirModalOptionsCaisse = function(produit) {
 
             return `
                 <label style="cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'};">
-                    <input type="checkbox" name="caisseSuppOption" value="${prixFinal}" data-id="${supp.id}" data-nom="${supp.nom}" data-qte="${supp.quantite}" data-unite="${supp.unite}" style="display:none;" onchange="mettreAJourTotalModalCaisse()">
+                    <input type="checkbox" name="caisseSuppOption" value="${prixFinal}" data-id="${supp.id}" data-nom="${supp.nom}" style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModalCaisse()">
                     <div class="caisse-selectable-card" style="padding:10px; flex-direction:column; align-items:center;">
                         <span style="font-size:0.85rem;">+ ${supp.nom}</span>
                         <span style="font-weight:800; color:var(--success); font-size:0.8rem;">${pPromo > 0 ? pPromo.toFixed(2) : pNormal.toFixed(2)} DT</span>
@@ -1285,13 +1279,12 @@ window.ouvrirModalOptionsCaisse = function(produit) {
     modal.classList.add('active');
 };
 
-window.mettreAJourTotalModalCaisse = function() {
-    let total = prixBaseEnAttenteCaisse;
-    document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => {
-        total += parseFloat(box.value) || 0;
-    });
-    document.getElementById("caissePrixTotalOptionsBtn").textContent = `${total.toFixed(2)} DT`;
-};
+    window.mettreAJourTotalModalCaisse = function() {
+        let total = prixBaseEnAttenteCaisse;
+        document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => total += parseFloat(box.value) || 0);
+        document.getElementById("caissePrixTotalOptionsBtn").textContent = `${total.toFixed(2)} DT`;
+    };
+
     window.fermerModalOptionsCaisse = function() {
         document.getElementById("modalOptionsCaisse").classList.remove('active');
         produitEnAttenteCaisse = null;
@@ -1315,16 +1308,9 @@ window.validerOptionsCaisse = function() {
         const varianteFinale = choixFinaux.join(' / '); // Ex: "Thon / Harissa+Mayo"
 
         // --- 2. RÉCOLTE DES SUPPLÉMENTS ---
-// --- 2. RÉCOLTE DES SUPPLÉMENTS ---
         let suppsChoisis = [];
         document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => {
-            suppsChoisis.push({ 
-                id: box.getAttribute('data-id'), 
-                nom: box.getAttribute('data-nom'), 
-                prix: box.value,
-                quantiteRecette: parseFloat(box.getAttribute('data-qte')) || 0, // 🔥 NOUVEAU
-                uniteRecette: box.getAttribute('data-unite') || 'u'             // 🔥 NOUVEAU
-            });
+            suppsChoisis.push({ id: box.getAttribute('data-id'), nom: box.getAttribute('data-nom'), prix: box.value });
         });
 
         // --- 3. AJOUT AU TICKET ---
@@ -1340,19 +1326,18 @@ window.ajouterProduitCaisse = function(produit, variante, supplements) {
         ? parseFloat(produit.prixPromo) 
         : parseFloat(produit.prix);
 
-    // 1. Ajouter le produit principal
-    ajouterAuTicket(currentTable, {
-        id: String(produit.id || produit._id),
-        nom: produit.nom,
-        variante: variante,
-        prix: prixInitial,
-        quantite: 1,
-        envoye: false, 
-        isSupplement: false, 
-        uniqueGroupId: idGroupeUnique
+    // 1. Produit Principal
+    ajouterAuTicket(currentTable, { 
+        id: String(produit.id || produit._id), 
+        nom: String(produit.nom), 
+        variante: variante, 
+        prix: Number(prixInitial), // Force le format nombre
+        quantite: 1, 
+        envoye: false, pret: false, cmdId: null,
+        isSupplement: false, uniqueGroupId: idGroupeUnique, parentId: null 
     }, false, false);
     
-    // 2. Ajouter les Suppléments liés
+    // 2. Suppléments
     if (supplements && supplements.length > 0) {
         supplements.forEach(supp => {
             ajouterAuTicket(currentTable, {
@@ -1361,12 +1346,7 @@ window.ajouterProduitCaisse = function(produit, variante, supplements) {
                 variante: null,
                 prix: Number(parseFloat(supp.prix) || 0),
                 quantite: 1,
-                qteRecette: supp.quantiteRecette, // 🔥 C'est ici qu'on attache la qté !
-                uniteRecette: supp.uniteRecette,  // 🔥 Et l'unité !
-                envoye: false, 
-                isSupplement: true, 
-                uniqueGroupId: Date.now() + Math.random(), 
-                parentId: idGroupeUnique
+                envoye: false, isSupplement: true, uniqueGroupId: Date.now() + Math.random(), parentId: idGroupeUnique
             }, false, false);
         });
     }
