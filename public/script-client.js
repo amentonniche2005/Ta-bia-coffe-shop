@@ -333,8 +333,8 @@ function genererCategoriesDynamiques() {
     const container = document.getElementById('categoryTabs');
     if (!container) return;
     
-    // 🔥 FILTRAGE : On récupère les catégories mais on EXCLUT 'supplement'
-    const categoriesUniques = [...new Set(produits.map(p => p.categorie).filter(cat => cat && cat !== 'supplement'))];
+    // 🔥 CORRECTION : On exclut formellement les catégories 'supplement' ET 'matiere'
+    const categoriesUniques = [...new Set(produits.map(p => p.categorie).filter(cat => cat && cat !== 'supplement' && cat !== 'matiere'))];
     
     let html = `<button class="category-btn active" data-category="all">🍽️ Tout</button>`;
     categoriesUniques.forEach(cat => {
@@ -345,19 +345,19 @@ function genererCategoriesDynamiques() {
     container.innerHTML = html;
 }
 
-// ========== AFFICHAGE DES PRODUITS ==========
-// ========== AFFICHAGE DES PRODUITS ==========
 function afficherProduits() {
     const grille = document.getElementById("menuGrid");
     if (!grille) return;
 
-    let produitsAffiches = produits;
-produitsAffiches = produitsAffiches.filter(p => p.categorie !== 'supplement' && p.categorie !== 'matiere');  
-  if (categorieActuelle !== "all") {
-        produitsAffiches = produits.filter(p => p.categorie === categorieActuelle);
-    }
+    // 🔥 CORRECTION SÉCURISÉE : On crée une liste propre des produits VENDABLES uniquement
+    let produitsVendables = produits.filter(p => p.categorie !== 'supplement' && p.categorie !== 'matiere');
+    
+    // Ensuite on filtre cette liste propre selon la catégorie choisie
+    let produitsAffiches = (categorieActuelle === "all") 
+        ? produitsVendables 
+        : produitsVendables.filter(p => p.categorie === categorieActuelle);
 
-    // 🔥 CORRECTION ERP : On trie en utilisant le stock calculé
+    // Tri entre ceux en stock et ceux en rupture
     const enStock = produitsAffiches.filter(p => window.calculerStockReel(p) > 0 || p.stock === undefined);
     const enRupture = produitsAffiches.filter(p => window.calculerStockReel(p) <= 0 && p.stock !== undefined);
     const produitsTries = [...enStock, ...enRupture];
@@ -368,7 +368,7 @@ produitsAffiches = produitsAffiches.filter(p => p.categorie !== 'supplement' && 
     }
 
     grille.innerHTML = produitsTries.map(p => {
-        // 🔥 CORRECTION ERP : On vérifie la rupture virtuelle
+        // Vérification de la rupture virtuelle
         const stockActuel = window.calculerStockReel(p);
         const rupture = stockActuel <= 0 && p.stock !== undefined;
         
@@ -379,7 +379,7 @@ produitsAffiches = produitsAffiches.filter(p => p.categorie !== 'supplement' && 
         
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
         
-        // --- LOGIQUE PROMO ARTICLES ---
+        // Logique Prix & Promo
         const prixNormal = parseFloat(p.prix || 0).toFixed(2);
         const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
         
@@ -403,7 +403,6 @@ produitsAffiches = produitsAffiches.filter(p => p.categorie !== 'supplement' && 
         `;
     }).join('');
 }
-
 // ========== GESTION DES VARIANTES & SUPPLÉMENTS (PREMIUM) ==========
 
 let prixBaseEnAttente = 0;
@@ -490,31 +489,41 @@ window.ouvrirModalOptions = function(produit, options) {
         sectionVar.style.display = "none"; 
     }
 
-    // =========================================================
-    // 2. SECTION SUPPLÉMENTS (Ancienne logique, intacte avec le stock)
+// =========================================================
+    // 2. SECTION SUPPLÉMENTS (Nouvelle logique Promo & Stock ERP)
     // =========================================================
     const sectionSupp = document.getElementById("sectionSupplements");
     const containerSupp = document.getElementById("supplementsList");
     
-if (produit.supplements && produit.supplements.length > 0) {
+    if (produit.supplements && produit.supplements.length > 0) {
         containerSupp.innerHTML = produit.supplements.map(supp => {
-            const ref = produits.find(p => String(p.id) === String(supp.id));
-            const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
+            // 🔥 CORRECTION STOCK : On utilise "ingredientId" pour trouver la matière première
+            const ref = produits.find(p => String(p.id) === String(supp.ingredientId) || String(p._id) === String(supp.ingredientId));
+            
+            // Calcul précis de la rupture (On vérifie s'il y a assez de grammes/unités)
+            let estRupture = false;
+            if (ref) {
+                const stockRestant = window.calculerStockReel(ref, true); // true = prend en compte le panier
+                const qteRequise = parseFloat(supp.quantiteADeduire) || 0;
+                if (stockRestant < qteRequise) {
+                    estRupture = true;
+                }
+            }
 
-            // --- LOGIQUE PROMO SUPPLÉMENTS ---
-            // On vérifie si le produit référencé comme supplément a lui-même un prixPromo
+            // 🔥 CORRECTION PROMO : On lit le "prixPromo" configuré DANS le supplément
             const pNormal = parseFloat(supp.prix || 0);
-            const pPromo = (ref && ref.prixPromo > 0) ? parseFloat(ref.prixPromo) : 0;
+            const pPromo = parseFloat(supp.prixPromo || 0);
             const prixFinalSupp = pPromo > 0 ? pPromo : pNormal;
 
+            // Affichage visuel (Barré si promo)
             const affichagePrixSupp = pPromo > 0 
-                ? `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">+${pNormal.toFixed(2)}</s> <span style="color:#10b981;">+${pPromo.toFixed(2)} DT</span>`
+                ? `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">+${pNormal.toFixed(2)}</s> <span style="color:#10b981; font-weight:900;">+${pPromo.toFixed(2)} DT</span>`
                 : `<span class="opt-price">+ ${pNormal.toFixed(2)} DT</span>`;
 
             return `
-                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'};">
+                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'};">
                     <input type="checkbox" name="supplementOption" 
-                            value="${prixFinalSupp}" data-id="${supp.id}" data-nom="${supp.nom}" 
+                            value="${prixFinalSupp}" data-id="${supp.ingredientId || supp.id || ''}" data-nom="${supp.nom}" 
                             style="display:none;" ${estRupture ? 'disabled' : ''} 
                             onchange="mettreAJourTotalModal()">
                     <div class="selectable-card ${estRupture ? 'disabled' : ''}">
@@ -523,7 +532,7 @@ if (produit.supplements && produit.supplements.length > 0) {
                             <span>${supp.nom}</span>
                         </div>
                         <div class="opt-price-container">
-                            ${estRupture ? '<span class="rupture-txt">ÉPUISÉ</span>' : affichagePrixSupp}
+                            ${estRupture ? '<span class="rupture-txt" style="color:var(--danger); font-weight:800; font-size:0.8rem;">ÉPUISÉ</span>' : affichagePrixSupp}
                         </div>
                     </div>
                 </label>

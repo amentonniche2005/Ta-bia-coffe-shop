@@ -1152,9 +1152,16 @@ window.afficherTicket = function() {
     countSpan.innerText = totalArts + " art.";
 }
 
-    function renderCategories() {
+function renderCategories() {
         const container = document.getElementById('categoriesContainer');
-        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", sandwish: "🥪 Sandwiches",chicha: "💨 Chichas",Ma9loub: "🌮 ma9loub",Pizza: "🍕 Pizza",BagetteFarci: "🥖 Bagette Farci",Tacos: "🌯 Tacos",Burger: "🍔 Burger",Crepes: "🦪Crepes",plats: "🍽 Plats",Pasta: "🍝 Pasta",Libanai: "🌯 Libanai" }; const cats = new Set(); produits.forEach(p => { if(p.categorie) cats.add(p.categorie); });
+        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", sandwish: "🥪 Sandwiches",chicha: "💨 Chichas",Ma9loub: "🌮 ma9loub",Pizza: "🍕 Pizza",BagetteFarci: "🥖 Bagette Farci",Tacos: "🌯 Tacos",Burger: "🍔 Burger",Crepes: "🦪Crepes",plats: "🍽 Plats",Pasta: "🍝 Pasta",Libanai: "🌯 Libanai" }; 
+        const cats = new Set(); 
+        
+        // 🔥 CORRECTION : On exclut formellement les matières premières et les suppléments des onglets
+        produits.forEach(p => { 
+            if(p.categorie && p.categorie !== 'supplement' && p.categorie !== 'matiere') cats.add(p.categorie); 
+        });
+        
         let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
         Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });
         container.innerHTML = html;
@@ -1165,7 +1172,11 @@ function renderProducts() {
     const grid = document.getElementById('productsGrid'); 
     if (!grid) return;
 
-    let filtered = activeCategory === "all" ? produits : produits.filter(p => p.categorie === activeCategory);
+    // 🔥 CORRECTION : Le catalogue global de la caisse ne doit jamais contenir les matières ni les suppléments
+    let produitsVendables = produits.filter(p => p.categorie !== 'supplement' && p.categorie !== 'matiere');
+    
+    let filtered = activeCategory === "all" ? produitsVendables : produitsVendables.filter(p => p.categorie === activeCategory);
+    
     if (!filtered.length) { 
         grid.innerHTML = '<div class="empty-message" style="grid-column: 1/-1;">Aucun produit</div>'; 
         return; 
@@ -1203,7 +1214,7 @@ function renderProducts() {
         
         // 🔥 CORRECTION ERP : On vérifie la rupture selon le stock virtuel
         const stockActuel = window.calculerStockReel(produitFull);
-        if (!produitFull || stockActuel <= 0) {
+        if (!produitFull || (stockActuel <= 0 && produitFull.stock !== undefined)) {
             showNotification("❌ Produit en rupture de stock (Vérifiez les ingrédients)", "var(--danger)");
             return;
         }
