@@ -1112,7 +1112,7 @@ window.afficherTicket = function() {
 
         // 🔥 BOUTON POUBELLE (Avec stopPropagation et groupId)
         const btnTrash = `
-            <button onclick="event.stopPropagation(); modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -${qte}, ${envoyeVar}, ${groupId})" 
+            <button onclick="event.stopPropagation(); modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar}, ${groupId})" 
                     style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:1.2rem; margin-right:15px; display:flex; align-items:center;" 
                     title="Supprimer">
                 <i class="fas ${item.envoye ? 'fa-minus-circle' : 'fa-trash-alt'}"></i>
