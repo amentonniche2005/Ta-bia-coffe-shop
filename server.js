@@ -1129,13 +1129,15 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
 app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res) => {
     try {
         const { orderId, uniqueGroupId } = req.body;
+        if (!orderId) return res.status(400).json({ error: "ID Commande manquant" });
+
         const commande = await Order.findOne({ cafeId: req.cafeId, id: orderId });
         if (!commande) return res.status(404).json({ error: "Commande introuvable" });
 
-        // 🔥 LOGIQUE DE RESTITUTION CONDITIONNELLE
-        // On ne rend le stock QUE si la commande est encore 'en_attente'
+        // 🧠 LOGIQUE : On rend le stock QUE si la commande n'est pas encore commencée (en_attente)
         const doitRestituerStock = (commande.statut === 'en_attente');
 
+        // On identifie les articles à supprimer (le plat + ses suppléments)
         const articlesASupprimer = commande.articles.filter(a => 
             String(a.uniqueGroupId) === String(uniqueGroupId) || String(a.parentId) === String(uniqueGroupId)
         );
@@ -1146,41 +1148,44 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
                 let nomPropre = art.nom || "";
                 if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
 
-                if (art.isSupplement && art.parentId) {
-                    const parentArticle = commande.articles.find(a => String(a.uniqueGroupId) === String(art.parentId));
-                    if (parentArticle) {
-                        const idParent = parentArticle.baseId || parentArticle.id;
-                        let parentDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idParent) }, { _id: idParent }] });
-                        if (!parentDb) parentDb = await Product.findOne({ cafeId: req.cafeId, nom: parentArticle.nom.split('(')[0].trim() });
+                const idRecherche = art.baseId || art.id;
 
-                        const configSupp = parentDb?.supplements?.find(s => s.nom === nomPropre || s.nom === art.nom);
-                        if (configSupp?.ingredientId) {
-                            const qteARendre = (configSupp.quantiteADeduire || 0) * qteCmd;
-                            const queryIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
-                            await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } });
-                        }
-                    }
-                } else {
-                    const idRecherche = art.baseId || art.id;
-                    let produitDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idRecherche) }, { _id: idRecherche }] });
-                    if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
+                // --- Recherche sécurisée du produit ---
+                let conditions = [];
+                if (idRecherche && !isNaN(idRecherche)) conditions.push({ id: Number(idRecherche) });
+                if (idRecherche && mongoose.Types.ObjectId.isValid(idRecherche)) conditions.push({ _id: idRecherche });
+                
+                let produitDb = null;
+                if (conditions.length > 0) {
+                    produitDb = await Product.findOne({ cafeId: req.cafeId, $or: conditions });
+                }
+                
+                // Secours par le nom si ID introuvable
+                if (!produitDb) {
+                    produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
+                }
 
-                    if (produitDb) {
-                        if (produitDb.isManufactured && produitDb.recipe) {
-                            for (let comp of produitDb.recipe) {
-                                const qteARendre = (comp.quantity || 0) * qteCmd;
-                                const queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
+                if (produitDb) {
+                    // 1. Cas Produit Manufacturé (Recette)
+                    if (produitDb.isManufactured && produitDb.recipe) {
+                        for (let comp of produitDb.recipe) {
+                            const qteARendre = (comp.quantity || 0) * qteCmd;
+                            const queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
+                            // On vérifie que l'ID ingrédient est valide avant d'updater
+                            if (!isNaN(comp.ingredientId) || mongoose.Types.ObjectId.isValid(comp.ingredientId)) {
                                 await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } });
                             }
-                        } else {
-                            await Product.findOneAndUpdate({ cafeId: req.cafeId, id: produitDb.id || produitDb._id }, { $inc: { stock: qteCmd } });
                         }
+                    } 
+                    // 2. Cas Produit Simple (Matière/Boisson)
+                    else {
+                        await Product.findOneAndUpdate({ cafeId: req.cafeId, _id: produitDb._id }, { $inc: { stock: qteCmd } });
                     }
                 }
             }
         }
 
-        // Mise à jour du ticket (On retire l'article de la liste)
+        // MISE À JOUR DU TICKET
         commande.articles = commande.articles.filter(a => String(a.uniqueGroupId) !== String(uniqueGroupId) && String(a.parentId) !== String(uniqueGroupId));
         commande.total = commande.articles.reduce((sum, a) => sum + (parseFloat(a.prix) * a.quantite), 0);
         
@@ -1194,7 +1199,11 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
 
         io.to(req.cafeId).emit('update_stock');
         res.json({ success: true, stockRendu: doitRestituerStock });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+
+    } catch (err) {
+        console.error("Erreur annulation unique:", err);
+        res.status(500).json({ error: "Erreur interne du serveur" });
+    }
 });
 
 app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
