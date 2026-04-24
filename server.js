@@ -438,7 +438,7 @@ app.post('/api/commandes', async (req, res) => {
     try {
         const codeEnvoye = String(req.body.codeAuth);
         
-        // 1. RÉCUPÉRATION DES CLÉS DYNAMIQUES
+        // VÉRIFICATIONS SÉCURITÉ
         const config = await StoreSettings.findOne({ cafeId: req.cafeId, type: 'branding' });
         const vraiCodeServeur = (config && config.codeServeur) ? config.codeServeur : '00000';
         const vraiCaisseToken = (config && config.caisseToken) ? config.caisseToken : '12345678';
@@ -466,27 +466,33 @@ app.post('/api/commandes', async (req, res) => {
         let articlesSecurises = [];
 
         for (let art of req.body.articles) {
-            let nomPropre = art.nom;
-            if (nomPropre && nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
+            let nomPropre = art.nom || "";
+            if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
+            const nomBaseRecherche = nomPropre.split('(')[0].trim();
             const qteCmd = parseInt(art.quantite) || 1;
 
             // ==========================================
             // CAS 1 : C'EST UN SUPPLÉMENT
             // ==========================================
             if (art.isSupplement && art.parentId) {
-                const parentArticle = req.body.articles.find(a => a.uniqueGroupId === art.parentId || String(a.id) === String(art.parentId));
+                const parentArticle = req.body.articles.find(a => String(a.uniqueGroupId) === String(art.parentId) || String(a.id) === String(art.parentId));
                 let parentDb = null;
                 
                 if (parentArticle) {
-                    if (parentArticle.id && !isNaN(parentArticle.id)) parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(parentArticle.id) });
-                    else if (parentArticle.id && mongoose.Types.ObjectId.isValid(parentArticle.id)) parentDb = await Product.findOne({ cafeId: req.cafeId, _id: parentArticle.id });
-                    else parentDb = await Product.findOne({ cafeId: req.cafeId, nom: parentArticle.nom });
+                    const idParent = parentArticle.baseId || parentArticle.id;
+                    if (idParent && !isNaN(idParent)) parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idParent) });
+                    else if (idParent && mongoose.Types.ObjectId.isValid(idParent)) parentDb = await Product.findOne({ cafeId: req.cafeId, _id: idParent });
+                    if (!parentDb) parentDb = await Product.findOne({ cafeId: req.cafeId, nom: parentArticle.nom.split('(')[0].trim() });
                 }
 
                 if (parentDb && parentDb.supplements) {
                     const configSupp = parentDb.supplements.find(s => s.nom === art.nom || s.nom === nomPropre);
                     let prixApplique = art.prix;
-                    if (configSupp && configSupp.prix !== undefined) prixApplique = configSupp.prix;
+                    
+                    if (configSupp) {
+                        if (configSupp.prixPromo && configSupp.prixPromo > 0) prixApplique = configSupp.prixPromo;
+                        else if (configSupp.prix !== undefined) prixApplique = configSupp.prix;
+                    }
                     
                     totalSecurise += (prixApplique * qteCmd);
                     articlesSecurises.push({ ...art, prix: prixApplique });
@@ -494,7 +500,6 @@ app.post('/api/commandes', async (req, res) => {
                     // 🔥 DÉSTOCKAGE DU SUPPLÉMENT IMMÉDIAT
                     if (configSupp && configSupp.ingredientId) {
                         let queryIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
-                        
                         const qteADeduireTotal = (configSupp.quantiteADeduire || 0) * qteCmd;
 
                         const ing = await Product.findOneAndUpdate(
@@ -506,7 +511,7 @@ app.post('/api/commandes', async (req, res) => {
                             await new Movement({
                                 cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id || ing._id,
                                 quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
-                                raison: `Supplément : ${art.nom} pour ${parentDb.nom}`
+                                raison: `Supplément : ${nomPropre} pour ${parentDb.nom}`
                             }).save();
                         }
                     }
@@ -520,14 +525,16 @@ app.post('/api/commandes', async (req, res) => {
             // ==========================================
             else {
                 let produitDb = null;
-                if (art.id && !isNaN(art.id)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
-                else if (art.id && mongoose.Types.ObjectId.isValid(art.id)) produitDb = await Product.findOne({ cafeId: req.cafeId, _id: art.id });
-                if (!produitDb && nomPropre) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
+                const idSrc = art.baseId || art.id;
+                
+                if (idSrc && !isNaN(idSrc)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idSrc) });
+                else if (idSrc && mongoose.Types.ObjectId.isValid(idSrc)) produitDb = await Product.findOne({ cafeId: req.cafeId, _id: idSrc });
+                if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomBaseRecherche });
 
                 if (produitDb) {
                     let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) ? produitDb.prixPromo : produitDb.prix;
                     totalSecurise += (prixBaseDb * qteCmd);
-                    articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, nom: produitDb.nom });
+                    articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, baseId: produitDb.id || produitDb._id, nom: produitDb.nom });
 
                     // 🔥 DÉSTOCKAGE DU PRODUIT IMMÉDIAT
                     if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
@@ -572,7 +579,7 @@ app.post('/api/commandes', async (req, res) => {
         
         io.to(req.cafeId).emit('update_stock');
 
-        // GESTION DES PAIEMENTS VIP
+        // 🔥 GESTION DES PAIEMENTS VIP (Logique Originale Intacte)
         let messageBonus = null;
         if (req.body.methodePaiement === 'carte_fidelite') {
             const clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
@@ -580,7 +587,7 @@ app.post('/api/commandes', async (req, res) => {
             if (clientVIP.solde < totalSecurise) return res.status(400).json({ error: `Solde insuffisant.` });
 
             clientVIP.solde = parseFloat((clientVIP.solde - totalSecurise).toFixed(2));
-            clientVIP.points = parseFloat(((clientVIP.points || 0) + totalSecurise).toFixed(2));
+            clientVIP.points = parseFloat(((clientVIP.points || 0) + totalSecurise).toFixed(2)); // 🔥 GAGNE SES POINTS
             messageBonus = `✨ Vous avez gagné ${totalSecurise.toFixed(2)} points fidélité !`;
             await clientVIP.save();
 
@@ -616,7 +623,6 @@ app.post('/api/commandes', async (req, res) => {
         res.status(500).json({ error: err.message }); 
     }
 });
-
 app.post('/api/customers/convertir-points', verifierToken, async (req, res) => {
     try {
         const { codeFidelite } = req.body;
@@ -981,37 +987,44 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
         let articlesSecurises = [];
 
         for (let art of req.body.articles) {
-            let nomPropre = art.nom;
-            if (nomPropre && nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
-            const qteCmd = parseInt(art.quantite) || 1; // Quantité commandée par le client
-            const estDejaEnvoye = art.envoye === true; // Évite le double déstockage
+            let nomPropre = art.nom || "";
+            if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
+            const nomBaseRecherche = nomPropre.split('(')[0].trim();
+            const qteCmd = parseInt(art.quantite) || 1;
+            
+            // 🔥 ANTI-DOUBLE DÉSTOCKAGE
+            const estDejaDestocke = art.envoye === true || !!art.cmdId;
 
             // ==========================================
             // CAS 1 : C'EST UN SUPPLÉMENT
             // ==========================================
             if (art.isSupplement && art.parentId) {
-                const parentArticle = req.body.articles.find(a => a.uniqueGroupId === art.parentId || String(a.id) === String(art.parentId));
+                const parentArticle = req.body.articles.find(a => String(a.uniqueGroupId) === String(art.parentId) || String(a.id) === String(art.parentId));
                 let parentDb = null;
                 
                 if (parentArticle) {
-                    if (parentArticle.id && !isNaN(parentArticle.id)) parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(parentArticle.id) });
-                    else if (parentArticle.id && mongoose.Types.ObjectId.isValid(parentArticle.id)) parentDb = await Product.findOne({ cafeId: req.cafeId, _id: parentArticle.id });
-                    else parentDb = await Product.findOne({ cafeId: req.cafeId, nom: parentArticle.nom });
+                    const idParent = parentArticle.baseId || parentArticle.id;
+                    if (idParent && !isNaN(idParent)) parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idParent) });
+                    else if (idParent && mongoose.Types.ObjectId.isValid(idParent)) parentDb = await Product.findOne({ cafeId: req.cafeId, _id: idParent });
+                    if (!parentDb) parentDb = await Product.findOne({ cafeId: req.cafeId, nom: parentArticle.nom.split('(')[0].trim() });
                 }
 
                 if (parentDb && parentDb.supplements) {
                     const configSupp = parentDb.supplements.find(s => s.nom === art.nom || s.nom === nomPropre);
-                    let prixApplique = art.prix; 
-                    if (configSupp && configSupp.prix !== undefined) prixApplique = configSupp.prix;
+                    let prixApplique = art.prix;
+                    
+                    // 🔥 LECTURE DU PRIX PROMO DU SUPPLÉMENT
+                    if (configSupp) {
+                        if (configSupp.prixPromo && configSupp.prixPromo > 0) prixApplique = configSupp.prixPromo;
+                        else if (configSupp.prix !== undefined) prixApplique = configSupp.prix;
+                    }
                     
                     vraiTotalReel += (prixApplique * qteCmd);
                     articlesSecurises.push({ ...art, prix: prixApplique });
 
-                    // 🔥 DÉSTOCKAGE DU SUPPLÉMENT
-                    if (configSupp && configSupp.ingredientId && !estDejaEnvoye) {
+                    // DÉSTOCKAGE DU SUPPLÉMENT
+                    if (configSupp && configSupp.ingredientId && !estDejaDestocke) {
                         let queryIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
-                        
-                        // LOGIQUE EXACTE : (Qté configurée) * (Qté commandée)
                         const qteADeduireTotal = (configSupp.quantiteADeduire || 0) * qteCmd; 
 
                         const ing = await Product.findOneAndUpdate(
@@ -1022,9 +1035,8 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
                         if (ing) {
                             await new Movement({
                                 cafeId: req.cafeId, type: 'vente', produit: ing.nom, produitId: ing.id || ing._id,
-                                quantite: qteADeduireTotal, 
-                                ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
-                                raison: `Supplément : ${art.nom} pour ${parentDb.nom}`
+                                quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
+                                raison: `Supplément : ${nomPropre} pour ${parentDb.nom}`
                             }).save();
                         }
                     }
@@ -1038,23 +1050,22 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
             // ==========================================
             else {
                 let produitDb = null;
-                if (art.id && !isNaN(art.id)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
-                else if (art.id && mongoose.Types.ObjectId.isValid(art.id)) produitDb = await Product.findOne({ cafeId: req.cafeId, _id: art.id });
+                const idSrc = art.baseId || art.id;
                 
-                if (!produitDb && nomPropre) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
+                if (idSrc && !isNaN(idSrc)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idSrc) });
+                else if (idSrc && mongoose.Types.ObjectId.isValid(idSrc)) produitDb = await Product.findOne({ cafeId: req.cafeId, _id: idSrc });
+                if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomBaseRecherche });
 
                 if (produitDb) {
                     let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) ? produitDb.prixPromo : produitDb.prix;
                     vraiTotalReel += (prixBaseDb * qteCmd);
-                    articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, nom: produitDb.nom });
+                    articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, baseId: produitDb.id || produitDb._id, nom: produitDb.nom });
 
-                    // 🔥 DÉSTOCKAGE DU PRODUIT
-                    if (!estDejaEnvoye) {
+                    // DÉSTOCKAGE DU PRODUIT
+                    if (!estDejaDestocke) {
                         if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
                             for (let comp of produitDb.recipe) {
                                 let queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                                
-                                // LOGIQUE EXACTE : (Qté recette) * (Qté commandée)
                                 const qteADeduireTotal = (comp.quantity || 0) * qteCmd; 
 
                                 const ing = await Product.findOneAndUpdate(
@@ -1065,8 +1076,7 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
                                 if (ing) {
                                     await new Movement({
                                         cafeId: req.cafeId, type: 'vente', produit: ing.nom, produitId: ing.id || ing._id,
-                                        quantite: qteADeduireTotal, 
-                                        ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
+                                        quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
                                         raison: `Composant de : ${produitDb.nom}`
                                     }).save();
                                 }
@@ -1094,6 +1104,18 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
         }
 
         if (req.body.remise && req.body.remise > 0) vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));
+
+        // 🔥 LOGIQUE VIP (SANS CRASH)
+        if (req.body.methodePaiement === 'carte_fidelite') {
+            const codeClient = req.body.clientId; // La caisse envoie clientId
+            const clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeClient });
+            if (!clientVIP) return res.status(403).json({ error: "Carte non reconnue." });
+            if (clientVIP.solde < vraiTotalReel) return res.status(400).json({ error: `Solde insuffisant.` });
+
+            clientVIP.solde = parseFloat((clientVIP.solde - vraiTotalReel).toFixed(2));
+            clientVIP.points = parseFloat(((clientVIP.points || 0) + vraiTotalReel).toFixed(2)); // 🔥 GAGNE SES POINTS
+            await clientVIP.save();
+        }
 
         await new Sale({ ...req.body, articles: articlesSecurises, cafeId: req.cafeId, total: vraiTotalReel }).save();
         io.to(req.cafeId).emit('update_stock');
