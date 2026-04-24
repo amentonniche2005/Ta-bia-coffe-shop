@@ -1129,80 +1129,69 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
 app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res) => {
     try {
         const { orderId, uniqueGroupId } = req.body;
-        if (!orderId) return res.status(400).json({ error: "ID Commande manquant" });
-
         const commande = await Order.findOne({ cafeId: req.cafeId, id: orderId });
         if (!commande) return res.status(404).json({ error: "Commande introuvable" });
 
-        // 🧠 LOGIQUE : On rend le stock QUE si la commande n'est pas encore commencée (en_attente)
+        // 1. On vérifie si on rend le stock (uniquement si en attente)
         const doitRestituerStock = (commande.statut === 'en_attente');
 
-        // On identifie les articles à supprimer (le plat + ses suppléments)
-        const articlesASupprimer = commande.articles.filter(a => 
+        // 2. On trouve l'article principal et ses suppléments dans la commande
+        const itemsDuGroupe = commande.articles.filter(a => 
             String(a.uniqueGroupId) === String(uniqueGroupId) || String(a.parentId) === String(uniqueGroupId)
         );
 
         if (doitRestituerStock) {
-            for (let art of articlesASupprimer) {
-                const qteCmd = parseInt(art.quantite) || 1;
+            for (let art of itemsDuGroupe) {
+                // 🔥 LA CORRECTION : On ne rend le stock que pour UNE SEULE unité (quantité: 1)
                 let nomPropre = art.nom || "";
                 if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
 
                 const idRecherche = art.baseId || art.id;
-
-                // --- Recherche sécurisée du produit ---
                 let conditions = [];
                 if (idRecherche && !isNaN(idRecherche)) conditions.push({ id: Number(idRecherche) });
                 if (idRecherche && mongoose.Types.ObjectId.isValid(idRecherche)) conditions.push({ _id: idRecherche });
                 
-                let produitDb = null;
-                if (conditions.length > 0) {
-                    produitDb = await Product.findOne({ cafeId: req.cafeId, $or: conditions });
-                }
-                
-                // Secours par le nom si ID introuvable
-                if (!produitDb) {
-                    produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
-                }
+                let produitDb = conditions.length > 0 ? await Product.findOne({ cafeId: req.cafeId, $or: conditions }) : null;
+                if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
 
                 if (produitDb) {
-                    // 1. Cas Produit Manufacturé (Recette)
                     if (produitDb.isManufactured && produitDb.recipe) {
                         for (let comp of produitDb.recipe) {
-                            const qteARendre = (comp.quantity || 0) * qteCmd;
-                            const queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                            // On vérifie que l'ID ingrédient est valide avant d'updater
-                            if (!isNaN(comp.ingredientId) || mongoose.Types.ObjectId.isValid(comp.ingredientId)) {
-                                await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } });
-                            }
+                            const qteARendre = (comp.quantity || 0) * 1; // Uniquement 1 unité
+                            const qIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
+                            await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
                         }
-                    } 
-                    // 2. Cas Produit Simple (Matière/Boisson)
-                    else {
-                        await Product.findOneAndUpdate({ cafeId: req.cafeId, _id: produitDb._id }, { $inc: { stock: qteCmd } });
+                    } else {
+                        await Product.findOneAndUpdate({ cafeId: req.cafeId, _id: produitDb._id }, { $inc: { stock: 1 } });
                     }
                 }
             }
         }
 
-        // MISE À JOUR DU TICKET
-        commande.articles = commande.articles.filter(a => String(a.uniqueGroupId) !== String(uniqueGroupId) && String(a.parentId) !== String(uniqueGroupId));
-        commande.total = commande.articles.reduce((sum, a) => sum + (parseFloat(a.prix) * a.quantite), 0);
+        // 3. MISE À JOUR DE LA QUANTITÉ DANS LA COMMANDE (Décrémentation de 1)
+        for (let art of commande.articles) {
+            if (String(art.uniqueGroupId) === String(uniqueGroupId) || String(art.parentId) === String(uniqueGroupId)) {
+                art.quantite -= 1;
+            }
+        }
+
+        // 4. Nettoyage des articles tombés à 0
+        commande.articles = commande.articles.filter(a => a.quantite > 0);
         
         if (commande.articles.length === 0) {
             await Order.deleteOne({ cafeId: req.cafeId, id: orderId });
             io.to(req.cafeId).emit('mise_a_jour_commande', { id: orderId, statut: 'annulee' });
         } else {
+            commande.total = commande.articles.reduce((sum, a) => sum + (a.prix * a.quantite), 0);
             await commande.save();
+            // 🔥 SIGNAL À LA CUISINE : Le ticket change (ex: de 2x Pizza à 1x Pizza)
             io.to(req.cafeId).emit('mise_a_jour_commande', commande);
         }
 
         io.to(req.cafeId).emit('update_stock');
-        res.json({ success: true, stockRendu: doitRestituerStock });
-
+        res.json({ success: true });
     } catch (err) {
-        console.error("Erreur annulation unique:", err);
-        res.status(500).json({ error: "Erreur interne du serveur" });
+        res.status(500).json({ error: err.message });
     }
 });
 

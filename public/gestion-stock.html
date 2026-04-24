@@ -649,7 +649,7 @@ window.toggleRecipeSection = function(isManufactured, prefix = 'new') {
     document.getElementById(`stockInputSection_${prefix}`).style.display = isMan ? 'none' : 'block';
 };
 
-// 🔥 MOTEUR ERP : Ajouter une ligne d'ingrédient
+// 🔥 MOTEUR ERP : Ajouter une ligne d'ingrédient avec PLUS D'UNITÉS
 window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unite = 'g') {
     const div = document.createElement('div');
     div.className = 'recette-row';
@@ -658,7 +658,7 @@ window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unit
     let optionsHtml = '<option value="">-- Choisir Matière Première --</option>';
     stockProduits.forEach(p => {
         const isSelected = (String(p.id) === String(idIng)) ? 'selected' : '';
-        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)} (En stock: ${p.stock})</option>`;
+        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)} (Stock: ${p.stock})</option>`;
     });
 
     div.innerHTML = `
@@ -666,10 +666,22 @@ window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unit
             ${optionsHtml}
         </select>
         <input type="number" step="0.01" class="rec-qte" placeholder="Qté" value="${qte}" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
-        <select class="rec-unit" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
-            <option value="g" ${unite === 'g' ? 'selected' : ''}>g</option>
-            <option value="ml" ${unite === 'ml' ? 'selected' : ''}>ml</option>
-            <option value="u" ${unite === 'u' ? 'selected' : ''}>Unité</option>
+        <select class="rec-unit" style="width: 100px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
+            <optgroup label="Poids">
+                <option value="g" ${unite === 'g' ? 'selected' : ''}>g (Grammes)</option>
+                <option value="kg" ${unite === 'kg' ? 'selected' : ''}>kg (Kilos)</option>
+            </optgroup>
+            <optgroup label="Volume">
+                <option value="ml" ${unite === 'ml' ? 'selected' : ''}>ml</option>
+                <option value="cl" ${unite === 'cl' ? 'selected' : ''}>cl</option>
+                <option value="L" ${unite === 'L' ? 'selected' : ''}>Litres</option>
+            </optgroup>
+            <optgroup label="Cuisine">
+                <option value="u" ${unite === 'u' ? 'selected' : ''}>Unité</option>
+                <option value="portion" ${unite === 'portion' ? 'selected' : ''}>Portion</option>
+                <option value="cac" ${unite === 'cac' ? 'selected' : ''}>C. à café</option>
+                <option value="cas" ${unite === 'cas' ? 'selected' : ''}>C. à soupe</option>
+            </optgroup>
         </select>
         <button type="button" onclick="this.closest('.recette-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
     `;
@@ -1008,15 +1020,23 @@ function ouvrirModalNouveauProduit() {
 <div style="display:flex; gap:10px;">
                     <div class="form-group" id="stockInputSection_new" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
                     
-                    <div class="form-group" style="flex:1;"><label>Unité:</label>
-                        <select id="newProdUnite">
-                            <option value="u">Pièce (u)</option>
-                            <option value="g">Grammes (g)</option>
-                            <option value="kg">Kilos (kg)</option>
-                            <option value="ml">Millilitres (ml)</option>
-                            <option value="L">Litres (L)</option>
-                        </select>
-                    </div>
+<div class="form-group" style="flex:1;"><label>Unité :</label>
+    <select id="newProdUnite">
+        <optgroup label="Poids/Vol">
+            <option value="u">Pièce (u)</option>
+            <option value="g">Grammes (g)</option>
+            <option value="kg">Kilos (kg)</option>
+            <option value="ml">Millilitres (ml)</option>
+            <option value="cl">cl (Centilitres)</option>
+            <option value="L">Litres (L)</option>
+        </optgroup>
+        <optgroup label="Cuisine">
+            <option value="portion">Portion</option>
+            <option value="cac">C. à café</option>
+            <option value="cas">C. à soupe</option>
+        </optgroup>
+    </select>
+</div>
 
                     <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10"></div>
                 </div>
@@ -1035,15 +1055,13 @@ window.updateSuppPrix = function(selectElem) {
     }
 };
 
-window.ajouterLigneSupplement = function(nom = '', prix = '', ingredientId = '', qte = '1', unite = 'u', prixPromo = '') {
+window.ajouterLigneSupplement = function(nom = '', prix = '', ingredientId = '', qte = '1', unite = 'g', prixPromo = '') {
     const div = document.createElement('div');
     div.className = 'supplement-row';
     div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: flex-end; background: #fdfaf6; padding: 10px; border-radius: 8px; border: 1px solid #e3c496;';
     
-    // On liste les produits simples (Matières premières ET Boissons/Produits directs)
     const produitsPourSupplement = stockProduits.filter(p => !p.isManufactured);
     
-    // 🔥 AJOUT : data-prix="${p.prix || 0}" pour que le JavaScript puisse lire le prix de la boisson
     let optionsHtml = '<option value="" data-prix="0">-- Sans lien stock --</option>';
     produitsPourSupplement.forEach(p => {
         const isSel = (String(p.id) === String(ingredientId) || String(p._id) === String(ingredientId)) ? 'selected' : '';
@@ -1052,7 +1070,7 @@ window.ajouterLigneSupplement = function(nom = '', prix = '', ingredientId = '',
 
     div.innerHTML = `
         <div style="flex: 1; min-width: 130px;">
-            <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Nom affiché (Caisse)</label>
+            <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Nom Caisse</label>
             <input type="text" class="supp-nom" placeholder="Ex: + Coca" value="${nom}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
         </div>
         <div style="flex: 1; min-width: 150px;">
@@ -1063,15 +1081,33 @@ window.ajouterLigneSupplement = function(nom = '', prix = '', ingredientId = '',
         </div>
         <div style="width: 70px;">
             <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Qté (-)</label>
-            <input type="number" class="supp-qte" placeholder="Qté" value="${qte}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" title="Combien on enlève du stock">
+            <input type="number" step="0.01" class="supp-qte" placeholder="Qté" value="${qte}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
         </div>
-        <div style="width: 80px;">
-            <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Prix Normal</label>
-            <input type="number" step="0.1" class="supp-prix" placeholder="Prix" value="${prix}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid var(--success); color: var(--success); font-weight: bold;">
+        <div style="width: 90px;">
+            <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Unité</label>
+            <select class="supp-unit" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc; background: white;">
+                <optgroup label="Poids/Vol">
+                    <option value="g" ${unite === 'g' ? 'selected' : ''}>g</option>
+                    <option value="kg" ${unite === 'kg' ? 'selected' : ''}>kg</option>
+                    <option value="ml" ${unite === 'ml' ? 'selected' : ''}>ml</option>
+                    <option value="cl" ${unite === 'cl' ? 'selected' : ''}>cl</option>
+                    <option value="L" ${unite === 'L' ? 'selected' : ''}>L</option>
+                </optgroup>
+                <optgroup label="Cuisine">
+                    <option value="u" ${unite === 'u' ? 'selected' : ''}>u</option>
+                    <option value="portion" ${unite === 'portion' ? 'selected' : ''}>portion</option>
+                    <option value="cac" ${unite === 'cac' ? 'selected' : ''}>cac</option>
+                    <option value="cas" ${unite === 'cas' ? 'selected' : ''}>cas</option>
+                </optgroup>
+            </select>
         </div>
-        <div style="width: 80px;">
-            <label style="font-size:0.7rem; color:var(--danger); font-weight:bold;">Prix Promo</label>
-            <input type="number" step="0.1" class="supp-promo" placeholder="Promo" value="${prixPromo}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid var(--danger); color: var(--danger); font-weight: bold;" title="Laissez vide ou 0 si pas de promo">
+        <div style="width: 75px;">
+            <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Prix</label>
+            <input type="number" step="0.1" class="supp-prix" value="${prix}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid var(--success); font-weight: bold;">
+        </div>
+        <div style="width: 75px;">
+            <label style="font-size:0.7rem; color:var(--danger); font-weight:bold;">Promo</label>
+            <input type="number" step="0.1" class="supp-promo" value="${prixPromo}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid var(--danger); font-weight: bold;">
         </div>
         <button type="button" onclick="this.closest('.supplement-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem; margin-bottom: 5px;"><i class="fas fa-trash"></i></button>
     `;
@@ -1084,18 +1120,19 @@ window.extraireSupplements = function() {
     rows.forEach(row => {
         const nom = row.querySelector('.supp-nom').value.trim();
         const prix = parseFloat(row.querySelector('.supp-prix').value) || 0;
-        const prixPromo = parseFloat(row.querySelector('.supp-promo').value) || 0; // 🔥 AJOUT : Capture de la promo
+        const prixPromo = parseFloat(row.querySelector('.supp-promo').value) || 0;
         const ingredientId = row.querySelector('.supp-ing').value;
         const qte = parseFloat(row.querySelector('.supp-qte').value) || 0;
+        const unite = row.querySelector('.supp-unit').value; // 🔥 AJOUT : Lecture de l'unité
         
         if (nom) {
             supps.push({ 
                 nom: nom, 
                 prix: prix, 
-                prixPromo: prixPromo > 0 ? prixPromo : 0, // 🔥 AJOUT : Envoi au backend
+                prixPromo: prixPromo,
                 ingredientId: ingredientId,
                 quantiteADeduire: qte,
-                unite: 'u' // ou 'g', la caisse lira ce qui est déduit
+                unite: unite // 🔥 AJOUT : Envoi en base de données
             });
         }
     });
@@ -1271,15 +1308,23 @@ function ouvrirModalEdition(id) {
 <div style="display:flex; gap:10px;">
                     <div class="form-group" id="stockInputSection_edit" style="flex:1; display:${isManuf ? 'none' : 'block'};"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
                     
-                    <div class="form-group" style="flex:1;"><label>Unité:</label>
-                        <select id="editProdUnite">
-                            <option value="u" ${p.unite === 'u' ? 'selected' : ''}>Pièce (u)</option>
-                            <option value="g" ${p.unite === 'g' ? 'selected' : ''}>Grammes (g)</option>
-                            <option value="kg" ${p.unite === 'kg' ? 'selected' : ''}>Kilos (kg)</option>
-                            <option value="ml" ${p.unite === 'ml' ? 'selected' : ''}>Millilitres (ml)</option>
-                            <option value="L" ${p.unite === 'L' ? 'selected' : ''}>Litres (L)</option>
-                        </select>
-                    </div>
+<div class="form-group" style="flex:1;"><label>Unité :</label>
+    <select id="editProdUnite">
+        <optgroup label="Poids/Vol">
+            <option value="u" ${p.unite === 'u' ? 'selected' : ''}>Pièce (u)</option>
+            <option value="g" ${p.unite === 'g' ? 'selected' : ''}>Grammes (g)</option>
+            <option value="kg" ${p.unite === 'kg' ? 'selected' : ''}>Kilos (kg)</option>
+            <option value="ml" ${p.unite === 'ml' ? 'selected' : ''}>Millilitres (ml)</option>
+            <option value="cl" ${p.unite === 'cl' ? 'selected' : ''}>cl (Centilitres)</option>
+            <option value="L" ${p.unite === 'L' ? 'selected' : ''}>Litres (L)</option>
+        </optgroup>
+        <optgroup label="Cuisine">
+            <option value="portion" ${p.unite === 'portion' ? 'selected' : ''}>Portion</option>
+            <option value="cac" ${p.unite === 'cac' ? 'selected' : ''}>C. à café</option>
+            <option value="cas" ${p.unite === 'cas' ? 'selected' : ''}>C. à soupe</option>
+        </optgroup>
+    </select>
+</div>
 
                     <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
                 </div>

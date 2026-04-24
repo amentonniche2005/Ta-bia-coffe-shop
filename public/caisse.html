@@ -684,96 +684,77 @@ function ajouterAuTicket(tableNum, produit, updateUI = true, fromServer = false)
 window.isModifyingQuantity = false;
 
 async function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye, uniqueGroupId = null) {
-    // 1. Verrou : Si une modification est déjà en cours, on ignore le clic
     if (window.isModifyingQuantity) return;
     
     const ticket = tickets[tableNum]; 
     if (!ticket) return;
     
-    // 2. Recherche précise : on utilise le uniqueGroupId si disponible, sinon la méthode classique
     const index = ticket.articles.findIndex(a => {
         if (uniqueGroupId) {
             return String(a.uniqueGroupId) === String(uniqueGroupId) && a.envoye === isEnvoye;
         }
-        return String(a.id) === String(produitId) && 
-               (a.variante || null) === (variante || null) && 
-               a.envoye === isEnvoye;
+        return String(a.id) === String(produitId) && (a.variante || null) === (variante || null) && a.envoye === isEnvoye;
     });
     
     if (index !== -1) {
-        window.isModifyingQuantity = true; // On active le verrou
-        
+        window.isModifyingQuantity = true; 
         const article = ticket.articles[index]; 
         const nouvelleQuantite = article.quantite + delta;
 
-// 🔥 SÉCURITÉ ERP : VÉRIFICATION GLOBALE (Plat + Suppléments)
+        // --- 1. SÉCURITÉ AJOUT (+) ---
         if (delta > 0 && !article.isSupplement) {
             const produitDB = produits.find(p => String(p.id) === String(article.baseId || article.id) || String(p._id) === String(article.baseId || article.id));
             if (produitDB) {
-                // 1. Vérif Stock du Plat
                 const dispo = window.calculerStockReel(produitDB, true); 
                 if (dispo < delta) {
-                    showNotification("❌ Stock du plat insuffisant", "#ef4444");
+                    showNotification("❌ Stock insuffisant", "#ef4444");
                     window.isModifyingQuantity = false;
                     return; 
-                }
-
-                // 2. Vérif Stock des Suppléments rattachés !
-                const sesSupplements = ticket.articles.filter(s => String(s.parentId) === String(article.uniqueGroupId));
-                for (let supp of sesSupplements) {
-                    const configSupp = produitDB.supplements?.find(s => s.nom === supp.nom.replace('+ ', '').trim());
-                    if (configSupp && configSupp.ingredientId) {
-                        const ingDB = produits.find(p => String(p.id) === String(configSupp.ingredientId) || String(p._id) === String(configSupp.ingredientId));
-                        if (ingDB) {
-                            const stockIngRestant = window.calculerStockReel(ingDB, true);
-                            const qteRequise = parseFloat(configSupp.quantiteADeduire) || 0;
-                            if (stockIngRestant < (qteRequise * delta)) {
-                                showNotification(`❌ Rupture sur le supplément : ${supp.nom}`, "#ef4444");
-                                window.isModifyingQuantity = false;
-                                return; // On bloque tout l'ajout !
-                            }
-                        }
-                    }
                 }
             }
         }
         
-        // LOGIQUE DE SUPPRESSION (QUANTITÉ <= 0)
-        if (nouvelleQuantite <= 0) {
-            const msgConfirm = isEnvoye 
-                ? "⚠️ Annuler cet article en cuisine ?" 
-                : "Retirer cet article ?";
+        // --- 2. LOGIQUE DE SUPPRESSION / DIMINUTION (-) ---
+        // Si l'article est déjà en cuisine (isEnvoye) et qu'on diminue (delta < 0)
+        if (isEnvoye && delta < 0) {
+            const msgConfirm = (nouvelleQuantite <= 0) 
+                ? "⚠️ Annuler totalement cet article en cuisine ?" 
+                : `⚠️ Réduire la quantité à ${nouvelleQuantite} en cuisine ?`;
 
             if (confirm(msgConfirm)) {
-                if (isEnvoye && article.cmdId) {
-                    try {
-                        const response = await fetchSecurise('/api/commandes/annuler-article-unique', {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                orderId: article.cmdId,
-                                articleId: article.id,
-                                uniqueGroupId: article.uniqueGroupId
-                            })
-                        });
-                        if (!response.ok) throw new Error();
-                        showNotification("✅ Annulé");
-                    } catch (e) {
-                        showNotification("❌ Erreur serveur", "error");
-                        window.isModifyingQuantity = false;
-                        return;
-                    }
+                try {
+                    // 🔥 ON APPELLE LE SERVEUR SYSTÉMATIQUEMENT pour mettre à jour le stock et le comptoir
+                    const response = await fetchSecurise('/api/commandes/annuler-article-unique', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            orderId: article.cmdId,
+                            uniqueGroupId: article.uniqueGroupId
+                        })
+                    });
+                    if (!response.ok) throw new Error();
+                    showNotification("✅ Cuisine mise à jour");
+                } catch (e) {
+                    showNotification("❌ Erreur serveur", "error");
+                    window.isModifyingQuantity = false;
+                    return;
                 }
-                // Suppression locale (Plat + Suppléments)
-                ticket.articles = ticket.articles.filter(a => 
-                    !(String(a.uniqueGroupId) === String(article.uniqueGroupId)) &&
-                    !(String(a.parentId) === String(article.uniqueGroupId))
-                );
+            } else {
+                window.isModifyingQuantity = false;
+                return;
             }
-        } 
-        // MISE À JOUR SIMPLE
-        else {
+        }
+
+        // --- 3. MISE À JOUR LOCALE DU TICKET ---
+        if (nouvelleQuantite <= 0) {
+            // Suppression complète (Plat + Suppléments)
+            ticket.articles = ticket.articles.filter(a => 
+                !(String(a.uniqueGroupId) === String(article.uniqueGroupId)) &&
+                !(String(a.parentId) === String(article.uniqueGroupId))
+            );
+        } else {
+            // Simple diminution ou augmentation
             article.quantite = nouvelleQuantite;
-            // Synchronisation des suppléments
+            // On synchronise les suppléments pour qu'ils suivent le plat
             if (!article.isSupplement) {
                 ticket.articles.forEach(a => {
                     if (String(a.parentId) === String(article.uniqueGroupId)) {
@@ -783,16 +764,16 @@ async function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye, 
             }
         }
         
+        // Finalisation
         ticket.total = ticket.articles.reduce((sum, a) => sum + (parseFloat(a.prix) * a.quantite), 0);
         await sauvegarderTousLesTickets();
         
         if (String(currentTable) === String(tableNum)) {
             afficherTicket();
-            renderProducts();
+            if (typeof renderProducts === 'function') renderProducts();
         }
         afficherListeTables();
         
-        // 3. Libération du verrou après un court délai (anti-rebond)
         setTimeout(() => { window.isModifyingQuantity = false; }, 100);
     }
 }
