@@ -1035,34 +1035,45 @@ window.updateSuppPrix = function(selectElem) {
     }
 };
 
-// 🔥 NOUVELLE LOGIQUE ERP : Les suppléments déduisent des matières premières
-window.ajouterLigneSupplement = function(nom = '', prix = '', ingredientId = '', qte = '50', unite = 'g') {
+window.ajouterLigneSupplement = function(nom = '', prix = '', ingredientId = '', qte = '1', unite = 'u', prixPromo = '') {
     const div = document.createElement('div');
     div.className = 'supplement-row';
-    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; background: #fdfaf6; padding: 10px; border-radius: 8px; border: 1px solid #e3c496;';
+    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: flex-end; background: #fdfaf6; padding: 10px; border-radius: 8px; border: 1px solid #e3c496;';
     
-    // On liste TOUS les produits simples (matières premières ou autres) pour déduire dedans
-    const matieresPremieres = stockProduits.filter(p => !p.isManufactured);
-    let optionsHtml = '<option value="">-- Sans lien stock (Texte seul) --</option>';
-    matieresPremieres.forEach(p => {
+    // On liste les produits simples (Matières premières ET Boissons/Produits directs)
+    const produitsPourSupplement = stockProduits.filter(p => !p.isManufactured);
+    
+    // 🔥 AJOUT : data-prix="${p.prix || 0}" pour que le JavaScript puisse lire le prix de la boisson
+    let optionsHtml = '<option value="" data-prix="0">-- Sans lien stock --</option>';
+    produitsPourSupplement.forEach(p => {
         const isSel = (String(p.id) === String(ingredientId) || String(p._id) === String(ingredientId)) ? 'selected' : '';
-        optionsHtml += `<option value="${p.id || p._id}" ${isSel}>${escapeHtml(p.nom)} (Stock: ${p.stock})</option>`;
+        optionsHtml += `<option value="${p.id || p._id}" data-prix="${p.prix || 0}" ${isSel}>${escapeHtml(p.nom)} (Stock: ${p.stock})</option>`;
     });
 
     div.innerHTML = `
         <div style="flex: 1; min-width: 130px;">
-            <input type="text" class="supp-nom" placeholder="Nom (Ex: Extra Mozza)" value="${nom}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
+            <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Nom affiché (Caisse)</label>
+            <input type="text" class="supp-nom" placeholder="Ex: + Coca" value="${nom}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
         </div>
         <div style="flex: 1; min-width: 150px;">
-            <select class="supp-ing" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">${optionsHtml}</select>
+            <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Déduit du produit</label>
+            <select class="supp-ing" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" onchange="updateSuppPrix(this)">
+                ${optionsHtml}
+            </select>
         </div>
-        <div style="width: 90px;">
-            <input type="number" class="supp-qte" placeholder="Qté à enlever" value="${qte}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" title="Combien on enlève du stock">
+        <div style="width: 70px;">
+            <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Qté (-)</label>
+            <input type="number" class="supp-qte" placeholder="Qté" value="${qte}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" title="Combien on enlève du stock">
         </div>
-        <div style="width: 90px;">
-            <input type="number" step="0.1" class="supp-prix" placeholder="Prix Vente" value="${prix}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid var(--success); color: var(--success); font-weight: bold;">
+        <div style="width: 80px;">
+            <label style="font-size:0.7rem; color:var(--text-muted); font-weight:bold;">Prix Normal</label>
+            <input type="number" step="0.1" class="supp-prix" placeholder="Prix" value="${prix}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid var(--success); color: var(--success); font-weight: bold;">
         </div>
-        <button type="button" onclick="this.closest('.supplement-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-trash"></i></button>
+        <div style="width: 80px;">
+            <label style="font-size:0.7rem; color:var(--danger); font-weight:bold;">Prix Promo</label>
+            <input type="number" step="0.1" class="supp-promo" placeholder="Promo" value="${prixPromo}" style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid var(--danger); color: var(--danger); font-weight: bold;" title="Laissez vide ou 0 si pas de promo">
+        </div>
+        <button type="button" onclick="this.closest('.supplement-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem; margin-bottom: 5px;"><i class="fas fa-trash"></i></button>
     `;
     document.getElementById('containerSupplements').appendChild(div);
 };
@@ -1073,6 +1084,7 @@ window.extraireSupplements = function() {
     rows.forEach(row => {
         const nom = row.querySelector('.supp-nom').value.trim();
         const prix = parseFloat(row.querySelector('.supp-prix').value) || 0;
+        const prixPromo = parseFloat(row.querySelector('.supp-promo').value) || 0; // 🔥 AJOUT : Capture de la promo
         const ingredientId = row.querySelector('.supp-ing').value;
         const qte = parseFloat(row.querySelector('.supp-qte').value) || 0;
         
@@ -1080,9 +1092,10 @@ window.extraireSupplements = function() {
             supps.push({ 
                 nom: nom, 
                 prix: prix, 
+                prixPromo: prixPromo > 0 ? prixPromo : 0, // 🔥 AJOUT : Envoi au backend
                 ingredientId: ingredientId,
                 quantiteADeduire: qte,
-                unite: 'g' // Par défaut, tu pourras le rendre dynamique plus tard si besoin
+                unite: 'u' // ou 'g', la caisse lira ce qui est déduit
             });
         }
     });
@@ -1276,7 +1289,7 @@ function ouvrirModalEdition(id) {
         </div>`;
     
 if (p.supplements && Array.isArray(p.supplements)) {
-    p.supplements.forEach(s => ajouterLigneSupplement(s.id || s._id, s.nom, s.prix)); 
+    p.supplements.forEach(s => ajouterLigneSupplement(s.nom, s.prix, s.ingredientId, s.quantiteADeduire, s.unite, s.prixPromo)); 
 }
     // Recharge la recette existante si c'est un produit manufacturé
     if (isManuf && p.recipe && Array.isArray(p.recipe)) {

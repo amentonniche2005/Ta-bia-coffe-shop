@@ -477,43 +477,64 @@ button:hover:not(:disabled) {
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
     // 🔥 MOTEUR ERP CAISSE : Calcule la disponibilité réelle d'un article
 // 🔥 MOTEUR ERP CAISSE : Calcule le stock APRES simulation du ticket en cours !
-// 🔥 MOTEUR ERP CAISSE : Calcule le stock APRES simulation du ticket en cours !
 window.calculerStockReel = function(produit, simulerPanier = true) {
     let consommation = {};
     
-    // 1. On calcule combien d'ingrédients le ticket actuel a DÉJÀ consommé
-    if (simulerPanier && typeof currentTable !== 'undefined' && currentTable && tickets[currentTable]) {
-        tickets[currentTable].articles.forEach(art => {
-            // 🔥 CORRECTION CRITIQUE : On ne simule la déduction QUE pour les articles NON envoyés !
-            // (Ceux envoyés ont déjà été déduits de la vraie base de données par le serveur)
-            if (!art.envoye) {
-                const pDB = produits.find(p => String(p.id) === String(art.id) || String(p._id) === String(art.id) || String(p.nom) === String(art.nom));
-                if (pDB) {
-                    const qte = parseInt(art.quantite) || 0;
-                    if (pDB.isManufactured && pDB.recipe) {
-                        pDB.recipe.forEach(item => {
-                            const ingId = String(item.ingredientId);
-                            if (!consommation[ingId]) consommation[ingId] = 0;
-                            consommation[ingId] += (Number(item.quantity) * qte);
-                        });
-                    } else if (!pDB.isManufactured) {
-                        const idDb = String(pDB.id || pDB._id);
-                        if (!consommation[idDb]) consommation[idDb] = 0;
-                        consommation[idDb] += qte;
+    // 1. Détecter si on est sur la caisse ou le tel du client
+    const listeArticles = (typeof panier !== 'undefined') ? panier : (currentTable && tickets[currentTable] ? tickets[currentTable].articles : []);
+    
+    if (simulerPanier && listeArticles.length > 0) {
+        listeArticles.forEach(art => {
+            const isEnvoye = typeof art.envoye !== 'undefined' ? art.envoye : false;
+            
+            // On ne simule que les articles NON envoyés en cuisine
+            if (!isEnvoye) {
+                const qte = parseInt(art.quantite) || 0;
+                
+                // CAS A : L'article est un supplément
+                if (art.isSupplement) {
+                    const parentArt = listeArticles.find(a => String(a.uniqueGroupId) === String(art.parentId));
+                    if (parentArt) {
+                        const parentDB = produits.find(p => String(p.id) === String(parentArt.baseId || parentArt.id) || String(p._id) === String(parentArt.baseId || parentArt.id));
+                        if (parentDB && parentDB.supplements) {
+                            const nomClean = art.nom.replace('+ ', '').trim();
+                            const suppConfig = parentDB.supplements.find(s => s.nom === nomClean || s.nom === art.nom);
+                            if (suppConfig && suppConfig.ingredientId) {
+                                const ingId = String(suppConfig.ingredientId);
+                                if (!consommation[ingId]) consommation[ingId] = 0;
+                                consommation[ingId] += (Number(suppConfig.quantiteADeduire) * qte);
+                            }
+                        }
+                    }
+                } 
+                // CAS B : L'article est un plat/boisson
+                else {
+                    const pDB = produits.find(p => String(p.id) === String(art.baseId || art.id) || String(p._id) === String(art.baseId || art.id));
+                    if (pDB) {
+                        if (pDB.isManufactured && pDB.recipe) {
+                            pDB.recipe.forEach(item => {
+                                const ingId = String(item.ingredientId);
+                                if (!consommation[ingId]) consommation[ingId] = 0;
+                                consommation[ingId] += (Number(item.quantity) * qte);
+                            });
+                        } else if (!pDB.isManufactured) {
+                            const idDb = String(pDB.id || pDB._id);
+                            if (!consommation[idDb]) consommation[idDb] = 0;
+                            consommation[idDb] += qte;
+                        }
                     }
                 }
             }
         });
     }
 
-    // 2. Si c'est un produit simple direct
+    // 2. Calcul du stock restant pour le produit demandé
     if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
         const idProd = String(produit.id || produit._id);
         const dejaConsomme = consommation[idProd] || 0;
         return produit.stock !== undefined ? Math.max(0, Number(produit.stock) - dejaConsomme) : 999;
     }
     
-    // 3. Si c'est une recette, on calcule combien on peut ENCORE en faire
     let maxRealisable = Infinity;
     for (let item of produit.recipe) {
         const ingredient = produits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
@@ -521,7 +542,6 @@ window.calculerStockReel = function(produit, simulerPanier = true) {
         
         const stockInitialIng = Number(ingredient.stock) || 0;
         const dejaConsomme = consommation[String(item.ingredientId)] || 0;
-        
         const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
 
         const quantiteRequise = Number(item.quantity) || 0;
@@ -1247,18 +1267,17 @@ window.ouvrirModalOptionsCaisse = function(produit) {
         htmlContent += `<div style="font-weight:800; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; margin:15px 0 8px 0;">Extras</div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">`;
         htmlContent += produit.supplements.map(supp => {
-            const ref = produits.find(p => String(p.id) === String(supp.id));
-            const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
-            const pNormal = parseFloat(supp.prix || 0);
-            const pPromo = (ref && ref.prixPromo > 0) ? parseFloat(ref.prixPromo) : 0;
+            // On s'assure d'avoir un prix valide
+            const pNormal = parseFloat(supp.prix) || 0;
+            const pPromo = parseFloat(supp.prixPromo) || 0;
             const prixFinal = pPromo > 0 ? pPromo : pNormal;
 
             return `
-                <label style="cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'};">
-                    <input type="checkbox" name="caisseSuppOption" value="${prixFinal}" data-id="${supp.id}" data-nom="${supp.nom}" style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModalCaisse()">
+                <label style="cursor: pointer;">
+                    <input type="checkbox" name="caisseSuppOption" value="${prixFinal}" data-id="${supp.id || supp.ingredientId || Date.now()}" data-nom="${supp.nom}" style="display:none;" onchange="mettreAJourTotalModalCaisse()">
                     <div class="caisse-selectable-card" style="padding:10px; flex-direction:column; align-items:center;">
                         <span style="font-size:0.85rem;">+ ${supp.nom}</span>
-                        <span style="font-weight:800; color:var(--success); font-size:0.8rem;">${pPromo > 0 ? pPromo.toFixed(2) : pNormal.toFixed(2)} DT</span>
+                        <span style="font-weight:800; color:var(--success); font-size:0.8rem;">+${prixFinal.toFixed(2)} DT</span>
                     </div>
                 </label>`;
         }).join('');
@@ -1308,9 +1327,16 @@ window.validerOptionsCaisse = function() {
         const varianteFinale = choixFinaux.join(' / '); // Ex: "Thon / Harissa+Mayo"
 
         // --- 2. RÉCOLTE DES SUPPLÉMENTS ---
+// --- 2. RÉCOLTE DES SUPPLÉMENTS ---
         let suppsChoisis = [];
         document.querySelectorAll('input[name="caisseSuppOption"]:checked').forEach(box => {
-            suppsChoisis.push({ id: box.getAttribute('data-id'), nom: box.getAttribute('data-nom'), prix: box.value });
+            // 🔥 CORRECTION : Force la conversion en nombre pour éviter les erreurs de calcul plus loin
+            const prixSupp = parseFloat(box.value) || 0;
+            suppsChoisis.push({ 
+                id: box.getAttribute('data-id'), 
+                nom: box.getAttribute('data-nom'), 
+                prix: prixSupp 
+            });
         });
 
         // --- 3. AJOUT AU TICKET ---

@@ -7,24 +7,49 @@ let clientId = null;
 let NB_TABLES_MAX = 160;
 // 🔥 MOTEUR ERP CLIENT : Calcule le stock réel d'un article
 // 🔥 MOTEUR ERP CLIENT : Calcule le stock réel tenant compte du panier
+// 🔥 MOTEUR ERP CLIENT : Calcule le stock réel tenant compte du panier ET DES SUPPLÉMENTS
 window.calculerStockReel = function(produit, simulerPanier = true) {
     let consommation = {};
     
     if (simulerPanier && typeof panier !== 'undefined' && panier.length > 0) {
         panier.forEach(art => {
-            const pDB = produits.find(p => String(p.id) === String(art.baseId) || String(p._id) === String(art.baseId));
-            if (pDB) {
+            const isEnvoye = typeof art.envoye !== 'undefined' ? art.envoye : false;
+            
+            if (!isEnvoye) {
                 const qte = parseInt(art.quantite) || 0;
-                if (pDB.isManufactured && pDB.recipe) {
-                    pDB.recipe.forEach(item => {
-                        const ingId = String(item.ingredientId);
-                        if (!consommation[ingId]) consommation[ingId] = 0;
-                        consommation[ingId] += (Number(item.quantity) * qte);
-                    });
-                } else if (!pDB.isManufactured) {
-                    const idDb = String(pDB.id || pDB._id);
-                    if (!consommation[idDb]) consommation[idDb] = 0;
-                    consommation[idDb] += qte;
+                
+                // CAS A : L'article est un supplément
+                if (art.isSupplement) {
+                    const parentArt = panier.find(a => String(a.uniqueGroupId) === String(art.parentId));
+                    if (parentArt) {
+                        const parentDB = produits.find(p => String(p.id) === String(parentArt.baseId || parentArt.id) || String(p._id) === String(parentArt.baseId || parentArt.id));
+                        if (parentDB && parentDB.supplements) {
+                            const nomClean = art.nom.replace('+ ', '').trim();
+                            const suppConfig = parentDB.supplements.find(s => s.nom === nomClean || s.nom === art.nom);
+                            if (suppConfig && suppConfig.ingredientId) {
+                                const ingId = String(suppConfig.ingredientId);
+                                if (!consommation[ingId]) consommation[ingId] = 0;
+                                consommation[ingId] += (Number(suppConfig.quantiteADeduire) * qte);
+                            }
+                        }
+                    }
+                } 
+                // CAS B : L'article est un plat/boisson
+                else {
+                    const pDB = produits.find(p => String(p.id) === String(art.baseId || art.id) || String(p._id) === String(art.baseId || art.id));
+                    if (pDB) {
+                        if (pDB.isManufactured && pDB.recipe) {
+                            pDB.recipe.forEach(item => {
+                                const ingId = String(item.ingredientId);
+                                if (!consommation[ingId]) consommation[ingId] = 0;
+                                consommation[ingId] += (Number(item.quantity) * qte);
+                            });
+                        } else if (!pDB.isManufactured) {
+                            const idDb = String(pDB.id || pDB._id);
+                            if (!consommation[idDb]) consommation[idDb] = 0;
+                            consommation[idDb] += qte;
+                        }
+                    }
                 }
             }
         });
@@ -934,6 +959,7 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
                 // 🔥 SÉCURITÉ 3 : Forçage des types de données (MongoDB ne pourra plus refuser la commande)
                 articles: panierPropre.map(a => ({ 
                     id: String(a.baseId || a.id || Date.now()), 
+                    baseId: String(a.baseId || a.id),
                     nom: String(a.nom), 
                     variante: a.variante ? String(a.variante) : "", 
                     prix: Number(a.prix) || 0, 
