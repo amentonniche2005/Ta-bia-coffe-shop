@@ -649,41 +649,52 @@ window.toggleRecipeSection = function(isManufactured, prefix = 'new') {
     document.getElementById(`stockInputSection_${prefix}`).style.display = isMan ? 'none' : 'block';
 };
 
-// 🔥 MOTEUR ERP : Ajouter une ligne d'ingrédient avec PLUS D'UNITÉS
 window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unite = 'g') {
     const div = document.createElement('div');
     div.className = 'recette-row';
-    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: center;';
+    // 🔥 AJOUT : flex-wrap et padding pour éviter les débordements
+    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px; align-items: flex-end; flex-wrap: wrap; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid #e2e8f0;';
     
-    let optionsHtml = '<option value="">-- Choisir Matière Première --</option>';
+    let optionsHtml = '<option value="">-- Ingrédient --</option>';
     stockProduits.forEach(p => {
         const isSelected = (String(p.id) === String(idIng)) ? 'selected' : '';
-        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)} (Stock: ${p.stock})</option>`;
+        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)}</option>`;
     });
 
     div.innerHTML = `
-        <select class="rec-select" style="flex: 2; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
-            ${optionsHtml}
-        </select>
-        <input type="number" step="0.01" class="rec-qte" placeholder="Qté" value="${qte}" style="width: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
-        <select class="rec-unit" style="width: 100px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
-            <optgroup label="Poids">
-                <option value="g" ${unite === 'g' ? 'selected' : ''}>g (Grammes)</option>
-                <option value="kg" ${unite === 'kg' ? 'selected' : ''}>kg (Kilos)</option>
-            </optgroup>
-            <optgroup label="Volume">
-                <option value="ml" ${unite === 'ml' ? 'selected' : ''}>ml</option>
-                <option value="cl" ${unite === 'cl' ? 'selected' : ''}>cl</option>
-                <option value="L" ${unite === 'L' ? 'selected' : ''}>Litres</option>
-            </optgroup>
-            <optgroup label="Cuisine">
-                <option value="u" ${unite === 'u' ? 'selected' : ''}>Unité</option>
-                <option value="portion" ${unite === 'portion' ? 'selected' : ''}>Portion</option>
-                <option value="cac" ${unite === 'cac' ? 'selected' : ''}>C. à café</option>
-                <option value="cas" ${unite === 'cas' ? 'selected' : ''}>C. à soupe</option>
-            </optgroup>
-        </select>
-        <button type="button" onclick="this.closest('.recette-row').remove()" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
+        <div style="flex: 2; min-width: 200px;">
+            <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Matière Première</label>
+            <select class="rec-select" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
+                ${optionsHtml}
+            </select>
+        </div>
+        <div style="width: 80px;">
+            <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Quantité</label>
+            <input type="number" step="0.01" class="rec-qte" placeholder="0" value="${qte}" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        </div>
+        <div style="width: 100px;">
+            <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Unité</label>
+            <select class="rec-unit" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
+                <optgroup label="Poids">
+                    <option value="g" ${unite === 'g' ? 'selected' : ''}>g</option>
+                    <option value="kg" ${unite === 'kg' ? 'selected' : ''}>kg</option>
+                </optgroup>
+                <optgroup label="Volume">
+                    <option value="ml" ${unite === 'ml' ? 'selected' : ''}>ml</option>
+                    <option value="cl" ${unite === 'cl' ? 'selected' : ''}>cl</option>
+                    <option value="L" ${unite === 'L' ? 'selected' : ''}>L</option>
+                </optgroup>
+                <optgroup label="Cuisine">
+                    <option value="u" ${unite === 'u' ? 'selected' : ''}>u</option>
+                    <option value="portion" ${unite === 'portion' ? 'selected' : ''}>portion</option>
+                    <option value="cac" ${unite === 'cac' ? 'selected' : ''}>cac</option>
+                    <option value="cas" ${unite === 'cas' ? 'selected' : ''}>cas</option>
+                </optgroup>
+            </select>
+        </div>
+        <button type="button" onclick="this.closest('.recette-row').remove()" style="background: #fee2e2; border: none; color: var(--danger); cursor: pointer; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: 0.2s;">
+            <i class="fas fa-times"></i>
+        </button>
     `;
     document.getElementById(`containerRecette_${prefix}`).appendChild(div);
 };
