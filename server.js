@@ -459,7 +459,11 @@ app.post('/api/commandes', async (req, res) => {
 
         if (!authValid) return res.status(403).json({ error: "QRCode expiré ou Code Incorrect" });
 
-        // 2. SÉCURISATION DES PRIX
+        // CRÉATION DES IDS AVANT LA BOUCLE
+        const cmdId = Date.now().toString();
+        const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
+
+        // 2. SÉCURISATION DES PRIX ET DÉSTOCKAGE (TOUT EN UNE SEULE BOUCLE ROBUSTE)
         let totalSecurise = 0;
         let articlesSecurises = [];
 
@@ -468,40 +472,47 @@ app.post('/api/commandes', async (req, res) => {
             let nomPropre = art.nom;
             if (nomPropre && nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
 
-            if (art.id && !isNaN(art.id)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
-            if (!produitDb && nomPropre) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
+            // 🔥 RECHERCHE ANTI-CRASH (Gère les ID numériques ET les _id de MongoDB)
+            if (art.id) {
+                if (!isNaN(art.id)) {
+                    produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(art.id) });
+                } else if (mongoose.Types.ObjectId.isValid(art.id)) {
+                    produitDb = await Product.findOne({ cafeId: req.cafeId, _id: art.id });
+                }
+            }
+            if (!produitDb && nomPropre) {
+                produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre });
+            }
 
             if (produitDb) {
                 let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) ? produitDb.prixPromo : produitDb.prix;
-                let prixApplique = art.isSupplement ? art.prix : prixBaseDb; // Le prix du supp. vient du client, validé côté front
+                let prixApplique = art.isSupplement ? art.prix : prixBaseDb;
                 totalSecurise += (prixApplique * art.quantite);
-                articlesSecurises.push({ ...art, prix: prixApplique, id: produitDb.id, nom: art.nom }); 
-            } else {
-                totalSecurise += (art.prix * art.quantite);
-                articlesSecurises.push(art);
-            }
-        }
-        totalSecurise = parseFloat(totalSecurise.toFixed(2));
-        
-        const cmdId = Date.now().toString();
-        const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
+                
+                const articleClean = { ...art, prix: prixApplique, id: produitDb.id || produitDb._id, nom: art.nom };
+                articlesSecurises.push(articleClean); 
 
-        // 🔥 3. NOUVEAU : DÉSTOCKAGE IMMÉDIAT DÈS LA COMMANDE (LOGIQUE ERP)
-        for (let art of articlesSecurises) {
-            const qteCmd = parseInt(art.quantite) || 1;
-            const itemDb = await Product.findOne({ cafeId: req.cafeId, id: art.id });
+                // 🔥 LOGIQUE ERP : DÉSTOCKAGE IMMÉDIAT
+                const qteCmd = parseInt(art.quantite) || 1;
 
-            if (itemDb) {
-                // CAS 1 : C'est un SUPPLÉMENT lié à une matière première
+                // CAS 1 : SUPPLÉMENT
                 if (art.isSupplement && art.parentId) {
-                    const parentArticle = articlesSecurises.find(a => a.uniqueGroupId === art.parentId);
+                    const parentArticle = req.body.articles.find(a => a.uniqueGroupId === art.parentId || String(a.id) === String(art.parentId));
                     if (parentArticle) {
-                        const parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(parentArticle.id) });
-                        const configSupp = parentDb?.supplements?.find(s => s.nom === art.nom);
+                        let parentDb = null;
+                        if (parentArticle.id && !isNaN(parentArticle.id)) parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(parentArticle.id) });
+                        else parentDb = await Product.findOne({ cafeId: req.cafeId, nom: parentArticle.nom });
+
+                        const configSupp = parentDb?.supplements?.find(s => s.nom === art.nom || s.nom === nomPropre);
                         
                         if (configSupp && configSupp.ingredientId) {
+                            // On vérifie si l'ID de la matière première est un chiffre ou un texte
+                            let queryIng = !isNaN(configSupp.ingredientId) 
+                                ? { id: Number(configSupp.ingredientId) } 
+                                : { _id: configSupp.ingredientId };
+
                             const ing = await Product.findOneAndUpdate(
-                                { cafeId: req.cafeId, id: configSupp.ingredientId },
+                                { cafeId: req.cafeId, ...queryIng },
                                 { $inc: { stock: -(configSupp.quantiteADeduire * qteCmd) } },
                                 { new: true }
                             );
@@ -509,19 +520,22 @@ app.post('/api/commandes', async (req, res) => {
                                 await new Movement({
                                     cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id,
                                     quantite: (configSupp.quantiteADeduire * qteCmd), 
-                                    ancienStock: ing.stock + (configSupp.quantiteADeduire * qteCmd), 
-                                    nouveauStock: ing.stock,
+                                    ancienStock: ing.stock + (configSupp.quantiteADeduire * qteCmd), nouveauStock: ing.stock,
                                     raison: `Supplément : ${art.nom} pour ${parentDb.nom} (Cmd #${numeroCmd})`
                                 }).save();
                             }
                         }
                     }
                 }
-                // CAS 2 : C'est un PRODUIT MANUFACTURÉ (Recette de base)
-                else if (itemDb.isManufactured && itemDb.recipe && itemDb.recipe.length > 0) {
-                    for (let comp of itemDb.recipe) {
+                // CAS 2 : RECETTE DE PRODUIT MANUFACTURÉ
+                else if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
+                    for (let comp of produitDb.recipe) {
+                        let queryIng = !isNaN(comp.ingredientId) 
+                            ? { id: Number(comp.ingredientId) } 
+                            : { _id: comp.ingredientId };
+
                         const ing = await Product.findOneAndUpdate(
-                            { cafeId: req.cafeId, id: comp.ingredientId },
+                            { cafeId: req.cafeId, ...queryIng },
                             { $inc: { stock: -(comp.quantity * qteCmd) } },
                             { new: true }
                         );
@@ -529,35 +543,38 @@ app.post('/api/commandes', async (req, res) => {
                             await new Movement({
                                 cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id,
                                 quantite: (comp.quantity * qteCmd), 
-                                ancienStock: ing.stock + (comp.quantity * qteCmd), 
-                                nouveauStock: ing.stock,
-                                raison: `Composant de : ${itemDb.nom} (Cmd #${numeroCmd})`
+                                ancienStock: ing.stock + (comp.quantity * qteCmd), nouveauStock: ing.stock,
+                                raison: `Composant de : ${produitDb.nom} (Cmd #${numeroCmd})`
                             }).save();
                         }
                     }
                 } 
-                // CAS 3 : C'est un PRODUIT SIMPLE (Stock direct)
-                else if (itemDb.stock !== undefined && !itemDb.isManufactured) {
+                // CAS 3 : PRODUIT SIMPLE (EX: BOISSON)
+                else if (produitDb.stock !== undefined && !produitDb.isManufactured) {
                     const updateSimple = await Product.findOneAndUpdate(
-                        { cafeId: req.cafeId, id: itemDb.id }, 
+                        { cafeId: req.cafeId, id: produitDb.id }, 
                         { $inc: { stock: -qteCmd } }, 
                         { new: true }
                     );
                     if (updateSimple) {
                         await new Movement({ 
                             cafeId: req.cafeId, type: 'commande', produit: updateSimple.nom, produitId: updateSimple.id, 
-                            quantite: qteCmd, 
-                            ancienStock: updateSimple.stock + qteCmd, 
-                            nouveauStock: updateSimple.stock, 
+                            quantite: qteCmd, ancienStock: updateSimple.stock + qteCmd, nouveauStock: updateSimple.stock, 
                             raison: `Cmd #${numeroCmd}` 
                         }).save();
                     }
                 }
+
+            } else {
+                totalSecurise += (art.prix * art.quantite);
+                articlesSecurises.push(art);
             }
         }
-        io.to(req.cafeId).emit('update_stock'); // Alerte la caisse et les clients instantanément !
+        totalSecurise = parseFloat(totalSecurise.toFixed(2));
+        
+        io.to(req.cafeId).emit('update_stock'); // Alerte la caisse et les écrans
 
-        // 4. GESTION DES PAIEMENTS VIP (Sans redéstocker)
+        // 3. GESTION DES PAIEMENTS VIP (Fidélité)
         let messageBonus = null;
         if (req.body.methodePaiement === 'carte_fidelite') {
             const clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
@@ -584,7 +601,7 @@ app.post('/api/commandes', async (req, res) => {
             }
         }
 
-        // 5. CRÉATION COMMANDE POUR LA CUISINE
+        // 4. CRÉATION COMMANDE POUR LA CUISINE
         const isEnLigne = req.body.methodePaiement === 'en_ligne';
         const cmd = new Order({ 
             ...req.body, cafeId: req.cafeId, articles: articlesSecurises, id: cmdId, numero: numeroCmd, 
@@ -599,6 +616,7 @@ app.post('/api/commandes', async (req, res) => {
 
     } catch (err) { 
         console.error("Erreur Commande:", err);
+        // Renvoie l'erreur technique pour qu'on sache toujours ce qui s'est passé
         res.status(500).json({ error: err.message }); 
     }
 });
