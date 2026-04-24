@@ -1132,61 +1132,71 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
         const commande = await Order.findOne({ cafeId: req.cafeId, id: orderId });
         if (!commande) return res.status(404).json({ error: "Commande introuvable" });
 
-        const articlesASupprimer = commande.articles.filter(a => String(a.uniqueGroupId) === String(uniqueGroupId) || String(a.parentId) === String(uniqueGroupId));
+        // 🔥 LOGIQUE DE RESTITUTION CONDITIONNELLE
+        // On ne rend le stock QUE si la commande est encore 'en_attente'
+        const doitRestituerStock = (commande.statut === 'en_attente');
 
-        for (let art of articlesASupprimer) {
-            const qteCmd = parseInt(art.quantite) || 1;
-            let nomPropre = art.nom || "";
-            if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
+        const articlesASupprimer = commande.articles.filter(a => 
+            String(a.uniqueGroupId) === String(uniqueGroupId) || String(a.parentId) === String(uniqueGroupId)
+        );
 
-            if (art.isSupplement && art.parentId) {
-                const parentArticle = commande.articles.find(a => String(a.uniqueGroupId) === String(art.parentId));
-                if (parentArticle) {
-                    const idParent = parentArticle.baseId || parentArticle.id;
-                    let parentDb = null;
-                    if (idParent && !isNaN(idParent)) parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idParent) });
-                    else if (idParent) parentDb = await Product.findOne({ cafeId: req.cafeId, _id: idParent });
-                    if(!parentDb) parentDb = await Product.findOne({ cafeId: req.cafeId, nom: parentArticle.nom.split('(')[0].trim() });
+        if (doitRestituerStock) {
+            for (let art of articlesASupprimer) {
+                const qteCmd = parseInt(art.quantite) || 1;
+                let nomPropre = art.nom || "";
+                if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
 
-                    const configSupp = parentDb?.supplements?.find(s => s.nom === nomPropre || s.nom === art.nom);
-                    if (configSupp && configSupp.ingredientId) {
-                        const qteARendre = (configSupp.quantiteADeduire || 0) * qteCmd;
-                        const queryIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
-                        
-                        const ing = await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } }, { new: true });
-                        if(ing) await new Movement({ cafeId: req.cafeId, type: 'ajout', produit: ing.nom, produitId: ing.id || ing._id, quantite: qteARendre, ancienStock: ing.stock - qteARendre, nouveauStock: ing.stock, raison: `Annulation Supplément: ${nomPropre}` }).save();
-                    }
-                }
-            } else {
-                const idRecherche = art.baseId || art.id;
-                let produitDb = null;
-                if (idRecherche && !isNaN(idRecherche)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idRecherche) });
-                else if (idRecherche) produitDb = await Product.findOne({ cafeId: req.cafeId, _id: idRecherche });
-                if(!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
+                if (art.isSupplement && art.parentId) {
+                    const parentArticle = commande.articles.find(a => String(a.uniqueGroupId) === String(art.parentId));
+                    if (parentArticle) {
+                        const idParent = parentArticle.baseId || parentArticle.id;
+                        let parentDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idParent) }, { _id: idParent }] });
+                        if (!parentDb) parentDb = await Product.findOne({ cafeId: req.cafeId, nom: parentArticle.nom.split('(')[0].trim() });
 
-                if (produitDb) {
-                    if (produitDb.isManufactured && produitDb.recipe) {
-                        for (let comp of produitDb.recipe) {
-                            const qteARendre = (comp.quantity || 0) * qteCmd;
-                            const queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                            const ing = await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } }, { new: true });
-                            if(ing) await new Movement({ cafeId: req.cafeId, type: 'ajout', produit: ing.nom, produitId: ing.id || ing._id, quantite: qteARendre, ancienStock: ing.stock - qteARendre, nouveauStock: ing.stock, raison: `Annulation Recette: ${produitDb.nom}` }).save();
+                        const configSupp = parentDb?.supplements?.find(s => s.nom === nomPropre || s.nom === art.nom);
+                        if (configSupp?.ingredientId) {
+                            const qteARendre = (configSupp.quantiteADeduire || 0) * qteCmd;
+                            const queryIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
+                            await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } });
                         }
-                    } else if (!produitDb.isManufactured) {
-                        const updateSimple = await Product.findOneAndUpdate({ cafeId: req.cafeId, id: produitDb.id || produitDb._id }, { $inc: { stock: qteCmd } }, { new: true });
-                        if(updateSimple) await new Movement({ cafeId: req.cafeId, type: 'ajout', produit: updateSimple.nom, produitId: updateSimple.id || updateSimple._id, quantite: qteCmd, ancienStock: updateSimple.stock - qteCmd, nouveauStock: updateSimple.stock, raison: `Annulation Article` }).save();
+                    }
+                } else {
+                    const idRecherche = art.baseId || art.id;
+                    let produitDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idRecherche) }, { _id: idRecherche }] });
+                    if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
+
+                    if (produitDb) {
+                        if (produitDb.isManufactured && produitDb.recipe) {
+                            for (let comp of produitDb.recipe) {
+                                const qteARendre = (comp.quantity || 0) * qteCmd;
+                                const queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
+                                await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } });
+                            }
+                        } else {
+                            await Product.findOneAndUpdate({ cafeId: req.cafeId, id: produitDb.id || produitDb._id }, { $inc: { stock: qteCmd } });
+                        }
                     }
                 }
             }
         }
 
+        // Mise à jour du ticket (On retire l'article de la liste)
         commande.articles = commande.articles.filter(a => String(a.uniqueGroupId) !== String(uniqueGroupId) && String(a.parentId) !== String(uniqueGroupId));
         commande.total = commande.articles.reduce((sum, a) => sum + (parseFloat(a.prix) * a.quantite), 0);
-        await commande.save();
+        
+        if (commande.articles.length === 0) {
+            await Order.deleteOne({ cafeId: req.cafeId, id: orderId });
+            io.to(req.cafeId).emit('mise_a_jour_commande', { id: orderId, statut: 'annulee' });
+        } else {
+            await commande.save();
+            io.to(req.cafeId).emit('mise_a_jour_commande', commande);
+        }
+
         io.to(req.cafeId).emit('update_stock');
-        res.json({ success: true });
+        res.json({ success: true, stockRendu: doitRestituerStock });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
 app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
     try {
         const { orderIds } = req.body;
@@ -1196,51 +1206,48 @@ app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
             const commande = await Order.findOne({ cafeId: req.cafeId, id: orderId });
             if (!commande) continue;
 
-            for (let art of commande.articles) {
-                const qteCmd = parseInt(art.quantite) || 1;
-                let nomPropre = art.nom || "";
-                if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
-                
-                if (art.isSupplement && art.parentId) {
-                    const parentArticle = commande.articles.find(a => String(a.uniqueGroupId) === String(art.parentId));
-                    if (parentArticle) {
-                        const idParent = parentArticle.baseId || parentArticle.id;
-                        let parentDb = null;
-                        if (idParent && !isNaN(idParent)) parentDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idParent) });
-                        else if (idParent) parentDb = await Product.findOne({ cafeId: req.cafeId, _id: idParent });
-                        if(!parentDb) parentDb = await Product.findOne({ cafeId: req.cafeId, nom: parentArticle.nom.split('(')[0].trim() });
-
-                        const configSupp = parentDb?.supplements?.find(s => s.nom === nomPropre || s.nom === art.nom);
-                        if (configSupp && configSupp.ingredientId) {
+            // 🔥 RESTITUTION CONDITIONNELLE : Uniquement si 'en_attente'
+            if (commande.statut === 'en_attente') {
+                for (let art of commande.articles) {
+                    const qteCmd = parseInt(art.quantite) || 1;
+                    let nomPropre = art.nom || "";
+                    if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
+                    
+                    if (art.isSupplement && art.parentId) {
+                        const parentArticle = commande.articles.find(a => String(a.uniqueGroupId) === String(art.parentId));
+                        const idParent = parentArticle?.baseId || parentArticle?.id;
+                        let parentDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idParent) }, { _id: idParent }] });
+                        const configSupp = parentDb?.supplements?.find(s => s.nom === nomPropre);
+                        
+                        if (configSupp?.ingredientId) {
                             const qteARendre = (configSupp.quantiteADeduire || 0) * qteCmd;
                             const queryIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
                             await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } });
                         }
-                    }
-                } else {
-                    const idRecherche = art.baseId || art.id;
-                    let produitDb = null;
-                    if (idRecherche && !isNaN(idRecherche)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idRecherche) });
-                    else if (idRecherche) produitDb = await Product.findOne({ cafeId: req.cafeId, _id: idRecherche });
-                    if(!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
-
-                    if (produitDb) {
-                        if (produitDb.isManufactured && produitDb.recipe) {
-                            for (let comp of produitDb.recipe) {
-                                const qteARendre = (comp.quantity || 0) * qteCmd;
-                                const queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                                await Product.findOneAndUpdate({ cafeId: req.cafeId, ...queryIng }, { $inc: { stock: qteARendre } });
+                    } else {
+                        const idSrc = art.baseId || art.id;
+                        let pDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idSrc) }, { _id: idSrc }] });
+                        if (pDb) {
+                            if (pDb.isManufactured && pDb.recipe) {
+                                for (let comp of pDb.recipe) {
+                                    const qteARendre = (comp.quantity || 0) * qteCmd;
+                                    const qIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
+                                    await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
+                                }
+                            } else {
+                                await Product.findOneAndUpdate({ cafeId: req.cafeId, id: pDb.id || pDb._id }, { $inc: { stock: qteCmd } });
                             }
-                        } else if (!produitDb.isManufactured) {
-                            await Product.findOneAndUpdate({ cafeId: req.cafeId, id: produitDb.id || produitDb._id }, { $inc: { stock: qteCmd } });
                         }
                     }
                 }
             }
+            // On supprime la commande de la base
             await Order.deleteOne({ cafeId: req.cafeId, id: orderId });
+            // On avertit la cuisine
+            io.to(req.cafeId).emit('mise_a_jour_commande', { id: orderId, statut: 'annulee' });
         }
         io.to(req.cafeId).emit('update_stock');
-        res.json({ success: true, message: "Stock restitué" });
+        res.json({ success: true, message: "Traitement terminé" });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.put('/api/commandes/partiel-ids', verifierToken, async (req, res) => {
