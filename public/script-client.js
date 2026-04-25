@@ -528,11 +528,17 @@ window.ouvrirModalOptions = function(produit, options) {
         containerSupp.innerHTML = produit.supplements.map(supp => {
             const ref = produits.find(p => String(p.id) === String(supp.ingredientId || supp.id) || String(p._id) === String(supp.ingredientId || supp.id));
             
-            let estRupture = false;
+let estRupture = false;
             if (ref) {
                 const stockRestant = window.calculerStockReel(ref, true); 
-                const qteRequise = parseFloat(supp.quantiteADeduire) || 0;
-                if (stockRestant < qteRequise) estRupture = true;
+                const qteBase = parseFloat(supp.quantiteADeduire) || 0;
+                
+                // 🔥 CORRECTION ERP : On convertit la quantité requise dans l'unité du stock
+                const unitSupp = supp.unite || 'g';
+                const unitStock = ref.unite || 'g';
+                const qteConvertie = window.convertirQuantite(qteBase, unitSupp, unitStock);
+
+                if (stockRestant < qteConvertie) estRupture = true;
             }
 
             // 🔥 LA CORRECTION : On lit la promo configurée POUR LE SUPPLÉMENT !
@@ -672,10 +678,16 @@ function changerQuantite(cartId, delta) {
                 if (configSupp && configSupp.ingredientId) {
                     const ingDB = produits.find(p => String(p.id) === String(configSupp.ingredientId) || String(p._id) === String(configSupp.ingredientId));
                     if (ingDB) {
-                        const stockIngRestant = window.calculerStockReel(ingDB, true);
-                        const qteRequise = parseFloat(configSupp.quantiteADeduire) || 0;
+const stockIngRestant = window.calculerStockReel(ingDB, true);
+                        const qteBase = parseFloat(configSupp.quantiteADeduire) || 0;
+                        
+                        // 🔥 CORRECTION ERP : On convertit l'extra demandé
+                        const unitSupp = configSupp.unite || 'g';
+                        const unitStock = ingDB.unite || 'g';
+                        const qteConvertie = window.convertirQuantite(qteBase, unitSupp, unitStock);
+
                         // S'il ne reste pas assez d'ingrédient pour multiplier ce supplément
-                        if (stockIngRestant < (qteRequise * delta)) {
+                        if (stockIngRestant < (qteConvertie * delta)) {
                             afficherNotification(`❌ Stock insuffisant pour l'extra : ${supp.nom}`, "error");
                             return; // On bloque tout l'ajout !
                         }

@@ -339,7 +339,6 @@ button:hover:not(:disabled) {
                 <button class="btn-action btn-cuisine" id="envoyerCuisineBtn"><i class="fas fa-fire"></i> Envoyer Cuisine</button>
                 <button class="btn-action btn-payer-select" id="payerSelectBtn"><i class="fas fa-list-check"></i> Partiel</button>
                 <button class="btn-action btn-payer-tout" id="payerToutBtn"><i class="fas fa-wallet"></i> ENCAISSER TOUT</button>
-                <button class="btn-action btn-vider" id="viderTicketBtn"><i class="fas fa-trash"></i> Vider</button>
                 <button class="btn-action btn-imprimer" id="imprimerTicketBtn"><i class="fas fa-print"></i> Proforma</button>
             </div>
         </div>
@@ -731,15 +730,40 @@ async function modifierQuantite(tableNum, produitId, variante, delta, isEnvoye, 
         const article = ticket.articles[index]; 
         const nouvelleQuantite = article.quantite + delta;
 
-        // --- 1. SÉCURITÉ AJOUT (+) ---
+// --- 1. SÉCURITÉ AJOUT (+) ---
         if (delta > 0 && !article.isSupplement) {
             const produitDB = produits.find(p => String(p.id) === String(article.baseId || article.id) || String(p._id) === String(article.baseId || article.id));
             if (produitDB) {
+                // A. Vérif Stock du Plat Principal
                 const dispo = window.calculerStockReel(produitDB, true); 
                 if (dispo < delta) {
-                    showNotification("❌ Stock insuffisant", "#ef4444");
+                    showNotification("❌ Stock insuffisant pour ce plat", "#ef4444");
                     window.isModifyingQuantity = false;
                     return; 
+                }
+
+                // B. Vérif Stock des Suppléments rattachés (AVEC CONVERSION)
+                const sesSupplements = ticket.articles.filter(s => String(s.parentId) === String(article.uniqueGroupId));
+                for (let supp of sesSupplements) {
+                    const configSupp = produitDB.supplements?.find(s => s.nom === supp.nom.replace('+ ', '').trim());
+                    if (configSupp && configSupp.ingredientId) {
+                        const ingDB = produits.find(p => String(p.id) === String(configSupp.ingredientId) || String(p._id) === String(configSupp.ingredientId));
+                        if (ingDB) {
+                            const stockIngRestant = window.calculerStockReel(ingDB, true);
+                            const qteBase = parseFloat(configSupp.quantiteADeduire) || 0;
+                            
+                            // 🔥 CONVERSION DE L'EXTRA
+                            const unitSupp = configSupp.unite || 'g';
+                            const unitStock = ingDB.unite || 'g';
+                            const qteConvertie = window.convertirQuantite(qteBase, unitSupp, unitStock);
+
+                            if (stockIngRestant < (qteConvertie * delta)) {
+                                showNotification(`❌ Stock insuffisant pour l'extra : ${supp.nom}`, "#ef4444");
+                                window.isModifyingQuantity = false;
+                                return; // On bloque tout l'ajout
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1309,7 +1333,18 @@ window.ouvrirModalOptionsCaisse = function(produit) {
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">`;
         htmlContent += produit.supplements.map(supp => {
             const ref = produits.find(p => String(p.id) === String(supp.ingredientId || supp.id) || String(p._id) === String(supp.ingredientId || supp.id));
-            const estRupture = ref && ref.stock <= 0 && ref.stock !== undefined;
+            
+            // 🔥 CORRECTION ERP : Application de la conversion pour bloquer le supplément
+            let estRupture = false;
+            if (ref) {
+                const stockRestant = window.calculerStockReel(ref, true); 
+                const qteBase = parseFloat(supp.quantiteADeduire) || 0;
+                const unitSupp = supp.unite || 'g';
+                const unitStock = ref.unite || 'g';
+                const qteConvertie = window.convertirQuantite(qteBase, unitSupp, unitStock);
+
+                if (stockRestant < qteConvertie) estRupture = true;
+            }
             
             // 🔥 LA CORRECTION : On lit la promo configurée POUR LE SUPPLÉMENT, pas pour le produit isolé !
             const pNormal = parseFloat(supp.prix || 0);
