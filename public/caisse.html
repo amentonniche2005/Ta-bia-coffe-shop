@@ -126,8 +126,7 @@
         .btn-payer-select { background: var(--info); }
         .btn-payer-tout { background: var(--success); grid-column: 1 / -1; font-size: 1.2rem; padding: 20px;}
         .btn-vider { background: #f1f5f9; color: var(--danger); }
-        .btn-imprimer { background: var(--text-dark); }
-
+.btn-imprimer { background: var(--text-dark); grid-column: 1 / -1; }
         /* ========== MODALS (Glassmorphism) ========== */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; }
         .modal-overlay.active { display: flex; }
@@ -339,7 +338,6 @@ button:hover:not(:disabled) {
                 <button class="btn-action btn-cuisine" id="envoyerCuisineBtn"><i class="fas fa-fire"></i> Envoyer Cuisine</button>
                 <button class="btn-action btn-payer-select" id="payerSelectBtn"><i class="fas fa-list-check"></i> Partiel</button>
                 <button class="btn-action btn-payer-tout" id="payerToutBtn"><i class="fas fa-wallet"></i> ENCAISSER TOUT</button>
-                <button class="btn-action btn-vider" id="viderTicketBtn"><i class="fas fa-trash"></i> Vider</button>
                 <button class="btn-action btn-imprimer" id="imprimerTicketBtn"><i class="fas fa-print"></i> Proforma</button>
             </div>
         </div>
@@ -2233,7 +2231,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         verifierStatutCaisse(); 
         initSocket();
         
-        document.getElementById('viderTicketBtn').addEventListener('click', () => viderTicket(currentTable));
         document.getElementById('imprimerTicketBtn').addEventListener('click', imprimerTicketCourant);
 document.getElementById('payerSelectBtn').addEventListener('click', () => {
             if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444");
