@@ -177,8 +177,10 @@ mongoose.connect(mongoURI)
     });
 
 // ========== 2. MODÈLES DE DONNÉES (SCHÉMAS SAAS MULTI-TENANT) ==========
+// 🔥 SAAS : Ajout de "cafeId" obligatoire sur TOUTES les tables
+
 const Product = mongoose.model('Product', new mongoose.Schema({
-    cafeId: { type: String, required: true, index: true },
+    cafeId: { type: String, required: true, index: true }, // 🔥 LE MARQUEUR
     id: Number, 
     nom: String, 
     prix: { type: Number, default: 0 },
@@ -192,106 +194,72 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     seuilAlerte: { type: Number, default: 10 }, 
     unite: String,
     actif: { type: Boolean, default: true },
-    supplements: [{
-        nom: String,                
-        prix: Number,               
+supplements: [{
+        nom: String,                // Nom affiché au client (ex: "Double Fromage")
+        prix: Number,               // Prix facturé (ex: 2.500)
         prixPromo: { type: Number, default: 0 }, 
-        ingredientId: String,       
-        quantiteADeduire: Number,   
-        unite: String               
+        ingredientId: String,       // L'ID de la matière première à déduire (ex: ID de la Mozzarella)
+        quantiteADeduire: Number,   // Combien on enlève du stock (ex: 50)
+        unite: String               // Unité de la déduction (ex: 'g')
     }],
-    isManufactured: { type: Boolean, default: false },
+    isManufactured: { type: Boolean, default: false }, // true si c'est un produit avec recette
     recipe: [{
-        ingredientId: { type: String }, 
-        quantity: { type: Number },     
-        unit: { type: String }          
-    }],
-    // 🔥 NOUVEAU : MOTEUR DE VENTE (HAPPY HOUR, UPSELL, FLASH)
-    isMoitieMoitieAllowed: { type: Boolean, default: false }, // Pour les pizzas
-    happyHour: {
-        actif: { type: Boolean, default: false },
-        prix: { type: Number, default: 0 },
-        heureDebut: { type: String, default: "16:00" }, // Format HH:mm
-        heureFin: { type: String, default: "18:00" }
-    },
-    upsellProduits: [{ type: String }], // Tableau d'IDs (ex: ID Frites, ID Coca)
-    venteFlash: {
-        actif: { type: Boolean, default: false },
-        quantiteInitiale: { type: Number, default: 0 },
-        quantiteRestante: { type: Number, default: 0 }
-    }
-}));
-
-// 🔥 NOUVEAU : MODÈLE CODES PROMO
-const PromoCode = mongoose.model('PromoCode', new mongoose.Schema({
-    cafeId: { type: String, required: true, index: true },
-    code: { type: String, required: true, uppercase: true }, // ex: ETE2026
-    type: { type: String, enum: ['pourcentage', 'fixe'], default: 'pourcentage' },
-    valeur: { type: Number, required: true }, // ex: 20 (%) ou 5 (DT)
-    dateExpiration: { type: Date },
-    limiteUtilisation: { type: Number, default: 0 }, // 0 = illimité
-    utilisationsActuelles: { type: Number, default: 0 },
-    actif: { type: Boolean, default: true }
-}));
-
-// 🔥 NOUVEAU : MODÈLE MENU BUILDER (FORMULES)
-const MenuCombo = mongoose.model('MenuCombo', new mongoose.Schema({
-    cafeId: { type: String, required: true, index: true },
-    id: { type: String, required: true },
-    nom: { type: String, required: true }, // ex: "Formule Midi"
-    prixFixe: { type: Number, required: true },
-    image: { type: String, default: 'https://via.placeholder.com/150' },
-    actif: { type: Boolean, default: true },
-    etapes: [{
-        titre: String, // ex: "Choisissez votre Boisson"
-        categorieCible: String, // ex: "boissons"
-        quantiteRequise: { type: Number, default: 1 }
+        ingredientId: { type: String }, // ID du produit utilisé comme ingrédient
+        quantity: { type: Number },     // Quantité nécessaire pour 1 unité du produit fini
+        unit: { type: String }          // g, ml, unité, etc.
     }]
 }));
 
-const Movement = mongoose.model('Movement', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Movement = mongoose.model('Movement', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     type: String, produit: String, produitId: Number, quantite: Number,
     ancienStock: Number, nouveauStock: Number, raison: String
 }));
 
-const Inventory = mongoose.model('Inventory', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Inventory = mongoose.model('Inventory', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') }, ecarts: Array
 }));
 
-const Expense = mongoose.model('Expense', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Expense = mongoose.model('Expense', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     timestamp: { type: Number, default: () => Date.now() },
-    categoriePrincipale: String, sousCategorie: String,        
+    categoriePrincipale: String, sousCategorie: String,       
     beneficiaire: String, description: String, montantTotal: Number,        
     montantPaye: Number, resteAPayer: { type: Number, default: 0 }, 
     statut: { type: String, default: 'paye' }, modePaiement: String
 }));
 
-const Order = mongoose.model('Order', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Order = mongoose.model('Order', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     id: String, numero: String, date: String, timestamp: Number, 
+    // 🔥 CORRECTION ICI : On définit précisément la structure d'un article
     articles: [{
-        id: String, nom: String, variante: String, quantite: Number, prix: Number,
-        isSupplement: Boolean, uniqueGroupId: Number, parentId: Number 
+        id: String,
+        nom: String,
+        variante: String,
+        quantite: Number,
+        prix: Number,
+        isSupplement: Boolean,    // Pour identifier le supplément
+        uniqueGroupId: Number,    // Identifiant unique de la ligne
+        parentId: Number          // Le lien vers le plat principal
     }],
     numeroTable: String, statut: { type: String, default: 'en_attente' }, 
     total: Number, clientId: String, clientName: String,
     methodePaiement: { type: String, default: 'sur_place' }
 }));
 
-const TableCode = mongoose.model('TableCode', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const TableCode = mongoose.model('TableCode', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     numero: Number, code: String, lastUpdated: Number
 }));
 
-const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     nom: String, prenom: String, telephone: String,
-    codeFidelite: { type: String }, 
+    codeFidelite: { type: String }, // Ne plus mettre unique:true globalement à cause du multi-café
     dateInscription: { type: String, default: () => new Date().toLocaleDateString('fr-FR') },
     solde: { type: Number, default: 0 }, points: { type: Number, default: 0 }, 
     totalDepense: { type: Number, default: 0 } 
@@ -302,36 +270,39 @@ const StoreSettings = mongoose.model('StoreSettings', new mongoose.Schema({
     type: { type: String }, 
     pointsRequis: { type: Number, default: 100 }, 
     valeurCredit: { type: Number, default: 5 },
-    nomCafe: String, sloganCafe: String, couleurPrincipale: String,
-    logoUrl: String, caisseToken: String,
+    nomCafe: String,
+    sloganCafe: String,
+    couleurPrincipale: String,
+    logoUrl: String,
+    caisseToken: String,
     codeServeur: { type: String, default: '00000' },
     nombreTables: { type: Number, default: 20 },
     statutAbonnement: { type: String, default: 'actif' },
-    dateExpiration: String,
-    // 🔥 NOUVEAU : INTERRUPTEURS SAAS (Feature Flags)
-    modules: {
-        formules: { type: Boolean, default: false },
-        upsell: { type: Boolean, default: false },
-        happyHour: { type: Boolean, default: false },
-        promoCodes: { type: Boolean, default: false },
-        ventesFlash: { type: Boolean, default: false },
-        moitieMoitie: { type: Boolean, default: false }
-    }
+    dateExpiration: String
 }));
 
-const Sale = mongoose.model('Sale', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Sale = mongoose.model('Sale', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
-    id: String, numero: String, date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
+    id: String, numero: String,
+    date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     timestamp: { type: Number, default: () => Date.now() },
-    total: Number, remise: Number, typePaiement: String, methodePaiement: { type: String, default: 'especes' },
+    total: Number, remise: Number,
+    typePaiement: String, methodePaiement: { type: String, default: 'especes' },
     tableOrigine: String, 
+    // 🔥 CORRECTION ICI AUSSI POUR LA CAISSE / LES ARCHIVES
     articles: [{
-        id: String, nom: String, variante: String, quantite: Number, prix: Number,
-        isSupplement: Boolean, uniqueGroupId: Number, parentId: Number
+        id: String,
+        nom: String,
+        variante: String,
+        quantite: Number,
+        prix: Number,
+        isSupplement: Boolean,
+        uniqueGroupId: Number,
+        parentId: Number
     }]
 }));
 
-const CashRegister = mongoose.model('CashRegister', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const CashRegister = mongoose.model('CashRegister', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     dateOuverture: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     dateFermeture: String, timestampOuverture: { type: Number, default: () => Date.now() },
@@ -339,9 +310,10 @@ const CashRegister = mongoose.model('CashRegister', new mongoose.Schema({ /* ...
     especesReelles: Number, ecart: Number, statut: { type: String, default: 'ouvert' } 
 }));
 
-const OpenTicket = mongoose.model('OpenTicket', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const OpenTicket = mongoose.model('OpenTicket', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
-    tableNum: String, ticketData: Object, lastUpdated: { type: Number, default: () => Date.now() }
+    tableNum: String, ticketData: Object,
+    lastUpdated: { type: Number, default: () => Date.now() }
 }));
 
 // ========== 3. MIDDLEWARES ET SÉCURITÉ ==========
@@ -439,31 +411,17 @@ app.get('/api/branding', async (req, res) => {
 
 app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
     try {
-        const { 
-            nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, codeServeur, 
-            targetCafeId, nombreTables, dateExpiration, cloneFromId, 
-            modules // 🔥 NOUVEAU : Réception des interrupteurs
-        } = req.body;
+        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken,codeServeur, targetCafeId, nombreTables, dateExpiration, cloneFromId } = req.body;
         
         const cafeCible = targetCafeId ? targetCafeId : req.cafeId;
 
-        // On s'assure que si 'modules' n'est pas envoyé, on met des valeurs par défaut à false
-        const modulesData = modules || {
-            formules: false, upsell: false, happyHour: false, 
-            promoCodes: false, ventesFlash: false, moitieMoitie: false
-        };
-
         const config = await StoreSettings.findOneAndUpdate(
             { cafeId: cafeCible, type: 'branding' },
-            { 
-                nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, 
-                codeServeur, nombreTables, dateExpiration,
-                modules: modulesData // 🔥 NOUVEAU : Sauvegarde en base
-            }, 
+            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken,codeServeur, nombreTables, dateExpiration }, 
             { new: true, upsert: true }
         );
 
-        // LOGIQUE DE CLONAGE DU MENU SAAS
+        // 🔥 LOGIQUE DE CLONAGE DU MENU SAAS
         if (cloneFromId) {
             const existingProducts = await Product.countDocuments({ cafeId: cafeCible });
             if (existingProducts === 0) { 
@@ -472,10 +430,7 @@ app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
                     const nouveauxProduits = produitsACloner.map(p => ({
                         cafeId: cafeCible, id: p.id, nom: p.nom, prix: p.prix, prixAchat: p.prixAchat,
                         stock: p.stock, categorie: p.categorie, image: p.image, variantes: p.variantes,
-                        typeChoix: p.typeChoix, seuilAlerte: p.seuilAlerte, unite: p.unite, actif: true,
-                        // Copie des nouvelles options
-                        isMoitieMoitieAllowed: p.isMoitieMoitieAllowed,
-                        happyHour: p.happyHour, upsellProduits: p.upsellProduits
+                        typeChoix: p.typeChoix, seuilAlerte: p.seuilAlerte, unite: p.unite, actif: true
                     }));
                     await Product.insertMany(nouveauxProduits);
                 }
@@ -490,80 +445,7 @@ app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
 app.get('/api/stock', async (req, res) => {
     try { res.json(await Product.find({ cafeId: req.cafeId, actif: { $ne: false } }).sort({ id: 1 })); } catch (err) { res.status(500).json(err); }
 });
-// =========================================================
-// 🔥 ROUTES MOTEUR DE VENTE (GROWTH HACKING & MARKETING)
-// =========================================================
 
-// --- 1. GESTION DES CODES PROMO ---
-
-// Vérifier un code (Client / Caisse)
-app.post('/api/promo/verify', async (req, res) => {
-    try {
-        const { code } = req.body;
-        if (!code) return res.status(400).json({ error: "Code manquant" });
-
-        const promo = await PromoCode.findOne({ cafeId: req.cafeId, code: code.toUpperCase(), actif: true });
-        if (!promo) return res.status(404).json({ error: "Code invalide ou inactif." });
-        
-        if (promo.dateExpiration && new Date(promo.dateExpiration) < new Date()) {
-            return res.status(400).json({ error: "Ce code promo a expiré." });
-        }
-        if (promo.limiteUtilisation > 0 && promo.utilisationsActuelles >= promo.limiteUtilisation) {
-            return res.status(400).json({ error: "Ce code a atteint sa limite d'utilisation." });
-        }
-        res.json({ success: true, promo });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Créer un code promo (Admin gérant)
-app.post('/api/promo', verifierToken, async (req, res) => {
-    try {
-        const promo = new PromoCode({ ...req.body, cafeId: req.cafeId });
-        await promo.save();
-        res.json({ success: true, promo });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Lister les codes promos (Admin gérant)
-app.get('/api/promo', verifierToken, async (req, res) => {
-    try {
-        res.json(await PromoCode.find({ cafeId: req.cafeId }).sort({ _id: -1 }));
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Supprimer un code promo (Admin gérant)
-app.delete('/api/promo/:id', verifierToken, async (req, res) => {
-    try {
-        await PromoCode.findOneAndDelete({ _id: req.params.id, cafeId: req.cafeId });
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// --- 2. GESTION DES FORMULES (MENU BUILDER) ---
-
-// Lister les formules (Public & Privé)
-app.get('/api/combos', async (req, res) => {
-    try {
-        res.json(await MenuCombo.find({ cafeId: req.cafeId, actif: true }));
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Créer une formule (Admin gérant)
-app.post('/api/combos', verifierToken, async (req, res) => {
-    try {
-        const combo = new MenuCombo({ ...req.body, cafeId: req.cafeId, id: Date.now().toString() });
-        await combo.save();
-        res.json({ success: true, combo });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Supprimer une formule (Admin gérant)
-app.delete('/api/combos/:id', verifierToken, async (req, res) => {
-    try {
-        await MenuCombo.findOneAndDelete({ id: req.params.id, cafeId: req.cafeId });
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
 app.post('/api/commandes', async (req, res) => {
     try {
         const codeEnvoye = String(req.body.codeAuth);
@@ -713,30 +595,6 @@ app.post('/api/commandes', async (req, res) => {
                     totalSecurise += (art.prix * qteCmd);
                     articlesSecurises.push(art);
                 }
-            }
-        }
-        // 🔥 GESTION SÉCURISÉE DU CODE PROMO DANS LA COMMANDE
-        if (req.body.codePromoApplique) {
-            const promoDb = await PromoCode.findOne({ 
-                cafeId: req.cafeId, 
-                code: req.body.codePromoApplique.toUpperCase(), 
-                actif: true 
-            });
-
-            if (promoDb) {
-                let reduction = 0;
-                if (promoDb.type === 'pourcentage') {
-                    reduction = totalSecurise * (promoDb.valeur / 100);
-                } else {
-                    reduction = promoDb.valeur;
-                }
-                
-                totalSecurise -= reduction;
-                if (totalSecurise < 0) totalSecurise = 0;
-
-                // Incrémenter le nombre d'utilisations du code
-                await PromoCode.updateOne({ _id: promoDb._id }, { $inc: { utilisationsActuelles: 1 } });
-                console.log(`🎟️ Code Promo ${promoDb.code} appliqué : -${reduction} DT`);
             }
         }
         totalSecurise = parseFloat(totalSecurise.toFixed(2));
