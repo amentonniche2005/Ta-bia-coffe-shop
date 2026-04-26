@@ -182,10 +182,40 @@
 </div>
                             </div>
                         </div>
+                        <div class="p-4 bg-black/30 rounded-2xl border border-slate-800/50">
+                            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">4. Modules de Croissance</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" id="modFormules" class="w-4 h-4 accent-neon bg-surface2 border-slate-700 rounded">
+                                    <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition">🍱 Menu Builder (Combos)</span>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" id="modUpsell" class="w-4 h-4 accent-neon bg-surface2 border-slate-700 rounded">
+                                    <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition">🍟 Upsell Automatique</span>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" id="modMoitie" class="w-4 h-4 accent-neon bg-surface2 border-slate-700 rounded">
+                                    <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition">🍕 Moitié/Moitié</span>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" id="modHappyHour" class="w-4 h-4 accent-neon bg-surface2 border-slate-700 rounded">
+                                    <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition">🕒 Happy Hour Auto</span>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" id="modPromoCodes" class="w-4 h-4 accent-neon bg-surface2 border-slate-700 rounded">
+                                    <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition">🎟️ Codes Promo</span>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" id="modVentesFlash" class="w-4 h-4 accent-neon bg-surface2 border-slate-700 rounded">
+                                    <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition">⚡ Ventes Flash</span>
+                                </label>
+                            </div>
+                        </div>
 
                         <button id="deployBtn" onclick="creerCafe()" class="w-full bg-neon text-black font-black py-4 rounded-xl text-sm tracking-wide shadow-[0_0_20px_rgba(0,242,254,0.3)] hover:shadow-[0_0_30px_rgba(0,242,254,0.5)] transition hover:scale-[1.02] flex items-center justify-center gap-2 uppercase mt-4">
                             <i class="fas fa-cloud-upload-alt"></i> Créer / Déployer l'instance
                         </button>
+                        
                     </div>
                 </div>
             </div>
@@ -436,9 +466,18 @@ function calculerJoursRestants(dateStr) {
             document.getElementById('caisseToken').value = cafe.caisseToken || '';
             document.getElementById('logoUrl').value = cafe.logoUrl || 'logo.jpg';
             document.getElementById('nombreTables').value = cafe.nombreTables || 20;
-            if(cafe.dateExpiration) {
-    document.getElementById('dateExpiration').value = cafe.dateExpiration.substring(0, 16);
-}
+if(cafe.dateExpiration) {
+                document.getElementById('dateExpiration').value = cafe.dateExpiration.substring(0, 16);
+            }
+
+            // 🔥 COCHER LES CASES SI LES MODULES SONT ACTIFS
+            const mods = cafe.modules || {};
+            document.getElementById('modFormules').checked = mods.formules || false;
+            document.getElementById('modUpsell').checked = mods.upsell || false;
+            document.getElementById('modMoitie').checked = mods.moitieMoitie || false;
+            document.getElementById('modHappyHour').checked = mods.happyHour || false;
+            document.getElementById('modPromoCodes').checked = mods.promoCodes || false;
+            document.getElementById('modVentesFlash').checked = mods.ventesFlash || false;
 
             // Désactiver le clonage en édition
             document.getElementById('cloneFromId').disabled = true;
@@ -465,7 +504,12 @@ function calculerJoursRestants(dateStr) {
             document.getElementById('logoUrl').value = "logo.jpg";
             document.getElementById('nombreTables').value = "20";
             document.getElementById('dateExpiration').value = "";
-            
+            document.getElementById('modFormules').checked = false;
+            document.getElementById('modUpsell').checked = false;
+            document.getElementById('modMoitie').checked = false;
+            document.getElementById('modHappyHour').checked = false;
+            document.getElementById('modPromoCodes').checked = false;
+            document.getElementById('modVentesFlash').checked = false;
             document.getElementById('cloneFromId').disabled = false;
             document.getElementById('cloneFromId').classList.remove('opacity-50');
 
@@ -489,7 +533,7 @@ function calculerJoursRestants(dateStr) {
             btn.disabled = true;
 
             // Nouveaux champs (dateExpiration et cloneFromId)
-            const data = {
+const data = {
                 targetCafeId: cafeId,
                 nomCafe: document.getElementById('nomCafe').value || cafeId.toUpperCase(),
                 sloganCafe: document.getElementById('sloganCafe').value || "Coffee Shop",
@@ -498,7 +542,16 @@ function calculerJoursRestants(dateStr) {
                 logoUrl: document.getElementById('logoUrl').value,
                 nombreTables: parseInt(document.getElementById('nombreTables').value) || 20,
                 dateExpiration: document.getElementById('dateExpiration').value || null,
-                cloneFromId: document.getElementById('cloneFromId').value || null
+                cloneFromId: document.getElementById('cloneFromId').value || null,
+                // 🔥 LECTURE DES INTERRUPTEURS
+                modules: {
+                    formules: document.getElementById('modFormules').checked,
+                    upsell: document.getElementById('modUpsell').checked,
+                    moitieMoitie: document.getElementById('modMoitie').checked,
+                    happyHour: document.getElementById('modHappyHour').checked,
+                    promoCodes: document.getElementById('modPromoCodes').checked,
+                    ventesFlash: document.getElementById('modVentesFlash').checked
+                }
             };
 
             try {

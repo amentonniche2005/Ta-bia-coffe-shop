@@ -924,33 +924,33 @@ window.ouvrirVenteDirecte = function() {
     selectionnerTable(key);
 };
     function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
+window.saasModules = {};
+window.listeCombos = [];
+
 async function appliquerBranding() {
     try {
-        // 1. On récupère les réglages depuis ton API /api/branding
         const response = await fetch('/api/branding');
         const config = await response.json();
 
         if (config) {
-            // 2. Mise à jour du Nom du café
             document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
-
-            // 3. Mise à jour du Slogan (Coffee Shop, Bar, etc.)
             document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
+            if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
+            if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); afficherListeTables(); }
+            window.CODE_SERVEUR = config.codeServeur || "00000";
 
-            // 4. Mise à jour du Logo
-            if (config.logoUrl) {
-                document.getElementById('dynamicLogo').src = config.logoUrl;
+            // 🔥 LECTURE DES DROITS SAAS
+            window.saasModules = config.modules || {};
+            
+            // Si le Menu Builder est activé, on charge les formules
+            if (window.saasModules.formules) {
+                try {
+                    const resC = await fetchSecurise('/api/combos');
+                    if (resC.ok) window.listeCombos = await resC.json();
+                } catch(e){}
             }
-            if (config.nombreTables) { 
-                NB_TABLES_MAX = parseInt(config.nombreTables); 
-                afficherListeTables(); 
-            }
-
-
         }
-    } catch (error) {
-        console.error("Erreur lors du chargement du branding:", error);
-    }
+    } catch (error) { console.error("Erreur branding:", error); }
 }
 
 // Lancer la fonction au chargement de la page
@@ -1240,19 +1240,30 @@ function renderProducts() {
         const stockActuel = window.calculerStockReel(p, true);
         const stockColor = stockActuel <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
         
-        // LOGIQUE VISUELLE PROMO
+        // 🔥 NOUVEAU : LOGIQUE PRIX (Utilise le moteur intelligent Happy Hour / Promo)
         const prixNormal = parseFloat(p.prix || 0).toFixed(2);
-        const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
+        const prixCalcule = window.getPrixActif ? window.getPrixActif(p).toFixed(2) : (parseFloat(p.prixPromo) > 0 ? parseFloat(p.prixPromo).toFixed(2) : prixNormal);
         
-        const affichagePrix = (p.prixPromo > 0) 
-            ? `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>`
-            : `<span style="font-weight:800;">${prixNormal} DT</span>`;
+        let affichagePrix = `<span style="font-weight:800;">${prixNormal} DT</span>`;
+        let badgePromo = '';
+
+        if (p.isHappyHourNow) {
+            // Affichage Spécial Happy Hour
+            affichagePrix = `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#f59e0b; font-weight:900;">${prixCalcule} DT</span>`;
+            badgePromo = `<div style="position:absolute; top:8px; left:8px; background:#f59e0b; color:white; padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:900; z-index:2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"><i class="fas fa-clock"></i> HAPPY HOUR</div>`;
+        } 
+        else if (p.prixPromo && parseFloat(p.prixPromo) > 0) {
+            // Affichage Promo Standard
+            affichagePrix = `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixCalcule} DT</span>`;
+            badgePromo = `<div style="position:absolute; top:8px; left:8px; background:#e74c3c; color:white; padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:900; z-index:2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">PROMO</div>`;
+        }
 
         // Si c'est un produit à recette, on met un petit icône visuel
         const iconeRecette = p.isManufactured ? `<i class="fas fa-blender" style="font-size:0.6rem; color:#8b5cf6;"></i> ` : '';
 
-        return `<div class="product-card" data-id="${p.id || p._id}" style="opacity: ${stockActuel <= 0 ? '0.5' : '1'};">
-                    <div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">${iconeRecette}Stock: ${stockActuel}</div>
+        return `<div class="product-card" data-id="${p.id || p._id}" style="opacity: ${stockActuel <= 0 ? '0.5' : '1'}; position:relative;">
+                    ${badgePromo}
+                    <div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}; margin-top:${badgePromo ? '15px' : '0'};">${iconeRecette}Stock: ${stockActuel}</div>
                     <div class="product-name">${escapeHtml(p.nom)}</div>
                     <div class="product-price">${affichagePrix}</div>
                 </div>`; 
@@ -1277,6 +1288,8 @@ function renderProducts() {
         const aDesSupplements = produitFull.supplements && produitFull.supplements.length > 0;
 
         if (aDesVariantes || aDesSupplements) {
+            // NOUVEAU : On passe le prix calculé à la modale
+            produitFull.prixActifCalcule = window.getPrixActif ? window.getPrixActif(produitFull) : (parseFloat(produitFull.prixPromo) > 0 ? parseFloat(produitFull.prixPromo) : parseFloat(produitFull.prix));
             ouvrirModalOptionsCaisse(produitFull); // Ouvre la fenêtre pour choisir
         } else {
             ajouterProduitCaisse(produitFull, null, []); // Ajout instantané
@@ -1284,6 +1297,32 @@ function renderProducts() {
         }
     }));
 }
+// 🔥 MOTEUR DE PRIX INTELLIGENT (Gère Promo + Happy Hour)
+window.getPrixActif = function(p) {
+    let prixFinal = parseFloat(p.prix) || 0;
+    p.isHappyHourNow = false; // Reset visuel
+
+    // 1. Promo standard
+    if (p.prixPromo && parseFloat(p.prixPromo) > 0) prixFinal = parseFloat(p.prixPromo);
+    
+    // 2. Happy Hour (Écrase tout si on est dans la bonne heure)
+    if (window.saasModules.happyHour && p.happyHour && p.happyHour.actif) {
+        const now = new Date();
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+        const [hDebut, mDebut] = (p.happyHour.heureDebut || "00:00").split(':').map(Number);
+        const [hFin, mFin] = (p.happyHour.heureFin || "23:59").split(':').map(Number);
+        
+        const timeDebut = hDebut * 60 + mDebut;
+        const timeFin = hFin * 60 + mFin;
+        
+        // Si l'heure actuelle est dans la plage configurée par le gérant
+        if (currentTime >= timeDebut && currentTime <= timeFin) {
+            prixFinal = parseFloat(p.happyHour.prix) || prixFinal;
+            p.isHappyHourNow = true; // On active le flag pour l'interface
+        }
+    }
+    return prixFinal;
+};
 window.ouvrirModalOptionsCaisse = function(produit) {
     produitEnAttenteCaisse = produit;
     
@@ -1425,17 +1464,15 @@ window.validerOptionsCaisse = function() {
 window.ajouterProduitCaisse = function(produit, variante, supplements) {
     const idGroupeUnique = Date.now();
     
-    // 🔥 Sécurité Prix Promo
-    const prixInitial = (produit.prixPromo && produit.prixPromo > 0) 
-        ? parseFloat(produit.prixPromo) 
-        : parseFloat(produit.prix);
+    // 🔥 Sécurité Prix (Intègre le Happy Hour et Promo)
+    const prixInitial = window.getPrixActif(produit);
 
     // 1. Produit Principal
     ajouterAuTicket(currentTable, { 
         id: String(produit.id || produit._id), 
         nom: String(produit.nom), 
         variante: variante, 
-        prix: Number(prixInitial), // Force le format nombre
+        prix: Number(prixInitial), 
         quantite: 1, 
         envoye: false, pret: false, cmdId: null,
         isSupplement: false, uniqueGroupId: idGroupeUnique, parentId: null 
@@ -1457,7 +1494,49 @@ window.ajouterProduitCaisse = function(produit, variante, supplements) {
     
     afficherTicket();
     afficherListeTables();
+
+    // 🔥 3. DÉCLENCHEMENT DE L'UPSELL AUTOMATIQUE SAAS
+    if (window.saasModules.upsell && produit.upsellProduits && produit.upsellProduits.length > 0) {
+        // On cherche les produits d'upsell correspondants
+        const prodsUpsell = produits.filter(p => produit.upsellProduits.includes(p.nom) || produit.upsellProduits.includes(String(p.id)));
+        if (prodsUpsell.length > 0) {
+            afficherModalUpsell(produit.nom, prodsUpsell, idGroupeUnique);
+        }
+    }
 };
+
+// 🔥 NOUVELLE FONCTION : L'INTERFACE UPSELL
+window.afficherModalUpsell = function(nomProduitSource, produitsSuggérés, parentGroupId) {
+    let htmlUpsell = `
+        <div class="modal-overlay active" id="modalUpsellCaisse">
+            <div class="modal-content" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 2px solid #f59e0b; max-width:400px; text-align:center;">
+                <h3 style="color:#d97706; font-size:1.4rem; font-weight:900; margin-bottom:10px;">
+                    <i class="fas fa-lightbulb"></i> Suggestion
+                </h3>
+                <p style="color:#92400e; font-weight:600; margin-bottom:20px;">Voulez-vous proposer un accompagnement avec <strong>${escapeHtml(nomProduitSource)}</strong> ?</p>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+    `;
+
+    produitsSuggérés.forEach(p => {
+        const prix = window.getPrixActif(p).toFixed(2);
+        // Au clic, on l'ajoute comme un article indépendant mais relié visuellement si on veut
+        htmlUpsell += `
+            <button onclick="ajouterAuTicket('${currentTable}', {id:'${p.id||p._id}', nom:'${escapeHtml(p.nom)}', prix:${prix}, quantite:1, envoye:false, isSupplement:false, uniqueGroupId:Date.now(), parentId:null}); document.getElementById('modalUpsellCaisse').remove();" 
+                    style="background:white; border:1px solid #fcd34d; padding:15px; border-radius:12px; font-weight:800; color:#d97706; cursor:pointer; display:flex; justify-content:space-between; box-shadow:0 4px 6px rgba(0,0,0,0.05); font-size:1.1rem;">
+                <span>${escapeHtml(p.nom)}</span>
+                <span>+${prix} DT</span>
+            </button>
+        `;
+    });
+
+    htmlUpsell += `
+                </div>
+                <button onclick="document.getElementById('modalUpsellCaisse').remove();" style="background:transparent; border:none; color:#92400e; font-weight:bold; cursor:pointer; text-decoration:underline;">Non merci, passer au paiement</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('modalContainer').innerHTML = htmlUpsell;
+};;
     function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
         if (!caisseOuverte) { showNotification("❌ Caisse fermée !", "#ef4444"); return; }
         const container = document.getElementById('containerModalPaiement');
