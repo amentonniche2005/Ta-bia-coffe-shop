@@ -509,13 +509,13 @@ app.post('/api/promo/verify', async (req, res) => {
             return res.status(400).json({ error: "Ce code promo a expiré." });
         }
         if (promo.limiteUtilisation > 0 && promo.utilisationsActuelles >= promo.limiteUtilisation) {
-            return res.status(400).json({ error: "Ce code promo a atteint sa limite d'utilisation." });
+            return res.status(400).json({ error: "Ce code a atteint sa limite d'utilisation." });
         }
         res.json({ success: true, promo });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Créer un code promo (Admin)
+// Créer un code promo (Admin gérant)
 app.post('/api/promo', verifierToken, async (req, res) => {
     try {
         const promo = new PromoCode({ ...req.body, cafeId: req.cafeId });
@@ -524,14 +524,14 @@ app.post('/api/promo', verifierToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Lister les codes promos (Admin)
+// Lister les codes promos (Admin gérant)
 app.get('/api/promo', verifierToken, async (req, res) => {
     try {
         res.json(await PromoCode.find({ cafeId: req.cafeId }).sort({ _id: -1 }));
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Supprimer un code promo (Admin)
+// Supprimer un code promo (Admin gérant)
 app.delete('/api/promo/:id', verifierToken, async (req, res) => {
     try {
         await PromoCode.findOneAndDelete({ _id: req.params.id, cafeId: req.cafeId });
@@ -541,14 +541,14 @@ app.delete('/api/promo/:id', verifierToken, async (req, res) => {
 
 // --- 2. GESTION DES FORMULES (MENU BUILDER) ---
 
-// Lister les formules (Client / Caisse / Admin)
+// Lister les formules (Public & Privé)
 app.get('/api/combos', async (req, res) => {
     try {
         res.json(await MenuCombo.find({ cafeId: req.cafeId, actif: true }));
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Créer une formule (Admin)
+// Créer une formule (Admin gérant)
 app.post('/api/combos', verifierToken, async (req, res) => {
     try {
         const combo = new MenuCombo({ ...req.body, cafeId: req.cafeId, id: Date.now().toString() });
@@ -557,17 +557,13 @@ app.post('/api/combos', verifierToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Supprimer une formule (Admin)
+// Supprimer une formule (Admin gérant)
 app.delete('/api/combos/:id', verifierToken, async (req, res) => {
     try {
         await MenuCombo.findOneAndDelete({ id: req.params.id, cafeId: req.cafeId });
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
-// =========================================================
-// FIN ROUTES MOTEUR DE VENTE
-// =========================================================
 app.post('/api/commandes', async (req, res) => {
     try {
         const codeEnvoye = String(req.body.codeAuth);
@@ -717,6 +713,30 @@ app.post('/api/commandes', async (req, res) => {
                     totalSecurise += (art.prix * qteCmd);
                     articlesSecurises.push(art);
                 }
+            }
+        }
+        // 🔥 GESTION SÉCURISÉE DU CODE PROMO DANS LA COMMANDE
+        if (req.body.codePromoApplique) {
+            const promoDb = await PromoCode.findOne({ 
+                cafeId: req.cafeId, 
+                code: req.body.codePromoApplique.toUpperCase(), 
+                actif: true 
+            });
+
+            if (promoDb) {
+                let reduction = 0;
+                if (promoDb.type === 'pourcentage') {
+                    reduction = totalSecurise * (promoDb.valeur / 100);
+                } else {
+                    reduction = promoDb.valeur;
+                }
+                
+                totalSecurise -= reduction;
+                if (totalSecurise < 0) totalSecurise = 0;
+
+                // Incrémenter le nombre d'utilisations du code
+                await PromoCode.updateOne({ _id: promoDb._id }, { $inc: { utilisationsActuelles: 1 } });
+                console.log(`🎟️ Code Promo ${promoDb.code} appliqué : -${reduction} DT`);
             }
         }
         totalSecurise = parseFloat(totalSecurise.toFixed(2));

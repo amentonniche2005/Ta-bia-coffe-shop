@@ -894,36 +894,10 @@ function afficherContenuPanier() {
             selectPaiement.value = 'especes';
         }
     }
-    // --- FIN DE L'AJOUT ---
 
     if (panier.length === 0) {
         conteneur.innerHTML = `<div style='padding: 4rem 1rem; text-align: center; color: #94a3b8;'><i class='fas fa-shopping-bag fa-3x'></i><p>Votre panier est vide</p></div>`;
         totalElement.textContent = "0.00 DT";
-        // 🔥 INJECTION DU CODE PROMO DANS L'UI DU PANIER
-    // On ajoute le bloc de saisie juste en dessous des articles
-    let promoHTML = `
-        <div style="margin-top: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px dashed #cbd5e1;">
-            <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;"><i class="fas fa-ticket-alt text-warning"></i> Code Promo</label>
-            <div style="display:flex; gap:10px;">
-                <input type="text" id="inputCodePromoClient" placeholder="Tapez votre code..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #e2e8f0; font-weight:bold; text-transform:uppercase;">
-                <button onclick="appliquerCodePromoClient()" style="background:var(--warning); color:white; border:none; border-radius:8px; padding:0 15px; font-weight:bold; cursor:pointer;">Appliquer</button>
-            </div>
-            <div id="msgCodePromo" style="font-size:0.8rem; font-weight:bold; margin-top:8px;"></div>
-        </div>
-    `;
-    conteneur.insertAdjacentHTML('beforeend', promoHTML);
-
-    // 🔥 GESTION DE LA REMISE DANS LE TOTAL
-    window.remisePromoActuelle = window.remisePromoActuelle || 0; // Valeur fixe en DT
-    window.codePromoApplique = window.codePromoApplique || null;
-
-    if (window.remisePromoActuelle > 0) {
-        total = total - window.remisePromoActuelle;
-        if (total < 0) total = 0;
-        totalElement.innerHTML = `<s style="font-size:1rem; color:#94a3b8;">${(total + window.remisePromoActuelle).toFixed(2)}</s> <span style="color:var(--success);">${total.toFixed(2)} DT</span>`;
-    } else {
-        totalElement.textContent = `${total.toFixed(2)} DT`;
-    }
         checkoutBtn.disabled = true;
         return;
     }
@@ -940,29 +914,26 @@ function afficherContenuPanier() {
     const platsPrincipaux = panier.filter(a => !a.isSupplement);
 
     conteneur.innerHTML = platsPrincipaux.map(mainItem => {
-        // On cherche les suppléments liés à CE plat spécifique
         const mesSupplements = panier.filter(s => s.isSupplement && s.parentId === mainItem.uniqueGroupId);
         
-        // Design du plat principal
         let html = `
             <div class="modern-cart-item" style="flex-direction: column; align-items: stretch; padding: 15px; margin-bottom: 12px; background: white; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #f1f5f9;">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <div class="modern-cart-item-info">
                         <h4 style="margin:0; font-size:1.1rem; color:#1e293b; font-weight:800;">
-    ${mainItem.nom}
-    ${mainItem.variante ? `<span style="font-size:0.85rem; color:#db800a; font-weight:700; margin-left:6px;">(${mainItem.variante})</span>` : ''}
-</h4>
+                            ${mainItem.nom}
+                            ${mainItem.variante ? `<span style="font-size:0.85rem; color:#db800a; font-weight:700; margin-left:6px;">(${mainItem.variante})</span>` : ''}
+                        </h4>
                         <div class="modern-cart-item-price" style="color:#db800a; font-weight:bold;">${mainItem.prix.toFixed(2)} DT</div>
                     </div>
                     <div class="modern-qty-control" style="display:flex; align-items:center; background:#f8fafc; border-radius:10px; padding:4px; border: 1px solid #e2e8f0;">
-                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', -1)" style="border:none; background:white; width:32px; height:32px; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); color:#64748b;"><i class="fas fa-minus"></i></button>
+                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', -1)"><i class="fas fa-minus"></i></button>
                         <span class="modern-qty-val" style="width:35px; text-align:center; font-weight:900; color:#1e293b;">${mainItem.quantite}</span>
-                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', 1)" style="border:none; background:white; width:32px; height:32px; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); color:#db800a;"><i class="fas fa-plus"></i></button>
+                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', 1)"><i class="fas fa-plus"></i></button>
                     </div>
                 </div>
         `;
         
-        // Design des suppléments (s'il y en a)
         if (mesSupplements.length > 0) {
             html += `<div style="margin-top: 12px; padding-top: 10px; border-top: 2px dashed #f1f5f9;">`;
             mesSupplements.forEach(supp => {
@@ -975,12 +946,34 @@ function afficherContenuPanier() {
             });
             html += `</div>`;
         }
-        
         html += `</div>`;
         return html;
     }).join('');
 
-    totalElement.textContent = `${total.toFixed(2)} DT`;
+    // 🔥 CORRECTIF : INJECTION DU CODE PROMO ICI (Quand le panier n'est PAS vide)
+    if (window.saasModules.promoCodes) {
+        let promoHTML = `
+            <div style="margin-top: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;"><i class="fas fa-ticket-alt text-warning"></i> Code Promo</label>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="inputCodePromoClient" placeholder="Tapez votre code..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #e2e8f0; font-weight:bold; text-transform:uppercase;">
+                    <button onclick="appliquerCodePromoClient()" style="background:var(--warning); color:white; border:none; border-radius:8px; padding:0 15px; font-weight:bold; cursor:pointer;">Appliquer</button>
+                </div>
+                <div id="msgCodePromo" style="font-size:0.8rem; font-weight:bold; margin-top:8px;"></div>
+            </div>
+        `;
+        conteneur.insertAdjacentHTML('beforeend', promoHTML);
+    }
+
+    // 🔥 GESTION DE LA REMISE DANS LE TOTAL
+    window.remisePromoActuelle = window.remisePromoActuelle || 0;
+    if (window.remisePromoActuelle > 0) {
+        let totalFinal = total - window.remisePromoActuelle;
+        if (totalFinal < 0) totalFinal = 0;
+        totalElement.innerHTML = `<s style="font-size:1rem; color:#94a3b8;">${total.toFixed(2)}</s> <span style="color:var(--success);">${totalFinal.toFixed(2)} DT</span>`;
+    } else {
+        totalElement.textContent = `${total.toFixed(2)} DT`;
+    }
 }
 
 // ========== ENVOI COMMANDE ==========
