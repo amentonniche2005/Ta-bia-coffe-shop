@@ -632,22 +632,29 @@ header {
 @keyframes notifTime { from { width: 100%; } to { width: 0%; } }
 
 /* ======================================================= */
-/* 🌙 DARK MODE PREMIUM (Midnight Lounge) - ULTIMATE FIX   */
+/* 🌙 TRUE BLACK DARK MODE (Midnight VIP) - CORRIGÉ        */
 /* ======================================================= */
 
-/* --- 1. Base et Variables --- */
+/* --- 1. Base et Variables (Noir Profond) --- */
 body.dark-mode {
-    background-color: #0f172a !important; /* Bleu nuit très profond */
-    color: #f1f5f9 !important;
-    color-scheme: dark; /* Force les scrollbars natives et inputs en mode sombre */
+    background-color: #000000 !important; /* Noir pur */
+    color: #f8fafc !important;
+    color-scheme: dark;
 }
 
-/* --- 2. Écran de Chargement (Splash Screen) --- */
-body.dark-mode .splash-screen {
-    background-color: #0f172a !important;
+/* --- 2. Écran de Chargement et Overlays --- */
+body.dark-mode .splash-screen,
+body.dark-mode .sarbini-neon-splash {
+    background-color: #000000 !important;
 }
 
-/* --- 3. Toutes les Cartes & Conteneurs (Produits, Modales, VIP) --- */
+body.dark-mode .cart-modal, 
+body.dark-mode .options-modal,
+body.dark-mode .table-modal {
+    background: rgba(0, 0, 0, 0.85) !important; /* Fond noir transparent au lieu du bleu */
+}
+
+/* --- 3. Toutes les Cartes & Conteneurs (Gris très foncé) --- */
 body.dark-mode .product-card,
 body.dark-mode .modal-content,
 body.dark-mode .menu-item, 
@@ -661,10 +668,15 @@ body.dark-mode .stat-box,
 body.dark-mode .vip-card:not(.theme-gold),
 body.dark-mode .cart-total-container,
 body.dark-mode .auth-box,
-body.dark-mode .qr-container {
-    background-color: #1e293b !important; /* Gris/Bleu ardoise */
-    border: 1px solid #334155 !important;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.6) !important;
+body.dark-mode .qr-container,
+body.dark-mode .checkout-section,    /* Zone de paiement panier */
+body.dark-mode .options-header,      /* Entête modale options */
+body.dark-mode .options-footer,      /* Footer modale options */
+body.dark-mode .selectable-card      /* Cartes des suppléments/variantes */
+{
+    background-color: #111111 !important; /* Gris presque noir */
+    border: 1px solid #222222 !important; /* Bordure discrète */
+    box-shadow: 0 8px 25px rgba(0,0,0,0.8) !important;
 }
 
 /* --- 4. Textes globaux, Titres et Prix --- */
@@ -674,25 +686,28 @@ body.dark-mode .product-name,
 body.dark-mode .commande-numero,
 body.dark-mode .modern-cart-item-info h4,
 body.dark-mode .stat-value,
-body.dark-mode .cart-total-container span {
-    color: #f8fafc !important; /* Blanc cassé pour ne pas éblouir */
+body.dark-mode .cart-total-container span,
+body.dark-mode .opt-name,
+body.dark-mode .section-title {
+    color: #f8fafc !important; /* Blanc cassé pour lisibilité */
 }
 
 body.dark-mode .product-desc,
 body.dark-mode .stat-label,
 body.dark-mode .empty-message,
-body.dark-mode .text-muted {
+body.dark-mode .text-muted,
+body.dark-mode .modern-cart-item-variant {
     color: #94a3b8 !important; /* Gris doux pour textes secondaires */
 }
 
-/* --- 5. "LE NETTOYEUR" : Écrase TOUS les styles codés en dur dans le HTML/JS --- */
+/* --- 5. "LE NETTOYEUR" : Écrase TOUS les styles inline générés en JS --- */
 body.dark-mode [style*="background: white"],
 body.dark-mode [style*="background:white"],
 body.dark-mode [style*="background-color: white"],
 body.dark-mode [style*="background-color: #fff"],
 body.dark-mode [style*="background-color:#fff"],
 body.dark-mode [style*="background:#fff"] {
-    background-color: #1e293b !important;
+    background-color: #111111 !important;
 }
 
 body.dark-mode [style*="color:#1e293b"],
@@ -702,9 +717,10 @@ body.dark-mode [style*="color:#000"] {
     color: #e2e8f0 !important;
 }
 
+body.dark-mode div[style*="border-top: 2px dashed"],
 body.dark-mode div[style*="border-top:2px dashed"],
 body.dark-mode div[style*="border-bottom: 1px solid"] {
-    border-color: #334155 !important;
+    border-color: #222222 !important;
 }
 
 /* --- 6. Inputs, Selects, Options et Boutons de Table --- */
@@ -715,35 +731,49 @@ body.dark-mode .sleek-input,
 body.dark-mode .sleek-select,
 body.dark-mode .option-box,
 body.dark-mode .table-btn {
-    background-color: #0f172a !important; /* Fond très sombre pour les zones de saisie */
+    background-color: #000000 !important; /* Fond pur noir pour les saisies */
     color: #f8fafc !important;
-    border: 1px solid #334155 !important;
+    border: 1px solid #333333 !important;
 }
 
-body.dark-mode .table-btn:hover { background-color: #334155 !important; }
+body.dark-mode .table-btn:hover { background-color: #222222 !important; }
 body.dark-mode .table-btn.occupied {
-    background-color: #450a0a !important; /* Rouge très sombre pour table occupée */
+    background-color: #450a0a !important; 
     border-color: #7f1d1d !important;
     color: #fca5a5 !important;
 }
+
+/* Suppléments sélectionnés en Dark Mode */
+body.dark-mode input:checked + .selectable-card,
 body.dark-mode .option-input:checked + .option-box {
-    background-color: rgba(219, 128, 10, 0.15) !important;
+    background-color: rgba(219, 128, 10, 0.1) !important; /* Légère lueur orange */
     border-color: var(--primary) !important;
     color: var(--primary) !important;
 }
 
-/* --- 7. Panier et Boutons de Quantité (+ / -) --- */
+body.dark-mode .selectable-card.disabled {
+    background-color: #0a0a0a !important;
+    border-color: #222222 !important;
+}
+
+/* --- 7. Détails du Panier (Boutons + / -) --- */
 body.dark-mode .modern-cart-item {
-    background-color: #0f172a !important;
-    border-color: #334155 !important;
+    background-color: #0a0a0a !important; /* Un peu plus sombre que les modales */
+    border-color: #222222 !important;
+}
+body.dark-mode .modern-qty-control {
+    background-color: #000000 !important;
+    border-color: #222222 !important;
 }
 body.dark-mode .modern-qty-btn,
 body.dark-mode .qty-btn {
-    background-color: #1e293b !important;
+    background-color: #111111 !important;
     color: #f8fafc !important;
-    border: 1px solid #334155 !important;
+    border: 1px solid #333333 !important;
+    box-shadow: none !important;
 }
-body.dark-mode .modern-qty-btn:hover { background-color: #334155 !important; }
+body.dark-mode .modern-qty-btn:hover { background-color: #222222 !important; }
+body.dark-mode .modern-qty-val { color: #f8fafc !important; }
 
 /* --- 8. Boutons Actions (Annuler, Fermer, Logout) --- */
 body.dark-mode .btn-logout,
@@ -751,26 +781,26 @@ body.dark-mode .close-cart,
 body.dark-mode .close-options,
 body.dark-mode #cancelTableBtn, 
 body.dark-mode #annulerCodeBtn {
-    background-color: #334155 !important;
+    background-color: #222222 !important;
     color: #f8fafc !important;
     border: none !important;
 }
 body.dark-mode .close-cart:hover, 
 body.dark-mode .close-options:hover {
-    background-color: #475569 !important;
+    background-color: #333333 !important;
 }
 
 /* --- 9. Barre de Catégories & Hero Section --- */
 body.dark-mode .categories-wrapper,
 body.dark-mode .categories {
-    background-color: #0f172a !important;
-    border-bottom: 1px solid #334155 !important;
+    background-color: #000000 !important;
+    border-bottom: 1px solid #222222 !important;
 }
 body.dark-mode .category-btn {
-    background-color: #1e293b !important;
+    background-color: #111111 !important;
     color: #94a3b8 !important;
-    border: 1px solid #334155 !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+    border: 1px solid #222222 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
 }
 body.dark-mode .category-btn.active {
     background-color: var(--primary) !important;
@@ -779,24 +809,24 @@ body.dark-mode .category-btn.active {
     box-shadow: 0 4px 12px rgba(219, 128, 10, 0.4) !important;
 }
 body.dark-mode .hero {
-    background-color: #1e293b !important;
-    border-bottom: 1px solid #334155 !important;
+    background-color: #111111 !important;
+    border-bottom: 1px solid #222222 !important;
 }
 
 /* --- 10. Panier Flottant (Floating Cart) --- */
 body.dark-mode .floating-cart {
-    background-color: #1e293b !important;
-    border: 1px solid #334155 !important;
-    box-shadow: 0 -10px 30px rgba(0,0,0,0.7) !important;
+    background-color: #111111 !important;
+    border: 1px solid #222222 !important;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.9) !important;
 }
 body.dark-mode .cart-text,
 body.dark-mode .cart-price { color: #f8fafc !important; }
-body.dark-mode .cart-badge { border-color: #1e293b !important; }
+body.dark-mode .cart-badge { border-color: #111111 !important; }
 
 /* --- 11. Scrollbars personnalisées pour le Dark Mode --- */
-body.dark-mode ::-webkit-scrollbar-track { background: #0f172a; }
-body.dark-mode ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-body.dark-mode ::-webkit-scrollbar-thumb:hover { background: #475569; }
+body.dark-mode ::-webkit-scrollbar-track { background: #000000; }
+body.dark-mode ::-webkit-scrollbar-thumb { background: #333333; border-radius: 10px; }
+body.dark-mode ::-webkit-scrollbar-thumb:hover { background: #555555; }
 /* ========================================================================= */
 /* 💎 PACK DESIGN PREMIUM TA'BIA (Global) 💎 */
 /* ========================================================================= */
