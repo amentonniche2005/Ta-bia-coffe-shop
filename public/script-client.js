@@ -169,39 +169,44 @@ const categoryLabels = {
      'Libanai': '🌯 Libanai'
 };
 // ========== CHARGEMENT ==========
+
+// 🔥 BOUCLIER ANTI-BLOCAGE (Indestructible)
+// Quoi qu'il arrive, s'il y a un bug ou un réseau lent, le splash screen disparaît après 3 secondes.
+setTimeout(() => {
+    const splash = document.getElementById('splash-screen') || document.querySelector('.splash-screen') || document.getElementById('splashScreen');
+    if (splash) {
+        splash.style.transition = "opacity 0.5s ease";
+        splash.style.opacity = "0";
+        splash.style.pointerEvents = "none";
+        setTimeout(() => { splash.style.display = 'none'; }, 500);
+    }
+}, 3000);
+
 document.addEventListener("DOMContentLoaded", async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const tableUrl = urlParams.get('table');
-    const authUrl = urlParams.get('auth') || urlParams.get('AUTH'); // Accepte majuscules/minuscules
+    const authUrl = urlParams.get('auth') || urlParams.get('AUTH');
 
     let doitOuvrirVIPAutomatiquement = false;
     let codeVIP = null;
 
-    // 1. GESTION DU LIEN VIP DIRECT (?auth=1234 sans table)
     if (authUrl && !tableUrl) {
         doitOuvrirVIPAutomatiquement = true;
         codeVIP = authUrl;
-
-        // On stocke le code
         sessionStorage.setItem('tabia_auth_qr', authUrl);
         localStorage.setItem('tabia_auth_qr', authUrl);
-
-        // On nettoie l'URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    // 2. GESTION DU SCAN DE TABLE (?table=4)
     if (tableUrl) {
         sessionStorage.setItem('tabia_table_qr', tableUrl);
         if (authUrl) sessionStorage.setItem('tabia_auth_qr', authUrl);
         window.history.replaceState({}, document.title, window.location.pathname);
-        
         setTimeout(() => { 
             if (typeof afficherNotification === 'function') afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
         }, 5300);
     }
 
-    // 3. VÉRIFICATION DE SÉCURITÉ (GHOST SESSION)
     const storedTable = sessionStorage.getItem('tabia_table_qr');
     const storedAuth = sessionStorage.getItem('tabia_auth_qr');
 
@@ -212,7 +217,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const tables = await resTables.json();
                 const tableData = tables.find(t => parseInt(t.numero) === parseInt(storedTable));
                 const isFidele = sessionStorage.getItem('client_nom_premium');
-                
                 if (!isFidele && tableData && tableData.code !== String(storedAuth)) {
                     sessionStorage.removeItem('tabia_table_qr');
                     sessionStorage.removeItem('tabia_auth_qr');
@@ -223,6 +227,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 4. INITIALISATION NORMALE
     clientId = getClientId();
+    
+    // 🔥 On lance le branding en parallèle, sans bloquer le reste
+    appliquerBranding(); 
+    
     await chargerCatalogue();
     chargerPanier();
     mettreAJourUIPanier();
@@ -236,50 +244,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     initClientSocket();
     configurerEvenements();
 
-    // 5. BOUTON ESPACE CLIENT (Le clic manuel)
     const btnEspace = document.getElementById('btnEspaceClient');
     if (btnEspace) {
         btnEspace.addEventListener('click', () => {
             document.getElementById('clientModal').style.display = 'flex';
-            
-            // On vérifie s'il a un code en mémoire
             const savedCode = sessionStorage.getItem('tabia_auth_qr') || localStorage.getItem('tabia_auth_qr');
-            
             if (savedCode) {
                 document.getElementById('clientLoginCode').value = savedCode;
                 if (typeof window.verifierCodeClient === 'function') window.verifierCodeClient(true);
             } else {
-                // S'il n'a rien, on force l'affichage de la zone pour taper le code
                 document.getElementById('clientLoginSection').style.display = 'block';
                 document.getElementById('clientProfileSection').style.display = 'none';
                 document.getElementById('clientLoginCode').value = "";
             }
         });
 
-        // Affichage du prénom sur le bouton si connu
         if (sessionStorage.getItem('client_nom_premium')) {
             const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
             btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
         }
     }
 
-    // 6. 🔥 L'OUVERTURE AUTOMATIQUE (Strictement réservé au lien VIP)
     if (doitOuvrirVIPAutomatiquement) {
         setTimeout(() => {
             const modal = document.getElementById('clientModal');
             const inputCode = document.getElementById('clientLoginCode');
-            
             if (modal && inputCode) {
                 modal.style.display = 'flex';
                 inputCode.value = codeVIP;
                 if (typeof window.verifierCodeClient === 'function') {
-                    window.verifierCodeClient(false); // Charge la carte VIP visuellement
+                    window.verifierCodeClient(false);
                 }
             }
-        }, 5300); // Délai exact pour attendre la fin de ton Splash Screen
+        }, 5300);
     }
 
-    // 7. DARK MODE
     const btnDark = document.getElementById('darkModeToggle');
     if (localStorage.getItem('tabia_darkmode') === 'true') {
         document.body.classList.add('dark-mode');
@@ -295,6 +294,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 });
+
 function getClientId() {
     let id = localStorage.getItem('tabia_client_id');
     if (!id) {
@@ -303,6 +303,7 @@ function getClientId() {
     }
     return id;
 }
+
 window.saasModules = {};
 window.listeCombos = [];
 
@@ -311,42 +312,42 @@ async function appliquerBranding() {
         const response = await fetch('/api/branding');
         const config = await response.json();
 
-        if (config) {
-            document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
-            document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
-            if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
-            if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); };
+        if (config && !config.introuvable) {
+            const elName = document.getElementById('dynamicName');
+            if (elName) elName.innerText = config.nomCafe || "SARBINI";
+            
+            const elSlogan = document.getElementById('dynamicSlogan');
+            if (elSlogan) elSlogan.innerText = config.sloganCafe || "";
+            
+            const elLogo = document.getElementById('dynamicLogo');
+            if (elLogo && config.logoUrl) elLogo.src = config.logoUrl;
+            
+            if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); }
             window.CODE_SERVEUR = config.codeServeur || "00000";
 
-            // 🔥 LECTURE DES DROITS SAAS
             window.saasModules = config.modules || {};
             
-            // Si le Menu Builder est activé, on charge les formules
             if (window.saasModules.formules) {
                 try {
-                    const resC = await fetch('/api/combos'); // Pas de token car le client est public
+                    const resC = await fetch('/api/combos'); 
                     if (resC.ok) window.listeCombos = await resC.json();
                 } catch(e){}
             }
         }
-
-        // ⏳ LA PAUSE DU SPLASH SCREEN
-        setTimeout(() => {
-            const splash = document.getElementById('splash-screen');
-            if (splash) {
-                splash.classList.add('splash-hidden');
-                setTimeout(() => { splash.style.display = 'none'; }, 800);
-            }
-        }, 2000); 
-
     } catch (error) {
         console.error("Erreur branding:", error);
-        const splash = document.getElementById('splash-screen');
-        if (splash) splash.style.display = 'none';
+    } finally {
+        // Enlève l'écran de chargement doucement si tout a été chargé vite
+        const splash = document.getElementById('splash-screen') || document.querySelector('.splash-screen') || document.getElementById('splashScreen');
+        if (splash) {
+            splash.style.transition = "opacity 0.8s ease";
+            splash.style.opacity = "0";
+            splash.style.pointerEvents = "none";
+            setTimeout(() => { splash.style.display = 'none'; }, 800);
+        }
     }
 }
 
-window.onload = appliquerBranding;
 // ========== FETCH API STOCK ==========
 async function chargerCatalogue() {
     try {
