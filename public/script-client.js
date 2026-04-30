@@ -493,12 +493,11 @@ function afficherProduits() {
 // ========== GESTION DES VARIANTES & SUPPLÉMENTS (PREMIUM) ==========
 
 let prixBaseEnAttente = 0;
+let produitEnAttenteOption = null;
 
-// ✅ LA NOUVELLE FONCTION PROPRE :
-function gererClicAjout(event, id) {
+window.gererClicAjout = function(event, id) {
     const produit = produits.find(p => String(p.id) === String(id) || String(p._id) === String(id));
     
-    // 🔥 CORRECTION ERP :
     const stockActuel = window.calculerStockReel(produit);
     if (!produit || (stockActuel <= 0 && produit.stock !== undefined)) return;
 
@@ -511,142 +510,149 @@ function gererClicAjout(event, id) {
         executerAjoutPanier(produit.id || produit._id);
         animerVersPanierClient(event); 
     }
-}
+};
 
-window.ouvrirModalOptions = function(produit, options) {
+window.ouvrirModalOptions = function(produit) {
     produitEnAttenteOption = produit;
-    prixBaseEnAttente = (produit.prixPromo && produit.prixPromo > 0) ? parseFloat(produit.prixPromo) : parseFloat(produit.prix);    
-    document.getElementById("optionsTitle").textContent = produit.nom;
-    document.getElementById("optionPriceDisplay").textContent = `${prixBaseEnAttente.toFixed(2)} DT`;
     
-    // =========================================================
-    // 1. SECTION VARIANTES (Nouvelle logique Groupes Intelligents)
-    // =========================================================
-    const sectionVar = document.getElementById("sectionVariantes");
-    const containerVar = document.getElementById("optionsList");
+    // Priorité au prix de la base de données (Calcul intelligent)
+    prixBaseEnAttente = window.getPrixActif ? window.getPrixActif(produit) : (parseFloat(produit.prixPromo) > 0 ? parseFloat(produit.prixPromo) : parseFloat(produit.prix));    
+    
+    // 🧹 Nettoyage strict de l'ancienne modale
+    const existant = document.getElementById('modalOptionsClientDynamique');
+    if (existant) existant.remove();
 
-    if (produit.variantes && produit.variantes.trim() !== "") {
-        // On découpe la chaîne : "Viande[Poulet, Thon] | Sauces*[Mayo, Ketchup]"
-        const groupes = produit.variantes.split('|');
-        
-        containerVar.innerHTML = groupes.map((groupeStr, gIdx) => {
-            const match = groupeStr.match(/(.*)\[(.*)\]/);
-            
-            // Si le gérant a mal tapé, on fait un fallback classique
-            if (!match) {
-                return `<div style="color:red; font-size:0.8rem;">Erreur format : ${groupeStr}</div>`;
-            }
-
-            let titreRaw = match[1].trim();
-            const listeOptions = match[2].split(',');
-            
-            // Détection du mode (Choix Multiple avec l'étoile *)
-            const estMultiple = titreRaw.endsWith('*');
-            const titreAffiche = estMultiple ? titreRaw.replace('*', '') : titreRaw;
-            const typeInput = estMultiple ? 'checkbox' : 'radio';
-
-            return `
-                <div class="variant-group" style="margin-bottom: 18px;">
-                    <div class="section-header">
-                        <span class="section-title">${titreAffiche}</span>
-                        <span class="section-badge ${estMultiple ? 'optional' : ''}">${estMultiple ? 'Plusieurs choix' : '1 Seul choix'}</span>
+    let htmlContent = `
+        <div class="modal active" id="modalOptionsClientDynamique" style="z-index: 4000; align-items: flex-end; padding-bottom: 0;">
+            <div class="modal-content" style="background: #f8fafc; border-top: 4px solid var(--primary-orange, #db800a); width:100%; border-radius: 25px 25px 0 0; padding: 0; box-shadow: 0 -10px 40px rgba(0,0,0,0.15); animation: slideUp 0.3s ease-out; max-height: 90vh; display:flex; flex-direction:column; overflow:hidden;">
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; padding: 20px 20px 15px 20px; background: white; border-bottom: 1px solid #e2e8f0;">
+                    <div>
+                        <h3 style="margin: 0; color: #1e293b; font-size: 1.4rem; font-weight:900;">${escapeHtml(produit.nom)}</h3>
+                        <div style="color: #db800a; font-weight: 800; font-size: 1.1rem; margin-top:4px;">${prixBaseEnAttente.toFixed(2)} DT</div>
                     </div>
-                    <div class="options-grid">
-                        ${listeOptions.map((opt, oIdx) => `
-                            <label style="display:block; cursor:pointer;">
-                                <input type="${typeInput}" 
-                                       name="variant_group_${gIdx}" 
-                                       value="${opt.trim()}" 
-                                       style="display:none;" 
-                                       ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
-                                <div class="selectable-card">
-                                    <div class="opt-info">
-                                        <i class="fas ${estMultiple ? 'fa-check-square' : 'fa-circle'} opt-check-icon"></i>
-                                        <span>${opt.trim()}</span>
-                                    </div>
+                    <button onclick="document.getElementById('modalOptionsClientDynamique').remove()" style="background:#f1f5f9; border:none; color:#64748b; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:1.2rem; transition:0.2s;" onmouseover="this.style.background='#e2e8f0'"><i class="fas fa-times"></i></button>
+                </div>
+                
+                <div style="overflow-y: auto; flex:1; padding: 20px;" id="clientModalOptionsScroll">
+    `;
+
+    // --- 1. SECTION VARIANTES ---
+    if (produit.variantes && produit.variantes.trim() !== "") {
+        const groupes = produit.variantes.split('|');
+        htmlContent += groupes.map((groupeStr, gIdx) => {
+            const match = groupeStr.match(/(.*)\[(.*)\]/);
+            if (!match) return '';
+            let titre = match[1].replace('*', '').trim();
+            const estMultiple = match[1].includes('*');
+            return `
+                <div class="variant-group" style="margin-bottom:20px; background:white; padding:15px; border-radius:16px; border:1px solid #e2e8f0; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <span style="font-weight:900; font-size:0.95rem; color:#334155; text-transform:uppercase;">${titre} <span style="color:#db800a;">*</span></span>
+                        <span style="font-size:0.7rem; font-weight:bold; color:white; background:${estMultiple ? '#94a3b8' : '#143621'}; padding:3px 10px; border-radius:12px;">${estMultiple ? 'Plusieurs choix' : '1 Seul choix'}</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        ${match[2].split(',').map((opt, oIdx) => `
+                            <label style="cursor:pointer; display:block; margin:0;">
+                                <input type="${estMultiple ? 'checkbox' : 'radio'}" name="client_variant_group_${gIdx}" value="${opt.trim()}" style="display:none;" ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
+                                <div class="client-selectable-card" style="padding:12px 8px; text-align:center; font-size:0.95rem; font-weight:700; border: 2px solid #e2e8f0; border-radius:12px; color:#64748b; transition:all 0.2s ease;">
+                                    ${opt.trim()}
                                 </div>
                             </label>
                         `).join('')}
                     </div>
-                </div>
-            `;
+                </div>`;
         }).join('');
-        sectionVar.style.display = "block";
-    } else { 
-        sectionVar.style.display = "none"; 
     }
 
-// =========================================================
-    // 2. SECTION SUPPLÉMENTS (Nouvelle logique Promo & Stock ERP)
-    // =========================================================
-    const sectionSupp = document.getElementById("sectionSupplements");
-    const containerSupp = document.getElementById("supplementsList");
-    
+    // --- 2. SECTION SUPPLÉMENTS ---
     if (produit.supplements && produit.supplements.length > 0) {
-        containerSupp.innerHTML = produit.supplements.map(supp => {
-            const ref = produits.find(p => String(p.id) === String(supp.ingredientId || supp.id) || String(p._id) === String(supp.ingredientId || supp.id));
+        htmlContent += `
+            <div style="font-weight:900; font-size:0.95rem; color:#334155; text-transform:uppercase; margin:25px 0 12px 0; padding-left:5px;">Extras & Suppléments</div>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;">`;
             
-let estRupture = false;
+        htmlContent += produit.supplements.map(supp => {
+            const ref = produits.find(p => String(p.id) === String(supp.ingredientId || supp.id) || String(p._id) === String(supp.ingredientId || supp.id));
+            let estRupture = false;
             if (ref) {
                 const stockRestant = window.calculerStockReel(ref, true); 
                 const qteBase = parseFloat(supp.quantiteADeduire) || 0;
-                
-                // 🔥 CORRECTION ERP : On convertit la quantité requise dans l'unité du stock
                 const unitSupp = supp.unite || 'g';
                 const unitStock = ref.unite || 'g';
                 const qteConvertie = window.convertirQuantite(qteBase, unitSupp, unitStock);
-
                 if (stockRestant < qteConvertie) estRupture = true;
             }
-
-            // 🔥 LA CORRECTION : On lit la promo configurée POUR LE SUPPLÉMENT !
+            
             const pNormal = parseFloat(supp.prix || 0);
-            const pPromo = parseFloat(supp.prixPromo || 0);
-            const prixFinalSupp = pPromo > 0 ? pPromo : pNormal;
+            const pPromo = parseFloat(supp.prixPromo || 0); 
+            const prixFinal = pPromo > 0 ? pPromo : pNormal;
 
             const affichagePrixSupp = pPromo > 0 
-                ? `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">+${pNormal.toFixed(2)}</s> <span style="color:#10b981; font-weight:900;">+${pPromo.toFixed(2)} DT</span>`
-                : `<span class="opt-price">+ ${pNormal.toFixed(2)} DT</span>`;
+                ? `<div style="text-align:right;"><s style="font-size:0.75rem; color:#94a3b8;">+${pNormal.toFixed(2)}</s><br><span style="color:#10b981; font-weight:900;">+${prixFinal.toFixed(2)} DT</span></div>`
+                : `<span style="font-weight:800; color:#10b981;">+ ${pNormal.toFixed(2)} DT</span>`;
 
             return `
-                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'};">
-                    <input type="checkbox" name="supplementOption" 
-                            value="${prixFinalSupp}" data-id="${supp.ingredientId || supp.id || ''}" data-nom="${supp.nom}" 
-                            style="display:none;" ${estRupture ? 'disabled' : ''} 
-                            onchange="mettreAJourTotalModal()">
-                    <div class="selectable-card ${estRupture ? 'disabled' : ''}">
-                        <div class="opt-info">
-                            <i class="fas fa-plus-circle opt-check-icon"></i>
-                            <span>${escapeHtml(supp.nom)}</span>
-                        </div>
-                        <div class="opt-price-container">
-                            ${estRupture ? '<span class="rupture-txt" style="color:var(--danger); font-weight:800; font-size:0.8rem;">ÉPUISÉ</span>' : affichagePrixSupp}
-                        </div>
+                <label style="cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'}; display:block; margin:0;">
+                    <input type="checkbox" name="clientSuppOption" value="${prixFinal}" data-id="${supp.ingredientId || supp.id || ''}" data-nom="${supp.nom}" style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModalClient()">
+                    <div class="client-selectable-card ${estRupture ? 'disabled' : ''}" style="padding:15px; background:white; border:2px solid #e2e8f0; border-radius:16px; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s ease; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                        <span style="font-weight:700; color:#334155; font-size:1rem; display:flex; align-items:center;"><i class="fas fa-plus-circle" style="color:#cbd5e1; margin-right:10px; font-size:1.2rem;"></i> ${escapeHtml(supp.nom)}</span>
+                        ${estRupture ? '<span style="color:#ef4444; font-weight:800; font-size:0.8rem; background:#fee2e2; padding:4px 10px; border-radius:8px;">ÉPUISÉ</span>' : affichagePrixSupp}
                     </div>
-                </label>
-            `;
+                </label>`;
         }).join('');
-        sectionSupp.style.display = "block";
-    } else { 
-        sectionSupp.style.display = "none"; 
+        htmlContent += `</div>`;
     }
 
-    mettreAJourTotalModal();
-    document.getElementById("optionsModal").style.display = "flex";
+    htmlContent += `
+                </div>
+                <div style="padding: 15px 20px; background: white; border-top: 1px solid #e2e8f0;">
+                    <button onclick="validerOptionsClient(event)" style="width:100%; background:#143621; color:white; padding:18px; border-radius:16px; border:none; font-weight:900; font-size:1.1rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 8px 20px rgba(20, 54, 33, 0.25); transition:0.2s;">
+                        <span><i class="fas fa-shopping-bag" style="margin-right:8px;"></i> Ajouter au panier</span>
+                        <span id="clientPrixTotalOptionsBtn" style="background:rgba(255,255,255,0.2); padding:6px 14px; border-radius:10px;">${prixBaseEnAttente.toFixed(2)} DT</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <style>
+            input[type="radio"]:checked + .client-selectable-card,
+            input[type="checkbox"]:checked + .client-selectable-card {
+                border-color: #db800a !important; background: #fff7ed !important; color: #db800a !important;
+                box-shadow: 0 4px 12px rgba(219, 128, 10, 0.15) !important;
+            }
+            input[type="checkbox"]:checked + .client-selectable-card i.fa-plus-circle { color: #db800a !important; transform: rotate(90deg); transition: transform 0.3s ease; }
+            @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        </style>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', htmlContent);
 };
 
-// 🔥 NOUVEAU : Calcul dynamique du prix total en bas de la modale
-window.mettreAJourTotalModal = function() {
+window.mettreAJourTotalModalClient = function() {
     let total = prixBaseEnAttente;
-    const suppChecked = document.querySelectorAll('input[name="supplementOption"]:checked');
+    document.querySelectorAll('input[name="clientSuppOption"]:checked').forEach(box => { total += parseFloat(box.value) || 0; });
+    document.getElementById("clientPrixTotalOptionsBtn").textContent = `${total.toFixed(2)} DT`;
+};
+window.validerOptionsClient = function(event) {
+    if (!produitEnAttenteOption) return;
     
-    suppChecked.forEach(box => {
-        total += parseFloat(box.value) || 0;
+    let choixFinaux = [];
+    document.querySelectorAll('.variant-group').forEach((groupe, idx) => {
+        const coches = groupe.querySelectorAll(`input[name="client_variant_group_${idx}"]:checked`);
+        if (coches.length > 0) {
+            choixFinaux.push(Array.from(coches).map(c => c.value).join('+'));
+        }
+    });
+    
+    let suppsChoisis = [];
+    document.querySelectorAll('input[name="clientSuppOption"]:checked').forEach(box => {
+        suppsChoisis.push({ id: box.getAttribute('data-id'), nom: box.getAttribute('data-nom'), prix: parseFloat(box.value) || 0 });
     });
 
-    document.getElementById("prixTotalOptionsBtn").textContent = `(${total.toFixed(2)} DT)`;
-}
-
+    executerAjoutPanier(produitEnAttenteOption, choixFinaux.join(' / '), suppsChoisis);
+    animerVersPanierClient(event); 
+    document.getElementById("modalOptionsClientDynamique").remove();
+    produitEnAttenteOption = null;
+};
 window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsChoisis = []) {
     let produit = (typeof idOuObjetProduit === 'object' && idOuObjetProduit !== null)
         ? idOuObjetProduit
@@ -707,10 +713,11 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsC
     }
 };
 
-// 🔥 NOUVELLE FONCTION : POP-UP UPSELL SUR LE TÉLÉPHONE DU CLIENT
 window.afficherModalUpsellClient = function(nomProduitSource, produitsSuggérés) {
+    // 🧹 NETTOYAGE UNIQUE ET PROPRE
     const existant = document.getElementById('modalUpsellClient');
     if (existant) existant.remove();
+
     let htmlUpsell = `
         <div class="modal active" id="modalUpsellClient" style="z-index: 2000; align-items: flex-end; padding-bottom: 20px;">
             <div class="modal-content" style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #f59e0b; width:100%; border-radius: 25px; padding: 20px; box-shadow: 0 -10px 40px rgba(245, 158, 11, 0.2); animation: slideUp 0.3s ease-out;">
@@ -859,31 +866,25 @@ window.appliquerCodePromoClient = async function() {
         const res = await fetch('/api/promo/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: code }) // L'identifiant du café est géré par ton middleware serveur
+            body: JSON.stringify({ code: code }) 
         });
 
         const data = await res.json();
 
         if (res.ok && data.success) {
-            // Calculer la remise selon le type (Pourcentage ou Fixe)
-            let totalSansRemise = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
-            
-            if (data.promo.type === 'pourcentage') {
-                window.remisePromoActuelle = totalSansRemise * (data.promo.valeur / 100);
-            } else {
-                window.remisePromoActuelle = data.promo.valeur;
-            }
-
-            window.codePromoApplique = data.promo.code;
-
-            msgBox.innerHTML = `<span style='color:var(--success);'><i class='fas fa-check-circle'></i> Code appliqué ! (-${window.remisePromoActuelle.toFixed(2)} DT)</span>`;
-            afficherContenuPanier(); // Rafraîchit le visuel du panier
-            
+            // 🔥 On mémorise la RÈGLE au lieu d'un montant figé
+            window.promoData = {
+                code: data.promo.code,
+                type: data.promo.type,
+                valeur: data.promo.valeur
+            };
+            msgBox.innerHTML = `<span style='color:var(--success);'><i class='fas fa-check-circle'></i> Code appliqué !</span>`;
+            afficherContenuPanier(); 
             if (navigator.vibrate) navigator.vibrate(50);
         } else {
             msgBox.innerHTML = `<span style='color:var(--danger);'><i class='fas fa-times-circle'></i> ${data.error || "Code invalide"}</span>`;
+            window.promoData = null;
             window.remisePromoActuelle = 0;
-            window.codePromoApplique = null;
             afficherContenuPanier();
         }
     } catch(e) {
@@ -932,11 +933,12 @@ function afficherContenuPanier() {
     });
 
     // 2. 🔥 LOGIQUE PARENT-ENFANT POUR LE CLIENT
-    const platsPrincipaux = panier.filter(a => !a.isSupplement);
+    // Les plats principaux sont ceux qui N'ONT PAS de parentId
+    const platsPrincipaux = panier.filter(a => !a.parentId);
 
     conteneur.innerHTML = platsPrincipaux.map(mainItem => {
-       // On groupe tout ce qui appartient au parent, peu importe si c'est un supplément ou un produit de formule
-const mesSupplements = panier.filter(s => s.parentId === mainItem.uniqueGroupId);
+       // On groupe tout ce qui appartient au parent (Suppléments classiques + Éléments de formules)
+       const enfantsAssocies = panier.filter(s => s.parentId === mainItem.uniqueGroupId);
         
         let html = `
             <div class="modern-cart-item" style="flex-direction: column; align-items: stretch; padding: 15px; margin-bottom: 12px; background: white; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #f1f5f9;">
@@ -956,13 +958,20 @@ const mesSupplements = panier.filter(s => s.parentId === mainItem.uniqueGroupId)
                 </div>
         `;
         
-        if (mesSupplements.length > 0) {
+        if (enfantsAssocies.length > 0) {
             html += `<div style="margin-top: 12px; padding-top: 10px; border-top: 2px dashed #f1f5f9;">`;
-            mesSupplements.forEach(supp => {
+            enfantsAssocies.forEach(enfant => {
+                // Logique visuelle : différencier un composant de menu (↳) d'un extra (+)
+                const estComposantMenu = enfant.nom.startsWith('↳');
+                const icone = estComposantMenu ? 'fa-level-up-alt fa-rotate-90' : 'fa-plus';
+                const nomPropre = enfant.nom.replace('+ ', '').replace('↳ ', '');
+                // N'affiche le prix que s'il est supérieur à 0 (les composants de menu sont à 0)
+                const affichagePrix = enfant.prix > 0 ? `<span style="font-size:0.9rem; font-weight:bold; color:#94a3b8;">+${enfant.prix.toFixed(2)} DT</span>` : '';
+
                 html += `
                     <div style="display:flex; justify-content:space-between; align-items:center; padding-left: 10px; margin-bottom: 6px;">
-                        <span style="font-size:0.9rem; color:#64748b; font-weight:600;"><i class="fas fa-plus" style="font-size:0.7rem; color:#cbd5e1; margin-right:8px;"></i> ${supp.nom.replace('+ ', '')}</span>
-                        <span style="font-size:0.9rem; font-weight:bold; color:#94a3b8;">+${supp.prix.toFixed(2)} DT</span>
+                        <span style="font-size:0.9rem; color:#64748b; font-weight:600;"><i class="fas ${icone}" style="font-size:0.7rem; color:#cbd5e1; margin-right:8px;"></i> ${nomPropre}</span>
+                        ${affichagePrix}
                     </div>
                 `;
             });
@@ -973,7 +982,7 @@ const mesSupplements = panier.filter(s => s.parentId === mainItem.uniqueGroupId)
     }).join('');
 
     // 🔥 CORRECTIF : INJECTION DU CODE PROMO ICI (Quand le panier n'est PAS vide)
-    if (window.saasModules.promoCodes) {
+    if (window.saasModules && window.saasModules.promoCodes) {
         let promoHTML = `
             <div style="margin-top: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px dashed #cbd5e1;">
                 <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;"><i class="fas fa-ticket-alt text-warning"></i> Code Promo</label>
@@ -987,26 +996,33 @@ const mesSupplements = panier.filter(s => s.parentId === mainItem.uniqueGroupId)
         conteneur.insertAdjacentHTML('beforeend', promoHTML);
     }
 
-// 🔥 GESTION DE LA REMISE DANS LE TOTAL (SÉCURISÉE)
-// 🔥 GESTION DE LA REMISE DANS LE TOTAL (SÉCURISÉE ANTI-NÉGATIF)
-    window.remisePromoActuelle = window.remisePromoActuelle || 0;
+    // 🔥 CALCUL DYNAMIQUE ET SÉCURISÉ DU TOTAL
+    let remiseCalculee = 0;
     
-    if (window.remisePromoActuelle > 0 && total > 0) {
-        let totalFinal = total - window.remisePromoActuelle;
-        // 🔒 Sécurité : Le total ne peut pas être négatif
-        if (totalFinal < 0) totalFinal = 0; 
+    if (window.promoData) {
+        // Recalcul en temps réel basé sur le nouveau total
+        if (window.promoData.type === 'pourcentage') {
+            remiseCalculee = total * (window.promoData.valeur / 100);
+        } else {
+            remiseCalculee = window.promoData.valeur;
+        }
+        
+        // Anti-Total Négatif
+        if (remiseCalculee > total) remiseCalculee = total;
+        
+        let totalFinal = total - remiseCalculee;
         
         totalElement.innerHTML = `<s style="font-size:1rem; color:#94a3b8;">${total.toFixed(2)}</s> <span style="color:var(--success); font-weight:900;">${totalFinal.toFixed(2)} DT</span>`;
+        
+        // On expose la valeur pour l'envoi au serveur
+        window.remisePromoActuelle = remiseCalculee; 
+        window.codePromoApplique = window.promoData.code;
     } else {
-        // Reset propre si le panier est vide
+        totalElement.textContent = `${total.toFixed(2)} DT`;
         window.remisePromoActuelle = 0;
         window.codePromoApplique = null;
-        totalElement.textContent = `${total.toFixed(2)} DT`;
-        const msgBox = document.getElementById('msgCodePromo');
-        if (msgBox) msgBox.innerHTML = "";
     }
 }
-
 // ========== ENVOI COMMANDE ==========
 let clientFideleVerifie = null;
 

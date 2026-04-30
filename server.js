@@ -1362,7 +1362,6 @@ if (produitDb) {
             }
         }
 
-        if (req.body.remise && req.body.remise > 0) vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));
 
         // 🔥 LOGIQUE VIP (SANS CRASH)
         if (req.body.methodePaiement === 'carte_fidelite') {
@@ -1398,8 +1397,15 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
 
         if (doitRestituerStock) {
             for (let art of itemsDuGroupe) {
+                // 🔥 IGNORER LE REMBOURSEMENT DE L'EN-TÊTE DE LA FORMULE
+                if (art.cartId && String(art.cartId).startsWith('COMBO_') && !String(art.cartId).includes('CHILD')) {
+                    continue; 
+                }
+
                 let nomPropre = art.nom || "";
-                if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
+                if (nomPropre.startsWith('+ ') || nomPropre.startsWith('↳ ')) {
+                    nomPropre = nomPropre.substring(2).trim();
+                }
 
                 const idRecherche = art.baseId || art.id;
                 let conditions = [];
@@ -1410,14 +1416,13 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
                 if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
 
                 if (produitDb) {
-                    // SI C'EST UN SUPPLÉMENT (Il a un parentId)
+                    // SI C'EST UN SUPPLÉMENT
                     if (art.isSupplement && art.parentId) {
                         const configSupp = produitDb.supplements?.find(s => s.nom === nomPropre);
                         if (configSupp && configSupp.ingredientId) {
                             const qIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
                             const ingDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
                             if (ingDb) {
-                                // Conversion pour 1 seule unité
                                 const qteARendre = calculerQuantiteDestockage((configSupp.quantiteADeduire || 0) * 1, configSupp.unite || 'g', ingDb.unite || 'g');
                                 await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
                             }
@@ -1429,15 +1434,19 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
                             const qIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
                             const ingDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
                             if (ingDb) {
-                                // Conversion pour 1 seule unité
                                 const qteARendre = calculerQuantiteDestockage((comp.quantity || 0) * 1, comp.unit || 'g', ingDb.unite || 'g');
                                 await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
                             }
                         }
                     } 
-                    // SI C'EST UN PRODUIT SIMPLE (Ex: Canette)
+                    // SI C'EST UN PRODUIT SIMPLE
                     else {
                         await Product.findOneAndUpdate({ cafeId: req.cafeId, _id: produitDb._id }, { $inc: { stock: 1 } });
+                    }
+
+                    // 🔥 RESTITUTION DE LA VENTE FLASH (Si elle était active)
+                    if (produitDb.venteFlash && produitDb.venteFlash.actif) {
+                        await Product.findOneAndUpdate({ cafeId: req.cafeId, _id: produitDb._id }, { $inc: { "venteFlash.quantiteRestante": 1 } });
                     }
                 }
             }
@@ -1450,7 +1459,7 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
             }
         }
 
-        // Nettoyage
+        // Nettoyage des articles tombés à zéro
         commande.articles = commande.articles.filter(a => a.quantite > 0);
         
         if (commande.articles.length === 0) {

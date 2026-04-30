@@ -1128,7 +1128,8 @@ window.afficherTicket = function() {
     }
     
     let totalArts = 0, html = '';
-    const platsPrincipaux = ticket.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+// 🔥 CORRECTION : On utilise !a.parentId pour trouver les vrais plats / menus
+    const platsPrincipaux = ticket.articles.filter(a => !a.parentId);
     
     platsPrincipaux.forEach((item) => {
         const prix = parseFloat(item.prix) || 0; 
@@ -1144,7 +1145,7 @@ window.afficherTicket = function() {
         let lockIcon = '';
         let zoneAction = ''; 
 
-        // 🔥 BOUTON POUBELLE (Avec stopPropagation et groupId)
+        // BOUTON POUBELLE
         const btnTrash = `
             <button onclick="event.stopPropagation(); modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar}, ${groupId})" 
                     style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:1.2rem; margin-right:15px; display:flex; align-items:center;" 
@@ -1172,6 +1173,7 @@ window.afficherTicket = function() {
             zoneAction = `<div style="display:flex; align-items:center;">${btnTrash} <span style="font-weight:900; font-size:1.1rem; color:#166534; margin-left:10px;">${qte}x</span></div>`;
         }
 
+        // 🔥 CORRECTION : On groupe tout ce qui appartient au parent
         const mesSupps = ticket.articles.filter(s => s.parentId === item.uniqueGroupId);
 
         html += `<div class="ticket-item" style="border-bottom: ${mesSupps.length > 0 ? 'none' : '1px solid #f1f5f9'};">
@@ -1187,12 +1189,16 @@ window.afficherTicket = function() {
 
         mesSupps.forEach(supp => {
             const suppTotal = (parseFloat(supp.prix) * supp.quantite).toFixed(2);
+            // Affichage élégant selon si c'est un extra (+) ou un menu (↳)
+            const textAffiche = supp.nom.startsWith('↳') ? supp.nom : `+ ${supp.nom.replace('+ ', '')}`;
+            const prixAffiche = supp.prix > 0 ? `+${suppTotal}` : `Inclus`;
+
             html += `<div class="ticket-item" style="padding-left: 25px; font-size: 0.9rem; color: var(--text-muted); border-bottom: none; padding-top: 4px; padding-bottom: 4px;">
                         <div class="item-info">
-                            <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(supp.nom.replace('+ ', ''))}</div>
+                            <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(textAffiche)}</div>
                         </div>
                         <div class="item-actions">
-                            <div class="item-total-price" style="font-size: 0.9rem;">+${suppTotal}</div>
+                            <div class="item-total-price" style="font-size: 0.9rem;">${prixAffiche}</div>
                         </div>
                      </div>`;
         });
@@ -1685,13 +1691,12 @@ window.afficherModalSelectionArticles = function(articles) {
         const container = document.getElementById('articlesListeSelection');
         articlesDecomposes = [];
         
-        const platsPrincipaux = articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
-        
-        platsPrincipaux.forEach((article) => { 
+const platsPrincipaux = articles.filter(a => !a.parentId);        
+platsPrincipaux.forEach((article) => { 
             const articleOriginalIndex = articles.indexOf(article);
-            const sesSupplements = articles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === article.uniqueGroupId);
+            // 🔥 CORRECTION : Enfants uniquement
+            const sesSupplements = articles.filter(s => s.parentId === article.uniqueGroupId);
             
-            // 🔥 NOUVEAU : On vérifie si l'article est encore bloqué en cuisine
             const estBloque = article.envoye && !article.pret && article.cmdId;
             
             for (let i = 0; i < article.quantite; i++) { 
@@ -1701,7 +1706,8 @@ window.afficherModalSelectionArticles = function(articles) {
                 
                 sesSupplements.forEach(supp => {
                     prixUnitaireCombinaison += (parseFloat(supp.prix) || 0);
-                    nomsSupplements.push(supp.nom.replace('+ ', ''));
+                    // Nettoyage esthétique
+                    nomsSupplements.push(supp.nom.replace('+ ', '').replace('↳ ', ''));
                     const suppIndex = articles.indexOf(supp);
                     linkedUnitIds.push(`${suppIndex}_${i}`);
                 });
@@ -2218,12 +2224,11 @@ function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomCli
         document.getElementById('printDate').textContent = dateStr; document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = numTable;
         if (nomClient) { document.getElementById('printClientDiv').style.display = 'flex'; document.getElementById('printClient').textContent = nomClient; } else { document.getElementById('printClientDiv').style.display = 'none'; }
         
-        // 🔥 LOGIQUE D'IMPRESSION PREMIUM
- // 🔥 LOGIQUE D'IMPRESSION PREMIUM (PARENT-ENFANT)
+// 🔥 LOGIQUE D'IMPRESSION PREMIUM (PARENT-ENFANT)
         let htmlArticles = '';
         
-        // 1. Isoler les plats principaux
-        const platsPrincipaux = panierArticles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+        // 1. Isoler les plats principaux (Pas de parentId)
+        const platsPrincipaux = panierArticles.filter(a => !a.parentId);
         
         platsPrincipaux.forEach(a => {
             const itemTotal = (a.prix * a.quantite).toFixed(3);
@@ -2236,14 +2241,17 @@ function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomCli
                 <span style="width:30%; text-align:right; font-weight:bold;">${itemTotal}</span>
             </div>`;
             
-            // Ses Suppléments associés
-            const mesSupps = panierArticles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === a.uniqueGroupId);
+            // Ses Enfants (Suppléments ou Menu)
+            const mesSupps = panierArticles.filter(s => s.parentId === a.uniqueGroupId);
             mesSupps.forEach(supp => {
                 const suppTotal = (supp.prix * supp.quantite).toFixed(3);
+                const textAffiche = supp.nom.startsWith('↳') ? supp.nom : `+ ${supp.nom.replace('+ ', '')}`;
+                const prixAffiche = supp.prix > 0 ? suppTotal : 'INCLUS';
+
                 htmlArticles += `
                 <div style="display:flex; justify-content:space-between; margin-bottom:2px; padding-left: 15px;">
-                    <span style="width:70%; font-size:10px; color:#555;">+ ${escapeHtml(supp.nom.replace('+ ', ''))}</span>
-                    <span style="width:30%; text-align:right; font-size:10px; color:#555;">${suppTotal}</span>
+                    <span style="width:70%; font-size:10px; color:#555;">${escapeHtml(textAffiche)}</span>
+                    <span style="width:30%; text-align:right; font-size:10px; color:#555;">${prixAffiche}</span>
                 </div>`;
             });
         });
