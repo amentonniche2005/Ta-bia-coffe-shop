@@ -303,6 +303,9 @@ function getClientId() {
     }
     return id;
 }
+window.saasModules = {};
+window.listeCombos = [];
+
 async function appliquerBranding() {
     try {
         const response = await fetch('/api/branding');
@@ -314,22 +317,30 @@ async function appliquerBranding() {
             if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
             if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); };
             window.CODE_SERVEUR = config.codeServeur || "00000";
+
+            // 🔥 LECTURE DES DROITS SAAS
+            window.saasModules = config.modules || {};
+            
+            // Si le Menu Builder est activé, on charge les formules
+            if (window.saasModules.formules) {
+                try {
+                    const resC = await fetch('/api/combos'); // Pas de token car le client est public
+                    if (resC.ok) window.listeCombos = await resC.json();
+                } catch(e){}
+            }
         }
 
-        // ⏳ LA PAUSE DE 3 SECONDES EST ICI
+        // ⏳ LA PAUSE DU SPLASH SCREEN
         setTimeout(() => {
             const splash = document.getElementById('splash-screen');
             if (splash) {
-                splash.classList.add('splash-hidden'); // Démarre le fondu
-                
-                setTimeout(() => {
-                    splash.style.display = 'none'; // Supprime après le fondu
-                }, 800);
+                splash.classList.add('splash-hidden');
+                setTimeout(() => { splash.style.display = 'none'; }, 800);
             }
         }, 2000); 
 
     } catch (error) {
-        console.error("Erreur lors du chargement du branding:", error);
+        console.error("Erreur branding:", error);
         const splash = document.getElementById('splash-screen');
         if (splash) splash.style.display = 'none';
     }
@@ -365,10 +376,16 @@ function genererCategoriesDynamiques() {
     // 🔥 CORRECTION : On exclut formellement les catégories 'supplement' ET 'matiere'
     const categoriesUniques = [...new Set(produits.map(p => p.categorie).filter(cat => cat && cat !== 'supplement' && cat !== 'matiere'))];
     
-    let html = `<button class="category-btn active" data-category="all">🍽️ Tout</button>`;
+    let html = `<button class="category-btn ${categorieActuelle === 'all' ? 'active' : ''}" data-category="all">🍽️ Tout</button>`;
+    
+    // 🔥 INJECTION SAAS : Afficher l'onglet Formules en premier si actif
+    if (window.saasModules && window.saasModules.formules && window.listeCombos && window.listeCombos.length > 0) {
+        html += `<button class="category-btn ${categorieActuelle === 'formules' ? 'active' : ''}" data-category="formules" style="color:#d97706; border-color:#f59e0b;"><i class="fas fa-star"></i> Formules</button>`;
+    }
+
     categoriesUniques.forEach(cat => {
         const label = categoryLabels[cat] || cat; 
-        html += `<button class="category-btn" data-category="${cat}">${label}</button>`;
+        html += `<button class="category-btn ${categorieActuelle === cat ? 'active' : ''}" data-category="${cat}">${label}</button>`;
     });
     
     container.innerHTML = html;
@@ -377,7 +394,25 @@ function genererCategoriesDynamiques() {
 function afficherProduits() {
     const grille = document.getElementById("menuGrid");
     if (!grille) return;
-
+    // 🔥 MOTEUR SAAS : Affichage spécial pour les Formules
+    if (categorieActuelle === 'formules') {
+        if (!window.listeCombos || window.listeCombos.length === 0) {
+            grille.innerHTML = "<p class='empty-message' style='grid-column: 1/-1; text-align:center;'>Aucune formule disponible.</p>";
+            return;
+        }
+        
+        grille.innerHTML = window.listeCombos.map(c => `
+            <div class="menu-item" style="border: 2px solid #f59e0b; background: linear-gradient(135deg, #fffbeb, #fef3c7);" onclick="demarrerWizardCombo('${c.id}')">
+                <div class="item-info" style="width:100%; text-align:center; padding: 20px;">
+                    <div style="font-size: 0.8rem; font-weight:900; color:#d97706; margin-bottom:5px;"><i class="fas fa-crown"></i> MENU SPÉCIAL</div>
+                    <h3 style="font-size:1.4rem; margin-bottom: 10px;">${escapeHtml(c.nom)}</h3>
+                    <div class="price" style="font-size: 1.5rem; justify-content:center; color: #b45309;">${parseFloat(c.prixFixe).toFixed(2)} DT</div>
+                    <button class="add-to-cart" style="width:100%; margin-top:15px; background:#f59e0b; color:white; justify-content:center;">Composer le menu <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        `).join('');
+        return; // On arrête la fonction ici car ce ne sont pas des produits normaux
+    }
     // 🔥 CORRECTION SÉCURISÉE : On crée une liste propre des produits VENDABLES uniquement
     let produitsVendables = produits.filter(p => p.categorie !== 'supplement' && p.categorie !== 'matiere');
     
@@ -396,30 +431,53 @@ function afficherProduits() {
         return;
     }
 
+// Le tri est déjà fait avant (produitsTries)
     grille.innerHTML = produitsTries.map(p => {
-        // Vérification de la rupture virtuelle
-        const stockActuel = window.calculerStockReel(p);
-        const rupture = stockActuel <= 0 && p.stock !== undefined;
-        
-        const classeRupture = rupture ? 'sold-out' : '';
-        const bouton = rupture 
-            ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
-            : `<button class="add-to-cart" onclick="gererClicAjout(event, '${p.id || p._id}')">Ajouter <i class="fas fa-plus"></i></button>`;            
+        // 1. Calcul du stock réel (Physique/Recette ET Vente Flash)
+        let stockRestant = window.calculerStockReel(p);
+        let estEpuise = stockRestant <= 0 && p.stock !== undefined;
+        let badgeSaas = '';
+
+        // ⚡ LOGIQUE VENTE FLASH (Prioritaire)
+        if (window.saasModules?.ventesFlash && p.venteFlash && p.venteFlash.actif) {
+            if (p.venteFlash.quantiteRestante <= 0) {
+                estEpuise = true;
+                badgeSaas = `<div style="position:absolute; top:8px; right:8px; background:#475569; color:white; padding:4px 10px; border-radius:8px; font-size:0.7rem; font-weight:900; z-index:2;"><i class="fas fa-times-circle"></i> FLASH TERMINÉ</div>`;
+            } else {
+                // On limite l'achat au plus petit des deux (stock physique vs stock flash)
+                stockRestant = Math.min(stockRestant, p.venteFlash.quantiteRestante);
+                badgeSaas = `<div style="position:absolute; top:8px; right:8px; background:#f59e0b; color:white; padding:4px 10px; border-radius:8px; font-size:0.7rem; font-weight:900; z-index:2; box-shadow: 0 0 10px rgba(245,158,11,0.5); animation: pulse 1.5s infinite;"><i class="fas fa-bolt"></i> VITE ! Reste ${p.venteFlash.quantiteRestante}</div>`;
+            }
+        }
+
+        // 🕒 LOGIQUE PRIX (Promo & Happy Hour)
+        const prixNormal = parseFloat(p.prix || 0).toFixed(2);
+        const prixCalcule = window.getPrixActif ? window.getPrixActif(p) : parseFloat(p.prixPromo || p.prix);
+        let affichagePrix = `<span>${prixNormal} DT</span>`;
+
+        if (p.isHappyHourNow) {
+            affichagePrix = `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${prixNormal}</s> <span style="color:#f59e0b; font-weight:900;">${prixCalcule.toFixed(2)} DT</span>`;
+            if (!badgeSaas) badgeSaas = `<div style="position:absolute; top:8px; left:8px; background:#f59e0b; color:white; padding:3px 10px; border-radius:8px; font-size:0.7rem; font-weight:900; z-index:2;"><i class="fas fa-clock"></i> HAPPY HOUR</div>`;
+        } else if (p.prixPromo > 0) {
+            affichagePrix = `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixCalcule.toFixed(2)} DT</span>`;
+            if (!badgeSaas) badgeSaas = `<div style="position:absolute; top:8px; left:8px; background:#e74c3c; color:white; padding:3px 10px; border-radius:8px; font-size:0.7rem; font-weight:900; z-index:2;">PROMO</div>`;
+        }
+
+        // 🍕 LOGIQUE MOITIÉ/MOITIÉ
+        if (window.saasModules?.moitieMoitie && p.isMoitieMoitieAllowed) {
+            affichagePrix += `<div style="font-size:0.7rem; color:#8b5cf6; font-weight:bold; margin-top:3px;"><i class="fas fa-adjust"></i> Dispo en Moitié/Moitié</div>`;
+        }
+
+        const bouton = estEpuise 
+            ? `<button class="add-to-cart disabled" disabled style="background:#94a3b8; cursor:not-allowed;">Épuisé</button>`
+            : `<button class="add-to-cart" onclick="gererClicAjout(event, '${p.id || p._id}')" ${p.venteFlash?.actif ? 'style="background:#f59e0b;"' : ''}>Ajouter <i class="fas fa-plus"></i></button>`;            
         
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
-        
-        // Logique Prix & Promo
-        const prixNormal = parseFloat(p.prix || 0).toFixed(2);
-        const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
-        
-        const affichagePrix = (p.prixPromo && p.prixPromo > 0) 
-            ? `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${prixNormal} DT</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>` 
-            : `<span>${prixNormal} DT</span>`;
 
         return `
-            <div class="menu-item ${classeRupture}">
-                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center;">
-                    ${p.prixPromo > 0 ? `<div style="position:absolute; top:8px; left:8px; background:#e74c3c; color:white; padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:900; z-index:2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">PROMO</div>` : ''}
+            <div class="menu-item ${estEpuise ? 'sold-out' : ''}">
+                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center; position:relative;">
+                    ${badgeSaas}
                 </div>
                 <div class="item-info">
                     <div>
@@ -590,38 +648,31 @@ window.mettreAJourTotalModal = function() {
 }
 
 window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsChoisis = []) {
-    // 1. Identification robuste du produit (Objet ou ID)
     let produit = (typeof idOuObjetProduit === 'object' && idOuObjetProduit !== null)
         ? idOuObjetProduit
         : produits.find(p => String(p.id) === String(idOuObjetProduit) || String(p._id) === String(idOuObjetProduit));
 
     if (!produit) return;
 
-    // 2. Calcul mathématique sécurisé du prix (Évite le bug des milliards)
-    const pVente = parseFloat(produit.prix) || 0;
-    const pPromo = parseFloat(produit.prixPromo) || 0;
-    
-    // Si une promo existe et est > 0, on l'utilise, sinon prix normal
-    const prixFinal = (pPromo > 0) ? pPromo : pVente;
-
-    // 3. Création du lien de parenté unique pour lier plats et suppléments
+    // 🔥 SÉCURITÉ PRIX (Inclut Happy Hour s'il est actif sur le serveur)
+    const prixInitial = window.getPrixActif ? window.getPrixActif(produit) : (parseFloat(produit.prixPromo) > 0 ? parseFloat(produit.prixPromo) : parseFloat(produit.prix));
     const idGroupeUnique = Date.now(); 
 
-    // 4. Ajout du plat principal au panier
+    // 1. Ajout du plat principal au panier
     panier.push({ 
         cartId: `MAIN_${idGroupeUnique}`,
         id: String(produit.id || produit._id), 
         baseId: String(produit.id || produit._id),
         nom: String(produit.nom), 
         variante: varForcee ? String(varForcee) : null, 
-        prix: Number(prixFinal), // Force le format nombre
+        prix: Number(prixInitial),
         quantite: 1,
         isSupplement: false,
         uniqueGroupId: idGroupeUnique,
         parentId: null
     });
 
-    // 5. Ajout des suppléments rattachés (s'il y en a)
+    // 2. Ajout des suppléments rattachés
     if (Array.isArray(suppsChoisis) && suppsChoisis.length > 0) {
         suppsChoisis.forEach(supp => {
             panier.push({
@@ -630,7 +681,7 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsC
                 id: String(supp.id), 
                 nom: `+ ${supp.nom}`, 
                 variante: null,
-                prix: Number(parseFloat(supp.prix) || 0), // Le prix promo du supp est déjà calculé par la modale
+                prix: Number(parseFloat(supp.prix) || 0),
                 quantite: 1,
                 isSupplement: true, 
                 parentId: idGroupeUnique 
@@ -638,20 +689,59 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsC
         });
     }
 
-    // 6. Mise à jour de la mémoire et de l'interface
     sauvegarderPanier();
     mettreAJourUIPanier();
-    
-    // Rafraîchit visuellement le panier si la modale panier est déjà ouverte
-    if (typeof afficherContenuPanier === 'function') {
-        afficherContenuPanier();
-    }
-    
-    // Fermeture de la modale d'options
+    if (typeof afficherContenuPanier === 'function') afficherContenuPanier();
     const modal = document.getElementById("optionsModal");
     if(modal) modal.style.display = "none";
     
     playSound('pop'); 
+
+    // 🔥 3. DÉCLENCHEMENT UPSELL AUTOMATIQUE (Si autorisé par le backend)
+    // On suppose que tu envoies l'objet config dans le HTML ou qu'on le lit, mais vu qu'on a le produit...
+    if (produit.upsellProduits && produit.upsellProduits.length > 0) {
+        const prodsUpsell = produits.filter(p => produit.upsellProduits.includes(p.nom) || produit.upsellProduits.includes(String(p.id)));
+        if (prodsUpsell.length > 0) {
+            afficherModalUpsellClient(produit.nom, prodsUpsell);
+        }
+    }
+};
+
+// 🔥 NOUVELLE FONCTION : POP-UP UPSELL SUR LE TÉLÉPHONE DU CLIENT
+window.afficherModalUpsellClient = function(nomProduitSource, produitsSuggérés) {
+    const existant = document.getElementById('modalUpsellClient');
+    if (existant) existant.remove();
+    let htmlUpsell = `
+        <div class="modal active" id="modalUpsellClient" style="z-index: 2000; align-items: flex-end; padding-bottom: 20px;">
+            <div class="modal-content" style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #f59e0b; width:100%; border-radius: 25px; padding: 20px; box-shadow: 0 -10px 40px rgba(245, 158, 11, 0.2); animation: slideUp 0.3s ease-out;">
+                <h3 style="color:#fcd34d; font-size:1.2rem; font-weight:800; margin-bottom:5px; text-align:center;">
+                    <i class="fas fa-fire"></i> Vous aimerez aussi...
+                </h3>
+                <p style="color:#94a3b8; font-size:0.85rem; margin-bottom:15px; text-align:center;">Parfait avec votre <strong>${escapeHtml(nomProduitSource)}</strong> !</p>
+                <div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">
+    `;
+
+    produitsSuggérés.forEach(p => {
+        const prix = window.getPrixActif ? window.getPrixActif(p).toFixed(2) : (p.prixPromo > 0 ? parseFloat(p.prixPromo).toFixed(2) : parseFloat(p.prix).toFixed(2));
+        const img = p.image || 'https://via.placeholder.com/80';
+        htmlUpsell += `
+            <div onclick="executerAjoutPanier('${p.id||p._id}'); document.getElementById('modalUpsellClient').remove(); animerVersPanierClient(event);" 
+                 style="min-width: 120px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 10px; text-align: center; cursor: pointer;">
+                <img src="${img}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px; border: 2px solid #fcd34d;">
+                <div style="color:white; font-size:0.8rem; font-weight:700; margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.nom)}</div>
+                <div style="color:#f59e0b; font-weight:900; font-size:0.9rem;">+${prix} DT</div>
+            </div>
+        `;
+    });
+
+    htmlUpsell += `
+                </div>
+                <button onclick="document.getElementById('modalUpsellClient').remove();" style="width:100%; background:transparent; border:none; color:#cbd5e1; font-weight:600; cursor:pointer; margin-top:10px; padding:10px;">Non merci, passer au panier</button>
+            </div>
+        </div>
+        <style>@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }</style>
+    `;
+    document.body.insertAdjacentHTML('beforeend', htmlUpsell);
 };
 
 function changerQuantite(cartId, delta) {
@@ -756,7 +846,50 @@ function ouvrirFermerPanier() {
 }
 
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
+// 🔥 MOTEUR DE VÉRIFICATION DU CODE PROMO
+window.appliquerCodePromoClient = async function() {
+    const code = document.getElementById('inputCodePromoClient').value.trim();
+    const msgBox = document.getElementById('msgCodePromo');
 
+    if (!code) { msgBox.innerHTML = "<span style='color:var(--danger);'>Veuillez saisir un code.</span>"; return; }
+
+    try {
+        msgBox.innerHTML = "<span style='color:var(--info);'><i class='fas fa-spinner fa-spin'></i> Vérification...</span>";
+        
+        const res = await fetch('/api/promo/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code }) // L'identifiant du café est géré par ton middleware serveur
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            // Calculer la remise selon le type (Pourcentage ou Fixe)
+            let totalSansRemise = panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
+            
+            if (data.promo.type === 'pourcentage') {
+                window.remisePromoActuelle = totalSansRemise * (data.promo.valeur / 100);
+            } else {
+                window.remisePromoActuelle = data.promo.valeur;
+            }
+
+            window.codePromoApplique = data.promo.code;
+
+            msgBox.innerHTML = `<span style='color:var(--success);'><i class='fas fa-check-circle'></i> Code appliqué ! (-${window.remisePromoActuelle.toFixed(2)} DT)</span>`;
+            afficherContenuPanier(); // Rafraîchit le visuel du panier
+            
+            if (navigator.vibrate) navigator.vibrate(50);
+        } else {
+            msgBox.innerHTML = `<span style='color:var(--danger);'><i class='fas fa-times-circle'></i> ${data.error || "Code invalide"}</span>`;
+            window.remisePromoActuelle = 0;
+            window.codePromoApplique = null;
+            afficherContenuPanier();
+        }
+    } catch(e) {
+        msgBox.innerHTML = "<span style='color:var(--danger);'>Erreur de connexion.</span>";
+    }
+};
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
@@ -782,7 +915,6 @@ function afficherContenuPanier() {
             selectPaiement.value = 'especes';
         }
     }
-    // --- FIN DE L'AJOUT ---
 
     if (panier.length === 0) {
         conteneur.innerHTML = `<div style='padding: 4rem 1rem; text-align: center; color: #94a3b8;'><i class='fas fa-shopping-bag fa-3x'></i><p>Votre panier est vide</p></div>`;
@@ -803,29 +935,27 @@ function afficherContenuPanier() {
     const platsPrincipaux = panier.filter(a => !a.isSupplement);
 
     conteneur.innerHTML = platsPrincipaux.map(mainItem => {
-        // On cherche les suppléments liés à CE plat spécifique
-        const mesSupplements = panier.filter(s => s.isSupplement && s.parentId === mainItem.uniqueGroupId);
+       // On groupe tout ce qui appartient au parent, peu importe si c'est un supplément ou un produit de formule
+const mesSupplements = panier.filter(s => s.parentId === mainItem.uniqueGroupId);
         
-        // Design du plat principal
         let html = `
             <div class="modern-cart-item" style="flex-direction: column; align-items: stretch; padding: 15px; margin-bottom: 12px; background: white; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #f1f5f9;">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <div class="modern-cart-item-info">
                         <h4 style="margin:0; font-size:1.1rem; color:#1e293b; font-weight:800;">
-    ${mainItem.nom}
-    ${mainItem.variante ? `<span style="font-size:0.85rem; color:#db800a; font-weight:700; margin-left:6px;">(${mainItem.variante})</span>` : ''}
-</h4>
+                            ${mainItem.nom}
+                            ${mainItem.variante ? `<span style="font-size:0.85rem; color:#db800a; font-weight:700; margin-left:6px;">(${mainItem.variante})</span>` : ''}
+                        </h4>
                         <div class="modern-cart-item-price" style="color:#db800a; font-weight:bold;">${mainItem.prix.toFixed(2)} DT</div>
                     </div>
                     <div class="modern-qty-control" style="display:flex; align-items:center; background:#f8fafc; border-radius:10px; padding:4px; border: 1px solid #e2e8f0;">
-                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', -1)" style="border:none; background:white; width:32px; height:32px; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); color:#64748b;"><i class="fas fa-minus"></i></button>
+                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', -1)"><i class="fas fa-minus"></i></button>
                         <span class="modern-qty-val" style="width:35px; text-align:center; font-weight:900; color:#1e293b;">${mainItem.quantite}</span>
-                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', 1)" style="border:none; background:white; width:32px; height:32px; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); color:#db800a;"><i class="fas fa-plus"></i></button>
+                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', 1)"><i class="fas fa-plus"></i></button>
                     </div>
                 </div>
         `;
         
-        // Design des suppléments (s'il y en a)
         if (mesSupplements.length > 0) {
             html += `<div style="margin-top: 12px; padding-top: 10px; border-top: 2px dashed #f1f5f9;">`;
             mesSupplements.forEach(supp => {
@@ -838,12 +968,43 @@ function afficherContenuPanier() {
             });
             html += `</div>`;
         }
-        
         html += `</div>`;
         return html;
     }).join('');
 
-    totalElement.textContent = `${total.toFixed(2)} DT`;
+    // 🔥 CORRECTIF : INJECTION DU CODE PROMO ICI (Quand le panier n'est PAS vide)
+    if (window.saasModules.promoCodes) {
+        let promoHTML = `
+            <div style="margin-top: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;"><i class="fas fa-ticket-alt text-warning"></i> Code Promo</label>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="inputCodePromoClient" placeholder="Tapez votre code..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #e2e8f0; font-weight:bold; text-transform:uppercase;">
+                    <button onclick="appliquerCodePromoClient()" style="background:var(--warning); color:white; border:none; border-radius:8px; padding:0 15px; font-weight:bold; cursor:pointer;">Appliquer</button>
+                </div>
+                <div id="msgCodePromo" style="font-size:0.8rem; font-weight:bold; margin-top:8px;"></div>
+            </div>
+        `;
+        conteneur.insertAdjacentHTML('beforeend', promoHTML);
+    }
+
+// 🔥 GESTION DE LA REMISE DANS LE TOTAL (SÉCURISÉE)
+// 🔥 GESTION DE LA REMISE DANS LE TOTAL (SÉCURISÉE ANTI-NÉGATIF)
+    window.remisePromoActuelle = window.remisePromoActuelle || 0;
+    
+    if (window.remisePromoActuelle > 0 && total > 0) {
+        let totalFinal = total - window.remisePromoActuelle;
+        // 🔒 Sécurité : Le total ne peut pas être négatif
+        if (totalFinal < 0) totalFinal = 0; 
+        
+        totalElement.innerHTML = `<s style="font-size:1rem; color:#94a3b8;">${total.toFixed(2)}</s> <span style="color:var(--success); font-weight:900;">${totalFinal.toFixed(2)} DT</span>`;
+    } else {
+        // Reset propre si le panier est vide
+        window.remisePromoActuelle = 0;
+        window.codePromoApplique = null;
+        totalElement.textContent = `${total.toFixed(2)} DT`;
+        const msgBox = document.getElementById('msgCodePromo');
+        if (msgBox) msgBox.innerHTML = "";
+    }
 }
 
 // ========== ENVOI COMMANDE ==========
@@ -1005,7 +1166,13 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : (parseInt(numTable) || 0);
         
         // 🔥 SÉCURITÉ 2 : Calcul sécurisé du total pour éviter l'erreur NaN qui fait crasher le serveur
-        const totalCommande = panierPropre.reduce((sum, item) => sum + ((parseFloat(item.prix) || 0) * (parseInt(item.quantite) || 1)), 0);
+        let totalCommande = panierPropre.reduce((sum, item) => sum + ((parseFloat(item.prix) || 0) * (parseInt(item.quantite) || 1)), 0);
+        
+        // 🔥 APPLICATION DE LA REMISE PROMO
+        if (window.remisePromoActuelle > 0) {
+            totalCommande = totalCommande - window.remisePromoActuelle;
+            if (totalCommande < 0) totalCommande = 0;
+        }
         
         const methodeElement = document.getElementById('methodePaiementClient');
         const methodeChoisie = methodeElement ? methodeElement.value : 'especes';
@@ -1031,7 +1198,10 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
                 codeAuth: String(idFidele), 
                 clientName: String(nomFidele), 
                 total: Number(totalCommande) || 0,
-                methodePaiement: String(methodeChoisie) 
+                methodePaiement: String(methodeChoisie),
+                total: Number(totalCommande) || 0,
+                methodePaiement: String(methodeChoisie),
+                remise: window.remisePromoActuelle || 0,
             })
         });
 
@@ -1370,6 +1540,157 @@ document.getElementById("confirmOptionBtn")?.addEventListener("click", (e) => {
     }
     
 }
+// =========================================================
+// 🔥 MOTEUR MENU BUILDER (ASSISTANT DE FORMULE CLIENT)
+// =========================================================
+window.comboEnCours = null;
+
+window.demarrerWizardCombo = function(comboId) {
+    const combo = window.listeCombos.find(c => String(c.id) === String(comboId));
+    if(!combo) return;
+    
+    window.comboEnCours = { 
+        comboOrigine: combo,
+        etapeActuelle: 0,
+        selections: [], 
+        idGroupeUnique: Date.now() 
+    };
+    afficherEtapeCombo();
+};
+
+window.afficherEtapeCombo = function() {
+    const c = window.comboEnCours;
+    
+    // Si terminé, on finalise
+    if (c.etapeActuelle >= c.comboOrigine.etapes.length) {
+        finaliserComboPanier();
+        return;
+    }
+    
+    const etape = c.comboOrigine.etapes[c.etapeActuelle];
+    const prodsDispos = produits.filter(p => p.categorie === etape.categorieCible && p.actif !== false && window.calculerStockReel(p) > 0);
+    
+    const existant = document.getElementById('modalWizardComboClient');
+    if (existant) existant.remove();
+
+    // Affichage des choix déjà faits
+    let choixPrecedentsHtml = '';
+    if (c.selections.length > 0) {
+        choixPrecedentsHtml = `<div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:10px; margin-bottom:15px; font-size:0.85rem; color:#cbd5e1;">
+            <strong style="color:var(--success);">Votre sélection :</strong><br>
+            ${c.selections.map(s => `✔️ ${s.nom}`).join('<br>')}
+        </div>`;
+    }
+
+    // Bouton retour
+    const btnRetourHtml = c.etapeActuelle > 0 
+        ? `<button onclick="retourEtapeCombo()" style="background:transparent; border:1px solid #cbd5e1; color:#cbd5e1; padding:6px 12px; border-radius:8px; cursor:pointer;"><i class="fas fa-arrow-left"></i> Retour</button>` 
+        : `<div></div>`;
+
+    let html = `
+        <div class="modal active" id="modalWizardComboClient" style="z-index: 3000; align-items: flex-end; padding-bottom: 0;">
+            <div class="modal-content" style="background: linear-gradient(135deg, #1e293b, #0f172a); border-top: 3px solid #f59e0b; width:100%; border-radius: 25px 25px 0 0; padding: 20px; box-shadow: 0 -10px 40px rgba(245, 158, 11, 0.2); animation: slideUp 0.3s ease-out; max-height: 85vh; overflow-y: auto;">
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                    ${btnRetourHtml}
+                    <button onclick="document.getElementById('modalWizardComboClient').remove()" style="background:rgba(255,255,255,0.1); border:none; color:white; width:30px; height:30px; border-radius:50%; cursor:pointer;"><i class="fas fa-times"></i></button>
+                </div>
+                
+                <div style="text-align:center; margin-bottom:15px;">
+                    <h3 style="color:white; font-size:1.2rem; font-weight:800; margin:0;"><i class="fas fa-utensils text-warning"></i> ${escapeHtml(c.comboOrigine.nom)}</h3>
+                </div>
+
+                ${choixPrecedentsHtml}
+                
+                <div style="background:rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color:#fcd34d; padding:15px; border-radius:12px; margin-bottom:15px; font-weight:800; text-align:center;">
+                    <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">Étape ${c.etapeActuelle + 1} / ${c.comboOrigine.etapes.length}</div>
+                    <div style="font-size:1.3rem;">${escapeHtml(etape.titre)}</div>
+                </div>
+                
+                <div style="display:flex; flex-direction:column; gap:10px; padding-bottom:20px;">
+    `;
+    
+    if (prodsDispos.length === 0) {
+        html += `<div style="text-align:center; padding:20px; color:#f87171; font-weight:bold; background:rgba(244,63,94,0.1); border-radius:12px;">Épuisé pour aujourd'hui !</div>`;
+    } else {
+        prodsDispos.forEach(p => {
+            const img = p.image || 'https://via.placeholder.com/80';
+            html += `
+                <button onclick="choisirItemCombo('${p.id||p._id}', '${escapeHtml(p.nom)}'); document.getElementById('modalWizardComboClient').remove();" 
+                        style="display:flex; align-items:center; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:15px; padding:10px; cursor:pointer; text-align:left; transition:0.2s;">
+                    <img src="${img}" style="width: 50px; height: 50px; border-radius: 10px; object-fit: cover; margin-right:15px; border: 1px solid #475569;">
+                    <div style="flex:1;">
+                        <div style="color:white; font-size:1rem; font-weight:700;">${escapeHtml(p.nom)}</div>
+                    </div>
+                    <i class="fas fa-plus-circle" style="color:#f59e0b; font-size: 1.2rem;"></i>
+                </button>
+            `;
+        });
+    }
+    
+    html += `</div></div></div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+};
+
+// 🔥 NOUVELLE FONCTION : Permet de revenir en arrière dans la formule
+window.retourEtapeCombo = function() {
+    if (window.comboEnCours && window.comboEnCours.etapeActuelle > 0) {
+        window.comboEnCours.etapeActuelle--;
+        window.comboEnCours.selections.pop(); // Retire le dernier choix
+        afficherEtapeCombo();
+    }
+};
+
+window.choisirItemCombo = function(produitId, produitNom) {
+    window.comboEnCours.selections.push({ id: produitId, nom: produitNom });
+    window.comboEnCours.etapeActuelle++;
+    afficherEtapeCombo();
+};
+
+window.finaliserComboPanier = function() {
+    const c = window.comboEnCours;
+    
+    // 1. L'En-tête du Menu (C'est lui qui porte le prix fixe et n'a pas de stock !)
+    const itemMenu = {
+        cartId: `COMBO_${c.idGroupeUnique}`,
+        id: c.comboOrigine.id, baseId: c.comboOrigine.id,
+        nom: `🌟 ${c.comboOrigine.nom}`, variante: null,
+        prix: Number(c.comboOrigine.prixFixe), quantite: 1,
+        isSupplement: false, uniqueGroupId: c.idGroupeUnique, parentId: null,
+        envoye: false, pret: false
+    };
+    
+    // Ajout selon l'environnement (Client = panier.push / Caisse = ajouterAuTicket)
+    if (typeof panier !== 'undefined') panier.push(itemMenu);
+    else ajouterAuTicket(currentTable, itemMenu, false, false);
+
+    // 2. Les produits choisis (Prix à 0)
+    c.selections.forEach((sel, idx) => {
+        const itemEnfant = {
+            cartId: `COMBO_CHILD_${c.idGroupeUnique}_${idx}`,
+            id: sel.id, baseId: sel.id,
+            nom: `↳ ${sel.nom}`, variante: null,
+            prix: 0, quantite: 1, 
+            isSupplement: false, // 🔥 CORRECTION VITALE : C'est un vrai produit pour le backend !
+            uniqueGroupId: Date.now() + Math.random(),
+            parentId: c.idGroupeUnique,
+            envoye: false, pret: false
+        };
+        if (typeof panier !== 'undefined') panier.push(itemEnfant);
+        else ajouterAuTicket(currentTable, itemEnfant, false, false);
+    });
+
+    window.comboEnCours = null;
+    
+    // Refresh selon l'environnement
+    if (typeof sauvegarderPanier === 'function') {
+        sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier(); animerBoutonPanier();
+        if(navigator.vibrate) navigator.vibrate([50, 100, 50]);
+        afficherNotification("Menu ajouté au panier !", "success");
+    } else {
+        afficherTicket(); afficherListeTables(); sauvegarderTousLesTickets();
+    }
+};
 // ========== ANIMATION FLY TO CART ==========
 function animerVersPanierClient(event) {
     if (!event) return;
