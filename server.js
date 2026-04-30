@@ -20,28 +20,7 @@ const CONVERSIONS = {
     'cac': 5, 'cas': 15,
     'u': 1, 'portion': 1
 };
-// 🔥 MOTEUR DE PRIX SERVEUR (Intègre Promo & Happy Hour)
-function getPrixActifServeur(p) {
-    let prixFinal = parseFloat(p.prix) || 0;
-    if (p.prixPromo && parseFloat(p.prixPromo) > 0) {
-        prixFinal = parseFloat(p.prixPromo);
-    }
-    // Vérification Happy Hour
-    if (p.happyHour && p.happyHour.actif) {
-        const now = new Date();
-        // Optionnel: Ajuster le fuseau horaire si ton serveur n'est pas sur la même heure que le café
-        const currentTime = now.getHours() * 60 + now.getMinutes();
-        const [hDebut, mDebut] = (p.happyHour.heureDebut || "00:00").split(':').map(Number);
-        const [hFin, mFin] = (p.happyHour.heureFin || "23:59").split(':').map(Number);
-        const timeDebut = hDebut * 60 + mDebut;
-        const timeFin = hFin * 60 + mFin;
-        
-        if (currentTime >= timeDebut && currentTime <= timeFin) {
-            prixFinal = parseFloat(p.happyHour.prix) || prixFinal;
-        }
-    }
-    return prixFinal;
-}
+
 function calculerQuantiteDestockage(qteRecette, uniteRecette, uniteStock) {
     const facteurRecette = CONVERSIONS[uniteRecette] || 1;
     const facteurStock = CONVERSIONS[uniteStock] || 1;
@@ -198,8 +177,10 @@ mongoose.connect(mongoURI)
     });
 
 // ========== 2. MODÈLES DE DONNÉES (SCHÉMAS SAAS MULTI-TENANT) ==========
+// 🔥 SAAS : Ajout de "cafeId" obligatoire sur TOUTES les tables
+
 const Product = mongoose.model('Product', new mongoose.Schema({
-    cafeId: { type: String, required: true, index: true },
+    cafeId: { type: String, required: true, index: true }, // 🔥 LE MARQUEUR
     id: Number, 
     nom: String, 
     prix: { type: Number, default: 0 },
@@ -213,106 +194,72 @@ const Product = mongoose.model('Product', new mongoose.Schema({
     seuilAlerte: { type: Number, default: 10 }, 
     unite: String,
     actif: { type: Boolean, default: true },
-    supplements: [{
-        nom: String,                
-        prix: Number,               
+supplements: [{
+        nom: String,                // Nom affiché au client (ex: "Double Fromage")
+        prix: Number,               // Prix facturé (ex: 2.500)
         prixPromo: { type: Number, default: 0 }, 
-        ingredientId: String,       
-        quantiteADeduire: Number,   
-        unite: String               
+        ingredientId: String,       // L'ID de la matière première à déduire (ex: ID de la Mozzarella)
+        quantiteADeduire: Number,   // Combien on enlève du stock (ex: 50)
+        unite: String               // Unité de la déduction (ex: 'g')
     }],
-    isManufactured: { type: Boolean, default: false },
+    isManufactured: { type: Boolean, default: false }, // true si c'est un produit avec recette
     recipe: [{
-        ingredientId: { type: String }, 
-        quantity: { type: Number },     
-        unit: { type: String }          
-    }],
-    // 🔥 NOUVEAU : MOTEUR DE VENTE (HAPPY HOUR, UPSELL, FLASH)
-    isMoitieMoitieAllowed: { type: Boolean, default: false }, // Pour les pizzas
-    happyHour: {
-        actif: { type: Boolean, default: false },
-        prix: { type: Number, default: 0 },
-        heureDebut: { type: String, default: "16:00" }, // Format HH:mm
-        heureFin: { type: String, default: "18:00" }
-    },
-    upsellProduits: [{ type: String }], // Tableau d'IDs (ex: ID Frites, ID Coca)
-    venteFlash: {
-        actif: { type: Boolean, default: false },
-        quantiteInitiale: { type: Number, default: 0 },
-        quantiteRestante: { type: Number, default: 0 }
-    }
-}));
-
-// 🔥 NOUVEAU : MODÈLE CODES PROMO
-const PromoCode = mongoose.model('PromoCode', new mongoose.Schema({
-    cafeId: { type: String, required: true, index: true },
-    code: { type: String, required: true, uppercase: true }, // ex: ETE2026
-    type: { type: String, enum: ['pourcentage', 'fixe'], default: 'pourcentage' },
-    valeur: { type: Number, required: true }, // ex: 20 (%) ou 5 (DT)
-    dateExpiration: { type: Date },
-    limiteUtilisation: { type: Number, default: 0 }, // 0 = illimité
-    utilisationsActuelles: { type: Number, default: 0 },
-    actif: { type: Boolean, default: true }
-}));
-
-// 🔥 NOUVEAU : MODÈLE MENU BUILDER (FORMULES)
-const MenuCombo = mongoose.model('MenuCombo', new mongoose.Schema({
-    cafeId: { type: String, required: true, index: true },
-    id: { type: String, required: true },
-    nom: { type: String, required: true }, // ex: "Formule Midi"
-    prixFixe: { type: Number, required: true },
-    image: { type: String, default: 'https://via.placeholder.com/150' },
-    actif: { type: Boolean, default: true },
-    etapes: [{
-        titre: String, // ex: "Choisissez votre Boisson"
-        categorieCible: String, // ex: "boissons"
-        quantiteRequise: { type: Number, default: 1 }
+        ingredientId: { type: String }, // ID du produit utilisé comme ingrédient
+        quantity: { type: Number },     // Quantité nécessaire pour 1 unité du produit fini
+        unit: { type: String }          // g, ml, unité, etc.
     }]
 }));
 
-const Movement = mongoose.model('Movement', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Movement = mongoose.model('Movement', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     type: String, produit: String, produitId: Number, quantite: Number,
     ancienStock: Number, nouveauStock: Number, raison: String
 }));
 
-const Inventory = mongoose.model('Inventory', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Inventory = mongoose.model('Inventory', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') }, ecarts: Array
 }));
 
-const Expense = mongoose.model('Expense', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Expense = mongoose.model('Expense', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     timestamp: { type: Number, default: () => Date.now() },
-    categoriePrincipale: String, sousCategorie: String,        
+    categoriePrincipale: String, sousCategorie: String,       
     beneficiaire: String, description: String, montantTotal: Number,        
     montantPaye: Number, resteAPayer: { type: Number, default: 0 }, 
     statut: { type: String, default: 'paye' }, modePaiement: String
 }));
 
-const Order = mongoose.model('Order', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Order = mongoose.model('Order', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     id: String, numero: String, date: String, timestamp: Number, 
+    // 🔥 CORRECTION ICI : On définit précisément la structure d'un article
     articles: [{
-        id: String, nom: String, variante: String, quantite: Number, prix: Number,
-        isSupplement: Boolean, uniqueGroupId: Number, parentId: Number 
+        id: String,
+        nom: String,
+        variante: String,
+        quantite: Number,
+        prix: Number,
+        isSupplement: Boolean,    // Pour identifier le supplément
+        uniqueGroupId: Number,    // Identifiant unique de la ligne
+        parentId: Number          // Le lien vers le plat principal
     }],
     numeroTable: String, statut: { type: String, default: 'en_attente' }, 
     total: Number, clientId: String, clientName: String,
     methodePaiement: { type: String, default: 'sur_place' }
 }));
 
-const TableCode = mongoose.model('TableCode', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const TableCode = mongoose.model('TableCode', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     numero: Number, code: String, lastUpdated: Number
 }));
 
-const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const LoyalCustomer = mongoose.model('LoyalCustomer', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     nom: String, prenom: String, telephone: String,
-    codeFidelite: { type: String }, 
+    codeFidelite: { type: String }, // Ne plus mettre unique:true globalement à cause du multi-café
     dateInscription: { type: String, default: () => new Date().toLocaleDateString('fr-FR') },
     solde: { type: Number, default: 0 }, points: { type: Number, default: 0 }, 
     totalDepense: { type: Number, default: 0 } 
@@ -323,36 +270,39 @@ const StoreSettings = mongoose.model('StoreSettings', new mongoose.Schema({
     type: { type: String }, 
     pointsRequis: { type: Number, default: 100 }, 
     valeurCredit: { type: Number, default: 5 },
-    nomCafe: String, sloganCafe: String, couleurPrincipale: String,
-    logoUrl: String, caisseToken: String,
+    nomCafe: String,
+    sloganCafe: String,
+    couleurPrincipale: String,
+    logoUrl: String,
+    caisseToken: String,
     codeServeur: { type: String, default: '00000' },
     nombreTables: { type: Number, default: 20 },
     statutAbonnement: { type: String, default: 'actif' },
-    dateExpiration: String,
-    // 🔥 NOUVEAU : INTERRUPTEURS SAAS (Feature Flags)
-    modules: {
-        formules: { type: Boolean, default: false },
-        upsell: { type: Boolean, default: false },
-        happyHour: { type: Boolean, default: false },
-        promoCodes: { type: Boolean, default: false },
-        ventesFlash: { type: Boolean, default: false },
-        moitieMoitie: { type: Boolean, default: false }
-    }
+    dateExpiration: String
 }));
 
-const Sale = mongoose.model('Sale', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const Sale = mongoose.model('Sale', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
-    id: String, numero: String, date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
+    id: String, numero: String,
+    date: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     timestamp: { type: Number, default: () => Date.now() },
-    total: Number, remise: Number, typePaiement: String, methodePaiement: { type: String, default: 'especes' },
+    total: Number, remise: Number,
+    typePaiement: String, methodePaiement: { type: String, default: 'especes' },
     tableOrigine: String, 
+    // 🔥 CORRECTION ICI AUSSI POUR LA CAISSE / LES ARCHIVES
     articles: [{
-        id: String, nom: String, variante: String, quantite: Number, prix: Number,
-        isSupplement: Boolean, uniqueGroupId: Number, parentId: Number
+        id: String,
+        nom: String,
+        variante: String,
+        quantite: Number,
+        prix: Number,
+        isSupplement: Boolean,
+        uniqueGroupId: Number,
+        parentId: Number
     }]
 }));
 
-const CashRegister = mongoose.model('CashRegister', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const CashRegister = mongoose.model('CashRegister', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
     dateOuverture: { type: String, default: () => new Date().toLocaleString('fr-FR') },
     dateFermeture: String, timestampOuverture: { type: Number, default: () => Date.now() },
@@ -360,9 +310,10 @@ const CashRegister = mongoose.model('CashRegister', new mongoose.Schema({ /* ...
     especesReelles: Number, ecart: Number, statut: { type: String, default: 'ouvert' } 
 }));
 
-const OpenTicket = mongoose.model('OpenTicket', new mongoose.Schema({ /* ... (Garde ton code existant ici) ... */
+const OpenTicket = mongoose.model('OpenTicket', new mongoose.Schema({
     cafeId: { type: String, required: true, index: true },
-    tableNum: String, ticketData: Object, lastUpdated: { type: Number, default: () => Date.now() }
+    tableNum: String, ticketData: Object,
+    lastUpdated: { type: Number, default: () => Date.now() }
 }));
 
 // ========== 3. MIDDLEWARES ET SÉCURITÉ ==========
@@ -460,31 +411,17 @@ app.get('/api/branding', async (req, res) => {
 
 app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
     try {
-        const { 
-            nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, codeServeur, 
-            targetCafeId, nombreTables, dateExpiration, cloneFromId, 
-            modules // 🔥 NOUVEAU : Réception des interrupteurs
-        } = req.body;
+        const { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken,codeServeur, targetCafeId, nombreTables, dateExpiration, cloneFromId } = req.body;
         
         const cafeCible = targetCafeId ? targetCafeId : req.cafeId;
 
-        // On s'assure que si 'modules' n'est pas envoyé, on met des valeurs par défaut à false
-        const modulesData = modules || {
-            formules: false, upsell: false, happyHour: false, 
-            promoCodes: false, ventesFlash: false, moitieMoitie: false
-        };
-
         const config = await StoreSettings.findOneAndUpdate(
             { cafeId: cafeCible, type: 'branding' },
-            { 
-                nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken, 
-                codeServeur, nombreTables, dateExpiration,
-                modules: modulesData // 🔥 NOUVEAU : Sauvegarde en base
-            }, 
+            { nomCafe, sloganCafe, couleurPrincipale, logoUrl, caisseToken,codeServeur, nombreTables, dateExpiration }, 
             { new: true, upsert: true }
         );
 
-        // LOGIQUE DE CLONAGE DU MENU SAAS
+        // 🔥 LOGIQUE DE CLONAGE DU MENU SAAS
         if (cloneFromId) {
             const existingProducts = await Product.countDocuments({ cafeId: cafeCible });
             if (existingProducts === 0) { 
@@ -493,10 +430,7 @@ app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
                     const nouveauxProduits = produitsACloner.map(p => ({
                         cafeId: cafeCible, id: p.id, nom: p.nom, prix: p.prix, prixAchat: p.prixAchat,
                         stock: p.stock, categorie: p.categorie, image: p.image, variantes: p.variantes,
-                        typeChoix: p.typeChoix, seuilAlerte: p.seuilAlerte, unite: p.unite, actif: true,
-                        // Copie des nouvelles options
-                        isMoitieMoitieAllowed: p.isMoitieMoitieAllowed,
-                        happyHour: p.happyHour, upsellProduits: p.upsellProduits
+                        typeChoix: p.typeChoix, seuilAlerte: p.seuilAlerte, unite: p.unite, actif: true
                     }));
                     await Product.insertMany(nouveauxProduits);
                 }
@@ -511,87 +445,12 @@ app.post('/api/branding', verifierSuperAdmin, async (req, res) => {
 app.get('/api/stock', async (req, res) => {
     try { res.json(await Product.find({ cafeId: req.cafeId, actif: { $ne: false } }).sort({ id: 1 })); } catch (err) { res.status(500).json(err); }
 });
-// =========================================================
-// 🔥 ROUTES MOTEUR DE VENTE (GROWTH HACKING & MARKETING)
-// =========================================================
 
-// --- 1. GESTION DES CODES PROMO ---
-
-// Vérifier un code (Client / Caisse)
-app.post('/api/promo/verify', async (req, res) => {
-    try {
-        const { code } = req.body;
-        if (!code) return res.status(400).json({ error: "Code manquant" });
-
-        const promo = await PromoCode.findOne({ cafeId: req.cafeId, code: code.toUpperCase(), actif: true });
-        if (!promo) return res.status(404).json({ error: "Code invalide ou inactif." });
-        
-        if (promo.dateExpiration && new Date(promo.dateExpiration) < new Date()) {
-            return res.status(400).json({ error: "Ce code promo a expiré." });
-        }
-        if (promo.limiteUtilisation > 0 && promo.utilisationsActuelles >= promo.limiteUtilisation) {
-            return res.status(400).json({ error: "Ce code a atteint sa limite d'utilisation." });
-        }
-        res.json({ success: true, promo });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Créer un code promo (Admin gérant)
-app.post('/api/promo', verifierToken, async (req, res) => {
-    try {
-        const promo = new PromoCode({ ...req.body, cafeId: req.cafeId });
-        await promo.save();
-        res.json({ success: true, promo });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Lister les codes promos (Admin gérant)
-app.get('/api/promo', verifierToken, async (req, res) => {
-    try {
-        res.json(await PromoCode.find({ cafeId: req.cafeId }).sort({ _id: -1 }));
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Supprimer un code promo (Admin gérant)
-app.delete('/api/promo/:id', verifierToken, async (req, res) => {
-    try {
-        await PromoCode.findOneAndDelete({ _id: req.params.id, cafeId: req.cafeId });
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// --- 2. GESTION DES FORMULES (MENU BUILDER) ---
-
-// Lister les formules (Public & Privé)
-app.get('/api/combos', async (req, res) => {
-    try {
-        res.json(await MenuCombo.find({ cafeId: req.cafeId, actif: true }));
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Créer une formule (Admin gérant)
-app.post('/api/combos', verifierToken, async (req, res) => {
-    try {
-        const combo = new MenuCombo({ ...req.body, cafeId: req.cafeId, id: Date.now().toString() });
-        await combo.save();
-        res.json({ success: true, combo });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Supprimer une formule (Admin gérant)
-app.delete('/api/combos/:id', verifierToken, async (req, res) => {
-    try {
-        await MenuCombo.findOneAndDelete({ id: req.params.id, cafeId: req.cafeId });
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
 app.post('/api/commandes', async (req, res) => {
     try {
         const codeEnvoye = String(req.body.codeAuth);
         
-        // ---------------------------------------------------------
-        // 0. VÉRIFICATIONS SÉCURITÉ
-        // ---------------------------------------------------------
+        // VÉRIFICATIONS SÉCURITÉ
         const config = await StoreSettings.findOne({ cafeId: req.cafeId, type: 'branding' });
         const vraiCodeServeur = (config && config.codeServeur) ? config.codeServeur : '00000';
         const vraiCaisseToken = (config && config.caisseToken) ? config.caisseToken : '12345678';
@@ -615,12 +474,8 @@ app.post('/api/commandes', async (req, res) => {
         const cmdId = Date.now().toString();
         const numeroCmd = 'CMD' + Math.floor(Math.random() * 10000);
 
-        // ==========================================
-        // PHASE 1 : SIMULATION ET VALIDATION (0 ÉCRITURE EN BASE)
-        // ==========================================
         let totalSecurise = 0;
         let articlesSecurises = [];
-        let actionsDestockage = []; // On prépare les requêtes de déstockage
 
         for (let art of req.body.articles) {
             let nomPropre = art.nom || "";
@@ -628,7 +483,9 @@ app.post('/api/commandes', async (req, res) => {
             const nomBaseRecherche = nomPropre.split('(')[0].trim();
             const qteCmd = parseInt(art.quantite) || 1;
 
-            // --- CAS 1 : C'EST UN SUPPLÉMENT ---
+            // ==========================================
+            // CAS 1 : C'EST UN SUPPLÉMENT
+            // ==========================================
             if (art.isSupplement && art.parentId) {
                 const parentArticle = req.body.articles.find(a => String(a.uniqueGroupId) === String(art.parentId) || String(a.id) === String(art.parentId));
                 let parentDb = null;
@@ -652,146 +509,14 @@ app.post('/api/commandes', async (req, res) => {
                     totalSecurise += (prixApplique * qteCmd);
                     articlesSecurises.push({ ...art, prix: prixApplique });
 
+                    // 🔥 DÉSTOCKAGE DU SUPPLÉMENT AVEC CONVERSION
                     if (configSupp && configSupp.ingredientId) {
-                        actionsDestockage.push({
-                            type: 'supplement',
-                            ingredientId: configSupp.ingredientId,
-                            quantiteBase: (configSupp.quantiteADeduire || 0) * qteCmd,
-                            unite: configSupp.unite || 'g',
-                            nomPropre: nomPropre,
-                            parentNom: parentDb.nom
-                        });
-                    }
-                } else {
-                    totalSecurise += (art.prix * qteCmd);
-                    articlesSecurises.push(art);
-                }
-            } 
-            // --- CAS 2 : C'EST UN PRODUIT NORMAL ---
-            else {
-                let produitDb = null;
-                const idSrc = art.baseId || art.id;
-                
-                if (idSrc && !isNaN(idSrc)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idSrc) });
-                else if (idSrc && mongoose.Types.ObjectId.isValid(idSrc)) produitDb = await Product.findOne({ cafeId: req.cafeId, _id: idSrc });
-                if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomBaseRecherche });
-
-if (produitDb) {
-                    // 🔥 SÉCURITÉ : VÉRIFICATION VENTE FLASH AVANT TOUT 
-                    if (produitDb.venteFlash && produitDb.venteFlash.actif) {
-                        if (produitDb.venteFlash.quantiteRestante < qteCmd) {
-                            return res.status(400).json({ error: `La Vente Flash est épuisée pour : ${produitDb.nom}` });
-                        }
-                    }
-
-                    // 🕒 CORRECTION HAPPY HOUR
-                    let prixBaseDb = getPrixActifServeur(produitDb); 
-
-                    // 🔥 CORRECTION COMBO : Si c'est un produit inclus dans une formule, il est gratuit !
-                    if (art.parentId) {
-                        prixBaseDb = 0;
-                    }
-
-                    totalSecurise += (prixBaseDb * qteCmd);
-                    articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, baseId: produitDb.id || produitDb._id, nom: produitDb.nom });
-
-                    actionsDestockage.push({
-                        type: 'produit',
-                        produitDb: produitDb,
-                        qteCmd: qteCmd
-                    });
-                } else {
-                    totalSecurise += (art.prix * qteCmd);
-                    articlesSecurises.push(art);
-                }
-            }
-        }
-
-        // 🔥 SÉCURITÉ : VÉRIFICATION CODE PROMO AVANT TOUT DÉSTOCKAGE
-        let promoAppliquee = null;
-        if (req.body.codePromoApplique) {
-            promoAppliquee = await PromoCode.findOne({ 
-                cafeId: req.cafeId, 
-                code: req.body.codePromoApplique.toUpperCase(), 
-                actif: true 
-            });
-
-            if (promoAppliquee) {
-                if (promoAppliquee.dateExpiration && new Date(promoAppliquee.dateExpiration) < new Date()) {
-                    return res.status(400).json({ error: "Ce code promo a expiré." });
-                }
-                if (promoAppliquee.limiteUtilisation > 0 && promoAppliquee.utilisationsActuelles >= promoAppliquee.limiteUtilisation) {
-                    return res.status(400).json({ error: "Victime de son succès : ce code promo a atteint sa limite d'utilisation." });
-                }
-
-                let reduction = 0;
-                if (promoAppliquee.type === 'pourcentage') {
-                    reduction = totalSecurise * (promoAppliquee.valeur / 100);
-                } else {
-                    reduction = promoAppliquee.valeur;
-                }
-                
-                totalSecurise -= reduction;
-                if (totalSecurise < 0) totalSecurise = 0;
-            }
-        }
-        totalSecurise = parseFloat(totalSecurise.toFixed(2));
-
-        // 🔥 SÉCURITÉ : VÉRIFICATION SOLDE VIP AVANT ÉCRITURE
-        let clientVIP = null;
-        if (req.body.methodePaiement === 'carte_fidelite') {
-            clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
-            if (!clientVIP) return res.status(403).json({ error: "Carte VIP non reconnue." });
-            if (clientVIP.solde < totalSecurise) return res.status(400).json({ error: `Solde insuffisant sur la carte VIP.` });
-        }
-
-        // ==========================================
-        // PHASE 2 : EXÉCUTION & MODIFICATION DB (TOUT EST OK)
-        // ==========================================
-
-        // 1. Déstockage effectif (Plats, Suppléments et Ventes Flash)
-        for (let action of actionsDestockage) {
-            if (action.type === 'supplement') {
-                let queryIng = !isNaN(action.ingredientId) ? { id: Number(action.ingredientId) } : { _id: action.ingredientId };
-                const ingDb = await Product.findOne({ cafeId: req.cafeId, ...queryIng });
-                
-                if (ingDb) {
-                    const qteADeduireTotal = calculerQuantiteDestockage(action.quantiteBase, action.unite, ingDb.unite || 'g');
-                    const ing = await Product.findOneAndUpdate(
-                        { cafeId: req.cafeId, ...queryIng },
-                        { $inc: { stock: -qteADeduireTotal } },
-                        { new: true }
-                    );
-                    if (ing) {
-                        await new Movement({
-                            cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id || ing._id,
-                            quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
-                            raison: `Supplément : ${action.nomPropre} pour ${action.parentNom}`
-                        }).save();
-                    }
-                }
-            } 
-            else if (action.type === 'produit') {
-                let produitDb = action.produitDb;
-                let qteCmd = action.qteCmd;
-
-                // DÉSTOCKAGE VENTE FLASH
-                if (produitDb.venteFlash && produitDb.venteFlash.actif) {
-                    await Product.findOneAndUpdate(
-                        { cafeId: req.cafeId, _id: produitDb._id },
-                        { $inc: { "venteFlash.quantiteRestante": -qteCmd } }
-                    );
-                }
-
-                // DÉSTOCKAGE CLASSIQUE / RECETTE (Avec conversion ERP)
-                if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
-                    for (let comp of produitDb.recipe) {
-                        let queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
+                        let queryIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
                         const ingDb = await Product.findOne({ cafeId: req.cafeId, ...queryIng });
                         
                         if (ingDb) {
-                            const qteBase = (comp.quantity || 0) * qteCmd;
-                            const qteADeduireTotal = calculerQuantiteDestockage(qteBase, comp.unit || 'g', ingDb.unite || 'g');
+                            const qteBase = (configSupp.quantiteADeduire || 0) * qteCmd;
+                            const qteADeduireTotal = calculerQuantiteDestockage(qteBase, configSupp.unite || 'g', ingDb.unite || 'g');
 
                             const ing = await Product.findOneAndUpdate(
                                 { cafeId: req.cafeId, ...queryIng },
@@ -802,45 +527,92 @@ if (produitDb) {
                                 await new Movement({
                                     cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id || ing._id,
                                     quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
-                                    raison: `Composant de : ${produitDb.nom}`
+                                    raison: `Supplément : ${nomPropre} pour ${parentDb.nom}`
                                 }).save();
                             }
                         }
                     }
-                } else if (produitDb.stock !== undefined && !produitDb.isManufactured) {
-                    const updateSimple = await Product.findOneAndUpdate(
-                        { cafeId: req.cafeId, id: produitDb.id || produitDb._id }, 
-                        { $inc: { stock: -qteCmd } }, 
-                        { new: true }
-                    );
-                    if (updateSimple) {
-                        await new Movement({ 
-                            cafeId: req.cafeId, type: 'commande', produit: updateSimple.nom, produitId: updateSimple.id || updateSimple._id, 
-                            quantite: qteCmd, ancienStock: updateSimple.stock + qteCmd, nouveauStock: updateSimple.stock, 
-                            raison: `Cmd directe #${numeroCmd}` 
-                        }).save();
+                } else {
+                    totalSecurise += (art.prix * qteCmd);
+                    articlesSecurises.push(art);
+                }
+            } 
+            // ==========================================
+            // CAS 2 : C'EST UN PRODUIT NORMAL (Matière ou Recette)
+            // ==========================================
+            else {
+                let produitDb = null;
+                const idSrc = art.baseId || art.id;
+                
+                if (idSrc && !isNaN(idSrc)) produitDb = await Product.findOne({ cafeId: req.cafeId, id: Number(idSrc) });
+                else if (idSrc && mongoose.Types.ObjectId.isValid(idSrc)) produitDb = await Product.findOne({ cafeId: req.cafeId, _id: idSrc });
+                if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomBaseRecherche });
+
+                if (produitDb) {
+                    let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) ? produitDb.prixPromo : produitDb.prix;
+                    totalSecurise += (prixBaseDb * qteCmd);
+                    articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, baseId: produitDb.id || produitDb._id, nom: produitDb.nom });
+
+                    // 🔥 DÉSTOCKAGE DU PRODUIT AVEC CONVERSION
+                    if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
+                        for (let comp of produitDb.recipe) {
+                            let queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
+                            const ingDb = await Product.findOne({ cafeId: req.cafeId, ...queryIng });
+                            
+                            if (ingDb) {
+                                const qteBase = (comp.quantity || 0) * qteCmd;
+                                const qteADeduireTotal = calculerQuantiteDestockage(qteBase, comp.unit || 'g', ingDb.unite || 'g');
+
+                                const ing = await Product.findOneAndUpdate(
+                                    { cafeId: req.cafeId, ...queryIng },
+                                    { $inc: { stock: -qteADeduireTotal } },
+                                    { new: true }
+                                );
+                                if (ing) {
+                                    await new Movement({
+                                        cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id || ing._id,
+                                        quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
+                                        raison: `Composant de : ${produitDb.nom}`
+                                    }).save();
+                                }
+                            }
+                        }
+                    } else if (produitDb.stock !== undefined && !produitDb.isManufactured) {
+                        const updateSimple = await Product.findOneAndUpdate(
+                            { cafeId: req.cafeId, id: produitDb.id || produitDb._id }, 
+                            { $inc: { stock: -qteCmd } }, 
+                            { new: true }
+                        );
+                        if (updateSimple) {
+                            await new Movement({ 
+                                cafeId: req.cafeId, type: 'commande', produit: updateSimple.nom, produitId: updateSimple.id || updateSimple._id, 
+                                quantite: qteCmd, ancienStock: updateSimple.stock + qteCmd, nouveauStock: updateSimple.stock, 
+                                raison: `Cmd directe #${numeroCmd}` 
+                            }).save();
+                        }
                     }
+                } else {
+                    totalSecurise += (art.prix * qteCmd);
+                    articlesSecurises.push(art);
                 }
             }
         }
-
-        // 2. Application définitive du code promo
-        if (promoAppliquee) {
-            await PromoCode.updateOne({ _id: promoAppliquee._id }, { $inc: { utilisationsActuelles: 1 } });
-            console.log(`🎟️ Code Promo ${promoAppliquee.code} appliqué.`);
-        }
-
+        totalSecurise = parseFloat(totalSecurise.toFixed(2));
+        
         io.to(req.cafeId).emit('update_stock');
 
-        // 3. Encaissement VIP ou Gain de Points
+        // 🔥 GESTION DES PAIEMENTS VIP
         let messageBonus = null;
-        if (clientVIP) {
+        if (req.body.methodePaiement === 'carte_fidelite') {
+            const clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
+            if (!clientVIP) return res.status(403).json({ error: "Carte non reconnue." });
+            if (clientVIP.solde < totalSecurise) return res.status(400).json({ error: `Solde insuffisant.` });
+
             clientVIP.solde = parseFloat((clientVIP.solde - totalSecurise).toFixed(2));
             clientVIP.points = parseFloat(((clientVIP.points || 0) + totalSecurise).toFixed(2));
             messageBonus = `✨ Vous avez gagné ${totalSecurise.toFixed(2)} points fidélité !`;
             await clientVIP.save();
 
-            // Création automatique de la vente (le ticket est déjà payé avec la carte)
             await new Sale({
                 cafeId: req.cafeId, id: cmdId, numero: numeroCmd, total: totalSecurise, remise: 0,
                 typePaiement: 'complet', methodePaiement: 'Carte Fidélité',
@@ -848,16 +620,14 @@ if (produitDb) {
                 date: new Date().toLocaleString('fr-FR'), timestamp: Date.now()
             }).save();
         } else if (codeEnvoye && codeEnvoye !== vraiCodeServeur) {
-            // Un client normal scanne sa carte juste pour gagner des points
-            const clientGain = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
-            if (clientGain) {
-                clientGain.points = parseFloat(((clientGain.points || 0) + totalSecurise).toFixed(2));
+            const clientVIP = await LoyalCustomer.findOne({ cafeId: req.cafeId, codeFidelite: codeEnvoye });
+            if (clientVIP) {
+                clientVIP.points = parseFloat(((clientVIP.points || 0) + totalSecurise).toFixed(2));
                 messageBonus = `✨ Vous avez gagné ${totalSecurise.toFixed(2)} points !`;
-                await clientGain.save();
+                await clientVIP.save();
             }
         }
 
-        // 4. Création finale de la commande globale
         const isEnLigne = req.body.methodePaiement === 'en_ligne';
         const cmd = new Order({ 
             ...req.body, cafeId: req.cafeId, articles: articlesSecurises, id: cmdId, numero: numeroCmd, 
@@ -1308,15 +1078,8 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
                 else if (idSrc && mongoose.Types.ObjectId.isValid(idSrc)) produitDb = await Product.findOne({ cafeId: req.cafeId, _id: idSrc });
                 if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomBaseRecherche });
 
-if (produitDb) {
-                    // 🕒 CORRECTION : On applique aussi le Happy Hour sur la Caisse !
-                    let prixBaseDb = getPrixActifServeur(produitDb);
-
-                    // 🔥 CORRECTION COMBO CAISSE : Gratuit si inclus dans une formule
-                    if (art.parentId) {
-                        prixBaseDb = 0;
-                    }
-
+                if (produitDb) {
+                    let prixBaseDb = (produitDb.prixPromo && produitDb.prixPromo > 0) ? produitDb.prixPromo : produitDb.prix;
                     vraiTotalReel += (prixBaseDb * qteCmd);
                     articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, baseId: produitDb.id || produitDb._id, nom: produitDb.nom });
 
@@ -1362,6 +1125,7 @@ if (produitDb) {
             }
         }
 
+        if (req.body.remise && req.body.remise > 0) vraiTotalReel = vraiTotalReel * (1 - (req.body.remise / 100));
 
         // 🔥 LOGIQUE VIP (SANS CRASH)
         if (req.body.methodePaiement === 'carte_fidelite') {
@@ -1397,15 +1161,8 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
 
         if (doitRestituerStock) {
             for (let art of itemsDuGroupe) {
-                // 🔥 IGNORER LE REMBOURSEMENT DE L'EN-TÊTE DE LA FORMULE
-                if (art.cartId && String(art.cartId).startsWith('COMBO_') && !String(art.cartId).includes('CHILD')) {
-                    continue; 
-                }
-
                 let nomPropre = art.nom || "";
-                if (nomPropre.startsWith('+ ') || nomPropre.startsWith('↳ ')) {
-                    nomPropre = nomPropre.substring(2).trim();
-                }
+                if (nomPropre.startsWith('+ ')) nomPropre = nomPropre.substring(2).trim();
 
                 const idRecherche = art.baseId || art.id;
                 let conditions = [];
@@ -1416,13 +1173,14 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
                 if (!produitDb) produitDb = await Product.findOne({ cafeId: req.cafeId, nom: nomPropre.split('(')[0].trim() });
 
                 if (produitDb) {
-                    // SI C'EST UN SUPPLÉMENT
+                    // SI C'EST UN SUPPLÉMENT (Il a un parentId)
                     if (art.isSupplement && art.parentId) {
                         const configSupp = produitDb.supplements?.find(s => s.nom === nomPropre);
                         if (configSupp && configSupp.ingredientId) {
                             const qIng = !isNaN(configSupp.ingredientId) ? { id: Number(configSupp.ingredientId) } : { _id: configSupp.ingredientId };
                             const ingDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
                             if (ingDb) {
+                                // Conversion pour 1 seule unité
                                 const qteARendre = calculerQuantiteDestockage((configSupp.quantiteADeduire || 0) * 1, configSupp.unite || 'g', ingDb.unite || 'g');
                                 await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
                             }
@@ -1434,19 +1192,15 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
                             const qIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
                             const ingDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
                             if (ingDb) {
+                                // Conversion pour 1 seule unité
                                 const qteARendre = calculerQuantiteDestockage((comp.quantity || 0) * 1, comp.unit || 'g', ingDb.unite || 'g');
                                 await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
                             }
                         }
                     } 
-                    // SI C'EST UN PRODUIT SIMPLE
+                    // SI C'EST UN PRODUIT SIMPLE (Ex: Canette)
                     else {
                         await Product.findOneAndUpdate({ cafeId: req.cafeId, _id: produitDb._id }, { $inc: { stock: 1 } });
-                    }
-
-                    // 🔥 RESTITUTION DE LA VENTE FLASH (Si elle était active)
-                    if (produitDb.venteFlash && produitDb.venteFlash.actif) {
-                        await Product.findOneAndUpdate({ cafeId: req.cafeId, _id: produitDb._id }, { $inc: { "venteFlash.quantiteRestante": 1 } });
                     }
                 }
             }
@@ -1459,7 +1213,7 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
             }
         }
 
-        // Nettoyage des articles tombés à zéro
+        // Nettoyage
         commande.articles = commande.articles.filter(a => a.quantite > 0);
         
         if (commande.articles.length === 0) {

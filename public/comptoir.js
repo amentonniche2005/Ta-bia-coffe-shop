@@ -153,7 +153,6 @@ async function appliquerBranding() {
 
 // Lancer la fonction au chargement de la page
 window.onload = appliquerBranding;
-
 function afficherColonne(containerId, commandes, type) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -236,17 +235,12 @@ container.innerHTML = commandesFiltrees.map(cmd => {
                 <div class="item-name" style="font-weight:bold;">${a.nom} ${a.variante ? `<span style="display:block; font-size:0.8rem; color:#e67e22; font-weight:bold;">↳ ${a.variante}</span>` : ''}</div>
             </li>`;
             
-const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
+            const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
             mesSupps.forEach(supp => {
-                // 🔥 LOGIQUE VISUELLE : Différencier un vrai Supplément d'un élément de Formule (Combo)
-                const estCombo = supp.nom.startsWith('↳');
-                const textAffiche = estCombo ? supp.nom : `Supp: ${supp.nom.replace('+ ', '')}`;
-                const iconAffiche = estCombo ? 'fa-arrow-right' : 'fa-plus-circle';
-                
                 html += `
                 <li class="item-row" style="margin-bottom: 2px; padding-left: 20px; opacity: 0.9;">
                     <div class="item-qty" style="visibility:hidden;">-</div>
-                    <div class="item-name" style="font-size:0.85rem; color:#d35400; font-weight:bold;"><i class="fas ${iconAffiche}" style="font-size:0.7rem;"></i> ${textAffiche}</div>
+                    <div class="item-name" style="font-size:0.85rem; color:#d35400; font-weight:bold;"><i class="fas fa-plus-circle" style="font-size:0.7rem;"></i> Supp: ${supp.nom.replace('+ ', '')}</div>
                 </li>`;
             });
             return html;
@@ -310,15 +304,11 @@ function voirDetails(id) {
                 </div>
             </div>`;
         
-const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
+        const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
         mesSupps.forEach(supp => {
-            const estCombo = supp.nom.startsWith('↳');
-            const textAffiche = estCombo ? supp.nom : `Supp: ${supp.nom.replace('+ ', '')}`;
-            const iconAffiche = estCombo ? 'fa-arrow-right' : 'fa-plus-circle';
-
             htmlDetail += `
             <div style="display:flex; align-items: center; margin-bottom:0.6rem; margin-left:45px; font-weight:800; font-size: 0.95rem; color:#d35400;">
-                <i class="fas ${iconAffiche}" style="margin-right:5px; font-size:0.8rem;"></i> ${textAffiche}
+                <i class="fas fa-plus-circle" style="margin-right:5px; font-size:0.8rem;"></i> Supp: ${supp.nom.replace('+ ', '')}
             </div>`;
         });
         return htmlDetail;
@@ -604,14 +594,11 @@ window.imprimerTicket = function(id) {
         </div>
         ${a.variante ? `<div style="font-family: 'Courier New', Courier, monospace; font-size: 12px; margin-left: 15px; margin-bottom: 4px;">> ${a.variante}</div>` : ''}`;
         
-const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
+        const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
         mesSupps.forEach(supp => {
-            const estCombo = supp.nom.startsWith('↳');
-            const prefixe = estCombo ? '' : '+ ';
-            
             articlesHTML += `
             <div style="display: flex; justify-content: space-between; font-family: 'Courier New', Courier, monospace; font-size: 12px; font-weight: bold; margin-bottom: 4px; padding-left: 20px; color: #555;">
-                <div style="flex: 1;">${prefixe}${supp.nom.replace('+ ', '').toUpperCase()}</div>
+                <div style="flex: 1;">+ ${supp.nom.replace('+ ', '').toUpperCase()}</div>
             </div>`;
         });
     });

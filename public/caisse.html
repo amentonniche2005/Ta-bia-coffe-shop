@@ -924,33 +924,33 @@ window.ouvrirVenteDirecte = function() {
     selectionnerTable(key);
 };
     function selectionnerTable(tableNum) { currentTable = String(tableNum); afficherTicket(); afficherListeTables(); }
-window.saasModules = {};
-window.listeCombos = [];
-
 async function appliquerBranding() {
     try {
+        // 1. On récupère les réglages depuis ton API /api/branding
         const response = await fetch('/api/branding');
         const config = await response.json();
 
         if (config) {
+            // 2. Mise à jour du Nom du café
             document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
-            document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
-            if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
-            if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); afficherListeTables(); }
-            window.CODE_SERVEUR = config.codeServeur || "00000";
 
-            // 🔥 LECTURE DES DROITS SAAS
-            window.saasModules = config.modules || {};
-            
-            // Si le Menu Builder est activé, on charge les formules
-            if (window.saasModules.formules) {
-                try {
-                    const resC = await fetchSecurise('/api/combos');
-                    if (resC.ok) window.listeCombos = await resC.json();
-                } catch(e){}
+            // 3. Mise à jour du Slogan (Coffee Shop, Bar, etc.)
+            document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
+
+            // 4. Mise à jour du Logo
+            if (config.logoUrl) {
+                document.getElementById('dynamicLogo').src = config.logoUrl;
             }
+            if (config.nombreTables) { 
+                NB_TABLES_MAX = parseInt(config.nombreTables); 
+                afficherListeTables(); 
+            }
+
+
         }
-    } catch (error) { console.error("Erreur branding:", error); }
+    } catch (error) {
+        console.error("Erreur lors du chargement du branding:", error);
+    }
 }
 
 // Lancer la fonction au chargement de la page
@@ -1128,8 +1128,7 @@ window.afficherTicket = function() {
     }
     
     let totalArts = 0, html = '';
-// 🔥 CORRECTION : On utilise !a.parentId pour trouver les vrais plats / menus
-    const platsPrincipaux = ticket.articles.filter(a => !a.parentId);
+    const platsPrincipaux = ticket.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
     
     platsPrincipaux.forEach((item) => {
         const prix = parseFloat(item.prix) || 0; 
@@ -1145,7 +1144,7 @@ window.afficherTicket = function() {
         let lockIcon = '';
         let zoneAction = ''; 
 
-        // BOUTON POUBELLE
+        // 🔥 BOUTON POUBELLE (Avec stopPropagation et groupId)
         const btnTrash = `
             <button onclick="event.stopPropagation(); modifierQuantite('${currentTable}', '${item.id}', ${varianteVar}, -1, ${envoyeVar}, ${groupId})" 
                     style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:1.2rem; margin-right:15px; display:flex; align-items:center;" 
@@ -1173,8 +1172,7 @@ window.afficherTicket = function() {
             zoneAction = `<div style="display:flex; align-items:center;">${btnTrash} <span style="font-weight:900; font-size:1.1rem; color:#166534; margin-left:10px;">${qte}x</span></div>`;
         }
 
-        // 🔥 CORRECTION : On groupe tout ce qui appartient au parent
-        const mesSupps = ticket.articles.filter(s => s.parentId === item.uniqueGroupId);
+        const mesSupps = ticket.articles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === item.uniqueGroupId);
 
         html += `<div class="ticket-item" style="border-bottom: ${mesSupps.length > 0 ? 'none' : '1px solid #f1f5f9'};">
                     <div class="item-info">
@@ -1189,16 +1187,12 @@ window.afficherTicket = function() {
 
         mesSupps.forEach(supp => {
             const suppTotal = (parseFloat(supp.prix) * supp.quantite).toFixed(2);
-            // Affichage élégant selon si c'est un extra (+) ou un menu (↳)
-            const textAffiche = supp.nom.startsWith('↳') ? supp.nom : `+ ${supp.nom.replace('+ ', '')}`;
-            const prixAffiche = supp.prix > 0 ? `+${suppTotal}` : `Inclus`;
-
             html += `<div class="ticket-item" style="padding-left: 25px; font-size: 0.9rem; color: var(--text-muted); border-bottom: none; padding-top: 4px; padding-bottom: 4px;">
                         <div class="item-info">
-                            <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(textAffiche)}</div>
+                            <div class="item-name"><i class="fas fa-level-up-alt fa-rotate-90" style="margin-right:5px; color:#cbd5e1;"></i> ${escapeHtml(supp.nom.replace('+ ', ''))}</div>
                         </div>
                         <div class="item-actions">
-                            <div class="item-total-price" style="font-size: 0.9rem;">${prixAffiche}</div>
+                            <div class="item-total-price" style="font-size: 0.9rem;">+${suppTotal}</div>
                         </div>
                      </div>`;
         });
@@ -1212,48 +1206,28 @@ window.afficherTicket = function() {
 }
 
 function renderCategories() {
-    const container = document.getElementById('categoriesContainer');
-    const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", sandwish: "🥪 Sandwiches",chicha: "💨 Chichas",Ma9loub: "🌮 ma9loub",Pizza: "🍕 Pizza",BagetteFarci: "🥖 Bagette Farci",Tacos: "🌯 Tacos",Burger: "🍔 Burger",Crepes: "🦪Crepes",plats: "🍽 Plats",Pasta: "🍝 Pasta",Libanai: "🌯 Libanai" }; 
-    const cats = new Set(); 
-    
-    produits.forEach(p => { 
-        if(p.categorie && p.categorie !== 'supplement' && p.categorie !== 'matiere') cats.add(p.categorie); 
-    });
-    
-    let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
-    
-    // 🔥 INJECTION SAAS : Onglet Formules
-    if (window.saasModules && window.saasModules.formules && window.listeCombos && window.listeCombos.length > 0) {
-        html += `<button type="button" class="cat-btn ${activeCategory === 'formules' ? 'active' : ''}" data-cat="formules" style="background:${activeCategory === 'formules' ? '#d97706' : '#fef3c7'}; color:${activeCategory === 'formules' ? 'white' : '#d97706'}; border-color:#f59e0b;"><i class="fas fa-star"></i> Formules</button>`;
+        const container = document.getElementById('categoriesContainer');
+        const labels = { cafe: "☕ Cafés", the: "🫖 Thés", boissons: "🍹 Boissons", dessert: "🍰 Desserts", sale: "🥪 Salé", sandwish: "🥪 Sandwiches",chicha: "💨 Chichas",Ma9loub: "🌮 ma9loub",Pizza: "🍕 Pizza",BagetteFarci: "🥖 Bagette Farci",Tacos: "🌯 Tacos",Burger: "🍔 Burger",Crepes: "🦪Crepes",plats: "🍽 Plats",Pasta: "🍝 Pasta",Libanai: "🌯 Libanai" }; 
+        const cats = new Set(); 
+        
+        // 🔥 CORRECTION : On exclut formellement les matières premières et les suppléments des onglets
+        produits.forEach(p => { 
+            if(p.categorie && p.categorie !== 'supplement' && p.categorie !== 'matiere') cats.add(p.categorie); 
+        });
+        
+        let html = `<button type="button" class="cat-btn ${activeCategory === 'all' ? 'active' : ''}" data-cat="all">Tout</button>`;
+        Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });
+        container.innerHTML = html;
+        document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => { activeCategory = btn.dataset.cat; renderCategories(); renderProducts(); }));
     }
-
-    Array.from(cats).forEach(cat => { html += `<button type="button" class="cat-btn ${activeCategory === cat ? 'active' : ''}" data-cat="${cat}">${labels[cat] || cat}</button>`; });
-    container.innerHTML = html;
-    
-    document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => { 
-        activeCategory = btn.dataset.cat; 
-        renderCategories(); 
-        renderProducts(); 
-    }));
-}
 
 function renderProducts() {
     const grid = document.getElementById('productsGrid'); 
     if (!grid) return;
 
-    // 🔥 MOTEUR SAAS : Affichage des Formules
-    if (activeCategory === 'formules') {
-        grid.innerHTML = window.listeCombos.map(c => `
-            <div class="product-card" style="border: 2px solid #f59e0b; background: linear-gradient(135deg, #fffbeb, #fef3c7); height:120px;" onclick="demarrerWizardCombo('${c.id}')">
-                <div style="font-size: 0.75rem; font-weight:900; color:#d97706; margin-bottom:auto;"><i class="fas fa-crown"></i> MENU SPÉCIAL</div>
-                <div class="product-name" style="font-size:1.1rem; margin-top:5px;">${escapeHtml(c.nom)}</div>
-                <div class="product-price" style="color:var(--text-dark); margin-top:5px;">${parseFloat(c.prixFixe).toFixed(2)} DT</div>
-            </div>
-        `).join('');
-        return;
-    }
-
+    // 🔥 CORRECTION : Le catalogue global de la caisse ne doit jamais contenir les matières ni les suppléments
     let produitsVendables = produits.filter(p => p.categorie !== 'supplement' && p.categorie !== 'matiere');
+    
     let filtered = activeCategory === "all" ? produitsVendables : produitsVendables.filter(p => p.categorie === activeCategory);
     
     if (!filtered.length) { 
@@ -1262,79 +1236,54 @@ function renderProducts() {
     }
         
     grid.innerHTML = filtered.map(p => { 
+        // 🔥 CORRECTION ERP : On utilise le stock calculé
         const stockActuel = window.calculerStockReel(p, true);
         const stockColor = stockActuel <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
         
-        // 🔥 LOGIQUE PRIX INTELLIGENTE
+        // LOGIQUE VISUELLE PROMO
         const prixNormal = parseFloat(p.prix || 0).toFixed(2);
-        const prixCalcule = window.getPrixActif(p).toFixed(2);
+        const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
         
-        let affichagePrix = `<span style="font-weight:800;">${prixNormal} DT</span>`;
-        let badgePromo = '';
+        const affichagePrix = (p.prixPromo > 0) 
+            ? `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>`
+            : `<span style="font-weight:800;">${prixNormal} DT</span>`;
 
-        if (p.isHappyHourNow) {
-            affichagePrix = `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#f59e0b; font-weight:900;">${prixCalcule} DT</span>`;
-            badgePromo = `<div style="position:absolute; top:8px; left:8px; background:#f59e0b; color:white; padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:900; z-index:2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"><i class="fas fa-clock"></i> HAPPY HOUR</div>`;
-        } 
-        else if (p.prixPromo && parseFloat(p.prixPromo) > 0) {
-            affichagePrix = `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixCalcule} DT</span>`;
-            badgePromo = `<div style="position:absolute; top:8px; left:8px; background:#e74c3c; color:white; padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:900; z-index:2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">PROMO</div>`;
-        }
-
+        // Si c'est un produit à recette, on met un petit icône visuel
         const iconeRecette = p.isManufactured ? `<i class="fas fa-blender" style="font-size:0.6rem; color:#8b5cf6;"></i> ` : '';
 
-        return `<div class="product-card" data-id="${p.id || p._id}" style="opacity: ${stockActuel <= 0 ? '0.5' : '1'}; position:relative;">
-                    ${badgePromo}
-                    <div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}; margin-top:${badgePromo ? '15px' : '0'};">${iconeRecette}Stock: ${stockActuel}</div>
+        return `<div class="product-card" data-id="${p.id || p._id}" style="opacity: ${stockActuel <= 0 ? '0.5' : '1'};">
+                    <div style="font-size: 0.75rem; font-weight:600; margin-bottom:auto; ${stockColor}">${iconeRecette}Stock: ${stockActuel}</div>
                     <div class="product-name">${escapeHtml(p.nom)}</div>
                     <div class="product-price">${affichagePrix}</div>
                 </div>`; 
     }).join('');
         
+    // --- ACTION AU CLIC SUR UN PRODUIT (Sécurisée ERP) ---
     document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', (e) => { 
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
         
         const idProd = card.dataset.id;
         const produitFull = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
         
+        // 🔥 CORRECTION ERP : On vérifie la rupture selon le stock virtuel
         const stockActuel = window.calculerStockReel(produitFull);
         if (!produitFull || (stockActuel <= 0 && produitFull.stock !== undefined)) {
-            showNotification("❌ Produit en rupture de stock", "var(--danger)");
+            showNotification("❌ Produit en rupture de stock (Vérifiez les ingrédients)", "var(--danger)");
             return;
         }
 
+        // Détection automatique : Est-ce un produit complexe ?
         const aDesVariantes = produitFull.variantes && produitFull.variantes.trim() !== "";
         const aDesSupplements = produitFull.supplements && produitFull.supplements.length > 0;
 
         if (aDesVariantes || aDesSupplements) {
-            produitFull.prixActifCalcule = window.getPrixActif(produitFull);
-            ouvrirModalOptionsCaisse(produitFull);
+            ouvrirModalOptionsCaisse(produitFull); // Ouvre la fenêtre pour choisir
         } else {
-            ajouterProduitCaisse(produitFull, null, []);
+            ajouterProduitCaisse(produitFull, null, []); // Ajout instantané
+            if(navigator.vibrate) navigator.vibrate(20); // Retour tactile
         }
     }));
 }
-window.getPrixActif = function(p) {
-    let prixFinal = parseFloat(p.prix) || 0;
-    p.isHappyHourNow = false;
-
-    if (p.prixPromo && parseFloat(p.prixPromo) > 0) prixFinal = parseFloat(p.prixPromo);
-    
-    if (window.saasModules && window.saasModules.happyHour && p.happyHour && p.happyHour.actif) {
-        const now = new Date();
-        const currentTime = now.getHours() * 60 + now.getMinutes();
-        const [hDebut, mDebut] = (p.happyHour.heureDebut || "00:00").split(':').map(Number);
-        const [hFin, mFin] = (p.happyHour.heureFin || "23:59").split(':').map(Number);
-        const timeDebut = hDebut * 60 + mDebut;
-        const timeFin = hFin * 60 + mFin;
-        
-        if (currentTime >= timeDebut && currentTime <= timeFin) {
-            prixFinal = parseFloat(p.happyHour.prix) || prixFinal;
-            p.isHappyHourNow = true;
-        }
-    }
-    return prixFinal;
-};
 window.ouvrirModalOptionsCaisse = function(produit) {
     produitEnAttenteCaisse = produit;
     
@@ -1476,15 +1425,17 @@ window.validerOptionsCaisse = function() {
 window.ajouterProduitCaisse = function(produit, variante, supplements) {
     const idGroupeUnique = Date.now();
     
-    // 🔥 Sécurité Prix (Intègre le Happy Hour et Promo)
-    const prixInitial = window.getPrixActif(produit);
+    // 🔥 Sécurité Prix Promo
+    const prixInitial = (produit.prixPromo && produit.prixPromo > 0) 
+        ? parseFloat(produit.prixPromo) 
+        : parseFloat(produit.prix);
 
     // 1. Produit Principal
     ajouterAuTicket(currentTable, { 
         id: String(produit.id || produit._id), 
         nom: String(produit.nom), 
         variante: variante, 
-        prix: Number(prixInitial), 
+        prix: Number(prixInitial), // Force le format nombre
         quantite: 1, 
         envoye: false, pret: false, cmdId: null,
         isSupplement: false, uniqueGroupId: idGroupeUnique, parentId: null 
@@ -1506,82 +1457,7 @@ window.ajouterProduitCaisse = function(produit, variante, supplements) {
     
     afficherTicket();
     afficherListeTables();
-
-    // 🔥 3. DÉCLENCHEMENT DE L'UPSELL AUTOMATIQUE SAAS
-    if (window.saasModules.upsell && produit.upsellProduits && produit.upsellProduits.length > 0) {
-        const prodsUpsell = produits.filter(p => produit.upsellProduits.includes(p.nom) || produit.upsellProduits.includes(String(p.id)));
-        if (prodsUpsell.length > 0) {
-            afficherModalUpsell(produit.nom, prodsUpsell, idGroupeUnique);
-        }
-    }
 };
-
-// 🔥 NOUVELLE FONCTION : L'INTERFACE UPSELL CAISSE
-window.afficherModalUpsell = function(nomProduitSource, produitsSuggérés, parentGroupId) {
-    const modaleExistante = document.getElementById('modalUpsellClient');
-    if (modaleExistante) modaleExistante.remove();
-    let htmlUpsell = `
-        <div class="modal-overlay active" id="modalUpsellCaisse">
-            <div class="modal-content" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 2px solid #f59e0b; max-width:400px; text-align:center; padding:2rem;">
-                <h3 style="color:#d97706; font-size:1.4rem; font-weight:900; margin-bottom:10px;">
-                    <i class="fas fa-lightbulb"></i> Suggestion
-                </h3>
-                <p style="color:#92400e; font-weight:600; margin-bottom:20px;">Voulez-vous proposer un accompagnement avec <strong>${escapeHtml(nomProduitSource)}</strong> ?</p>
-                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
-    `;
-
-    produitsSuggérés.forEach(p => {
-        const prix = window.getPrixActif(p).toFixed(2);
-        htmlUpsell += `
-            <button onclick="ajouterAuTicket('${currentTable}', {id:'${p.id||p._id}', nom:'${escapeHtml(p.nom)}', prix:${prix}, quantite:1, envoye:false, isSupplement:false, uniqueGroupId:Date.now(), parentId:null}); document.getElementById('modalUpsellCaisse').remove();" 
-                    style="background:white; border:1px solid #fcd34d; padding:15px; border-radius:12px; font-weight:800; color:#d97706; cursor:pointer; display:flex; justify-content:space-between; box-shadow:0 4px 6px rgba(0,0,0,0.05); font-size:1.1rem;">
-                <span>${escapeHtml(p.nom)}</span>
-                <span>+${prix} DT</span>
-            </button>
-        `;
-    });
-
-    htmlUpsell += `
-                </div>
-                <button onclick="document.getElementById('modalUpsellCaisse').remove();" style="background:transparent; border:none; color:#92400e; font-weight:bold; cursor:pointer; text-decoration:underline;">Non merci</button>
-            </div>
-        </div>
-    `;
-    document.getElementById('containerModalPaiement').innerHTML = htmlUpsell;
-};
-
-// 🔥 NOUVELLE FONCTION : L'INTERFACE UPSELL
-window.afficherModalUpsell = function(nomProduitSource, produitsSuggérés, parentGroupId) {
-    let htmlUpsell = `
-        <div class="modal-overlay active" id="modalUpsellCaisse">
-            <div class="modal-content" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 2px solid #f59e0b; max-width:400px; text-align:center;">
-                <h3 style="color:#d97706; font-size:1.4rem; font-weight:900; margin-bottom:10px;">
-                    <i class="fas fa-lightbulb"></i> Suggestion
-                </h3>
-                <p style="color:#92400e; font-weight:600; margin-bottom:20px;">Voulez-vous proposer un accompagnement avec <strong>${escapeHtml(nomProduitSource)}</strong> ?</p>
-                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
-    `;
-
-    produitsSuggérés.forEach(p => {
-        const prix = window.getPrixActif(p).toFixed(2);
-        // Au clic, on l'ajoute comme un article indépendant mais relié visuellement si on veut
-        htmlUpsell += `
-            <button onclick="ajouterAuTicket('${currentTable}', {id:'${p.id||p._id}', nom:'${escapeHtml(p.nom)}', prix:${prix}, quantite:1, envoye:false, isSupplement:false, uniqueGroupId:Date.now(), parentId:null}); document.getElementById('modalUpsellCaisse').remove();" 
-                    style="background:white; border:1px solid #fcd34d; padding:15px; border-radius:12px; font-weight:800; color:#d97706; cursor:pointer; display:flex; justify-content:space-between; box-shadow:0 4px 6px rgba(0,0,0,0.05); font-size:1.1rem;">
-                <span>${escapeHtml(p.nom)}</span>
-                <span>+${prix} DT</span>
-            </button>
-        `;
-    });
-
-    htmlUpsell += `
-                </div>
-                <button onclick="document.getElementById('modalUpsellCaisse').remove();" style="background:transparent; border:none; color:#92400e; font-weight:bold; cursor:pointer; text-decoration:underline;">Non merci, passer au paiement</button>
-            </div>
-        </div>
-    `;
-    document.getElementById('modalContainer').innerHTML = htmlUpsell;
-};;
     function afficherModalPaiement(ticketArticles, total, isPartial = false, selectedData = null) {
         if (!caisseOuverte) { showNotification("❌ Caisse fermée !", "#ef4444"); return; }
         const container = document.getElementById('containerModalPaiement');
@@ -1691,12 +1567,13 @@ window.afficherModalSelectionArticles = function(articles) {
         const container = document.getElementById('articlesListeSelection');
         articlesDecomposes = [];
         
-const platsPrincipaux = articles.filter(a => !a.parentId);        
-platsPrincipaux.forEach((article) => { 
+        const platsPrincipaux = articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+        
+        platsPrincipaux.forEach((article) => { 
             const articleOriginalIndex = articles.indexOf(article);
-            // 🔥 CORRECTION : Enfants uniquement
-            const sesSupplements = articles.filter(s => s.parentId === article.uniqueGroupId);
+            const sesSupplements = articles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === article.uniqueGroupId);
             
+            // 🔥 NOUVEAU : On vérifie si l'article est encore bloqué en cuisine
             const estBloque = article.envoye && !article.pret && article.cmdId;
             
             for (let i = 0; i < article.quantite; i++) { 
@@ -1706,8 +1583,7 @@ platsPrincipaux.forEach((article) => {
                 
                 sesSupplements.forEach(supp => {
                     prixUnitaireCombinaison += (parseFloat(supp.prix) || 0);
-                    // Nettoyage esthétique
-                    nomsSupplements.push(supp.nom.replace('+ ', '').replace('↳ ', ''));
+                    nomsSupplements.push(supp.nom.replace('+ ', ''));
                     const suppIndex = articles.indexOf(supp);
                     linkedUnitIds.push(`${suppIndex}_${i}`);
                 });
@@ -2224,11 +2100,12 @@ function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomCli
         document.getElementById('printDate').textContent = dateStr; document.getElementById('printNumero').textContent = numTicket; document.getElementById('printTable').textContent = numTable;
         if (nomClient) { document.getElementById('printClientDiv').style.display = 'flex'; document.getElementById('printClient').textContent = nomClient; } else { document.getElementById('printClientDiv').style.display = 'none'; }
         
-// 🔥 LOGIQUE D'IMPRESSION PREMIUM (PARENT-ENFANT)
+        // 🔥 LOGIQUE D'IMPRESSION PREMIUM
+ // 🔥 LOGIQUE D'IMPRESSION PREMIUM (PARENT-ENFANT)
         let htmlArticles = '';
         
-        // 1. Isoler les plats principaux (Pas de parentId)
-        const platsPrincipaux = panierArticles.filter(a => !a.parentId);
+        // 1. Isoler les plats principaux
+        const platsPrincipaux = panierArticles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
         
         platsPrincipaux.forEach(a => {
             const itemTotal = (a.prix * a.quantite).toFixed(3);
@@ -2241,17 +2118,14 @@ function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomCli
                 <span style="width:30%; text-align:right; font-weight:bold;">${itemTotal}</span>
             </div>`;
             
-            // Ses Enfants (Suppléments ou Menu)
-            const mesSupps = panierArticles.filter(s => s.parentId === a.uniqueGroupId);
+            // Ses Suppléments associés
+            const mesSupps = panierArticles.filter(s => (s.isSupplement || (s.nom && s.nom.startsWith('+'))) && s.parentId === a.uniqueGroupId);
             mesSupps.forEach(supp => {
                 const suppTotal = (supp.prix * supp.quantite).toFixed(3);
-                const textAffiche = supp.nom.startsWith('↳') ? supp.nom : `+ ${supp.nom.replace('+ ', '')}`;
-                const prixAffiche = supp.prix > 0 ? suppTotal : 'INCLUS';
-
                 htmlArticles += `
                 <div style="display:flex; justify-content:space-between; margin-bottom:2px; padding-left: 15px;">
-                    <span style="width:70%; font-size:10px; color:#555;">${escapeHtml(textAffiche)}</span>
-                    <span style="width:30%; text-align:right; font-size:10px; color:#555;">${prixAffiche}</span>
+                    <span style="width:70%; font-size:10px; color:#555;">+ ${escapeHtml(supp.nom.replace('+ ', ''))}</span>
+                    <span style="width:30%; text-align:right; font-size:10px; color:#555;">${suppTotal}</span>
                 </div>`;
             });
         });
@@ -2342,152 +2216,6 @@ function afficherCommandesWeb() {
         </div>`;
     }).join('');
 }
-// =========================================================
-// 🔥 MOTEUR MENU BUILDER (ASSISTANT DE FORMULE CAISSE)
-// =========================================================
-window.comboEnCours = null;
-
-window.demarrerWizardCombo = function(comboId) {
-    if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
-
-    const combo = window.listeCombos.find(c => String(c.id) === String(comboId));
-    if(!combo) return;
-    
-    window.comboEnCours = { 
-        comboOrigine: combo,
-        etapeActuelle: 0,
-        selections: [], 
-        idGroupeUnique: Date.now() 
-    };
-    afficherEtapeCombo();
-};
-
-window.afficherEtapeCombo = function() {
-    const c = window.comboEnCours;
-    
-    if (c.etapeActuelle >= c.comboOrigine.etapes.length) {
-        finaliserComboPanier();
-        return;
-    }
-    
-    const etape = c.comboOrigine.etapes[c.etapeActuelle];
-    const prodsDispos = produits.filter(p => p.categorie === etape.categorieCible && p.actif !== false && window.calculerStockReel(p) > 0);
-    
-    // Affichage des choix déjà faits
-    let choixPrecedentsHtml = '';
-    if (c.selections.length > 0) {
-        choixPrecedentsHtml = `<div style="background:#e2e8f0; border-radius:12px; padding:10px; margin-bottom:15px; font-size:0.85rem; color:#475569; text-align:left;">
-            <strong style="color:var(--primary-green);">Sélection en cours :</strong><br>
-            ${c.selections.map(s => `✔️ ${s.nom}`).join('<br>')}
-        </div>`;
-    }
-
-    // Bouton retour
-    const btnRetourHtml = c.etapeActuelle > 0 
-        ? `<button onclick="retourEtapeCombo()" style="background:transparent; border:2px solid var(--text-muted); color:var(--text-muted); font-weight:bold; padding:6px 12px; border-radius:8px; cursor:pointer;"><i class="fas fa-arrow-left"></i> Étape précédente</button>` 
-        : `<div></div>`;
-
-    let html = `
-        <div class="modal-overlay active" id="modalWizardComboCaisse" style="z-index: 3000;">
-            <div class="modal-content" style="max-width:600px; background:#f8fafc; border:2px solid var(--primary-green);">
-                
-                <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    ${btnRetourHtml}
-                    <button class="close-btn" onclick="document.getElementById('modalWizardComboCaisse').remove()">&times;</button>
-                </div>
-                
-                <div style="text-align:center; margin-bottom:15px;">
-                    <h3 style="color:var(--primary-green); font-weight:900; margin:0;"><i class="fas fa-utensils"></i> ${escapeHtml(c.comboOrigine.nom)}</h3>
-                </div>
-
-                ${choixPrecedentsHtml}
-                
-                <div style="background:var(--primary-green); color:white; padding:15px; border-radius:12px; margin-bottom:20px; font-weight:800; text-align:center;">
-                    <div style="font-size:0.8rem; text-transform:uppercase; letter-spacing:2px; margin-bottom:5px;">Étape ${c.etapeActuelle + 1} / ${c.comboOrigine.etapes.length}</div>
-                    <div style="font-size:1.4rem; color:#fcd34d;">${escapeHtml(etape.titre)}</div>
-                </div>
-                
-                <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; max-height:40vh; overflow-y:auto; padding-right:5px; padding-bottom:10px;">
-    `;
-    
-    if (prodsDispos.length === 0) {
-        html += `<div style="grid-column: 1/-1; text-align:center; padding:20px; color:var(--danger); font-weight:bold;">Aucun produit disponible en stock pour cette étape.</div>`;
-    } else {
-        prodsDispos.forEach(p => {
-            html += `
-                <button onclick="choisirItemCombo('${p.id||p._id}', '${escapeHtml(p.nom)}'); document.getElementById('modalWizardComboCaisse').remove();" 
-                        style="background:white; border:2px solid #e2e8f0; border-radius:16px; padding:20px 10px; cursor:pointer; font-weight:bold; color:var(--text-dark); box-shadow:0 4px 6px rgba(0,0,0,0.05); transition:all 0.2s;"
-                        onmouseover="this.style.borderColor='var(--primary-green)'; this.style.transform='scale(1.03)';"
-                        onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='scale(1)';">
-                    <div style="font-size:1rem;">${escapeHtml(p.nom)}</div>
-                </button>
-            `;
-        });
-    }
-    
-    html += `</div></div></div>`;
-    document.getElementById('containerModalPaiement').innerHTML = html;
-};
-
-// 🔥 NOUVELLE FONCTION : Permet de revenir en arrière dans la formule
-window.retourEtapeCombo = function() {
-    if (window.comboEnCours && window.comboEnCours.etapeActuelle > 0) {
-        window.comboEnCours.etapeActuelle--;
-        window.comboEnCours.selections.pop(); // Retire le dernier choix
-        afficherEtapeCombo();
-    }
-};
-
-window.choisirItemCombo = function(produitId, produitNom) {
-    window.comboEnCours.selections.push({ id: produitId, nom: produitNom });
-    window.comboEnCours.etapeActuelle++;
-    afficherEtapeCombo();
-};
-
-window.finaliserComboPanier = function() {
-    const c = window.comboEnCours;
-    
-    // 1. L'En-tête du Menu (C'est lui qui porte le prix fixe et n'a pas de stock !)
-    const itemMenu = {
-        cartId: `COMBO_${c.idGroupeUnique}`,
-        id: c.comboOrigine.id, baseId: c.comboOrigine.id,
-        nom: `🌟 ${c.comboOrigine.nom}`, variante: null,
-        prix: Number(c.comboOrigine.prixFixe), quantite: 1,
-        isSupplement: false, uniqueGroupId: c.idGroupeUnique, parentId: null,
-        envoye: false, pret: false
-    };
-    
-    // Ajout selon l'environnement (Client = panier.push / Caisse = ajouterAuTicket)
-    if (typeof panier !== 'undefined') panier.push(itemMenu);
-    else ajouterAuTicket(currentTable, itemMenu, false, false);
-
-    // 2. Les produits choisis (Prix à 0)
-    c.selections.forEach((sel, idx) => {
-        const itemEnfant = {
-            cartId: `COMBO_CHILD_${c.idGroupeUnique}_${idx}`,
-            id: sel.id, baseId: sel.id,
-            nom: `↳ ${sel.nom}`, variante: null,
-            prix: 0, quantite: 1, 
-            isSupplement: false, // 🔥 CORRECTION VITALE : C'est un vrai produit pour le backend !
-            uniqueGroupId: Date.now() + Math.random(),
-            parentId: c.idGroupeUnique,
-            envoye: false, pret: false
-        };
-        if (typeof panier !== 'undefined') panier.push(itemEnfant);
-        else ajouterAuTicket(currentTable, itemEnfant, false, false);
-    });
-
-    window.comboEnCours = null;
-    
-    // Refresh selon l'environnement
-    if (typeof sauvegarderPanier === 'function') {
-        sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier(); animerBoutonPanier();
-        if(navigator.vibrate) navigator.vibrate([50, 100, 50]);
-        afficherNotification("Menu ajouté au panier !", "success");
-    } else {
-        afficherTicket(); afficherListeTables(); sauvegarderTousLesTickets();
-    }
-};
     window.marquerWebServie = async function(id) { try { await fetchSecurise(`/api/commandes/${id}/statut`, { method: 'PUT', body: JSON.stringify({statut: 'paye'}) }); await chargerCommandesCuisineInitiales(); afficherCommandesWeb(); } catch(e) {} }
 
 document.addEventListener("DOMContentLoaded", async () => {

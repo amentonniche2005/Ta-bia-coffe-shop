@@ -169,44 +169,39 @@ const categoryLabels = {
      'Libanai': '🌯 Libanai'
 };
 // ========== CHARGEMENT ==========
-
-// 🔥 BOUCLIER ANTI-BLOCAGE (Indestructible)
-// Quoi qu'il arrive, s'il y a un bug ou un réseau lent, le splash screen disparaît après 3 secondes.
-setTimeout(() => {
-    const splash = document.getElementById('splash-screen') || document.querySelector('.splash-screen') || document.getElementById('splashScreen');
-    if (splash) {
-        splash.style.transition = "opacity 0.5s ease";
-        splash.style.opacity = "0";
-        splash.style.pointerEvents = "none";
-        setTimeout(() => { splash.style.display = 'none'; }, 500);
-    }
-}, 3000);
-
 document.addEventListener("DOMContentLoaded", async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const tableUrl = urlParams.get('table');
-    const authUrl = urlParams.get('auth') || urlParams.get('AUTH');
+    const authUrl = urlParams.get('auth') || urlParams.get('AUTH'); // Accepte majuscules/minuscules
 
     let doitOuvrirVIPAutomatiquement = false;
     let codeVIP = null;
 
+    // 1. GESTION DU LIEN VIP DIRECT (?auth=1234 sans table)
     if (authUrl && !tableUrl) {
         doitOuvrirVIPAutomatiquement = true;
         codeVIP = authUrl;
+
+        // On stocke le code
         sessionStorage.setItem('tabia_auth_qr', authUrl);
         localStorage.setItem('tabia_auth_qr', authUrl);
+
+        // On nettoie l'URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
+    // 2. GESTION DU SCAN DE TABLE (?table=4)
     if (tableUrl) {
         sessionStorage.setItem('tabia_table_qr', tableUrl);
         if (authUrl) sessionStorage.setItem('tabia_auth_qr', authUrl);
         window.history.replaceState({}, document.title, window.location.pathname);
+        
         setTimeout(() => { 
             if (typeof afficherNotification === 'function') afficherNotification(`📍 Table ${tableUrl} activée`, "success"); 
         }, 5300);
     }
 
+    // 3. VÉRIFICATION DE SÉCURITÉ (GHOST SESSION)
     const storedTable = sessionStorage.getItem('tabia_table_qr');
     const storedAuth = sessionStorage.getItem('tabia_auth_qr');
 
@@ -217,6 +212,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const tables = await resTables.json();
                 const tableData = tables.find(t => parseInt(t.numero) === parseInt(storedTable));
                 const isFidele = sessionStorage.getItem('client_nom_premium');
+                
                 if (!isFidele && tableData && tableData.code !== String(storedAuth)) {
                     sessionStorage.removeItem('tabia_table_qr');
                     sessionStorage.removeItem('tabia_auth_qr');
@@ -227,10 +223,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 4. INITIALISATION NORMALE
     clientId = getClientId();
-    
-    // 🔥 On lance le branding en parallèle, sans bloquer le reste
-    appliquerBranding(); 
-    
     await chargerCatalogue();
     chargerPanier();
     mettreAJourUIPanier();
@@ -244,41 +236,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     initClientSocket();
     configurerEvenements();
 
+    // 5. BOUTON ESPACE CLIENT (Le clic manuel)
     const btnEspace = document.getElementById('btnEspaceClient');
     if (btnEspace) {
         btnEspace.addEventListener('click', () => {
             document.getElementById('clientModal').style.display = 'flex';
+            
+            // On vérifie s'il a un code en mémoire
             const savedCode = sessionStorage.getItem('tabia_auth_qr') || localStorage.getItem('tabia_auth_qr');
+            
             if (savedCode) {
                 document.getElementById('clientLoginCode').value = savedCode;
                 if (typeof window.verifierCodeClient === 'function') window.verifierCodeClient(true);
             } else {
+                // S'il n'a rien, on force l'affichage de la zone pour taper le code
                 document.getElementById('clientLoginSection').style.display = 'block';
                 document.getElementById('clientProfileSection').style.display = 'none';
                 document.getElementById('clientLoginCode').value = "";
             }
         });
 
+        // Affichage du prénom sur le bouton si connu
         if (sessionStorage.getItem('client_nom_premium')) {
             const prenom = sessionStorage.getItem('client_nom_premium').split(' ')[0];
             btnEspace.innerHTML = `<i class="fas fa-crown" style="color:#f1c40f;"></i> ${prenom}`;
         }
     }
 
+    // 6. 🔥 L'OUVERTURE AUTOMATIQUE (Strictement réservé au lien VIP)
     if (doitOuvrirVIPAutomatiquement) {
         setTimeout(() => {
             const modal = document.getElementById('clientModal');
             const inputCode = document.getElementById('clientLoginCode');
+            
             if (modal && inputCode) {
                 modal.style.display = 'flex';
                 inputCode.value = codeVIP;
                 if (typeof window.verifierCodeClient === 'function') {
-                    window.verifierCodeClient(false);
+                    window.verifierCodeClient(false); // Charge la carte VIP visuellement
                 }
             }
-        }, 5300);
+        }, 5300); // Délai exact pour attendre la fin de ton Splash Screen
     }
 
+    // 7. DARK MODE
     const btnDark = document.getElementById('darkModeToggle');
     if (localStorage.getItem('tabia_darkmode') === 'true') {
         document.body.classList.add('dark-mode');
@@ -294,7 +295,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 });
-
 function getClientId() {
     let id = localStorage.getItem('tabia_client_id');
     if (!id) {
@@ -303,51 +303,39 @@ function getClientId() {
     }
     return id;
 }
-
-window.saasModules = {};
-window.listeCombos = [];
-
 async function appliquerBranding() {
     try {
         const response = await fetch('/api/branding');
         const config = await response.json();
 
-        if (config && !config.introuvable) {
-            const elName = document.getElementById('dynamicName');
-            if (elName) elName.innerText = config.nomCafe || "SARBINI";
-            
-            const elSlogan = document.getElementById('dynamicSlogan');
-            if (elSlogan) elSlogan.innerText = config.sloganCafe || "";
-            
-            const elLogo = document.getElementById('dynamicLogo');
-            if (elLogo && config.logoUrl) elLogo.src = config.logoUrl;
-            
-            if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); }
+        if (config) {
+            document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
+            document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
+            if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
+            if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); };
             window.CODE_SERVEUR = config.codeServeur || "00000";
+        }
 
-            window.saasModules = config.modules || {};
-            
-            if (window.saasModules.formules) {
-                try {
-                    const resC = await fetch('/api/combos'); 
-                    if (resC.ok) window.listeCombos = await resC.json();
-                } catch(e){}
+        // ⏳ LA PAUSE DE 3 SECONDES EST ICI
+        setTimeout(() => {
+            const splash = document.getElementById('splash-screen');
+            if (splash) {
+                splash.classList.add('splash-hidden'); // Démarre le fondu
+                
+                setTimeout(() => {
+                    splash.style.display = 'none'; // Supprime après le fondu
+                }, 800);
             }
-        }
+        }, 2000); 
+
     } catch (error) {
-        console.error("Erreur branding:", error);
-    } finally {
-        // Enlève l'écran de chargement doucement si tout a été chargé vite
-        const splash = document.getElementById('splash-screen') || document.querySelector('.splash-screen') || document.getElementById('splashScreen');
-        if (splash) {
-            splash.style.transition = "opacity 0.8s ease";
-            splash.style.opacity = "0";
-            splash.style.pointerEvents = "none";
-            setTimeout(() => { splash.style.display = 'none'; }, 800);
-        }
+        console.error("Erreur lors du chargement du branding:", error);
+        const splash = document.getElementById('splash-screen');
+        if (splash) splash.style.display = 'none';
     }
 }
 
+window.onload = appliquerBranding;
 // ========== FETCH API STOCK ==========
 async function chargerCatalogue() {
     try {
@@ -377,16 +365,10 @@ function genererCategoriesDynamiques() {
     // 🔥 CORRECTION : On exclut formellement les catégories 'supplement' ET 'matiere'
     const categoriesUniques = [...new Set(produits.map(p => p.categorie).filter(cat => cat && cat !== 'supplement' && cat !== 'matiere'))];
     
-    let html = `<button class="category-btn ${categorieActuelle === 'all' ? 'active' : ''}" data-category="all">🍽️ Tout</button>`;
-    
-    // 🔥 INJECTION SAAS : Afficher l'onglet Formules en premier si actif
-    if (window.saasModules && window.saasModules.formules && window.listeCombos && window.listeCombos.length > 0) {
-        html += `<button class="category-btn ${categorieActuelle === 'formules' ? 'active' : ''}" data-category="formules" style="color:#d97706; border-color:#f59e0b;"><i class="fas fa-star"></i> Formules</button>`;
-    }
-
+    let html = `<button class="category-btn active" data-category="all">🍽️ Tout</button>`;
     categoriesUniques.forEach(cat => {
         const label = categoryLabels[cat] || cat; 
-        html += `<button class="category-btn ${categorieActuelle === cat ? 'active' : ''}" data-category="${cat}">${label}</button>`;
+        html += `<button class="category-btn" data-category="${cat}">${label}</button>`;
     });
     
     container.innerHTML = html;
@@ -395,25 +377,7 @@ function genererCategoriesDynamiques() {
 function afficherProduits() {
     const grille = document.getElementById("menuGrid");
     if (!grille) return;
-    // 🔥 MOTEUR SAAS : Affichage spécial pour les Formules
-    if (categorieActuelle === 'formules') {
-        if (!window.listeCombos || window.listeCombos.length === 0) {
-            grille.innerHTML = "<p class='empty-message' style='grid-column: 1/-1; text-align:center;'>Aucune formule disponible.</p>";
-            return;
-        }
-        
-        grille.innerHTML = window.listeCombos.map(c => `
-            <div class="menu-item" style="border: 2px solid #f59e0b; background: linear-gradient(135deg, #fffbeb, #fef3c7);" onclick="demarrerWizardCombo('${c.id}')">
-                <div class="item-info" style="width:100%; text-align:center; padding: 20px;">
-                    <div style="font-size: 0.8rem; font-weight:900; color:#d97706; margin-bottom:5px;"><i class="fas fa-crown"></i> MENU SPÉCIAL</div>
-                    <h3 style="font-size:1.4rem; margin-bottom: 10px;">${escapeHtml(c.nom)}</h3>
-                    <div class="price" style="font-size: 1.5rem; justify-content:center; color: #b45309;">${parseFloat(c.prixFixe).toFixed(2)} DT</div>
-                    <button class="add-to-cart" style="width:100%; margin-top:15px; background:#f59e0b; color:white; justify-content:center;">Composer le menu <i class="fas fa-arrow-right"></i></button>
-                </div>
-            </div>
-        `).join('');
-        return; // On arrête la fonction ici car ce ne sont pas des produits normaux
-    }
+
     // 🔥 CORRECTION SÉCURISÉE : On crée une liste propre des produits VENDABLES uniquement
     let produitsVendables = produits.filter(p => p.categorie !== 'supplement' && p.categorie !== 'matiere');
     
@@ -432,53 +396,30 @@ function afficherProduits() {
         return;
     }
 
-// Le tri est déjà fait avant (produitsTries)
     grille.innerHTML = produitsTries.map(p => {
-        // 1. Calcul du stock réel (Physique/Recette ET Vente Flash)
-        let stockRestant = window.calculerStockReel(p);
-        let estEpuise = stockRestant <= 0 && p.stock !== undefined;
-        let badgeSaas = '';
-
-        // ⚡ LOGIQUE VENTE FLASH (Prioritaire)
-        if (window.saasModules?.ventesFlash && p.venteFlash && p.venteFlash.actif) {
-            if (p.venteFlash.quantiteRestante <= 0) {
-                estEpuise = true;
-                badgeSaas = `<div style="position:absolute; top:8px; right:8px; background:#475569; color:white; padding:4px 10px; border-radius:8px; font-size:0.7rem; font-weight:900; z-index:2;"><i class="fas fa-times-circle"></i> FLASH TERMINÉ</div>`;
-            } else {
-                // On limite l'achat au plus petit des deux (stock physique vs stock flash)
-                stockRestant = Math.min(stockRestant, p.venteFlash.quantiteRestante);
-                badgeSaas = `<div style="position:absolute; top:8px; right:8px; background:#f59e0b; color:white; padding:4px 10px; border-radius:8px; font-size:0.7rem; font-weight:900; z-index:2; box-shadow: 0 0 10px rgba(245,158,11,0.5); animation: pulse 1.5s infinite;"><i class="fas fa-bolt"></i> VITE ! Reste ${p.venteFlash.quantiteRestante}</div>`;
-            }
-        }
-
-        // 🕒 LOGIQUE PRIX (Promo & Happy Hour)
-        const prixNormal = parseFloat(p.prix || 0).toFixed(2);
-        const prixCalcule = window.getPrixActif ? window.getPrixActif(p) : parseFloat(p.prixPromo || p.prix);
-        let affichagePrix = `<span>${prixNormal} DT</span>`;
-
-        if (p.isHappyHourNow) {
-            affichagePrix = `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${prixNormal}</s> <span style="color:#f59e0b; font-weight:900;">${prixCalcule.toFixed(2)} DT</span>`;
-            if (!badgeSaas) badgeSaas = `<div style="position:absolute; top:8px; left:8px; background:#f59e0b; color:white; padding:3px 10px; border-radius:8px; font-size:0.7rem; font-weight:900; z-index:2;"><i class="fas fa-clock"></i> HAPPY HOUR</div>`;
-        } else if (p.prixPromo > 0) {
-            affichagePrix = `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixCalcule.toFixed(2)} DT</span>`;
-            if (!badgeSaas) badgeSaas = `<div style="position:absolute; top:8px; left:8px; background:#e74c3c; color:white; padding:3px 10px; border-radius:8px; font-size:0.7rem; font-weight:900; z-index:2;">PROMO</div>`;
-        }
-
-        // 🍕 LOGIQUE MOITIÉ/MOITIÉ
-        if (window.saasModules?.moitieMoitie && p.isMoitieMoitieAllowed) {
-            affichagePrix += `<div style="font-size:0.7rem; color:#8b5cf6; font-weight:bold; margin-top:3px;"><i class="fas fa-adjust"></i> Dispo en Moitié/Moitié</div>`;
-        }
-
-        const bouton = estEpuise 
-            ? `<button class="add-to-cart disabled" disabled style="background:#94a3b8; cursor:not-allowed;">Épuisé</button>`
-            : `<button class="add-to-cart" onclick="gererClicAjout(event, '${p.id || p._id}')" ${p.venteFlash?.actif ? 'style="background:#f59e0b;"' : ''}>Ajouter <i class="fas fa-plus"></i></button>`;            
+        // Vérification de la rupture virtuelle
+        const stockActuel = window.calculerStockReel(p);
+        const rupture = stockActuel <= 0 && p.stock !== undefined;
+        
+        const classeRupture = rupture ? 'sold-out' : '';
+        const bouton = rupture 
+            ? `<button class="add-to-cart disabled" disabled>Épuisé</button>`
+            : `<button class="add-to-cart" onclick="gererClicAjout(event, '${p.id || p._id}')">Ajouter <i class="fas fa-plus"></i></button>`;            
         
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
+        
+        // Logique Prix & Promo
+        const prixNormal = parseFloat(p.prix || 0).toFixed(2);
+        const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
+        
+        const affichagePrix = (p.prixPromo && p.prixPromo > 0) 
+            ? `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${prixNormal} DT</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>` 
+            : `<span>${prixNormal} DT</span>`;
 
         return `
-            <div class="menu-item ${estEpuise ? 'sold-out' : ''}">
-                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center; position:relative;">
-                    ${badgeSaas}
+            <div class="menu-item ${classeRupture}">
+                <div class="item-image" style="background-image: url('${imgSrc}'); background-size: cover; background-position: center;">
+                    ${p.prixPromo > 0 ? `<div style="position:absolute; top:8px; left:8px; background:#e74c3c; color:white; padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:900; z-index:2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">PROMO</div>` : ''}
                 </div>
                 <div class="item-info">
                     <div>
@@ -494,11 +435,12 @@ function afficherProduits() {
 // ========== GESTION DES VARIANTES & SUPPLÉMENTS (PREMIUM) ==========
 
 let prixBaseEnAttente = 0;
-let produitEnAttenteOption = null;
 
-window.gererClicAjout = function(event, id) {
+// ✅ LA NOUVELLE FONCTION PROPRE :
+function gererClicAjout(event, id) {
     const produit = produits.find(p => String(p.id) === String(id) || String(p._id) === String(id));
     
+    // 🔥 CORRECTION ERP :
     const stockActuel = window.calculerStockReel(produit);
     if (!produit || (stockActuel <= 0 && produit.stock !== undefined)) return;
 
@@ -511,175 +453,175 @@ window.gererClicAjout = function(event, id) {
         executerAjoutPanier(produit.id || produit._id);
         animerVersPanierClient(event); 
     }
-};
+}
 
-window.ouvrirModalOptions = function(produit) {
+window.ouvrirModalOptions = function(produit, options) {
     produitEnAttenteOption = produit;
+    prixBaseEnAttente = (produit.prixPromo && produit.prixPromo > 0) ? parseFloat(produit.prixPromo) : parseFloat(produit.prix);    
+    document.getElementById("optionsTitle").textContent = produit.nom;
+    document.getElementById("optionPriceDisplay").textContent = `${prixBaseEnAttente.toFixed(2)} DT`;
     
-    // Priorité au prix de la base de données (Calcul intelligent)
-    prixBaseEnAttente = window.getPrixActif ? window.getPrixActif(produit) : (parseFloat(produit.prixPromo) > 0 ? parseFloat(produit.prixPromo) : parseFloat(produit.prix));    
-    
-    // 🧹 Nettoyage strict de l'ancienne modale
-    const existant = document.getElementById('modalOptionsClientDynamique');
-    if (existant) existant.remove();
+    // =========================================================
+    // 1. SECTION VARIANTES (Nouvelle logique Groupes Intelligents)
+    // =========================================================
+    const sectionVar = document.getElementById("sectionVariantes");
+    const containerVar = document.getElementById("optionsList");
 
-    let htmlContent = `
-        <div class="modal active" id="modalOptionsClientDynamique" style="z-index: 4000; align-items: flex-end; padding-bottom: 0;">
-            <div class="modal-content" style="background: #f8fafc; border-top: 4px solid var(--primary-orange, #db800a); width:100%; border-radius: 25px 25px 0 0; padding: 0; box-shadow: 0 -10px 40px rgba(0,0,0,0.15); animation: slideUp 0.3s ease-out; max-height: 90vh; display:flex; flex-direction:column; overflow:hidden;">
-                
-                <div style="display:flex; justify-content:space-between; align-items:center; padding: 20px 20px 15px 20px; background: white; border-bottom: 1px solid #e2e8f0;">
-                    <div>
-                        <h3 style="margin: 0; color: #1e293b; font-size: 1.4rem; font-weight:900;">${escapeHtml(produit.nom)}</h3>
-                        <div style="color: #db800a; font-weight: 800; font-size: 1.1rem; margin-top:4px;">${prixBaseEnAttente.toFixed(2)} DT</div>
-                    </div>
-                    <button onclick="document.getElementById('modalOptionsClientDynamique').remove()" style="background:#f1f5f9; border:none; color:#64748b; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:1.2rem; transition:0.2s;" onmouseover="this.style.background='#e2e8f0'"><i class="fas fa-times"></i></button>
-                </div>
-                
-                <div style="overflow-y: auto; flex:1; padding: 20px;" id="clientModalOptionsScroll">
-    `;
-
-    // --- 1. SECTION VARIANTES ---
     if (produit.variantes && produit.variantes.trim() !== "") {
+        // On découpe la chaîne : "Viande[Poulet, Thon] | Sauces*[Mayo, Ketchup]"
         const groupes = produit.variantes.split('|');
-        htmlContent += groupes.map((groupeStr, gIdx) => {
+        
+        containerVar.innerHTML = groupes.map((groupeStr, gIdx) => {
             const match = groupeStr.match(/(.*)\[(.*)\]/);
-            if (!match) return '';
-            let titre = match[1].replace('*', '').trim();
-            const estMultiple = match[1].includes('*');
+            
+            // Si le gérant a mal tapé, on fait un fallback classique
+            if (!match) {
+                return `<div style="color:red; font-size:0.8rem;">Erreur format : ${groupeStr}</div>`;
+            }
+
+            let titreRaw = match[1].trim();
+            const listeOptions = match[2].split(',');
+            
+            // Détection du mode (Choix Multiple avec l'étoile *)
+            const estMultiple = titreRaw.endsWith('*');
+            const titreAffiche = estMultiple ? titreRaw.replace('*', '') : titreRaw;
+            const typeInput = estMultiple ? 'checkbox' : 'radio';
+
             return `
-                <div class="variant-group" style="margin-bottom:20px; background:white; padding:15px; border-radius:16px; border:1px solid #e2e8f0; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <span style="font-weight:900; font-size:0.95rem; color:#334155; text-transform:uppercase;">${titre} <span style="color:#db800a;">*</span></span>
-                        <span style="font-size:0.7rem; font-weight:bold; color:white; background:${estMultiple ? '#94a3b8' : '#143621'}; padding:3px 10px; border-radius:12px;">${estMultiple ? 'Plusieurs choix' : '1 Seul choix'}</span>
+                <div class="variant-group" style="margin-bottom: 18px;">
+                    <div class="section-header">
+                        <span class="section-title">${titreAffiche}</span>
+                        <span class="section-badge ${estMultiple ? 'optional' : ''}">${estMultiple ? 'Plusieurs choix' : '1 Seul choix'}</span>
                     </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        ${match[2].split(',').map((opt, oIdx) => `
-                            <label style="cursor:pointer; display:block; margin:0;">
-                                <input type="${estMultiple ? 'checkbox' : 'radio'}" name="client_variant_group_${gIdx}" value="${opt.trim()}" style="display:none;" ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
-                                <div class="client-selectable-card" style="padding:12px 8px; text-align:center; font-size:0.95rem; font-weight:700; border: 2px solid #e2e8f0; border-radius:12px; color:#64748b; transition:all 0.2s ease;">
-                                    ${opt.trim()}
+                    <div class="options-grid">
+                        ${listeOptions.map((opt, oIdx) => `
+                            <label style="display:block; cursor:pointer;">
+                                <input type="${typeInput}" 
+                                       name="variant_group_${gIdx}" 
+                                       value="${opt.trim()}" 
+                                       style="display:none;" 
+                                       ${(!estMultiple && oIdx === 0) ? 'checked' : ''}>
+                                <div class="selectable-card">
+                                    <div class="opt-info">
+                                        <i class="fas ${estMultiple ? 'fa-check-square' : 'fa-circle'} opt-check-icon"></i>
+                                        <span>${opt.trim()}</span>
+                                    </div>
                                 </div>
                             </label>
                         `).join('')}
                     </div>
-                </div>`;
+                </div>
+            `;
         }).join('');
+        sectionVar.style.display = "block";
+    } else { 
+        sectionVar.style.display = "none"; 
     }
 
-    // --- 2. SECTION SUPPLÉMENTS ---
+// =========================================================
+    // 2. SECTION SUPPLÉMENTS (Nouvelle logique Promo & Stock ERP)
+    // =========================================================
+    const sectionSupp = document.getElementById("sectionSupplements");
+    const containerSupp = document.getElementById("supplementsList");
+    
     if (produit.supplements && produit.supplements.length > 0) {
-        htmlContent += `
-            <div style="font-weight:900; font-size:0.95rem; color:#334155; text-transform:uppercase; margin:25px 0 12px 0; padding-left:5px;">Extras & Suppléments</div>
-            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;">`;
-            
-        htmlContent += produit.supplements.map(supp => {
+        containerSupp.innerHTML = produit.supplements.map(supp => {
             const ref = produits.find(p => String(p.id) === String(supp.ingredientId || supp.id) || String(p._id) === String(supp.ingredientId || supp.id));
-            let estRupture = false;
+            
+let estRupture = false;
             if (ref) {
                 const stockRestant = window.calculerStockReel(ref, true); 
                 const qteBase = parseFloat(supp.quantiteADeduire) || 0;
+                
+                // 🔥 CORRECTION ERP : On convertit la quantité requise dans l'unité du stock
                 const unitSupp = supp.unite || 'g';
                 const unitStock = ref.unite || 'g';
                 const qteConvertie = window.convertirQuantite(qteBase, unitSupp, unitStock);
+
                 if (stockRestant < qteConvertie) estRupture = true;
             }
-            
+
+            // 🔥 LA CORRECTION : On lit la promo configurée POUR LE SUPPLÉMENT !
             const pNormal = parseFloat(supp.prix || 0);
-            const pPromo = parseFloat(supp.prixPromo || 0); 
-            const prixFinal = pPromo > 0 ? pPromo : pNormal;
+            const pPromo = parseFloat(supp.prixPromo || 0);
+            const prixFinalSupp = pPromo > 0 ? pPromo : pNormal;
 
             const affichagePrixSupp = pPromo > 0 
-                ? `<div style="text-align:right;"><s style="font-size:0.75rem; color:#94a3b8;">+${pNormal.toFixed(2)}</s><br><span style="color:#10b981; font-weight:900;">+${prixFinal.toFixed(2)} DT</span></div>`
-                : `<span style="font-weight:800; color:#10b981;">+ ${pNormal.toFixed(2)} DT</span>`;
+                ? `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">+${pNormal.toFixed(2)}</s> <span style="color:#10b981; font-weight:900;">+${pPromo.toFixed(2)} DT</span>`
+                : `<span class="opt-price">+ ${pNormal.toFixed(2)} DT</span>`;
 
             return `
-                <label style="cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'}; display:block; margin:0;">
-                    <input type="checkbox" name="clientSuppOption" value="${prixFinal}" data-id="${supp.ingredientId || supp.id || ''}" data-nom="${supp.nom}" style="display:none;" ${estRupture ? 'disabled' : ''} onchange="mettreAJourTotalModalClient()">
-                    <div class="client-selectable-card ${estRupture ? 'disabled' : ''}" style="padding:15px; background:white; border:2px solid #e2e8f0; border-radius:16px; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s ease; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
-                        <span style="font-weight:700; color:#334155; font-size:1rem; display:flex; align-items:center;"><i class="fas fa-plus-circle" style="color:#cbd5e1; margin-right:10px; font-size:1.2rem;"></i> ${escapeHtml(supp.nom)}</span>
-                        ${estRupture ? '<span style="color:#ef4444; font-weight:800; font-size:0.8rem; background:#fee2e2; padding:4px 10px; border-radius:8px;">ÉPUISÉ</span>' : affichagePrixSupp}
+                <label style="display:block; cursor: ${estRupture ? 'not-allowed' : 'pointer'}; opacity: ${estRupture ? '0.5' : '1'};">
+                    <input type="checkbox" name="supplementOption" 
+                            value="${prixFinalSupp}" data-id="${supp.ingredientId || supp.id || ''}" data-nom="${supp.nom}" 
+                            style="display:none;" ${estRupture ? 'disabled' : ''} 
+                            onchange="mettreAJourTotalModal()">
+                    <div class="selectable-card ${estRupture ? 'disabled' : ''}">
+                        <div class="opt-info">
+                            <i class="fas fa-plus-circle opt-check-icon"></i>
+                            <span>${escapeHtml(supp.nom)}</span>
+                        </div>
+                        <div class="opt-price-container">
+                            ${estRupture ? '<span class="rupture-txt" style="color:var(--danger); font-weight:800; font-size:0.8rem;">ÉPUISÉ</span>' : affichagePrixSupp}
+                        </div>
                     </div>
-                </label>`;
+                </label>
+            `;
         }).join('');
-        htmlContent += `</div>`;
+        sectionSupp.style.display = "block";
+    } else { 
+        sectionSupp.style.display = "none"; 
     }
 
-    htmlContent += `
-                </div>
-                <div style="padding: 15px 20px; background: white; border-top: 1px solid #e2e8f0;">
-                    <button onclick="validerOptionsClient(event)" style="width:100%; background:#143621; color:white; padding:18px; border-radius:16px; border:none; font-weight:900; font-size:1.1rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 8px 20px rgba(20, 54, 33, 0.25); transition:0.2s;">
-                        <span><i class="fas fa-shopping-bag" style="margin-right:8px;"></i> Ajouter au panier</span>
-                        <span id="clientPrixTotalOptionsBtn" style="background:rgba(255,255,255,0.2); padding:6px 14px; border-radius:10px;">${prixBaseEnAttente.toFixed(2)} DT</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-        <style>
-            input[type="radio"]:checked + .client-selectable-card,
-            input[type="checkbox"]:checked + .client-selectable-card {
-                border-color: #db800a !important; background: #fff7ed !important; color: #db800a !important;
-                box-shadow: 0 4px 12px rgba(219, 128, 10, 0.15) !important;
-            }
-            input[type="checkbox"]:checked + .client-selectable-card i.fa-plus-circle { color: #db800a !important; transform: rotate(90deg); transition: transform 0.3s ease; }
-            @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        </style>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', htmlContent);
+    mettreAJourTotalModal();
+    document.getElementById("optionsModal").style.display = "flex";
 };
 
-window.mettreAJourTotalModalClient = function() {
+// 🔥 NOUVEAU : Calcul dynamique du prix total en bas de la modale
+window.mettreAJourTotalModal = function() {
     let total = prixBaseEnAttente;
-    document.querySelectorAll('input[name="clientSuppOption"]:checked').forEach(box => { total += parseFloat(box.value) || 0; });
-    document.getElementById("clientPrixTotalOptionsBtn").textContent = `${total.toFixed(2)} DT`;
-};
-window.validerOptionsClient = function(event) {
-    if (!produitEnAttenteOption) return;
+    const suppChecked = document.querySelectorAll('input[name="supplementOption"]:checked');
     
-    let choixFinaux = [];
-    document.querySelectorAll('.variant-group').forEach((groupe, idx) => {
-        const coches = groupe.querySelectorAll(`input[name="client_variant_group_${idx}"]:checked`);
-        if (coches.length > 0) {
-            choixFinaux.push(Array.from(coches).map(c => c.value).join('+'));
-        }
-    });
-    
-    let suppsChoisis = [];
-    document.querySelectorAll('input[name="clientSuppOption"]:checked').forEach(box => {
-        suppsChoisis.push({ id: box.getAttribute('data-id'), nom: box.getAttribute('data-nom'), prix: parseFloat(box.value) || 0 });
+    suppChecked.forEach(box => {
+        total += parseFloat(box.value) || 0;
     });
 
-    executerAjoutPanier(produitEnAttenteOption, choixFinaux.join(' / '), suppsChoisis);
-    animerVersPanierClient(event); 
-    document.getElementById("modalOptionsClientDynamique").remove();
-    produitEnAttenteOption = null;
-};
+    document.getElementById("prixTotalOptionsBtn").textContent = `(${total.toFixed(2)} DT)`;
+}
+
 window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsChoisis = []) {
+    // 1. Identification robuste du produit (Objet ou ID)
     let produit = (typeof idOuObjetProduit === 'object' && idOuObjetProduit !== null)
         ? idOuObjetProduit
         : produits.find(p => String(p.id) === String(idOuObjetProduit) || String(p._id) === String(idOuObjetProduit));
 
     if (!produit) return;
 
-    // 🔥 SÉCURITÉ PRIX (Inclut Happy Hour s'il est actif sur le serveur)
-    const prixInitial = window.getPrixActif ? window.getPrixActif(produit) : (parseFloat(produit.prixPromo) > 0 ? parseFloat(produit.prixPromo) : parseFloat(produit.prix));
+    // 2. Calcul mathématique sécurisé du prix (Évite le bug des milliards)
+    const pVente = parseFloat(produit.prix) || 0;
+    const pPromo = parseFloat(produit.prixPromo) || 0;
+    
+    // Si une promo existe et est > 0, on l'utilise, sinon prix normal
+    const prixFinal = (pPromo > 0) ? pPromo : pVente;
+
+    // 3. Création du lien de parenté unique pour lier plats et suppléments
     const idGroupeUnique = Date.now(); 
 
-    // 1. Ajout du plat principal au panier
+    // 4. Ajout du plat principal au panier
     panier.push({ 
         cartId: `MAIN_${idGroupeUnique}`,
         id: String(produit.id || produit._id), 
         baseId: String(produit.id || produit._id),
         nom: String(produit.nom), 
         variante: varForcee ? String(varForcee) : null, 
-        prix: Number(prixInitial),
+        prix: Number(prixFinal), // Force le format nombre
         quantite: 1,
         isSupplement: false,
         uniqueGroupId: idGroupeUnique,
         parentId: null
     });
 
-    // 2. Ajout des suppléments rattachés
+    // 5. Ajout des suppléments rattachés (s'il y en a)
     if (Array.isArray(suppsChoisis) && suppsChoisis.length > 0) {
         suppsChoisis.forEach(supp => {
             panier.push({
@@ -688,7 +630,7 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsC
                 id: String(supp.id), 
                 nom: `+ ${supp.nom}`, 
                 variante: null,
-                prix: Number(parseFloat(supp.prix) || 0),
+                prix: Number(parseFloat(supp.prix) || 0), // Le prix promo du supp est déjà calculé par la modale
                 quantite: 1,
                 isSupplement: true, 
                 parentId: idGroupeUnique 
@@ -696,60 +638,20 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsC
         });
     }
 
+    // 6. Mise à jour de la mémoire et de l'interface
     sauvegarderPanier();
     mettreAJourUIPanier();
-    if (typeof afficherContenuPanier === 'function') afficherContenuPanier();
+    
+    // Rafraîchit visuellement le panier si la modale panier est déjà ouverte
+    if (typeof afficherContenuPanier === 'function') {
+        afficherContenuPanier();
+    }
+    
+    // Fermeture de la modale d'options
     const modal = document.getElementById("optionsModal");
     if(modal) modal.style.display = "none";
     
     playSound('pop'); 
-
-    // 🔥 3. DÉCLENCHEMENT UPSELL AUTOMATIQUE (Si autorisé par le backend)
-    // On suppose que tu envoies l'objet config dans le HTML ou qu'on le lit, mais vu qu'on a le produit...
-    if (produit.upsellProduits && produit.upsellProduits.length > 0) {
-        const prodsUpsell = produits.filter(p => produit.upsellProduits.includes(p.nom) || produit.upsellProduits.includes(String(p.id)));
-        if (prodsUpsell.length > 0) {
-            afficherModalUpsellClient(produit.nom, prodsUpsell);
-        }
-    }
-};
-
-window.afficherModalUpsellClient = function(nomProduitSource, produitsSuggérés) {
-    // 🧹 NETTOYAGE UNIQUE ET PROPRE
-    const existant = document.getElementById('modalUpsellClient');
-    if (existant) existant.remove();
-
-    let htmlUpsell = `
-        <div class="modal active" id="modalUpsellClient" style="z-index: 2000; align-items: flex-end; padding-bottom: 20px;">
-            <div class="modal-content" style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #f59e0b; width:100%; border-radius: 25px; padding: 20px; box-shadow: 0 -10px 40px rgba(245, 158, 11, 0.2); animation: slideUp 0.3s ease-out;">
-                <h3 style="color:#fcd34d; font-size:1.2rem; font-weight:800; margin-bottom:5px; text-align:center;">
-                    <i class="fas fa-fire"></i> Vous aimerez aussi...
-                </h3>
-                <p style="color:#94a3b8; font-size:0.85rem; margin-bottom:15px; text-align:center;">Parfait avec votre <strong>${escapeHtml(nomProduitSource)}</strong> !</p>
-                <div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">
-    `;
-
-    produitsSuggérés.forEach(p => {
-        const prix = window.getPrixActif ? window.getPrixActif(p).toFixed(2) : (p.prixPromo > 0 ? parseFloat(p.prixPromo).toFixed(2) : parseFloat(p.prix).toFixed(2));
-        const img = p.image || 'https://via.placeholder.com/80';
-        htmlUpsell += `
-            <div onclick="executerAjoutPanier('${p.id||p._id}'); document.getElementById('modalUpsellClient').remove(); animerVersPanierClient(event);" 
-                 style="min-width: 120px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 10px; text-align: center; cursor: pointer;">
-                <img src="${img}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px; border: 2px solid #fcd34d;">
-                <div style="color:white; font-size:0.8rem; font-weight:700; margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.nom)}</div>
-                <div style="color:#f59e0b; font-weight:900; font-size:0.9rem;">+${prix} DT</div>
-            </div>
-        `;
-    });
-
-    htmlUpsell += `
-                </div>
-                <button onclick="document.getElementById('modalUpsellClient').remove();" style="width:100%; background:transparent; border:none; color:#cbd5e1; font-weight:600; cursor:pointer; margin-top:10px; padding:10px;">Non merci, passer au panier</button>
-            </div>
-        </div>
-        <style>@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }</style>
-    `;
-    document.body.insertAdjacentHTML('beforeend', htmlUpsell);
 };
 
 function changerQuantite(cartId, delta) {
@@ -854,44 +756,7 @@ function ouvrirFermerPanier() {
 }
 
 function fermerPanier() { document.getElementById("cartModal").style.display = "none"; }
-// 🔥 MOTEUR DE VÉRIFICATION DU CODE PROMO
-window.appliquerCodePromoClient = async function() {
-    const code = document.getElementById('inputCodePromoClient').value.trim();
-    const msgBox = document.getElementById('msgCodePromo');
 
-    if (!code) { msgBox.innerHTML = "<span style='color:var(--danger);'>Veuillez saisir un code.</span>"; return; }
-
-    try {
-        msgBox.innerHTML = "<span style='color:var(--info);'><i class='fas fa-spinner fa-spin'></i> Vérification...</span>";
-        
-        const res = await fetch('/api/promo/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: code }) 
-        });
-
-        const data = await res.json();
-
-        if (res.ok && data.success) {
-            // 🔥 On mémorise la RÈGLE au lieu d'un montant figé
-            window.promoData = {
-                code: data.promo.code,
-                type: data.promo.type,
-                valeur: data.promo.valeur
-            };
-            msgBox.innerHTML = `<span style='color:var(--success);'><i class='fas fa-check-circle'></i> Code appliqué !</span>`;
-            afficherContenuPanier(); 
-            if (navigator.vibrate) navigator.vibrate(50);
-        } else {
-            msgBox.innerHTML = `<span style='color:var(--danger);'><i class='fas fa-times-circle'></i> ${data.error || "Code invalide"}</span>`;
-            window.promoData = null;
-            window.remisePromoActuelle = 0;
-            afficherContenuPanier();
-        }
-    } catch(e) {
-        msgBox.innerHTML = "<span style='color:var(--danger);'>Erreur de connexion.</span>";
-    }
-};
 function afficherContenuPanier() {
     const conteneur = document.getElementById("cartItems");
     const totalElement = document.getElementById("cartTotal");
@@ -917,6 +782,7 @@ function afficherContenuPanier() {
             selectPaiement.value = 'especes';
         }
     }
+    // --- FIN DE L'AJOUT ---
 
     if (panier.length === 0) {
         conteneur.innerHTML = `<div style='padding: 4rem 1rem; text-align: center; color: #94a3b8;'><i class='fas fa-shopping-bag fa-3x'></i><p>Votre panier est vide</p></div>`;
@@ -934,96 +800,52 @@ function afficherContenuPanier() {
     });
 
     // 2. 🔥 LOGIQUE PARENT-ENFANT POUR LE CLIENT
-    // Les plats principaux sont ceux qui N'ONT PAS de parentId
-    const platsPrincipaux = panier.filter(a => !a.parentId);
+    const platsPrincipaux = panier.filter(a => !a.isSupplement);
 
     conteneur.innerHTML = platsPrincipaux.map(mainItem => {
-       // On groupe tout ce qui appartient au parent (Suppléments classiques + Éléments de formules)
-       const enfantsAssocies = panier.filter(s => s.parentId === mainItem.uniqueGroupId);
+        // On cherche les suppléments liés à CE plat spécifique
+        const mesSupplements = panier.filter(s => s.isSupplement && s.parentId === mainItem.uniqueGroupId);
         
+        // Design du plat principal
         let html = `
             <div class="modern-cart-item" style="flex-direction: column; align-items: stretch; padding: 15px; margin-bottom: 12px; background: white; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #f1f5f9;">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <div class="modern-cart-item-info">
                         <h4 style="margin:0; font-size:1.1rem; color:#1e293b; font-weight:800;">
-                            ${mainItem.nom}
-                            ${mainItem.variante ? `<span style="font-size:0.85rem; color:#db800a; font-weight:700; margin-left:6px;">(${mainItem.variante})</span>` : ''}
-                        </h4>
+    ${mainItem.nom}
+    ${mainItem.variante ? `<span style="font-size:0.85rem; color:#db800a; font-weight:700; margin-left:6px;">(${mainItem.variante})</span>` : ''}
+</h4>
                         <div class="modern-cart-item-price" style="color:#db800a; font-weight:bold;">${mainItem.prix.toFixed(2)} DT</div>
                     </div>
                     <div class="modern-qty-control" style="display:flex; align-items:center; background:#f8fafc; border-radius:10px; padding:4px; border: 1px solid #e2e8f0;">
-                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', -1)"><i class="fas fa-minus"></i></button>
+                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', -1)" style="border:none; background:white; width:32px; height:32px; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); color:#64748b;"><i class="fas fa-minus"></i></button>
                         <span class="modern-qty-val" style="width:35px; text-align:center; font-weight:900; color:#1e293b;">${mainItem.quantite}</span>
-                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', 1)"><i class="fas fa-plus"></i></button>
+                        <button class="modern-qty-btn" onclick="changerQuantite('${mainItem.cartId}', 1)" style="border:none; background:white; width:32px; height:32px; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.05); color:#db800a;"><i class="fas fa-plus"></i></button>
                     </div>
                 </div>
         `;
         
-        if (enfantsAssocies.length > 0) {
+        // Design des suppléments (s'il y en a)
+        if (mesSupplements.length > 0) {
             html += `<div style="margin-top: 12px; padding-top: 10px; border-top: 2px dashed #f1f5f9;">`;
-            enfantsAssocies.forEach(enfant => {
-                // Logique visuelle : différencier un composant de menu (↳) d'un extra (+)
-                const estComposantMenu = enfant.nom.startsWith('↳');
-                const icone = estComposantMenu ? 'fa-level-up-alt fa-rotate-90' : 'fa-plus';
-                const nomPropre = enfant.nom.replace('+ ', '').replace('↳ ', '');
-                // N'affiche le prix que s'il est supérieur à 0 (les composants de menu sont à 0)
-                const affichagePrix = enfant.prix > 0 ? `<span style="font-size:0.9rem; font-weight:bold; color:#94a3b8;">+${enfant.prix.toFixed(2)} DT</span>` : '';
-
+            mesSupplements.forEach(supp => {
                 html += `
                     <div style="display:flex; justify-content:space-between; align-items:center; padding-left: 10px; margin-bottom: 6px;">
-                        <span style="font-size:0.9rem; color:#64748b; font-weight:600;"><i class="fas ${icone}" style="font-size:0.7rem; color:#cbd5e1; margin-right:8px;"></i> ${nomPropre}</span>
-                        ${affichagePrix}
+                        <span style="font-size:0.9rem; color:#64748b; font-weight:600;"><i class="fas fa-plus" style="font-size:0.7rem; color:#cbd5e1; margin-right:8px;"></i> ${supp.nom.replace('+ ', '')}</span>
+                        <span style="font-size:0.9rem; font-weight:bold; color:#94a3b8;">+${supp.prix.toFixed(2)} DT</span>
                     </div>
                 `;
             });
             html += `</div>`;
         }
+        
         html += `</div>`;
         return html;
     }).join('');
 
-    // 🔥 CORRECTIF : INJECTION DU CODE PROMO ICI (Quand le panier n'est PAS vide)
-    if (window.saasModules && window.saasModules.promoCodes) {
-        let promoHTML = `
-            <div style="margin-top: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px dashed #cbd5e1;">
-                <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:8px;"><i class="fas fa-ticket-alt text-warning"></i> Code Promo</label>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="inputCodePromoClient" placeholder="Tapez votre code..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #e2e8f0; font-weight:bold; text-transform:uppercase;">
-                    <button onclick="appliquerCodePromoClient()" style="background:var(--warning); color:white; border:none; border-radius:8px; padding:0 15px; font-weight:bold; cursor:pointer;">Appliquer</button>
-                </div>
-                <div id="msgCodePromo" style="font-size:0.8rem; font-weight:bold; margin-top:8px;"></div>
-            </div>
-        `;
-        conteneur.insertAdjacentHTML('beforeend', promoHTML);
-    }
-
-    // 🔥 CALCUL DYNAMIQUE ET SÉCURISÉ DU TOTAL
-    let remiseCalculee = 0;
-    
-    if (window.promoData) {
-        // Recalcul en temps réel basé sur le nouveau total
-        if (window.promoData.type === 'pourcentage') {
-            remiseCalculee = total * (window.promoData.valeur / 100);
-        } else {
-            remiseCalculee = window.promoData.valeur;
-        }
-        
-        // Anti-Total Négatif
-        if (remiseCalculee > total) remiseCalculee = total;
-        
-        let totalFinal = total - remiseCalculee;
-        
-        totalElement.innerHTML = `<s style="font-size:1rem; color:#94a3b8;">${total.toFixed(2)}</s> <span style="color:var(--success); font-weight:900;">${totalFinal.toFixed(2)} DT</span>`;
-        
-        // On expose la valeur pour l'envoi au serveur
-        window.remisePromoActuelle = remiseCalculee; 
-        window.codePromoApplique = window.promoData.code;
-    } else {
-        totalElement.textContent = `${total.toFixed(2)} DT`;
-        window.remisePromoActuelle = 0;
-        window.codePromoApplique = null;
-    }
+    totalElement.textContent = `${total.toFixed(2)} DT`;
 }
+
 // ========== ENVOI COMMANDE ==========
 let clientFideleVerifie = null;
 
@@ -1183,13 +1005,7 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
         let tableFinale = (numTable === 'Emporter') ? 'Emporter' : (parseInt(numTable) || 0);
         
         // 🔥 SÉCURITÉ 2 : Calcul sécurisé du total pour éviter l'erreur NaN qui fait crasher le serveur
-        let totalCommande = panierPropre.reduce((sum, item) => sum + ((parseFloat(item.prix) || 0) * (parseInt(item.quantite) || 1)), 0);
-        
-        // 🔥 APPLICATION DE LA REMISE PROMO
-        if (window.remisePromoActuelle > 0) {
-            totalCommande = totalCommande - window.remisePromoActuelle;
-            if (totalCommande < 0) totalCommande = 0;
-        }
+        const totalCommande = panierPropre.reduce((sum, item) => sum + ((parseFloat(item.prix) || 0) * (parseInt(item.quantite) || 1)), 0);
         
         const methodeElement = document.getElementById('methodePaiementClient');
         const methodeChoisie = methodeElement ? methodeElement.value : 'especes';
@@ -1215,10 +1031,7 @@ window.validerCommande = async function(numTable, clientData, codeSaisi) {
                 codeAuth: String(idFidele), 
                 clientName: String(nomFidele), 
                 total: Number(totalCommande) || 0,
-                methodePaiement: String(methodeChoisie),
-                total: Number(totalCommande) || 0,
-                methodePaiement: String(methodeChoisie),
-                remise: window.remisePromoActuelle || 0,
+                methodePaiement: String(methodeChoisie) 
             })
         });
 
@@ -1557,157 +1370,6 @@ document.getElementById("confirmOptionBtn")?.addEventListener("click", (e) => {
     }
     
 }
-// =========================================================
-// 🔥 MOTEUR MENU BUILDER (ASSISTANT DE FORMULE CLIENT)
-// =========================================================
-window.comboEnCours = null;
-
-window.demarrerWizardCombo = function(comboId) {
-    const combo = window.listeCombos.find(c => String(c.id) === String(comboId));
-    if(!combo) return;
-    
-    window.comboEnCours = { 
-        comboOrigine: combo,
-        etapeActuelle: 0,
-        selections: [], 
-        idGroupeUnique: Date.now() 
-    };
-    afficherEtapeCombo();
-};
-
-window.afficherEtapeCombo = function() {
-    const c = window.comboEnCours;
-    
-    // Si terminé, on finalise
-    if (c.etapeActuelle >= c.comboOrigine.etapes.length) {
-        finaliserComboPanier();
-        return;
-    }
-    
-    const etape = c.comboOrigine.etapes[c.etapeActuelle];
-    const prodsDispos = produits.filter(p => p.categorie === etape.categorieCible && p.actif !== false && window.calculerStockReel(p) > 0);
-    
-    const existant = document.getElementById('modalWizardComboClient');
-    if (existant) existant.remove();
-
-    // Affichage des choix déjà faits
-    let choixPrecedentsHtml = '';
-    if (c.selections.length > 0) {
-        choixPrecedentsHtml = `<div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:10px; margin-bottom:15px; font-size:0.85rem; color:#cbd5e1;">
-            <strong style="color:var(--success);">Votre sélection :</strong><br>
-            ${c.selections.map(s => `✔️ ${s.nom}`).join('<br>')}
-        </div>`;
-    }
-
-    // Bouton retour
-    const btnRetourHtml = c.etapeActuelle > 0 
-        ? `<button onclick="retourEtapeCombo()" style="background:transparent; border:1px solid #cbd5e1; color:#cbd5e1; padding:6px 12px; border-radius:8px; cursor:pointer;"><i class="fas fa-arrow-left"></i> Retour</button>` 
-        : `<div></div>`;
-
-    let html = `
-        <div class="modal active" id="modalWizardComboClient" style="z-index: 3000; align-items: flex-end; padding-bottom: 0;">
-            <div class="modal-content" style="background: linear-gradient(135deg, #1e293b, #0f172a); border-top: 3px solid #f59e0b; width:100%; border-radius: 25px 25px 0 0; padding: 20px; box-shadow: 0 -10px 40px rgba(245, 158, 11, 0.2); animation: slideUp 0.3s ease-out; max-height: 85vh; overflow-y: auto;">
-                
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-                    ${btnRetourHtml}
-                    <button onclick="document.getElementById('modalWizardComboClient').remove()" style="background:rgba(255,255,255,0.1); border:none; color:white; width:30px; height:30px; border-radius:50%; cursor:pointer;"><i class="fas fa-times"></i></button>
-                </div>
-                
-                <div style="text-align:center; margin-bottom:15px;">
-                    <h3 style="color:white; font-size:1.2rem; font-weight:800; margin:0;"><i class="fas fa-utensils text-warning"></i> ${escapeHtml(c.comboOrigine.nom)}</h3>
-                </div>
-
-                ${choixPrecedentsHtml}
-                
-                <div style="background:rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color:#fcd34d; padding:15px; border-radius:12px; margin-bottom:15px; font-weight:800; text-align:center;">
-                    <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">Étape ${c.etapeActuelle + 1} / ${c.comboOrigine.etapes.length}</div>
-                    <div style="font-size:1.3rem;">${escapeHtml(etape.titre)}</div>
-                </div>
-                
-                <div style="display:flex; flex-direction:column; gap:10px; padding-bottom:20px;">
-    `;
-    
-    if (prodsDispos.length === 0) {
-        html += `<div style="text-align:center; padding:20px; color:#f87171; font-weight:bold; background:rgba(244,63,94,0.1); border-radius:12px;">Épuisé pour aujourd'hui !</div>`;
-    } else {
-        prodsDispos.forEach(p => {
-            const img = p.image || 'https://via.placeholder.com/80';
-            html += `
-                <button onclick="choisirItemCombo('${p.id||p._id}', '${escapeHtml(p.nom)}'); document.getElementById('modalWizardComboClient').remove();" 
-                        style="display:flex; align-items:center; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:15px; padding:10px; cursor:pointer; text-align:left; transition:0.2s;">
-                    <img src="${img}" style="width: 50px; height: 50px; border-radius: 10px; object-fit: cover; margin-right:15px; border: 1px solid #475569;">
-                    <div style="flex:1;">
-                        <div style="color:white; font-size:1rem; font-weight:700;">${escapeHtml(p.nom)}</div>
-                    </div>
-                    <i class="fas fa-plus-circle" style="color:#f59e0b; font-size: 1.2rem;"></i>
-                </button>
-            `;
-        });
-    }
-    
-    html += `</div></div></div>`;
-    document.body.insertAdjacentHTML('beforeend', html);
-};
-
-// 🔥 NOUVELLE FONCTION : Permet de revenir en arrière dans la formule
-window.retourEtapeCombo = function() {
-    if (window.comboEnCours && window.comboEnCours.etapeActuelle > 0) {
-        window.comboEnCours.etapeActuelle--;
-        window.comboEnCours.selections.pop(); // Retire le dernier choix
-        afficherEtapeCombo();
-    }
-};
-
-window.choisirItemCombo = function(produitId, produitNom) {
-    window.comboEnCours.selections.push({ id: produitId, nom: produitNom });
-    window.comboEnCours.etapeActuelle++;
-    afficherEtapeCombo();
-};
-
-window.finaliserComboPanier = function() {
-    const c = window.comboEnCours;
-    
-    // 1. L'En-tête du Menu (C'est lui qui porte le prix fixe et n'a pas de stock !)
-    const itemMenu = {
-        cartId: `COMBO_${c.idGroupeUnique}`,
-        id: c.comboOrigine.id, baseId: c.comboOrigine.id,
-        nom: `🌟 ${c.comboOrigine.nom}`, variante: null,
-        prix: Number(c.comboOrigine.prixFixe), quantite: 1,
-        isSupplement: false, uniqueGroupId: c.idGroupeUnique, parentId: null,
-        envoye: false, pret: false
-    };
-    
-    // Ajout selon l'environnement (Client = panier.push / Caisse = ajouterAuTicket)
-    if (typeof panier !== 'undefined') panier.push(itemMenu);
-    else ajouterAuTicket(currentTable, itemMenu, false, false);
-
-    // 2. Les produits choisis (Prix à 0)
-    c.selections.forEach((sel, idx) => {
-        const itemEnfant = {
-            cartId: `COMBO_CHILD_${c.idGroupeUnique}_${idx}`,
-            id: sel.id, baseId: sel.id,
-            nom: `↳ ${sel.nom}`, variante: null,
-            prix: 0, quantite: 1, 
-            isSupplement: false, // 🔥 CORRECTION VITALE : C'est un vrai produit pour le backend !
-            uniqueGroupId: Date.now() + Math.random(),
-            parentId: c.idGroupeUnique,
-            envoye: false, pret: false
-        };
-        if (typeof panier !== 'undefined') panier.push(itemEnfant);
-        else ajouterAuTicket(currentTable, itemEnfant, false, false);
-    });
-
-    window.comboEnCours = null;
-    
-    // Refresh selon l'environnement
-    if (typeof sauvegarderPanier === 'function') {
-        sauvegarderPanier(); mettreAJourUIPanier(); afficherContenuPanier(); animerBoutonPanier();
-        if(navigator.vibrate) navigator.vibrate([50, 100, 50]);
-        afficherNotification("Menu ajouté au panier !", "success");
-    } else {
-        afficherTicket(); afficherListeTables(); sauvegarderTousLesTickets();
-    }
-};
 // ========== ANIMATION FLY TO CART ==========
 function animerVersPanierClient(event) {
     if (!event) return;

@@ -230,7 +230,6 @@ button:hover:not(:disabled) {
             <button class="tab" data-tab="depenses" onclick="ouvrirOnglet('depenses')"><i class="fas fa-wallet"></i> Dépenses</button>
             <button class="tab" data-tab="fidelite" onclick="ouvrirOnglet('fidelite')"><i class="fas fa-star"></i> Clients Fidèles</button>
             <button class="tab" data-tab="analytics" onclick="ouvrirOnglet('analytics')"><i class="fas fa-chart-pie"></i> Graphiques</button>
-            <button class="tab" id="tab-marketing" data-tab="marketing" onclick="ouvrirOnglet('marketing')" style="display:none; color: #d97706; font-weight: 900;"><i class="fas fa-rocket"></i> Croissance & Marketing</button>
         </div>
 
         <div class="panel active" id="panel-stock">
@@ -579,40 +578,6 @@ button:hover:not(:disabled) {
                 
             </div>
         </div>
-        <div class="panel" id="panel-marketing">
-            <div class="toolbar" style="background: linear-gradient(135deg, #d97706, #b45309); color: white;">
-                <div>
-                    <h3 style="font-size:1.4rem; color: #fef3c7;"><i class="fas fa-rocket"></i> Centre de Croissance</h3>
-                    <p style="font-size:0.85rem; color: #fde68a;">Gérez vos codes promos et offres spéciales (Modules activés par l'administration).</p>
-                </div>
-            </div>
-
-            <div id="section-codes-promo" style="display:none;">
-                <div class="toolbar" style="margin-top: 1rem; border-radius: 12px;">
-                    <div><h3 style="color:var(--text-main);"><i class="fas fa-ticket-alt text-warning"></i> Vos Codes Promo</h3></div>
-                    <button class="btn-action btn-warning" onclick="ouvrirModalPromo()"><i class="fas fa-plus"></i> Créer un Code</button>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>Code</th><th>Valeur</th><th>Expiration</th><th>Utilisations</th><th style="text-align:center;">Actions</th></tr></thead>
-                        <tbody id="promoTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="section-formules" style="display:none; margin-top: 2rem;">
-                <div class="toolbar" style="border-radius: 12px;">
-                    <div><h3 style="color:var(--text-main);"><i class="fas fa-hamburger text-success"></i> Menu Builder (Formules)</h3></div>
-                    <button class="btn-action btn-success" onclick="ouvrirModalCombo()"><i class="fas fa-plus"></i> Créer une Formule</button>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>Nom de la Formule</th><th>Prix Fixe</th><th>Étapes</th><th style="text-align:center;">Actions</th></tr></thead>
-                        <tbody id="comboTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div id="modalContainer"></div>
@@ -941,10 +906,7 @@ function afficherStockDOM(produits) {
         const typeBadge = p.isManufactured 
             ? `<span class="badge" style="background:#f3e8ff; color:#7e22ce; font-size:0.7rem;"><i class="fas fa-blender"></i> Assemblage</span>`
             : `<span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.7rem;"><i class="fas fa-box"></i> Matière</span>`;
-        const flashBadge = (p.venteFlash && p.venteFlash.actif)
-            ? `<div style="margin-top:4px;"><span class="badge" style="background:#fffbeb; color:#d97706; border:1px solid #fcd34d; font-size:0.7rem;"><i class="fas fa-bolt"></i> Flash: ${p.venteFlash.quantiteRestante} restants</span></div>`
-            : '';
-            
+
         const seuil = Number(p.seuilAlerte) || 10;
         let badgeClass = stockReel <= 0 ? 'badge-critical' : (stockReel <= seuil ? 'badge-low' : 'badge-normal');
 
@@ -974,39 +936,29 @@ function afficherStockDOM(produits) {
             </tr>`;
     }).join('');
 }
-window.saasModules = {}; // Variable globale pour stocker les droits
-
 async function appliquerBranding() {
     try {
+        // 1. On récupère les réglages depuis ton API /api/branding
         const response = await fetch('/api/branding');
         const config = await response.json();
 
         if (config) {
+            // 2. Mise à jour du Nom du café
             document.getElementById('dynamicName').innerText = config.nomCafe || "SARBINI";
+
+            // 3. Mise à jour du Slogan (Coffee Shop, Bar, etc.)
             document.getElementById('dynamicSlogan').innerText = config.sloganCafe || "";
-            if (config.logoUrl) document.getElementById('dynamicLogo').src = config.logoUrl;
-            if (config.nombreTables) { NB_TABLES_MAX = parseInt(config.nombreTables); };
-            window.CODE_SERVEUR = config.codeServeur || "00000";
 
-            // 🔥 ACTIVATION DYNAMIQUE DES MODULES SAAS
-            window.saasModules = config.modules || {};
-            
-            // Afficher l'onglet Marketing s'il a au moins un module actif
-            if (window.saasModules.promoCodes || window.saasModules.formules) {
-                document.getElementById('tab-marketing').style.display = 'flex';
-                if (window.saasModules.promoCodes) document.getElementById('section-codes-promo').style.display = 'block';
-                if (window.saasModules.formules) document.getElementById('section-formules').style.display = 'block';
+            // 4. Mise à jour du Logo
+            if (config.logoUrl) {
+                document.getElementById('dynamicLogo').src = config.logoUrl;
             }
+
+
         }
-
-        setTimeout(() => {
-            const splash = document.getElementById('splash-screen');
-            if (splash) {
-                splash.classList.add('splash-hidden');
-                setTimeout(() => splash.style.display = 'none', 800);
-            }
-        }, 2000); 
-    } catch (error) { console.error("Erreur branding:", error); }
+    } catch (error) {
+        console.error("Erreur lors du chargement du branding:", error);
+    }
 }
 
 // Lancer la fonction au chargement de la page
@@ -1024,6 +976,7 @@ window.onload = appliquerBranding;
             } catch(e){}
         }
 
+        // --- NOUVEAUX BOUTONS CRUD ---
 function ouvrirModalNouveauProduit() {
     document.getElementById('modalContainer').innerHTML = `
         <div class="modal active">
@@ -1089,69 +1042,31 @@ function ouvrirModalNouveauProduit() {
                     <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" placeholder="0 si pas de promo"></div>
                 </div>
 
-                <div style="display:flex; gap:10px;">
+<div style="display:flex; gap:10px;">
                     <div class="form-group" id="stockInputSection_new" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
                     
-                    <div class="form-group" style="flex:1;"><label>Unité :</label>
-                        <select id="newProdUnite">
-                            <optgroup label="Poids/Vol">
-                                <option value="u">Pièce (u)</option>
-                                <option value="g">Grammes (g)</option>
-                                <option value="kg">Kilos (kg)</option>
-                                <option value="ml">Millilitres (ml)</option>
-                                <option value="cl">cl (Centilitres)</option>
-                                <option value="L">Litres (L)</option>
-                            </optgroup>
-                            <optgroup label="Cuisine">
-                                <option value="portion">Portion</option>
-                                <option value="cac">C. à café</option>
-                                <option value="cas">C. à soupe</option>
-                            </optgroup>
-                        </select>
-                    </div>
+<div class="form-group" style="flex:1;"><label>Unité :</label>
+    <select id="newProdUnite">
+        <optgroup label="Poids/Vol">
+            <option value="u">Pièce (u)</option>
+            <option value="g">Grammes (g)</option>
+            <option value="kg">Kilos (kg)</option>
+            <option value="ml">Millilitres (ml)</option>
+            <option value="cl">cl (Centilitres)</option>
+            <option value="L">Litres (L)</option>
+        </optgroup>
+        <optgroup label="Cuisine">
+            <option value="portion">Portion</option>
+            <option value="cac">C. à café</option>
+            <option value="cas">C. à soupe</option>
+        </optgroup>
+    </select>
+</div>
 
                     <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10"></div>
                 </div>
-
-<div class="form-group" id="saasGrowthSection" style="background:#fffbeb; padding:15px; border-radius:12px; border:1px solid #f59e0b; margin-top:15px;">
-    <label style="color:#d97706; font-weight:900; margin-bottom:10px; display:block;"><i class="fas fa-rocket"></i> Boosters de Ventes (SAAS)</label>
-    
-    <!-- HAPPY HOUR -->
-    <div style="display:${window.saasModules.happyHour ? 'block' : 'none'}; margin-bottom:10px; border-bottom:1px dashed #fcd34d; padding-bottom:10px;">
-        <label><input type="checkbox" id="modHHActif" ${p?.happyHour?.actif ? 'checked' : ''}> 🕒 Happy Hour Auto</label>
-        <div style="display:flex; gap:5px; margin-top:5px;">
-            <input type="number" step="0.1" id="modHHPrix" placeholder="Prix HH" value="${p?.happyHour?.prix || ''}" style="width:33%; padding:0.4rem;">
-            <input type="time" id="modHHDebut" value="${p?.happyHour?.heureDebut || '16:00'}" style="width:33%; padding:0.4rem;">
-            <input type="time" id="modHHFin" value="${p?.happyHour?.heureFin || '18:00'}" style="width:33%; padding:0.4rem;">
-        </div>
-    </div>
-
-    <!-- UPSELL -->
-    <div style="display:${window.saasModules.upsell ? 'block' : 'none'}; margin-bottom:10px; border-bottom:1px dashed #fcd34d; padding-bottom:10px;">
-        <label>🍟 Suggérer avec ce produit (Upsell) :</label>
-        <input type="text" id="modUpsell" placeholder="Ex: Frites, Coca..." value="${(p?.upsellProduits || []).join(', ')}" style="padding:0.4rem; width:100%;">
-        <small style="color:var(--text-muted);">Noms séparés par des virgules.</small>
-    </div>
-
-    <!-- VENTE FLASH -->
-    <div style="display:${window.saasModules.ventesFlash ? 'block' : 'none'}; margin-bottom:10px; border-bottom:1px dashed #fcd34d; padding-bottom:10px;">
-        <label><input type="checkbox" id="modFlashActif" ${p?.venteFlash?.actif ? 'checked' : ''}> ⚡ Activer Vente Flash</label>
-        <div style="display:flex; gap:5px; margin-top:5px;">
-            <input type="number" id="modFlashQte" placeholder="Quantité Flash dispo" value="${p?.venteFlash?.quantiteRestante || ''}" style="width:100%; padding:0.4rem;">
-        </div>
-        <small style="color:var(--text-muted);">Crée un sentiment d'urgence chez vos clients.</small>
-    </div>
-
-    <!-- MOITIÉ / MOITIÉ -->
-    <div style="display:${window.saasModules.moitieMoitie ? 'block' : 'none'}; margin-bottom:5px;">
-        <label><input type="checkbox" id="modMoitie" ${p?.isMoitieMoitieAllowed ? 'checked' : ''}> 🍕 Autoriser Moitié/Moitié</label>
-    </div>
-</div>
-                <div class="modal-buttons">
-                    <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
-                    <button class="btn-primary" onclick="sauvegarderNouveauProduit()"><i class="fas fa-save"></i> Enregistrer</button>
-                </div>
-
+                
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()"><i class="fas fa-save"></i> Enregistrer</button></div>
             </div>
         </div>`;
 }
@@ -1286,23 +1201,10 @@ const produitData = {
         prixPromo: parseFloat(document.getElementById('newProdPrixPromo').value) || 0,
         stock: isManuf ? 0 : (parseInt(document.getElementById('newProdStock').value) || 0),
         seuilAlerte: parseInt(document.getElementById('newProdAlerte').value) || 10,
-        unite: document.getElementById('newProdUnite').value,
+        unite: document.getElementById('newProdUnite').value, // 🔥 NOUVEAU : Sauvegarde l'unité
         supplements: extraireSupplements(),
         isManufactured: isManuf,
-        recipe: isManuf ? extraireRecette('new') : [],
-        isMoitieMoitieAllowed: document.getElementById('newMoitie')?.checked || false,
-        upsellProduits: (document.getElementById('newUpsell')?.value || "").split(',').map(s => s.trim()).filter(Boolean),
-        happyHour: {
-            actif: document.getElementById('newHHActif')?.checked || false,
-            prix: parseFloat(document.getElementById('newHHPrix')?.value) || 0,
-            heureDebut: document.getElementById('newHHDebut')?.value || "16:00",
-            heureFin: document.getElementById('newHHFin')?.value || "18:00"
-        },
-        venteFlash: {
-            actif: document.getElementById('newFlashActif')?.checked || false,
-            quantiteInitiale: parseInt(document.getElementById('newFlashQte')?.value) || 0,
-            quantiteRestante: parseInt(document.getElementById('newFlashQte')?.value) || 0
-        }
+        recipe: isManuf ? extraireRecette('new') : []
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
@@ -1418,6 +1320,7 @@ function ouvrirModalEdition(id) {
                         <option value="Libanai" ${p.categorie==='Libanai'?'selected':''}>🌯 Libanais</option>
                         <option value="supplement" ${p.categorie==='supplement'?'selected':''}>➕ SUPPLEMENT</option>
                         <option value="matiere" ${p.categorie==='matiere'?'selected':''}>🌾 Matière Première </option>
+
                     </select>
                 </div>
 
@@ -1427,74 +1330,37 @@ function ouvrirModalEdition(id) {
                     <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="editProdPrixPromo" step="0.1" value="${p.prixPromo || 0}"></div>
                 </div>
 
-                <div style="display:flex; gap:10px;">
+<div style="display:flex; gap:10px;">
                     <div class="form-group" id="stockInputSection_edit" style="flex:1; display:${isManuf ? 'none' : 'block'};"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
                     
-                    <div class="form-group" style="flex:1;"><label>Unité :</label>
-                        <select id="editProdUnite">
-                            <optgroup label="Poids/Vol">
-                                <option value="u" ${p.unite === 'u' ? 'selected' : ''}>Pièce (u)</option>
-                                <option value="g" ${p.unite === 'g' ? 'selected' : ''}>Grammes (g)</option>
-                                <option value="kg" ${p.unite === 'kg' ? 'selected' : ''}>Kilos (kg)</option>
-                                <option value="ml" ${p.unite === 'ml' ? 'selected' : ''}>Millilitres (ml)</option>
-                                <option value="cl" ${p.unite === 'cl' ? 'selected' : ''}>cl (Centilitres)</option>
-                                <option value="L" ${p.unite === 'L' ? 'selected' : ''}>Litres (L)</option>
-                            </optgroup>
-                            <optgroup label="Cuisine">
-                                <option value="portion" ${p.unite === 'portion' ? 'selected' : ''}>Portion</option>
-                                <option value="cac" ${p.unite === 'cac' ? 'selected' : ''}>C. à café</option>
-                                <option value="cas" ${p.unite === 'cas' ? 'selected' : ''}>C. à soupe</option>
-                            </optgroup>
-                        </select>
-                    </div>
+<div class="form-group" style="flex:1;"><label>Unité :</label>
+    <select id="editProdUnite">
+        <optgroup label="Poids/Vol">
+            <option value="u" ${p.unite === 'u' ? 'selected' : ''}>Pièce (u)</option>
+            <option value="g" ${p.unite === 'g' ? 'selected' : ''}>Grammes (g)</option>
+            <option value="kg" ${p.unite === 'kg' ? 'selected' : ''}>Kilos (kg)</option>
+            <option value="ml" ${p.unite === 'ml' ? 'selected' : ''}>Millilitres (ml)</option>
+            <option value="cl" ${p.unite === 'cl' ? 'selected' : ''}>cl (Centilitres)</option>
+            <option value="L" ${p.unite === 'L' ? 'selected' : ''}>Litres (L)</option>
+        </optgroup>
+        <optgroup label="Cuisine">
+            <option value="portion" ${p.unite === 'portion' ? 'selected' : ''}>Portion</option>
+            <option value="cac" ${p.unite === 'cac' ? 'selected' : ''}>C. à café</option>
+            <option value="cas" ${p.unite === 'cas' ? 'selected' : ''}>C. à soupe</option>
+        </optgroup>
+    </select>
+</div>
 
                     <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
                 </div>
 
-<div class="form-group" id="saasGrowthSection_edit" style="background:#fffbeb; padding:15px; border-radius:12px; border:1px solid #f59e0b; margin-top:15px;">
-                    <label style="color:#d97706; font-weight:900; margin-bottom:10px; display:block;"><i class="fas fa-rocket"></i> Boosters de Ventes (SAAS)</label>
-                    
-                    <!-- HAPPY HOUR -->
-                    <div style="display:${window.saasModules.happyHour ? 'block' : 'none'}; margin-bottom:10px; border-bottom:1px dashed #fcd34d; padding-bottom:10px;">
-                        <label><input type="checkbox" id="editHHActif" ${p?.happyHour?.actif ? 'checked' : ''}> 🕒 Happy Hour Auto</label>
-                        <div style="display:flex; gap:5px; margin-top:5px;">
-                            <input type="number" step="0.1" id="editHHPrix" placeholder="Prix HH" value="${p?.happyHour?.prix || ''}" style="width:33%; padding:0.4rem;">
-                            <input type="time" id="editHHDebut" value="${p?.happyHour?.heureDebut || '16:00'}" style="width:33%; padding:0.4rem;">
-                            <input type="time" id="editHHFin" value="${p?.happyHour?.heureFin || '18:00'}" style="width:33%; padding:0.4rem;">
-                        </div>
-                    </div>
-
-                    <!-- UPSELL -->
-                    <div style="display:${window.saasModules.upsell ? 'block' : 'none'}; margin-bottom:10px; border-bottom:1px dashed #fcd34d; padding-bottom:10px;">
-                        <label>🍟 Suggérer avec ce produit (Upsell) :</label>
-                        <input type="text" id="editUpsell" placeholder="Ex: Frites, Coca..." value="${(p?.upsellProduits || []).join(', ')}" style="padding:0.4rem; width:100%;">
-                        <small style="color:var(--text-muted);">Noms séparés par des virgules.</small>
-                    </div>
-
-                    <!-- VENTE FLASH -->
-                    <div style="display:${window.saasModules.ventesFlash ? 'block' : 'none'}; margin-bottom:10px; border-bottom:1px dashed #fcd34d; padding-bottom:10px;">
-                        <label><input type="checkbox" id="editFlashActif" ${p?.venteFlash?.actif ? 'checked' : ''}> ⚡ Activer Vente Flash</label>
-                        <div style="display:flex; gap:5px; margin-top:5px;">
-                            <input type="number" id="editFlashQte" placeholder="Quantité Flash dispo" value="${p?.venteFlash?.quantiteRestante || ''}" style="width:100%; padding:0.4rem;">
-                        </div>
-                        <small style="color:var(--text-muted);">Crée un sentiment d'urgence chez vos clients.</small>
-                    </div>
-
-                    <!-- MOITIÉ / MOITIÉ -->
-                    <div style="display:${window.saasModules.moitieMoitie ? 'block' : 'none'}; margin-bottom:5px;">
-                        <label><input type="checkbox" id="editMoitie" ${p?.isMoitieMoitieAllowed ? 'checked' : ''}> 🍕 Autoriser Moitié/Moitié</label>
-                    </div>
-                </div>
-                <div class="modal-buttons">
-                    <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
-                    <button class="btn-primary" onclick="sauvegarderEditionProduit('${p.id || p._id}')"><i class="fas fa-sync"></i> Mettre à jour</button>
-                </div>
+                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit('${p.id || p._id}')"><i class="fas fa-sync"></i> Mettre à jour</button></div>
             </div>
         </div>`;
     
-    if (p.supplements && Array.isArray(p.supplements)) {
-        p.supplements.forEach(s => ajouterLigneSupplement(s.nom, s.prix, s.ingredientId, s.quantiteADeduire, s.unite, s.prixPromo)); 
-    }
+if (p.supplements && Array.isArray(p.supplements)) {
+    p.supplements.forEach(s => ajouterLigneSupplement(s.nom, s.prix, s.ingredientId, s.quantiteADeduire, s.unite, s.prixPromo)); 
+}
     // Recharge la recette existante si c'est un produit manufacturé
     if (isManuf && p.recipe && Array.isArray(p.recipe)) {
         p.recipe.forEach(r => ajouterLigneRecette('edit', r.ingredientId, r.quantity, r.unit));
@@ -1509,7 +1375,7 @@ async function sauvegarderEditionProduit(id) {
     const typeC = document.getElementById('editProdTypeChoix').value;
     const variantesInput = document.getElementById('editProdVariantes').value.trim();
     
-    const produitData = {
+const produitData = {
         nom: document.getElementById('editProdName').value.trim(),
         image: document.getElementById('editProdImage').value.trim(),
         variantes: variantesInput,
@@ -1520,25 +1386,10 @@ async function sauvegarderEditionProduit(id) {
         prixPromo: parseFloat(document.getElementById('editProdPrixPromo').value) || 0,
         stock: isManuf ? 0 : (parseInt(document.getElementById('editProdStock').value) || 0),
         seuilAlerte: parseInt(document.getElementById('editProdAlerte').value) || 10,
-        unite: document.getElementById('editProdUnite').value,
+        unite: document.getElementById('editProdUnite').value, // 🔥 NOUVEAU : Mise à jour de l'unité
         supplements: extraireSupplements(),
         isManufactured: isManuf,
-        recipe: isManuf ? extraireRecette('edit') : [], // 🔥 CORRECTION: 'edit' au lieu de 'new'
-        
-        isMoitieMoitieAllowed: document.getElementById('editMoitie')?.checked || false,
-        upsellProduits: (document.getElementById('editUpsell')?.value || "").split(',').map(s => s.trim()).filter(Boolean),
-        happyHour: {
-            actif: document.getElementById('editHHActif')?.checked || false,
-            prix: parseFloat(document.getElementById('editHHPrix')?.value) || 0,
-            heureDebut: document.getElementById('editHHDebut')?.value || "16:00",
-            heureFin: document.getElementById('editHHFin')?.value || "18:00"
-        },
-        // 🔥 AJOUT : VENTE FLASH
-        venteFlash: {
-            actif: document.getElementById('editFlashActif')?.checked || false,
-            quantiteInitiale: parseInt(document.getElementById('editFlashQte')?.value) || 0,
-            quantiteRestante: parseInt(document.getElementById('editFlashQte')?.value) || 0
-        }
+        recipe: isManuf ? extraireRecette('edit') : []
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
@@ -2744,258 +2595,6 @@ async function sauvegarderConfigFidelite() {
                 });
             }
         }
-        // =========================================================
-// 🔥 MODULE MARKETING (SAAS)
-// =========================================================
-
-// Ajout au système de navigation existant
-const oldOuvrirOnglet = ouvrirOnglet;
-ouvrirOnglet = function(tabId) {
-    oldOuvrirOnglet(tabId);
-    if (tabId === 'marketing') chargerMarketing();
-};
-
-async function chargerMarketing() {
-    if (window.saasModules.promoCodes) await chargerPromoCodes();
-    if (window.saasModules.formules) await chargerCombos();
-}
-
-async function chargerPromoCodes() {
-    // Note: Tu devras créer cette route GET /api/promo sur ton server.js plus tard
-    try {
-        const res = await fetchSecurise('/api/promo');
-        if(!res.ok) return;
-        const promos = await res.json();
-        const tbody = document.getElementById('promoTableBody');
-        
-        if(promos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-message">Aucun code promo actif.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = promos.map(p => `
-            <tr>
-                <td><strong style="color:var(--warning); font-size:1.1rem; letter-spacing:2px;">${p.code}</strong></td>
-                <td><span class="badge badge-neutral">${p.type === 'pourcentage' ? p.valeur+'%' : formatMoney(p.valeur)}</span></td>
-                <td>${p.dateExpiration ? new Date(p.dateExpiration).toLocaleDateString('fr-FR') : 'Illimité'}</td>
-                <td>${p.utilisationsActuelles} / ${p.limiteUtilisation === 0 ? '∞' : p.limiteUtilisation}</td>
-                <td style="text-align:center;">
-                    <button class="btn-action btn-danger" onclick="supprimerPromo('${p._id}')"><i class="fas fa-trash"></i></button>
-                </td>
-            </tr>
-        `).join('');
-    } catch(e) {}
-}
-
-function ouvrirModalPromo() {
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content">
-            <div class="modal-header"><h3 style="color:var(--warning);"><i class="fas fa-ticket-alt"></i> Nouveau Code Promo</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
-            <div class="form-group"><label>Code (ex: ETE2026) :</label><input type="text" id="promoCode" style="text-transform:uppercase; font-weight:bold;"></div>
-            <div class="form-group"><label>Type de remise :</label>
-                <select id="promoType"><option value="pourcentage">Pourcentage (%)</option><option value="fixe">Montant Fixe (DT)</option></select>
-            </div>
-            <div class="form-group"><label>Valeur :</label><input type="number" step="0.5" id="promoValeur"></div>
-            <div class="form-group"><label>Limite d'utilisation (0 = Illimité) :</label><input type="number" id="promoLimite" value="0"></div>
-            <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" style="background:var(--warning);" onclick="sauvegarderPromo()">Créer</button></div>
-        </div></div>
-    `;
-}
-
-async function sauvegarderPromo() {
-    const data = {
-        code: document.getElementById('promoCode').value.trim().toUpperCase(),
-        type: document.getElementById('promoType').value,
-        valeur: parseFloat(document.getElementById('promoValeur').value),
-        limiteUtilisation: parseInt(document.getElementById('promoLimite').value) || 0
-    };
-    
-    if(!data.code || !data.valeur) return showNotification("Champs invalides", "var(--danger)");
-
-    try {
-        // Note: Tu devras créer cette route POST /api/promo sur ton server.js plus tard
-        const res = await fetchSecurise('/api/promo', { method: 'POST', body: JSON.stringify(data) });
-        if(res.ok) { fermerModal(); chargerMarketing(); showNotification("Code Promo créé !", "var(--success)"); }
-    } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
-}
-async function supprimerPromo(id) {
-    if(!confirm("⚠️ Supprimer ce code promo définitivement ?")) return;
-    try {
-        const res = await fetchSecurise(`/api/promo/${id}`, { method: 'DELETE' });
-        if(res.ok) { chargerMarketing(); showNotification("🗑️ Code supprimé.", "var(--success)"); }
-    } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
-}
-// =========================================================
-// 🔥 MODULE MENU BUILDER (FORMULES & COMBOS)
-// =========================================================
-
-// 1. Charger et afficher les formules
-async function chargerCombos() {
-    try {
-        const res = await fetchSecurise('/api/combos');
-        if(!res.ok) return;
-        const combos = await res.json();
-        const tbody = document.getElementById('comboTableBody');
-
-        if(combos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="empty-message">Aucune formule active.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = combos.map(c => `
-            <tr>
-                <td><strong style="color:var(--text-main); font-size:1.1rem;">${escapeHtml(c.nom)}</strong></td>
-                <td><span style="font-weight:900; color:var(--success); font-size:1.2rem;">${formatMoney(c.prixFixe)}</span></td>
-                <td>
-                    <div style="display:flex; gap:5px; flex-wrap:wrap;">
-                        ${c.etapes.map(e => `<span class="badge badge-neutral" style="border:1px solid #cbd5e1;">${e.titre} (x${e.quantiteRequise})</span>`).join(' <i class="fas fa-plus text-muted" style="font-size:0.6rem; margin-top:6px;"></i> ')}
-                    </div>
-                </td>
-                <td style="text-align:center;">
-                    <button class="btn-action btn-danger" onclick="supprimerCombo('${c.id}')"><i class="fas fa-trash"></i></button>
-                </td>
-            </tr>
-        `).join('');
-    } catch(e) { console.error("Erreur chargement combos:", e); }
-}
-
-// 2. Ouvrir la modale de création
-function ouvrirModalCombo() {
-    document.getElementById('modalContainer').innerHTML = `
-        <div class="modal active"><div class="modal-content" style="max-width: 650px;">
-            <div class="modal-header">
-                <h3 style="color:var(--success);"><i class="fas fa-hamburger"></i> Créer une Formule / Menu</h3>
-                <span class="modal-close" onclick="fermerModal()">&times;</span>
-            </div>
-            
-            <div style="display:flex; gap:10px;">
-                <div class="form-group" style="flex:2;">
-                    <label>Nom de la Formule :</label>
-                    <input type="text" id="comboNom" placeholder="Ex: Menu Étudiant, Formule Midi...">
-                </div>
-                <div class="form-group" style="flex:1;">
-                    <label>Prix Fixe (DT) :</label>
-                    <input type="number" step="0.5" id="comboPrix" placeholder="Ex: 15.00" style="font-weight:900; color:var(--success); font-size:1.2rem;">
-                </div>
-            </div>
-
-            <div class="form-group" style="background:#f8fafc; padding:15px; border-radius:12px; border:1px solid #e2e8f0; margin-top:10px;">
-                <label style="color:var(--primary); font-weight:900; font-size:1rem;"><i class="fas fa-layer-group"></i> Les Étapes du Menu</label>
-                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">Configurez les choix que le client devra faire. <em>(Ex: Étape 1 = Choisir 1 Boisson. Étape 2 = Choisir 1 Plat)</em>.</p>
-                
-                <div id="comboEtapesContainer"></div>
-                
-                <button type="button" class="btn-action" style="background:var(--primary-light); margin-top:10px; width:100%; justify-content:center; padding:12px;" onclick="ajouterEtapeCombo()">
-                    <i class="fas fa-plus-circle"></i> Ajouter une étape au menu
-                </button>
-            </div>
-
-            <div class="modal-buttons">
-                <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
-                <button class="btn-primary" style="background:var(--success);" onclick="sauvegarderCombo()"><i class="fas fa-save"></i> Activer la formule</button>
-            </div>
-        </div></div>
-    `;
-    // On ajoute une première étape par défaut
-    ajouterEtapeCombo();
-}
-
-// 3. Ajouter une ligne d'étape dynamique (CORRIGÉ : Catégories dynamiques)
-function ajouterEtapeCombo() {
-    const container = document.getElementById('comboEtapesContainer');
-    const div = document.createElement('div');
-    div.className = 'combo-etape-row';
-    div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:flex-end; background:white; padding:12px; border-radius:8px; border:1px dashed #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.02);';
-    
-    // 🔥 Génération dynamique des catégories existantes
-let catOptions = '';
-    const catsDispos = [...new Set(stockProduits.map(p => p.categorie).filter(c => c && c !== 'supplement' && c !== 'matiere'))];
-    catsDispos.forEach(c => {
-        catOptions += `<option value="${c}">${getCatName(c)}</option>`;
-    });
-
-    div.innerHTML = `
-        <div style="flex:2;">
-            <label style="font-size:0.7rem; font-weight:bold; color:var(--text-muted);">Titre affiché au client</label>
-            <input type="text" class="etape-titre" placeholder="Ex: Choisissez votre boisson" style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:6px; font-weight:600;">
-        </div>
-        <div style="flex:2;">
-            <label style="font-size:0.7rem; font-weight:bold; color:var(--text-muted);">Catégorie autorisée</label>
-            <select class="etape-cat" style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:6px; font-weight:bold; color:var(--info);">
-                ${catOptions}
-            </select>
-        </div>
-        <div style="width:70px;">
-            <label style="font-size:0.7rem; font-weight:bold; color:var(--text-muted);">Quantité</label>
-            <input type="number" class="etape-qte" value="1" min="1" style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:6px; text-align:center; font-weight:bold;">
-        </div>
-        <button type="button" onclick="this.closest('.combo-etape-row').remove()" style="background:transparent; border:none; color:var(--danger); cursor:pointer; font-size:1.2rem; padding-bottom:5px;">
-            <i class="fas fa-times-circle"></i>
-        </button>
-    `;
-    container.appendChild(div);
-}
-
-// 4. Enregistrer la formule
-async function sauvegarderCombo() {
-    const btn = document.querySelector('#modalContainer .btn-primary');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sauvegarde...';
-    btn.disabled = true;
-
-    const nom = document.getElementById('comboNom').value.trim();
-    const prixFixe = parseFloat(document.getElementById('comboPrix').value);
-
-    if(!nom || isNaN(prixFixe)) {
-        btn.innerHTML = originalText; btn.disabled = false;
-        return showNotification("Veuillez saisir un nom et un prix valide.", "var(--danger)");
-    }
-
-    const etapes = [];
-    document.querySelectorAll('.combo-etape-row').forEach(row => {
-        const titre = row.querySelector('.etape-titre').value.trim();
-        const cat = row.querySelector('.etape-cat').value;
-        const qte = parseInt(row.querySelector('.etape-qte').value) || 1;
-        if(titre) {
-            etapes.push({ titre: titre, categorieCible: cat, quantiteRequise: qte });
-        }
-    });
-
-    if(etapes.length === 0) {
-        btn.innerHTML = originalText; btn.disabled = false;
-        return showNotification("Votre formule doit avoir au moins une étape.", "var(--warning)");
-    }
-
-    try {
-        const res = await fetchSecurise('/api/combos', {
-            method: 'POST',
-            body: JSON.stringify({ nom, prixFixe, etapes })
-        });
-        if(res.ok) { 
-            fermerModal(); 
-            chargerMarketing(); 
-            showNotification("Formule créée avec succès !", "var(--success)"); 
-        } else {
-            showNotification("Erreur lors de la sauvegarde.", "var(--danger)");
-            btn.innerHTML = originalText; btn.disabled = false;
-        }
-    } catch(e) { 
-        showNotification("Erreur serveur.", "var(--danger)"); 
-        btn.innerHTML = originalText; btn.disabled = false;
-    }
-}
-
-// 5. Supprimer la formule
-async function supprimerCombo(id) {
-    if(!confirm("⚠️ Voulez-vous vraiment supprimer cette formule ?")) return;
-    try {
-        const res = await fetchSecurise(`/api/combos/${id}`, { method: 'DELETE' });
-        if(res.ok) { 
-            chargerMarketing(); 
-            showNotification("🗑️ Formule supprimée.", "var(--success)"); 
-        }
-    } catch(e) { showNotification("Erreur serveur", "var(--danger)"); }
-}
         // ========== INIT DOM ==========
 document.addEventListener("DOMContentLoaded", () => {
             chargerDashboard(); chargerStock(); chargerCategories(); chargerHistorique(); chargerAlertes(); chargerDepenses();
