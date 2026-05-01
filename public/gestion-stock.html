@@ -733,51 +733,6 @@ button:hover:not(:disabled) {
             const facteurCible = CONVERSIONS[uniteCible] || 1;
             return (valeur * facteurSource) / facteurCible;
         };
-        // 🔥 MOTEUR ERP : Calcul du Prix en Temps Réel (Gère le Happy Hour)
-// 🔥 MOTEUR ERP : Calcul du Prix en Temps Réel (Anti-Bug)
-window.calculerPrixApplicable = function(p) {
-    let prixBase = parseFloat(p.prix) || 0;
-    let prixPromo = parseFloat(p.prixPromo) || 0;
-    let prixFinal = (prixPromo > 0) ? prixPromo : prixBase;
-    let isHappyHourActive = false;
-
-    try {
-        // Sécurité : On s'assure que le Happy Hour est bien activé et que le prix n'est pas zéro
-        const isHHConfigured = (p.hhActive === true || String(p.hhActive) === 'true');
-        const hhPrice = parseFloat(p.hhPrice) || 0;
-
-        if (isHHConfigured && p.hhStart && p.hhEnd && hhPrice > 0) {
-            const startParts = String(p.hhStart).split(':');
-            const endParts = String(p.hhEnd).split(':');
-
-            // Vérification que l'heure est au bon format (HH:MM)
-            if (startParts.length === 2 && endParts.length === 2) {
-                const now = new Date();
-                const currentMins = now.getHours() * 60 + now.getMinutes();
-                const startMins = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
-                const endMins = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
-
-                if (startMins <= endMins) {
-                    // Si Happy Hour dans la même journée (ex: 16h à 18h)
-                    if (currentMins >= startMins && currentMins <= endMins) {
-                        prixFinal = hhPrice;
-                        isHappyHourActive = true;
-                    }
-                } else {
-                    // Si Happy Hour traverse minuit (ex: 22h à 02h)
-                    if (currentMins >= startMins || currentMins <= endMins) {
-                        prixFinal = hhPrice;
-                        isHappyHourActive = true;
-                    }
-                }
-            }
-        }
-    } catch (e) {
-        console.error("Erreur moteur de prix:", e);
-    }
-    
-    return { prixFinal: prixFinal, isHappyHourActive: isHappyHourActive, prixBaseOriginal: prixBase };
-};
 // 🔥 MOTEUR ERP : Calcul du stock virtuel sécurisé (AVEC CONVERSION)
 window.calculerStockReel = function(produit) {
     if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
@@ -1070,23 +1025,15 @@ function afficherStockDOM(produits) {
         const pPromo = parseFloat(p.prixPromo) || 0;
         const valAchat = stockReel * (parseFloat(p.prixAchat) || 0);
 
-// Calcul du Food Cost, Marge et Tarification dynamique
+        // Calcul du Food Cost et de la Marge
         const coutRevient = window.calculerCoutRevient(p);
-        const tarif = window.calculerPrixApplicable(p); 
-        
-        const margeBrute = tarif.prixFinal > 0 ? ((tarif.prixFinal - coutRevient) / tarif.prixFinal) * 100 : 0;
+        const pVenteNet = (pPromo > 0) ? pPromo : pVente;
+        const margeBrute = pVenteNet > 0 ? ((pVenteNet - coutRevient) / pVenteNet) * 100 : 0;
         let couleurMarge = margeBrute > 65 ? 'var(--success)' : (margeBrute > 40 ? 'var(--warning)' : 'var(--danger)');
 
-        const prixNormalTexte = parseFloat(p.prix || 0).toFixed(2);
-        let htmlPrix = '';
-        
-        if (tarif.isHappyHourActive) {
-            htmlPrix = `<td><s style="color:#94a3b8; font-size:0.75rem;">${prixNormalTexte}</s><br><strong style="color:#8b5cf6;"><i class="fas fa-clock"></i> HH ${tarif.prixFinal.toFixed(2)}</strong></td>`;
-        } else if (parseFloat(p.prixPromo || 0) > 0) {
-            htmlPrix = `<td><s style="color:#94a3b8; font-size:0.75rem;">${prixNormalTexte}</s><br><strong style="color:#e74c3c;">${tarif.prixFinal.toFixed(2)}</strong></td>`;
-        } else {
-            htmlPrix = `<td><strong>${tarif.prixFinal.toFixed(2)}</strong></td>`;
-        }
+        const htmlPrix = (pPromo > 0) 
+            ? `<td><s style="color:#94a3b8; font-size:0.75rem;">${formatMoney(pVente)}</s><br><strong style="color:#e74c3c;">${formatMoney(pPromo)}</strong></td>`
+            : `<td><strong>${formatMoney(pVente)}</strong></td>`;
 
         const typeBadge = p.isManufactured 
             ? `<span class="badge" style="background:#f3e8ff; color:#7e22ce; font-size:0.7rem;"><i class="fas fa-blender"></i> Assemblage</span>`
@@ -1206,22 +1153,7 @@ function ouvrirModalNouveauProduit() {
                             <div class="form-group" style="flex:1;"><label>Prix Vente :</label><input type="number" id="newProdPrice" step="0.1" oninput="mettreAJourMargeLive('new')" style="font-weight:900; color:var(--primary);"></div>
                             <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" oninput="mettreAJourMargeLive('new')"></div>
                         </div>
-                        <!-- À coller juste après la ligne des Prix (dans la modale Nouveau ET Edition) -->
-<div style="background:#f3e8ff; padding:15px; border-radius:12px; border:1px dashed #c084fc; margin-top:15px; margin-bottom:15px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-        <label style="font-weight:800; color:#6d28d9; margin:0;"><i class="fas fa-clock"></i> Happy Hour Automatique</label>
-        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
-            <!-- Remplace _new par _edit dans la modale d'édition -->
-            <input type="checkbox" id="prodHhActive_new" onchange="document.getElementById('hhOptions_new').style.display = this.checked ? 'flex' : 'none';" style="width:18px; height:18px; accent-color:#7c3aed;">
-            <span style="font-weight:bold; font-size:0.85rem; color:#6d28d9;">Activer</span>
-        </label>
-    </div>
-    <div id="hhOptions_new" style="display:none; gap:10px;">
-        <div class="form-group" style="flex:1; margin:0;"><label>De :</label><input type="time" id="prodHhStart_new" value="16:00"></div>
-        <div class="form-group" style="flex:1; margin:0;"><label>À :</label><input type="time" id="prodHhEnd_new" value="18:00"></div>
-        <div class="form-group" style="flex:1; margin:0;"><label style="color:#8b5cf6;">Prix Happy :</label><input type="number" id="prodHhPrice_new" step="0.1" value="0" style="font-weight:bold; color:#7c3aed;"></div>
-    </div>
-</div>
+
                         <div class="form-group">
                             <label>Nature de l'article :</label>
                             <select id="newProdIsManufactured" onchange="toggleRecipeSection(this.value, 'new'); mettreAJourMargeLive('new');" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
@@ -1567,10 +1499,6 @@ const produitData = {
         isManufactured: isManuf,
         recipe: isManuf ? extraireRecette('new') : [],
         crossSellItems: extraireCrossSell('new'),
-        hhActive: document.getElementById('prodHhActive_new').checked, // (met _edit pour la sauvegarde édition)
-        hhPrice: parseFloat(document.getElementById('prodHhPrice_new').value) || 0,
-        hhStart: document.getElementById('prodHhStart_new').value,
-        hhEnd: document.getElementById('prodHhEnd_new').value,
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
@@ -1662,22 +1590,7 @@ function ouvrirModalEdition(id) {
                             <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="editProdPrice" value="${p.prix}" step="0.1" oninput="mettreAJourMargeLive('edit')" style="font-weight:900; color:var(--primary);"></div>
                             <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="editProdPrixPromo" step="0.1" value="${p.prixPromo || 0}" oninput="mettreAJourMargeLive('edit')"></div>
                         </div>
-                        <!-- À coller juste après la ligne des Prix (dans la modale Nouveau ET Edition) -->
-<div style="background:#f3e8ff; padding:15px; border-radius:12px; border:1px dashed #c084fc; margin-top:15px; margin-bottom:15px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-        <label style="font-weight:800; color:#6d28d9; margin:0;"><i class="fas fa-clock"></i> Happy Hour Automatique</label>
-        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
-            <!-- Remplace _new par _edit dans la modale d'édition -->
-            <input type="checkbox" id="prodHhActive_edit" onchange="document.getElementById('hhOptions_edit').style.display = this.checked ? 'flex' : 'none';" style="width:18px; height:18px; accent-color:#7c3aed;">
-            <span style="font-weight:bold; font-size:0.85rem; color:#6d28d9;">Activer</span>
-        </label>
-    </div>
-    <div id="hhOptions_edit" style="display:none; gap:10px;">
-        <div class="form-group" style="flex:1; margin:0;"><label>De :</label><input type="time" id="prodHhStart_edit" value="16:00"></div>
-        <div class="form-group" style="flex:1; margin:0;"><label>À :</label><input type="time" id="prodHhEnd_edit" value="18:00"></div>
-        <div class="form-group" style="flex:1; margin:0;"><label style="color:#8b5cf6;">Prix Happy :</label><input type="number" id="prodHhPrice_edit" step="0.1" value="0" style="font-weight:bold; color:#7c3aed;"></div>
-    </div>
-</div>
+
                         <div class="form-group">
                             <label>Nature de l'article :</label>
                             <select id="editProdIsManufactured" onchange="toggleRecipeSection(this.value, 'edit'); mettreAJourMargeLive('edit');" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
@@ -1779,14 +1692,7 @@ function ouvrirModalEdition(id) {
     if (p.crossSellItems && Array.isArray(p.crossSellItems)) {
         p.crossSellItems.forEach(csId => ajouterLigneCrossSell('edit', csId));
     }
-    // Chargement du Happy Hour
-    if (p.hhActive) {
-        document.getElementById('prodHhActive_edit').checked = true;
-        document.getElementById('hhOptions_edit').style.display = 'flex';
-        document.getElementById('prodHhStart_edit').value = p.hhStart || "16:00";
-        document.getElementById('prodHhEnd_edit').value = p.hhEnd || "18:00";
-        document.getElementById('prodHhPrice_edit').value = p.hhPrice || 0;
-    }
+    
     // Délai pour que le DOM se charge avant de calculer le prix live
     setTimeout(() => {
         gererAffichagePrix('edit');
@@ -1815,10 +1721,6 @@ const produitData = {
         isManufactured: isManuf,
         recipe: isManuf ? extraireRecette('edit') : [],
         crossSellItems: extraireCrossSell('edit'),
-        hhActive: document.getElementById('prodHhActive_edit').checked, // (met _edit pour la sauvegarde édition)
-        hhPrice: parseFloat(document.getElementById('prodHhPrice_edit').value) || 0,
-        hhStart: document.getElementById('prodHhStart_edit').value,
-        hhEnd: document.getElementById('prodHhEnd_edit').value 
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");

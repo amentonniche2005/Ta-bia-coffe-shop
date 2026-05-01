@@ -477,44 +477,6 @@ button:hover:not(:disabled) {
         const facteurCible = CONVERSIONS[uniteCible] || 1;
         return (valeur * facteurSource) / facteurCible;
     };
-// 🔥 MOTEUR ERP : Calcul du Prix en Temps Réel (Anti-Bug)
-window.calculerPrixApplicable = function(p) {
-    let prixBase = parseFloat(p.prix) || 0;
-    let prixPromo = parseFloat(p.prixPromo) || 0;
-    let prixFinal = (prixPromo > 0) ? prixPromo : prixBase;
-    let isHappyHourActive = false;
-
-    try {
-        if (p.hhActive === true || String(p.hhActive) === 'true') {
-            const hhPrice = parseFloat(p.hhPrice) || 0;
-            if (p.hhStart && p.hhEnd && hhPrice > 0) {
-                const now = new Date();
-                const currentMins = now.getHours() * 60 + now.getMinutes();
-                const startParts = String(p.hhStart).split(':');
-                const endParts = String(p.hhEnd).split(':');
-
-                if (startParts.length === 2 && endParts.length === 2) {
-                    const startMins = parseInt(startParts[0], 10) * 60 + parseInt(startParts[1], 10);
-                    const endMins = parseInt(endParts[0], 10) * 60 + parseInt(endParts[1], 10);
-
-                    if (startMins <= endMins) {
-                        if (currentMins >= startMins && currentMins <= endMins) {
-                            prixFinal = hhPrice;
-                            isHappyHourActive = true;
-                        }
-                    } else {
-                        if (currentMins >= startMins || currentMins <= endMins) {
-                            prixFinal = hhPrice;
-                            isHappyHourActive = true;
-                        }
-                    }
-                }
-            }
-        }
-    } catch (e) { console.error("Erreur HH:", e); }
-    
-    return { prixFinal: prixFinal, isHappyHourActive: isHappyHourActive, prixBaseInitial: prixBase };
-};
     let tickets = {}; let currentTable = null; let activeCategory = "all"; let produits = [];
     let derniereTableModal = null; let socket = null; let commandesRecues = []; 
     let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
@@ -1263,7 +1225,9 @@ function renderProducts() {
     const grid = document.getElementById('productsGrid'); 
     if (!grid) return;
 
+    // 🔥 CORRECTION : Le catalogue global de la caisse ne doit jamais contenir les matières ni les suppléments
     let produitsVendables = produits.filter(p => p.categorie !== 'supplement' && p.categorie !== 'matiere');
+    
     let filtered = activeCategory === "all" ? produitsVendables : produitsVendables.filter(p => p.categorie === activeCategory);
     
     if (!filtered.length) { 
@@ -1272,21 +1236,19 @@ function renderProducts() {
     }
         
     grid.innerHTML = filtered.map(p => { 
+        // 🔥 CORRECTION ERP : On utilise le stock calculé
         const stockActuel = window.calculerStockReel(p, true);
         const stockColor = stockActuel <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
         
-        // 🔥 LOGIQUE VISUELLE SÉCURISÉE (Happy Hour & Promo)
-        const tarif = window.calculerPrixApplicable(p);
-        let affichagePrix = '';
+        // LOGIQUE VISUELLE PROMO
+        const prixNormal = parseFloat(p.prix || 0).toFixed(2);
+        const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
         
-        if (tarif.isHappyHourActive) {
-            affichagePrix = `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">${tarif.prixBaseInitial.toFixed(2)}</s> <span style="color:#8b5cf6; font-weight:900;"><i class="fas fa-clock"></i> HH ${tarif.prixFinal.toFixed(2)} DT</span>`;
-        } else if (parseFloat(p.prixPromo || 0) > 0) {
-            affichagePrix = `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">${tarif.prixBaseInitial.toFixed(2)}</s> <span style="color:#e74c3c; font-weight:900;">${tarif.prixFinal.toFixed(2)} DT</span>`;
-        } else {
-            affichagePrix = `<span style="font-weight:800;">${tarif.prixFinal.toFixed(2)} DT</span>`;
-        }
+        const affichagePrix = (p.prixPromo > 0) 
+            ? `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>`
+            : `<span style="font-weight:800;">${prixNormal} DT</span>`;
 
+        // Si c'est un produit à recette, on met un petit icône visuel
         const iconeRecette = p.isManufactured ? `<i class="fas fa-blender" style="font-size:0.6rem; color:#8b5cf6;"></i> ` : '';
 
         return `<div class="product-card" data-id="${p.id || p._id}" style="opacity: ${stockActuel <= 0 ? '0.5' : '1'};">
@@ -1296,41 +1258,45 @@ function renderProducts() {
                 </div>`; 
     }).join('');
         
+    // --- ACTION AU CLIC SUR UN PRODUIT (Sécurisée ERP) ---
     document.querySelectorAll('.product-card').forEach(card => card.addEventListener('click', (e) => { 
         if (!currentTable) return showNotification("❌ Sélectionnez une table", "#ef4444"); 
         
         const idProd = card.dataset.id;
         const produitFull = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
         
+        // 🔥 CORRECTION ERP : On vérifie la rupture selon le stock virtuel
         const stockActuel = window.calculerStockReel(produitFull);
         if (!produitFull || (stockActuel <= 0 && produitFull.stock !== undefined)) {
-            showNotification("❌ Produit en rupture de stock", "var(--danger)");
+            showNotification("❌ Produit en rupture de stock (Vérifiez les ingrédients)", "var(--danger)");
             return;
         }
 
+        // Détection automatique : Est-ce un produit complexe ?
         const aDesVariantes = produitFull.variantes && produitFull.variantes.trim() !== "";
         const aDesSupplements = produitFull.supplements && produitFull.supplements.length > 0;
 
         if (aDesVariantes || aDesSupplements) {
-            ouvrirModalOptionsCaisse(produitFull); 
+            ouvrirModalOptionsCaisse(produitFull); // Ouvre la fenêtre pour choisir
         } else {
-            ajouterProduitCaisse(produitFull, null, []); 
-            if(navigator.vibrate) navigator.vibrate(20); 
+            ajouterProduitCaisse(produitFull, null, []); // Ajout instantané
+            if(navigator.vibrate) navigator.vibrate(20); // Retour tactile
         }
     }));
 }
 window.ouvrirModalOptionsCaisse = function(produit) {
     produitEnAttenteCaisse = produit;
     
-    // 🔥 LECTURE DU PRIX SÉCURISÉ (Prend le prix HH s'il est actif)
-    const tarif = window.calculerPrixApplicable(produit);
-    prixBaseEnAttenteCaisse = tarif.prixFinal;
+    // 1. Définition du prix de base (Priorité à la Promo)
+    prixBaseEnAttenteCaisse = (produit.prixPromo && produit.prixPromo > 0) 
+        ? parseFloat(produit.prixPromo) 
+        : parseFloat(produit.prix);
     
     let htmlContent = `
         <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-soft); background: #f8fafc; display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <h3 style="margin: 0; color: var(--primary-green); font-size: 1.3rem;">${escapeHtml(produit.nom)}</h3>
-                <div id="caisseOptionPriceDisplay" style="color: ${tarif.isHappyHourActive ? '#8b5cf6' : 'var(--primary-orange)'}; font-weight: 800; font-size: 1.1rem;">${prixBaseEnAttenteCaisse.toFixed(2)} DT ${tarif.isHappyHourActive ? '<i class="fas fa-clock"></i>' : ''}</div>
+                <div id="caisseOptionPriceDisplay" style="color: var(--primary-orange); font-weight: 800; font-size: 1.1rem;">${prixBaseEnAttenteCaisse.toFixed(2)} DT</div>
             </div>
             <button class="close-btn" onclick="fermerModalOptionsCaisse()">&times;</button>
         </div>
@@ -1360,13 +1326,14 @@ window.ouvrirModalOptionsCaisse = function(produit) {
         }).join('');
     }
 
-    // 3. Suppléments avec Logique de Prix Promo
+// 3. Suppléments avec Logique de Prix Promo
     if (produit.supplements && produit.supplements.length > 0) {
         htmlContent += `<div style="font-weight:800; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; margin:15px 0 8px 0;">Extras</div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">`;
         htmlContent += produit.supplements.map(supp => {
             const ref = produits.find(p => String(p.id) === String(supp.ingredientId || supp.id) || String(p._id) === String(supp.ingredientId || supp.id));
             
+            // 🔥 CORRECTION ERP : Application de la conversion pour bloquer le supplément
             let estRupture = false;
             if (ref) {
                 const stockRestant = window.calculerStockReel(ref, true); 
@@ -1374,9 +1341,11 @@ window.ouvrirModalOptionsCaisse = function(produit) {
                 const unitSupp = supp.unite || 'g';
                 const unitStock = ref.unite || 'g';
                 const qteConvertie = window.convertirQuantite(qteBase, unitSupp, unitStock);
+
                 if (stockRestant < qteConvertie) estRupture = true;
             }
             
+            // 🔥 LA CORRECTION : On lit la promo configurée POUR LE SUPPLÉMENT, pas pour le produit isolé !
             const pNormal = parseFloat(supp.prix || 0);
             const pPromo = parseFloat(supp.prixPromo || 0); 
             const prixFinal = pPromo > 0 ? pPromo : pNormal;
@@ -1456,16 +1425,17 @@ window.validerOptionsCaisse = function() {
 window.ajouterProduitCaisse = function(produit, variante, supplements) {
     const idGroupeUnique = Date.now();
     
-    // 🔥 PRIX FACTURÉ SÉCURISÉ (Moteur Global ERP)
-    const tarif = window.calculerPrixApplicable(produit);
-    const prixInitial = tarif.prixFinal;
+    // 🔥 Sécurité Prix Promo
+    const prixInitial = (produit.prixPromo && produit.prixPromo > 0) 
+        ? parseFloat(produit.prixPromo) 
+        : parseFloat(produit.prix);
 
     // 1. Produit Principal
     ajouterAuTicket(currentTable, { 
         id: String(produit.id || produit._id), 
         nom: String(produit.nom), 
         variante: variante, 
-        prix: Number(prixInitial), 
+        prix: Number(prixInitial), // Force le format nombre
         quantite: 1, 
         envoye: false, pret: false, cmdId: null,
         isSupplement: false, uniqueGroupId: idGroupeUnique, parentId: null 

@@ -208,12 +208,7 @@ supplements: [{
         quantity: { type: Number },     // Quantité nécessaire pour 1 unité du produit fini
         unit: { type: String }          // g, ml, unité, etc.
     }],
-    crossSellItems: [{ type: String }],
-    hhActive: { type: Boolean, default: false },
-    hhPrice: { type: Number, default: 0 },
-    hhStart: { type: String, default: "16:00" },
-    hhEnd: { type: String, default: "18:00" }
-
+    crossSellItems: [{ type: String }]
 }));
 
 const Movement = mongoose.model('Movement', new mongoose.Schema({
