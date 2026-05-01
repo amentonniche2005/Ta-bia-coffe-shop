@@ -102,7 +102,25 @@
         .inv-physique { width: 90px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; text-align: center; font-weight: bold; }
         .inv-raison { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; }
         .ecart-cell { font-weight: 800; text-align: center; font-size: 1.1rem;}
-        
+        /* --- TABS POUR LA MODALE PRODUIT --- */
+.modal-tabs-header { display: flex; border-bottom: 2px solid var(--border-soft); margin-bottom: 1.5rem; overflow-x: auto;}
+.m-tab-btn { padding: 12px 20px; border: none; background: none; font-weight: 700; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; font-size: 0.95rem; }
+.m-tab-btn:hover { color: var(--primary-light); }
+.m-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.m-tab-content { display: none; animation: fadeIn 0.3s; padding: 5px; }
+.m-tab-content.active { display: block; }
+
+/* --- CALCULATEUR DE MARGE LIVE --- */
+.live-margin-box { background: #f8fafc; border: 2px dashed #cbd5e1; padding: 15px; border-radius: 12px; display: flex; justify-content: space-around; align-items: center; margin-top: 15px; transition: all 0.3s;}
+.live-stat { text-align: center; }
+.live-stat span { display: block; font-size: 0.75rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+.live-stat strong { font-size: 1.4rem; font-weight: 900; }
+
+/* --- ALLERGÈNES & BADGES --- */
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.badge-checkbox { display: none; }
+.badge-label { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; background: white; border: 2px solid var(--border-soft); border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--text-muted); transition: 0.2s; }
+.badge-checkbox:checked + .badge-label { background: #fffbeb; border-color: var(--warning); color: var(--warning); }
         /* ========== RESPONSIVE DESIGN STOCK ========== */
         @media (max-width: 768px) {
             .dashboard { grid-template-columns: 1fr; padding: 1rem; }
@@ -258,7 +276,7 @@ button:hover:not(:disabled) {
             </div>
             <div class="table-container">
                 <table>
-                    <thead>
+   <thead>
                         <tr>
                             <th onclick="trierStock('nom')">Produit <i class="fas fa-sort"></i></th>
                             <th>Catégorie</th>
@@ -266,6 +284,7 @@ button:hover:not(:disabled) {
                             <th>Unité</th>
                             <th onclick="trierStock('prix')">Prix Vente <i class="fas fa-sort"></i></th>
                             <th onclick="trierStock('valeur')">Val. Achat <i class="fas fa-sort"></i></th>
+                            <th>Marge Brute</th>
                             <th style="text-align:center;">Actions</th>
                         </tr>
                     </thead>
@@ -309,20 +328,32 @@ button:hover:not(:disabled) {
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-                <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
-                    <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Chiffre d'Affaires Période</div>
-                    <div id="kpiCA" style="font-size: 2rem; font-weight: 800; color: var(--success); margin-top: 5px;">0.00 DT</div>
-                </div>
-                <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
-                    <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Tickets Encaissés</div>
-                    <div id="kpiTickets" style="font-size: 2rem; font-weight: 800; color: var(--info); margin-top: 5px;">0</div>
-                </div>
-                <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
-                    <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Panier Moyen</div>
-                    <div id="kpiMoyen" style="font-size: 2rem; font-weight: 800; color: var(--warning); margin-top: 5px;">0.00 DT</div>
-                </div>
-            </div>
+<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+    <!-- Tes KPI existants -->
+    <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+        <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Chiffre d'Affaires (TTC)</div>
+        <div id="kpiCA" style="font-size: 2rem; font-weight: 800; color: var(--success); margin-top: 5px;">0.00 DT</div>
+    </div>
+    
+    <!-- NOUVEAU : HT et TVA -->
+    <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+        <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Total HT</div>
+        <div id="kpiHT" style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); margin-top: 5px;">0.00 DT</div>
+    </div>
+    <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+        <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">TVA Collectée (19%)</div>
+        <div id="kpiTVA" style="font-size: 1.8rem; font-weight: 800; color: var(--danger); margin-top: 5px;">0.00 DT</div>
+    </div>
+
+    <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+        <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Tickets Encaissés</div>
+        <div id="kpiTickets" style="font-size: 2rem; font-weight: 800; color: var(--info); margin-top: 5px;">0</div>
+    </div>
+    <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-color); text-align: center;">
+        <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem; text-transform: uppercase;">Panier Moyen</div>
+        <div id="kpiMoyen" style="font-size: 2rem; font-weight: 800; color: var(--warning); margin-top: 5px;">0.00 DT</div>
+    </div>
+</div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                 <div class="table-container" style="max-height: 500px;">
@@ -378,12 +409,15 @@ button:hover:not(:disabled) {
         </div>
 
         <div class="panel" id="panel-alertes">
-            <div class="toolbar">
-                <div>
-                    <h3 style="color:var(--danger);"><i class="fas fa-exclamation-triangle"></i> Ruptures & Alertes en cours</h3>
-                </div>
-                <button class="btn-action btn-success" onclick="chargerAlertes()"><i class="fas fa-sync"></i> Actualiser</button>
-            </div>
+<div class="toolbar">
+    <div>
+        <h3 style="color:var(--danger);"><i class="fas fa-exclamation-triangle"></i> Ruptures & Alertes en cours</h3>
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+        <button class="btn-action" style="background:#8e44ad;" onclick="genererBonCommande()"><i class="fas fa-file-pdf"></i> Bon Fournisseur</button>
+        <button class="btn-action btn-success" onclick="chargerAlertes()"><i class="fas fa-sync"></i> Actualiser</button>
+    </div>
+</div>
             <div class="table-container">
                 <table>
                     <thead>
@@ -577,6 +611,23 @@ button:hover:not(:disabled) {
                 </div>
                 
             </div>
+            <!-- À insérer juste avant la fin du panel-analytics -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+    <div class="table-container" style="padding: 1.5rem;">
+        <h4 style="margin-bottom: 1rem; color: var(--danger);"><i class="fas fa-trash-alt"></i> Répartition des Pertes (Wastage)</h4>
+        <div style="position: relative; height: 300px; width: 100%;">
+            <canvas id="chartPertes"></canvas>
+        </div>
+    </div>
+    <div class="table-container" style="padding: 1.5rem; overflow-y: auto; max-height: 400px;">
+        <h4 style="margin-bottom: 1rem; color: var(--primary);"><i class="fas fa-chess-knight"></i> Ingénierie du Menu</h4>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Classification selon Ventes et Marges.</p>
+        <table style="font-size: 0.85rem;">
+            <thead><tr><th>Plat</th><th>Statut</th><th>Action Conseillée</th></tr></thead>
+            <tbody id="menuEngineeringBody"></tbody>
+        </table>
+    </div>
+</div>
         </div>
     </div>
 
@@ -655,7 +706,28 @@ window.calculerStockReel = function(produit) {
     }
     return maxRealisable === Infinity ? 0 : maxRealisable;
 };
-
+// 🔥 MOTEUR ERP : Calcul du coût de revient (Food Cost)
+window.calculerCoutRevient = function(produit) {
+    // Si c'est une matière première, le coût est simplement son prix d'achat
+    if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
+        return parseFloat(produit.prixAchat) || 0;
+    }
+    
+    // Si c'est une recette, on additionne le coût des ingrédients
+    let coutTotal = 0;
+    for (let item of produit.recipe) {
+        const ingredient = stockProduits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
+        if (ingredient) {
+            const unitStock = ingredient.unite || 'g';
+            const unitRecette = item.unit || 'g';
+            // On convertit la quantité requise dans l'unité du stock
+            const qteConvertie = window.convertirQuantite(Number(item.quantity) || 0, unitRecette, unitStock);
+            const prixUnitaire = parseFloat(ingredient.prixAchat) || 0;
+            coutTotal += (qteConvertie * prixUnitaire);
+        }
+    }
+    return coutTotal;
+};
 // 🔥 MOTEUR ERP : Afficher/Cacher la zone Recette
 window.toggleRecipeSection = function(isManufactured, prefix = 'new') {
     const isMan = isManufactured === 'true' || isManufactured === true;
@@ -678,17 +750,17 @@ window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unit
     div.innerHTML = `
         <div style="flex: 2; min-width: 200px;">
             <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Matière Première</label>
-            <select class="rec-select" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
+            <select class="rec-select" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;" onchange="mettreAJourMargeLive('${prefix}')">
                 ${optionsHtml}
             </select>
         </div>
         <div style="width: 80px;">
             <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Quantité</label>
-            <input type="number" step="0.01" class="rec-qte" placeholder="0" value="${qte}" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <input type="number" step="0.01" class="rec-qte" placeholder="0" value="${qte}" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color);" oninput="mettreAJourMargeLive()">
         </div>
         <div style="width: 100px;">
             <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Unité</label>
-            <select class="rec-unit" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;">
+            <select class="rec-unit" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;" onchange="mettreAJourMargeLive()">
                 <optgroup label="Poids">
                     <option value="g" ${unite === 'g' ? 'selected' : ''}>g</option>
                     <option value="kg" ${unite === 'kg' ? 'selected' : ''}>kg</option>
@@ -706,7 +778,7 @@ window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unit
                 </optgroup>
             </select>
         </div>
-        <button type="button" onclick="this.closest('.recette-row').remove()" style="background: #fee2e2; border: none; color: var(--danger); cursor: pointer; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: 0.2s;">
+        <button type="button" onclick="this.closest('.recette-row').remove(); mettreAJourMargeLive();" style="background: #fee2e2; border: none; color: var(--danger); cursor: pointer; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: 0.2s;">
             <i class="fas fa-times"></i>
         </button>
     `;
@@ -889,15 +961,21 @@ function appliquerFiltresEtTriStock() {
 
 function afficherStockDOM(produits) {
     const tbody = document.getElementById('stockTableBody');
-    if (!produits.length) { tbody.innerHTML = '<tr><td colspan="7">Aucun produit</td></tr>'; return; }
+    if (!produits.length) { tbody.innerHTML = '<tr><td colspan="8">Aucun produit</td></tr>'; return; }
 
     tbody.innerHTML = produits.map(p => {
-        // 🔥 NOUVEAU : Calcul du stock virtuel si produit manufacturé
+        // Calcul du stock virtuel si produit manufacturé
         const stockReel = calculerStockReel(p);
         
         const pVente = parseFloat(p.prix) || 0;
         const pPromo = parseFloat(p.prixPromo) || 0;
         const valAchat = stockReel * (parseFloat(p.prixAchat) || 0);
+
+        // Calcul du Food Cost et de la Marge
+        const coutRevient = window.calculerCoutRevient(p);
+        const pVenteNet = (pPromo > 0) ? pPromo : pVente;
+        const margeBrute = pVenteNet > 0 ? ((pVenteNet - coutRevient) / pVenteNet) * 100 : 0;
+        let couleurMarge = margeBrute > 65 ? 'var(--success)' : (margeBrute > 40 ? 'var(--warning)' : 'var(--danger)');
 
         const htmlPrix = (pPromo > 0) 
             ? `<td><s style="color:#94a3b8; font-size:0.75rem;">${formatMoney(pVente)}</s><br><strong style="color:#e74c3c;">${formatMoney(pPromo)}</strong></td>`
@@ -928,6 +1006,10 @@ function afficherStockDOM(produits) {
                 <td data-label="Unité">${p.unite || 'unité'}</td>
                 ${htmlPrix}
                 <td data-label="Val. Achat" style="font-weight:700;">${formatMoney(valAchat)}</td>
+                <td data-label="Marge Brute">
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Coût: ${formatMoney(coutRevient)}</div>
+                    <strong style="color:${couleurMarge};">${margeBrute.toFixed(1)}% Marge</strong>
+                </td>
                 <td style="text-align:center;">
                     ${btnReception}
                     <button class="btn-action" style="background:#3498db;" onclick="ouvrirModalEdition('${p.id || p._id}')"><i class="fas fa-pen"></i></button>
@@ -976,101 +1058,232 @@ window.onload = appliquerBranding;
             } catch(e){}
         }
 
-        // --- NOUVEAUX BOUTONS CRUD ---
 function ouvrirModalNouveauProduit() {
     document.getElementById('modalContainer').innerHTML = `
         <div class="modal active">
-            <div class="modal-content" style="max-width:550px;">
-                <div class="modal-header"><h3><i class="fas fa-box"></i> Nouveau Produit</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+            <div class="modal-content" style="max-width:650px; padding: 0; overflow: hidden;">
                 
-                <div class="form-group"><label>Nom du produit :</label><input type="text" id="newProdName"></div>
-                <div class="form-group"><label>URL de la photo :</label><input type="text" id="newProdImage" placeholder="Lien .jpg"></div>
-                
-                <div class="form-group">
-                    <label>Type d'article :</label>
-                    <select id="newProdIsManufactured" onchange="toggleRecipeSection(this.value, 'new')" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
-                        <option value="false">📦 Matière / Produit Simple (Stock direct)</option>
-                        <option value="true">👨‍🍳 Produit Manufacturé (Recette / Assemblage)</option>
-                    </select>
+                <div class="modal-header" style="padding: 20px 25px 15px; margin-bottom: 0; background: #f8fafc;">
+                    <h3><i class="fas fa-box-open"></i> Fiche Technique Produit</h3>
+                    <span class="modal-close" onclick="fermerModal()">&times;</span>
                 </div>
 
-                <div id="recipeSection_new" style="display:none; background:#e8f4fd; padding:15px; border-radius:12px; border:1px solid #b6d4fe; margin-bottom:15px;">
-                    <label style="font-weight:800; color:#0369a1;"><i class="fas fa-blender"></i> Fiche Recette (Composants) :</label>
-                    <p style="font-size:0.75rem; color:#475569; margin-bottom:10px;">Le stock sera calculé automatiquement selon ces ingrédients.</p>
-                    <div id="containerRecette_new"></div>
-                    <button type="button" onclick="ajouterLigneRecette('new')" class="btn-action" style="background:#0284c7; color:white; font-size:0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un ingrédient</button>
-                </div>
-                
-                <div class="form-group">
-                    <label>Type de choix client :</label>
-                    <select id="newProdTypeChoix" onchange="document.getElementById('divNewVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
-                        <option value="aucun">🚫 Aucun</option>
-                        <option value="unique">🔘 Un seul choix</option>
-                        <option value="multiple">☑️ Plusieurs choix</option>
-                    </select>
-                </div>
-                <div class="form-group" id="divNewVariantes" style="display:none;">
-                    <label>Options & Variantes (Optionnel) :</label>
-                    <input type="text" id="newProdVariantes" placeholder="Ex: Viande[Thon,Poulet] | Sauces*[Mayo,Ketchup]">
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
-                        Laissez vide si le produit n'a pas d'options. <br>
-                        <b>Syntaxe :</b> Groupe[Choix1, Choix2] | Ajoutez <b>*</b> pour choix multiples.
-                    </div>
+                <!-- ONGLETS -->
+                <div class="modal-tabs-header" style="padding: 0 25px; background: #f8fafc;">
+                    <button class="m-tab-btn active" onclick="switchModalTab(this, 'tab-general')"><i class="fas fa-info-circle"></i> Infos & Prix</button>
+                    <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-recette')"><i class="fas fa-blender"></i> Recette & Marge</button>
+                    <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-options')"><i class="fas fa-layer-group"></i> Options & Extras</button>
+                    <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-avance')"><i class="fas fa-star"></i> Menu Client</button>
                 </div>
 
-                <div class="form-group" style="background: #fdfaf6; padding: 10px; border-radius: 10px; border: 1px solid #e3c496;">
-                    <label style="color: #db800a; font-weight: 800;"><i class="fas fa-plus-circle"></i> Suppléments Payants :</label>
-                    <div id="containerSupplements"></div>
-                    <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un supplément</button>
-                </div>
-
-                <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
-                    <select id="newProdCat" onchange="gererAffichagePrix('new')">
-                        <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option>
-                        <option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="sandwish">🥪 Sandwiches</option>
-                        <option value="chicha">💨 Chicha</option><option value="Ma9loub">🌮 Ma9loub</option><option value="Pizza">🍕 Pizza</option>
-                        <option value="BagetteFarci">🥖 Bagette Farci</option><option value="Tacos">🌯 Tacos</option><option value="Burger">🍔 Burger</option>
-                        <option value="Crepes">🦪 Crepes</option><option value="plats">🍽 Plats</option><option value="Pasta">🍝 Pasta</option>
-                        <option value="Libanai">🌯 Libanais</option><option value="supplement" style="font-weight:bold; color:var(--primary);">➕ SUPPLÉMENT</option>
-                        <option value="matiere" style="font-weight:bold; color:#e67e22;">🌾 Matière Première</option>
-                    </select>
-                </div>
-
-                <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="newProdPrixAchat" value="0" step="0.001"></div>
-                    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="newProdPrice" step="0.1"></div>
-                    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" placeholder="0 si pas de promo"></div>
-                </div>
-
-<div style="display:flex; gap:10px;">
-                    <div class="form-group" id="stockInputSection_new" style="flex:1;"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
+                <div style="padding: 20px 25px; max-height: 60vh; overflow-y: auto; background: white;">
                     
-<div class="form-group" style="flex:1;"><label>Unité :</label>
-    <select id="newProdUnite">
-        <optgroup label="Poids/Vol">
-            <option value="u">Pièce (u)</option>
-            <option value="g">Grammes (g)</option>
-            <option value="kg">Kilos (kg)</option>
-            <option value="ml">Millilitres (ml)</option>
-            <option value="cl">cl (Centilitres)</option>
-            <option value="L">Litres (L)</option>
-        </optgroup>
-        <optgroup label="Cuisine">
-            <option value="portion">Portion</option>
-            <option value="cac">C. à café</option>
-            <option value="cas">C. à soupe</option>
-        </optgroup>
-    </select>
-</div>
+                    <!-- ONGLET 1 : GÉNÉRAL -->
+                    <div id="tab-general" class="m-tab-content active">
+                        <div style="display:flex; gap:15px; margin-bottom:10px;">
+                            <div class="form-group" style="flex:2;"><label>Nom du produit :</label><input type="text" id="newProdName" placeholder="Ex: Pizza Margarita"></div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Catégorie :</label>
+                                <select id="newProdCat" onchange="gererAffichagePrix('new')">
+                                    <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option>
+                                    <option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="sandwish">🥪 Sandwiches</option>
+                                    <option value="chicha">💨 Chicha</option><option value="Ma9loub">🌮 Ma9loub</option><option value="Pizza">🍕 Pizza</option>
+                                    <option value="plats">🍽 Plats</option><option value="supplement" style="color:var(--primary);">➕ SUPPLÉMENT</option>
+                                    <option value="matiere" style="color:#e67e22;">🌾 Matière Première</option>
+                                </select>
+                            </div>
+                        </div>
 
-                    <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="newProdAlerte" value="10"></div>
+                        <div style="display:flex; gap:15px;">
+                            <div class="form-group" style="flex:1;"><label>Prix Achat (Fixe):</label><input type="number" id="newProdPrixAchat" value="0" step="0.001" oninput="mettreAJourMargeLive()"></div>
+                            <div class="form-group" style="flex:1;"><label>Prix Vente :</label><input type="number" id="newProdPrice" step="0.1" oninput="mettreAJourMargeLive()" style="font-weight:900; color:var(--primary);"></div>
+                            <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" oninput="mettreAJourMargeLive()"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Nature de l'article :</label>
+                            <select id="newProdIsManufactured" onchange="toggleRecipeSection(this.value, 'new'); mettreAJourMargeLive();" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
+                                <option value="false">📦 Article Simple / Stock direct (Boisson, Matière...)</option>
+                                <option value="true">👨‍🍳 Produit Manufacturé (Recette calculée)</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; gap:15px; background:#f8fafc; padding:15px; border-radius:12px; border:1px solid var(--border-soft);">
+                            <div class="form-group" id="stockInputSection_new" style="flex:1; margin:0;"><label>Stock Initial:</label><input type="number" id="newProdStock" value="0"></div>
+                            <div class="form-group" style="flex:1; margin:0;"><label>Unité de mesure :</label>
+                                <select id="newProdUnite">
+                                    <option value="u">Pièce (u)</option><option value="g">Grammes (g)</option><option value="kg">Kilos (kg)</option>
+                                    <option value="ml">Millilitres (ml)</option><option value="L">Litres (L)</option><option value="portion">Portion</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex:1; margin:0;"><label>Alerte rupture:</label><input type="number" id="newProdAlerte" value="10"></div>
+                        </div>
+                    </div>
+
+                    <!-- ONGLET 2 : RECETTE ET MARGE LIVE -->
+                    <div id="tab-recette" class="m-tab-content">
+                        <div id="msgRecetteInactive" style="text-align:center; padding:30px; color:var(--text-muted);">
+                            <i class="fas fa-info-circle fa-2x" style="margin-bottom:10px; color:#cbd5e1;"></i><br>
+                            Cet onglet est réservé aux <b>Produits Manufacturés</b>.<br>Changez la nature de l'article dans l'onglet "Infos & Prix".
+                        </div>
+                        
+                        <div id="recipeSection_new" style="display:none;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                                <label style="font-weight:800; color:var(--primary); margin:0;"><i class="fas fa-blender"></i> Fiche Technique (Ingrédients)</label>
+                                <button type="button" onclick="ajouterLigneRecette('new')" class="btn-action" style="background:var(--primary);"><i class="fas fa-plus"></i> Ajouter</button>
+                            </div>
+                            
+                            <div id="containerRecette_new"></div>
+
+                            <!-- 🔥 LE CALCULATEUR MAGIQUE 🔥 -->
+                            <div class="live-margin-box" id="liveMarginBox">
+                                <div class="live-stat"><span>Coût Ingrédients</span><strong id="liveCost" style="color:var(--text-main);">0.00 DT</strong></div>
+                                <div class="live-stat"><span>Prix Vente</span><strong id="livePrice" style="color:var(--info);">0.00 DT</strong></div>
+                                <div class="live-stat"><span>Marge Brute</span><strong id="liveMarginPct" style="color:var(--success);">0%</strong></div>
+                                <div class="live-stat"><span>Bénéfice Net</span><strong id="liveProfit" style="color:var(--success);">0.00 DT</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ONGLET 3 : OPTIONS & EXTRAS -->
+                    <div id="tab-options" class="m-tab-content">
+                        <div class="form-group">
+                            <label>Choix Obligatoires (Cuisson, Taille, etc.) :</label>
+                            <select id="newProdTypeChoix" onchange="document.getElementById('divNewVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
+                                <option value="aucun">🚫 Aucun choix requis</option>
+                                <option value="unique">🔘 Le client doit faire UN choix</option>
+                                <option value="multiple">☑️ Le client peut faire PLUSIEURS choix</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="divNewVariantes" style="display:none; background:#f1f5f9; padding:15px; border-radius:10px; border-left:4px solid var(--info);">
+                            <label style="color:var(--info);">Structurez vos options :</label>
+                            <input type="text" id="newProdVariantes" placeholder="Taille[Petit,Moyen,Grand] | Sauces*[Mayo,Ketchup]">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
+                                <b>Syntaxe pro :</b> NomDuGroupe[Option1, Option2]. <br>Mettez une astérisque (*) pour un choix multiple (ex: <i>Sauces*</i>).
+                            </div>
+                        </div>
+
+                        <div style="margin-top:25px; border-top:2px dashed var(--border-soft); padding-top:20px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                                <label style="font-weight:800; color:#db800a; margin:0;"><i class="fas fa-plus-circle"></i> Suppléments Payants (Vente Incitative)</label>
+                                <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background:#e3c496; color:#143621;"><i class="fas fa-plus"></i> Ajouter</button>
+                            </div>
+                            <div id="containerSupplements"></div>
+                        </div>
+                    </div>
+
+                    <!-- ONGLET 4 : AVANCÉ (MENU CLIENT) -->
+                    <div id="tab-avance" class="m-tab-content">
+                        <div class="form-group"><label>URL de la belle photo (Menu Digital) :</label><input type="text" id="newProdImage" placeholder="https://..."></div>
+                        
+                        <label style="font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; display:block;">Badges & Informations (Visibles par les clients) :</label>
+                        <div class="badge-grid">
+                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-leaf" style="color:#27ae60;"></i> Végétarien</div></label>
+                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-pepper-hot" style="color:#e74c3c;"></i> Pimenté</div></label>
+                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-wheat-awn-circle-exclamation" style="color:#f39c12;"></i> Sans Gluten</div></label>
+                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-star" style="color:#f1c40f;"></i> Nouveau</div></label>
+                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-fire" style="color:#e67e22;"></i> Populaire</div></label>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top:20px;">
+                            <label>Temps de préparation estimé (Cuisine) :</label>
+                            <select style="width:50%;">
+                                <option>Instantané</option><option>5-10 minutes</option><option>15-20 minutes</option><option>+25 minutes</option>
+                            </select>
+                        </div>
+                    </div>
+
                 </div>
                 
-                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderNouveauProduit()"><i class="fas fa-save"></i> Enregistrer</button></div>
+                <div style="padding: 15px 25px; background: #f8fafc; border-top: 1px solid var(--border-soft); display:flex; gap:10px;">
+                    <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+                    <button class="btn-primary" style="flex:2;" onclick="sauvegarderNouveauProduit()"><i class="fas fa-save"></i> Enregistrer la Fiche</button>
+                </div>
             </div>
         </div>`;
 }
+// --- FONCTION DE NAVIGATION DES ONGLETS ---
+window.switchModalTab = function(btnElement, tabId) {
+    // 1. Gérer les boutons
+    document.querySelectorAll('.m-tab-btn').forEach(btn => btn.classList.remove('active'));
+    btnElement.classList.add('active');
+    
+    // 2. Gérer le contenu
+    document.querySelectorAll('.m-tab-content').forEach(tab => tab.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+};
 
+// --- CALCULATEUR DE MARGE LIVE ---
+window.mettreAJourMargeLive = function(prefix = 'new') {
+    const isManufElement = document.getElementById(`${prefix}ProdIsManufactured`);
+    if (!isManufElement) return; // Sécurité si la modale n'est pas ouverte
+    
+    const isManuf = isManufElement.value === 'true';
+    
+    // Basculer l'affichage du message explicatif dans l'onglet Recette
+    const msg = document.getElementById(`msgRecetteInactive_${prefix}`);
+    const recSec = document.getElementById(`recipeSection_${prefix}`);
+    if(msg && recSec) {
+        msg.style.display = isManuf ? 'none' : 'block';
+        recSec.style.display = isManuf ? 'block' : 'none';
+    }
+
+    // Récupérer le prix de vente saisi
+    const pVenteBase = parseFloat(document.getElementById(`${prefix}ProdPrice`).value) || 0;
+    const pPromo = parseFloat(document.getElementById(`${prefix}ProdPrixPromo`).value) || 0;
+    const pVenteNet = pPromo > 0 ? pPromo : pVenteBase;
+    
+    let coutTotal = 0;
+
+    if (isManuf) {
+        // C'est une recette : on additionne les lignes
+        const rows = document.querySelectorAll(`#containerRecette_${prefix} .recette-row`);
+        rows.forEach(row => {
+            const idIng = row.querySelector('.rec-select').value;
+            const qte = parseFloat(row.querySelector('.rec-qte').value) || 0;
+            const unite = row.querySelector('.rec-unit').value;
+            
+            if (idIng && qte > 0) {
+                const ingredient = stockProduits.find(p => String(p.id) === String(idIng) || String(p._id) === String(idIng));
+                if (ingredient) {
+                    const unitStock = ingredient.unite || 'g';
+                    const prixAchat = parseFloat(ingredient.prixAchat) || 0;
+                    const qteConvertie = window.convertirQuantite(qte, unite, unitStock);
+                    coutTotal += (qteConvertie * prixAchat);
+                }
+            }
+        });
+    } else {
+        // C'est un produit simple : on lit le prix d'achat saisi
+        coutTotal = parseFloat(document.getElementById(`${prefix}ProdPrixAchat`).value) || 0;
+    }
+
+    // Calculs finaux
+    const benefice = pVenteNet - coutTotal;
+    const margePct = pVenteNet > 0 ? (benefice / pVenteNet) * 100 : 0;
+
+    // Mise à jour de l'UI
+    const elCost = document.getElementById(`liveCost_${prefix}`);
+    const elPrice = document.getElementById(`livePrice_${prefix}`);
+    const elMargin = document.getElementById(`liveMarginPct_${prefix}`);
+    const elProfit = document.getElementById(`liveProfit_${prefix}`);
+    const box = document.getElementById(`liveMarginBox_${prefix}`);
+
+    if (elCost && elPrice && elMargin && elProfit && box) {
+        elCost.textContent = formatMoney(coutTotal);
+        elPrice.textContent = formatMoney(pVenteNet);
+        elProfit.textContent = formatMoney(benefice);
+        elMargin.textContent = margePct.toFixed(1) + "%";
+
+        if (margePct > 65) {
+            elMargin.style.color = 'var(--success)'; box.style.borderColor = 'var(--success)'; box.style.backgroundColor = '#f0fdf4';
+        } else if (margePct > 40) {
+            elMargin.style.color = 'var(--warning)'; box.style.borderColor = 'var(--warning)'; box.style.backgroundColor = '#fffbeb';
+        } else {
+            elMargin.style.color = 'var(--danger)'; box.style.borderColor = 'var(--danger)'; box.style.backgroundColor = '#fef2f2';
+        }
+    }
+};
 window.updateSuppPrix = function(selectElem) {
     const opt = selectElem.options[selectElem.selectedIndex];
     // CORRECTION : On cherche correctement l'input dans la div parente
@@ -1258,116 +1471,132 @@ function ouvrirModalEdition(id) {
 
     document.getElementById('modalContainer').innerHTML = `
         <div class="modal active">
-            <div class="modal-content" style="max-width:550px;">
-                <div class="modal-header"><h3><i class="fas fa-pen"></i> Modifier ${escapeHtml(p.nom)}</h3><span class="modal-close" onclick="fermerModal()">&times;</span></div>
+            <div class="modal-content" style="max-width:650px; padding: 0; overflow: hidden;">
                 
-                <div class="form-group"><label>Nom :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
-                <div class="form-group"><label>URL Photo :</label><input type="text" id="editProdImage" value="${p.image || ''}"></div>
-
-                <div class="form-group">
-                    <label>Type d'article :</label>
-                    <select id="editProdIsManufactured" onchange="toggleRecipeSection(this.value, 'edit')" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
-                        <option value="false" ${!isManuf ? 'selected' : ''}>📦 Matière / Produit Simple (Stock direct)</option>
-                        <option value="true" ${isManuf ? 'selected' : ''}>👨‍🍳 Produit Manufacturé (Recette / Assemblage)</option>
-                    </select>
+                <div class="modal-header" style="padding: 20px 25px 15px; margin-bottom: 0; background: #f8fafc;">
+                    <h3><i class="fas fa-pen"></i> Modifier : ${escapeHtml(p.nom)}</h3>
+                    <span class="modal-close" onclick="fermerModal()">&times;</span>
                 </div>
 
-                <div id="recipeSection_edit" style="display:${isManuf ? 'block' : 'none'}; background:#e8f4fd; padding:15px; border-radius:12px; border:1px solid #b6d4fe; margin-bottom:15px;">
-                    <label style="font-weight:800; color:#0369a1;"><i class="fas fa-blender"></i> Fiche Recette (Composants) :</label>
-                    <div id="containerRecette_edit"></div>
-                    <button type="button" onclick="ajouterLigneRecette('edit')" class="btn-action" style="background:#0284c7; color:white; font-size:0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un ingrédient</button>
+                <!-- ONGLETS -->
+                <div class="modal-tabs-header" style="padding: 0 25px; background: #f8fafc;">
+                    <button class="m-tab-btn active" onclick="switchModalTab(this, 'tab-general-edit')"><i class="fas fa-info-circle"></i> Infos & Prix</button>
+                    <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-recette-edit')"><i class="fas fa-blender"></i> Recette & Marge</button>
+                    <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-options-edit')"><i class="fas fa-layer-group"></i> Options & Extras</button>
                 </div>
 
-                <div class="form-group">
-                    <label>Type de choix client :</label>
-                    <select id="editProdTypeChoix" onchange="document.getElementById('divEditVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
-                        <option value="aucun" ${p.typeChoix==='aucun'?'selected':''}>🚫 Aucun</option>
-                        <option value="unique" ${p.typeChoix==='unique'?'selected':''}>🔘 Unique</option>
-                        <option value="multiple" ${p.typeChoix==='multiple'?'selected':''}>☑️ Multiple</option>
-                    </select>
-                </div>
-                <div class="form-group" id="divEditVariantes" style="display:${p.typeChoix==='aucun'?'none':'block'};">
-                    <label>Options & Variantes :</label>
-                    <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Viande[Thon,Poulet] | Sauces*[Mayo,Ketchup]">
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
-                        Laissez vide pour supprimer les options.
-                    </div>
-                </div>
-
-                <div class="form-group" style="background: #fdfaf6; padding: 10px; border-radius: 10px; border: 1px solid #e3c496;">
-                    <label style="color: #db800a; font-weight: 800;"><i class="fas fa-plus-circle"></i> Suppléments Payants :</label>
-                    <div id="containerSupplements"></div>
-                    <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background: #e3c496; color: #143621; font-size: 0.75rem; margin-top:5px;"><i class="fas fa-plus"></i> Ajouter un supplément</button>
-                </div>
-
-                <div class="form-group" style="margin-top:10px;"><label>Catégorie :</label>
-                    <select id="editProdCat" onchange="gererAffichagePrix('edit')">
-                        <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option>
-                        <option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option>
-                        <option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
-                        <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option>
-                        <option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option>
-                        <option value="sandwish" ${p.categorie==='sandwish'?'selected':''}>🥪 Sandwiches</option>
-                        <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option>
-                        <option value="Ma9loub" ${p.categorie==='Ma9loub'?'selected':''}>🌮 Ma9loub</option>
-                        <option value="Pizza" ${p.categorie==='Pizza'?'selected':''}>🍕 Pizza</option>
-                        <option value="BagetteFarci" ${p.categorie==='BagetteFarci'?'selected':''}>🥖 Bagette Farci</option>
-                        <option value="Tacos" ${p.categorie==='Tacos'?'selected':''}>🌯 Tacos</option>
-                        <option value="Burger" ${p.categorie==='Burger'?'selected':''}>🍔 Burger</option>
-                        <option value="Crepes" ${p.categorie==='Crepes'?'selected':''}>🦪 Crepes</option>
-                        <option value="plats" ${p.categorie==='plats'?'selected':''}>🍽 Plats</option>
-                        <option value="Pasta" ${p.categorie==='Pasta'?'selected':''}>🍝 Pasta</option>
-                        <option value="Libanai" ${p.categorie==='Libanai'?'selected':''}>🌯 Libanais</option>
-                        <option value="supplement" ${p.categorie==='supplement'?'selected':''}>➕ SUPPLEMENT</option>
-                        <option value="matiere" ${p.categorie==='matiere'?'selected':''}>🌾 Matière Première </option>
-
-                    </select>
-                </div>
-
-                <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="editProdPrixAchat" value="${p.prixAchat || 0}" step="0.001"></div>
-                    <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="editProdPrice" value="${p.prix}" step="0.1"></div>
-                    <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="editProdPrixPromo" step="0.1" value="${p.prixPromo || 0}"></div>
-                </div>
-
-<div style="display:flex; gap:10px;">
-                    <div class="form-group" id="stockInputSection_edit" style="flex:1; display:${isManuf ? 'none' : 'block'};"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
+                <div style="padding: 20px 25px; max-height: 60vh; overflow-y: auto; background: white;">
                     
-<div class="form-group" style="flex:1;"><label>Unité :</label>
-    <select id="editProdUnite">
-        <optgroup label="Poids/Vol">
-            <option value="u" ${p.unite === 'u' ? 'selected' : ''}>Pièce (u)</option>
-            <option value="g" ${p.unite === 'g' ? 'selected' : ''}>Grammes (g)</option>
-            <option value="kg" ${p.unite === 'kg' ? 'selected' : ''}>Kilos (kg)</option>
-            <option value="ml" ${p.unite === 'ml' ? 'selected' : ''}>Millilitres (ml)</option>
-            <option value="cl" ${p.unite === 'cl' ? 'selected' : ''}>cl (Centilitres)</option>
-            <option value="L" ${p.unite === 'L' ? 'selected' : ''}>Litres (L)</option>
-        </optgroup>
-        <optgroup label="Cuisine">
-            <option value="portion" ${p.unite === 'portion' ? 'selected' : ''}>Portion</option>
-            <option value="cac" ${p.unite === 'cac' ? 'selected' : ''}>C. à café</option>
-            <option value="cas" ${p.unite === 'cas' ? 'selected' : ''}>C. à soupe</option>
-        </optgroup>
-    </select>
-</div>
+                    <!-- ONGLET 1 : GÉNÉRAL -->
+                    <div id="tab-general-edit" class="m-tab-content active">
+                        <div style="display:flex; gap:15px; margin-bottom:10px;">
+                            <div class="form-group" style="flex:2;"><label>Nom :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Catégorie :</label>
+                                <select id="editProdCat" onchange="gererAffichagePrix('edit')">
+                                    <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option><option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option><option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
+                                    <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option><option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option><option value="sandwish" ${p.categorie==='sandwish'?'selected':''}>🥪 Sandwiches</option>
+                                    <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option><option value="Ma9loub" ${p.categorie==='Ma9loub'?'selected':''}>🌮 Ma9loub</option><option value="Pizza" ${p.categorie==='Pizza'?'selected':''}>🍕 Pizza</option>
+                                    <option value="plats" ${p.categorie==='plats'?'selected':''}>🍽 Plats</option><option value="supplement" ${p.categorie==='supplement'?'selected':''} style="color:var(--primary);">➕ SUPPLÉMENT</option>
+                                    <option value="matiere" ${p.categorie==='matiere'?'selected':''} style="color:#e67e22;">🌾 Matière Première</option>
+                                </select>
+                            </div>
+                        </div>
 
-                    <div class="form-group" style="flex:1;"><label>Seuil d'alerte:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
+                        <div style="display:flex; gap:15px;">
+                            <div class="form-group" style="flex:1;"><label>Prix Achat:</label><input type="number" id="editProdPrixAchat" value="${p.prixAchat || 0}" step="0.001" oninput="mettreAJourMargeLive('edit')"></div>
+                            <div class="form-group" style="flex:1;"><label>Prix Vente Normal:</label><input type="number" id="editProdPrice" value="${p.prix}" step="0.1" oninput="mettreAJourMargeLive('edit')" style="font-weight:900; color:var(--primary);"></div>
+                            <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="editProdPrixPromo" step="0.1" value="${p.prixPromo || 0}" oninput="mettreAJourMargeLive('edit')"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Nature de l'article :</label>
+                            <select id="editProdIsManufactured" onchange="toggleRecipeSection(this.value, 'edit'); mettreAJourMargeLive('edit');" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
+                                <option value="false" ${!isManuf ? 'selected' : ''}>📦 Article Simple / Stock direct</option>
+                                <option value="true" ${isManuf ? 'selected' : ''}>👨‍🍳 Produit Manufacturé (Recette)</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; gap:15px; background:#f8fafc; padding:15px; border-radius:12px; border:1px solid var(--border-soft);">
+                            <div class="form-group" id="stockInputSection_edit" style="flex:1; display:${isManuf ? 'none' : 'block'}; margin:0;"><label>Stock Actuel:</label><input type="number" id="editProdStock" value="${p.stock}"></div>
+                            <div class="form-group" style="flex:1; margin:0;"><label>Unité :</label>
+                                <select id="editProdUnite">
+                                    <option value="u" ${p.unite === 'u' ? 'selected' : ''}>Pièce (u)</option><option value="g" ${p.unite === 'g' ? 'selected' : ''}>Grammes (g)</option><option value="kg" ${p.unite === 'kg' ? 'selected' : ''}>Kilos (kg)</option>
+                                    <option value="ml" ${p.unite === 'ml' ? 'selected' : ''}>Millilitres (ml)</option><option value="L" ${p.unite === 'L' ? 'selected' : ''}>Litres (L)</option><option value="portion" ${p.unite === 'portion' ? 'selected' : ''}>Portion</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex:1; margin:0;"><label>Alerte rupture:</label><input type="number" id="editProdAlerte" value="${p.seuilAlerte || 10}"></div>
+                        </div>
+                    </div>
+
+                    <!-- ONGLET 2 : RECETTE ET MARGE -->
+                    <div id="tab-recette-edit" class="m-tab-content">
+                        <div id="msgRecetteInactive_edit" style="display:${isManuf ? 'none' : 'block'}; text-align:center; padding:30px; color:var(--text-muted);">
+                            <i class="fas fa-info-circle fa-2x" style="margin-bottom:10px; color:#cbd5e1;"></i><br>Cet onglet est réservé aux <b>Produits Manufacturés</b>.
+                        </div>
+                        
+                        <div id="recipeSection_edit" style="display:${isManuf ? 'block' : 'none'};">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                                <label style="font-weight:800; color:var(--primary); margin:0;"><i class="fas fa-blender"></i> Fiche Technique (Ingrédients)</label>
+                                <button type="button" onclick="ajouterLigneRecette('edit')" class="btn-action" style="background:var(--primary);"><i class="fas fa-plus"></i> Ajouter</button>
+                            </div>
+                            <div id="containerRecette_edit"></div>
+
+                            <div class="live-margin-box" id="liveMarginBox_edit">
+                                <div class="live-stat"><span>Coût Ingrédients</span><strong id="liveCost_edit" style="color:var(--text-main);">0.00 DT</strong></div>
+                                <div class="live-stat"><span>Prix Vente</span><strong id="livePrice_edit" style="color:var(--info);">0.00 DT</strong></div>
+                                <div class="live-stat"><span>Marge Brute</span><strong id="liveMarginPct_edit" style="color:var(--success);">0%</strong></div>
+                                <div class="live-stat"><span>Bénéfice Net</span><strong id="liveProfit_edit" style="color:var(--success);">0.00 DT</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ONGLET 3 : OPTIONS -->
+                    <div id="tab-options-edit" class="m-tab-content">
+                        <div class="form-group">
+                            <label>Type de choix client :</label>
+                            <select id="editProdTypeChoix" onchange="document.getElementById('divEditVariantes').style.display = (this.value === 'aucun') ? 'none' : 'block'">
+                                <option value="aucun" ${p.typeChoix==='aucun'?'selected':''}>🚫 Aucun</option>
+                                <option value="unique" ${p.typeChoix==='unique'?'selected':''}>🔘 Unique</option>
+                                <option value="multiple" ${p.typeChoix==='multiple'?'selected':''}>☑️ Multiple</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="divEditVariantes" style="display:${p.typeChoix==='aucun'?'none':'block'}; background:#f1f5f9; padding:15px; border-radius:10px; border-left:4px solid var(--info);">
+                            <label>Options & Variantes :</label>
+                            <input type="text" id="editProdVariantes" value="${p.variantes || ''}" placeholder="Ex: Viande[Thon,Poulet] | Sauces*[Mayo,Ketchup]">
+                        </div>
+
+                        <div style="margin-top:25px; border-top:2px dashed var(--border-soft); padding-top:20px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                                <label style="font-weight:800; color:#db800a; margin:0;"><i class="fas fa-plus-circle"></i> Suppléments Payants</label>
+                                <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background:#e3c496; color:#143621;"><i class="fas fa-plus"></i> Ajouter</button>
+                            </div>
+                            <div id="containerSupplements"></div>
+                        </div>
+                    </div>
+
                 </div>
-
-                <div class="modal-buttons"><button class="btn-secondary" onclick="fermerModal()">Annuler</button><button class="btn-primary" onclick="sauvegarderEditionProduit('${p.id || p._id}')"><i class="fas fa-sync"></i> Mettre à jour</button></div>
+                
+                <div style="padding: 15px 25px; background: #f8fafc; border-top: 1px solid var(--border-soft); display:flex; gap:10px;">
+                    <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+                    <button class="btn-primary" style="flex:2;" onclick="sauvegarderEditionProduit('${p.id || p._id}')"><i class="fas fa-sync"></i> Mettre à jour</button>
+                </div>
             </div>
         </div>`;
     
-if (p.supplements && Array.isArray(p.supplements)) {
-    p.supplements.forEach(s => ajouterLigneSupplement(s.nom, s.prix, s.ingredientId, s.quantiteADeduire, s.unite, s.prixPromo)); 
-}
-    // Recharge la recette existante si c'est un produit manufacturé
+    // Remplissage des anciennes données (Suppléments et Recette)
+    if (p.supplements && Array.isArray(p.supplements)) {
+        p.supplements.forEach(s => ajouterLigneSupplement(s.nom, s.prix, s.ingredientId, s.quantiteADeduire, s.unite, s.prixPromo)); 
+    }
     if (isManuf && p.recipe && Array.isArray(p.recipe)) {
         p.recipe.forEach(r => ajouterLigneRecette('edit', r.ingredientId, r.quantity, r.unit));
     }
+    
+    // Délai pour que le DOM se charge avant de calculer le prix live
     setTimeout(() => {
         gererAffichagePrix('edit');
-    }, 10);
+        mettreAJourMargeLive('edit');
+    }, 50);
 }
 
 async function sauvegarderEditionProduit(id) {
@@ -1477,7 +1706,40 @@ function exporterStockCSV() {
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Stock_ERP_${new Date().toISOString().slice(0,10)}.csv`;
             a.click(); URL.revokeObjectURL(a.href);
         }
+window.genererBonCommande = function() {
+    const alertes = stockProduits.filter(p => !p.isManufactured && calculerStockReel(p) <= (Number(p.seuilAlerte) || 10));
+    
+    if(alertes.length === 0) return showNotification("Aucun produit en alerte à commander.", "var(--info)");
 
+    let html = `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2>BON DE COMMANDE - FOURNISSEUR</h2>
+            <p>Date : ${new Date().toLocaleDateString('fr-FR')}</p>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                <tr><th style="border: 1px solid #000; padding: 8px; text-align: left;">Désignation</th>
+                <th style="border: 1px solid #000; padding: 8px; text-align: center;">Stock Actuel</th>
+                <th style="border: 1px solid #000; padding: 8px; text-align: center;">Qté à Commander</th></tr>
+    `;
+
+    alertes.forEach(p => {
+        const stockReel = calculerStockReel(p);
+        let qteACommander = (Number(p.seuilAlerte) * 2) - stockReel;
+        if(qteACommander < 1) qteACommander = Number(p.seuilAlerte);
+
+        html += `<tr>
+            <td style="border: 1px solid #000; padding: 8px;">${p.nom}</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center; color: red;">${stockReel} ${p.unite || 'u'}</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold;">${qteACommander} ${p.unite || 'u'}</td>
+        </tr>`;
+    });
+
+    html += `</table></div>`;
+
+    const fenetre = window.open('', '', 'width=800,height=600');
+    fenetre.document.write(html);
+    fenetre.document.close();
+    setTimeout(() => { fenetre.print(); fenetre.close(); }, 500);
+};
         // ========== 3. MODULE MOUVEMENTS ==========
         async function chargerHistorique() {
             const tbody = document.getElementById('historiqueBody');
@@ -2155,19 +2417,24 @@ async function chargerRapportVentes() {
         // Mise en mémoire pour l'export CSV
         ventesAffichees = ventesFiltrees;
 
-        // 4. CALCUL DES KPIs (SÉCURITÉ MATHÉMATIQUE - Évite les milliards)
 let totalCA = 0;
 ventesFiltrees.forEach(v => {
-    totalCA += parseFloat(v.total) || 0; // Additionne des nombres, pas du texte !
+    totalCA += parseFloat(v.total) || 0;
 });
 
-        const nbTickets = ventesFiltrees.length;
-        const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
+const nbTickets = ventesFiltrees.length;
+const panierMoyen = nbTickets > 0 ? (totalCA / nbTickets) : 0;
 
-        // Affichage des compteurs
-        document.getElementById('kpiCA').textContent = formatMoney(totalCA);
-        document.getElementById('kpiTickets').textContent = nbTickets;
-        document.getElementById('kpiMoyen').textContent = formatMoney(panierMoyen);
+// Calcul TVA (Exemple avec un taux standard à 19%)
+const totalHT = totalCA / 1.19;
+const totalTVA = totalCA - totalHT;
+
+// Affichage des compteurs sur le dashboard
+document.getElementById('kpiCA').textContent = formatMoney(totalCA);
+document.getElementById('kpiHT').textContent = formatMoney(totalHT);
+document.getElementById('kpiTVA').textContent = formatMoney(totalTVA);
+document.getElementById('kpiTickets').textContent = nbTickets;
+document.getElementById('kpiMoyen').textContent = formatMoney(panierMoyen);
 
         // 5. PALMARÈS DES PRODUITS (Top Ventes)
         const statsProds = {};
@@ -2404,197 +2671,207 @@ async function sauvegarderConfigFidelite() {
         let chartTopInstance = null;      // NOUVEAU
         let chartRevDepInstance = null;   // NOUVEAU
 
-        async function rafraichirGraphiques() {
-            // 1. Récupérer TOUTES les données nécessaires
-            try {
-                // Ventes
-                const resVentes = await fetchSecurise('/api/ventes');
-                toutesLesVentes = await resVentes.json();
-                
-                // Produits
-                if (!stockProduits || stockProduits.length === 0) {
-                    const resStock = await fetchSecurise('/api/stock');
-                    let dataStock = await resStock.json();
-                    stockProduits = Array.isArray(dataStock) ? dataStock : (dataStock.produits || []);
-                }
+async function rafraichirGraphiques() {
+    // 1. Récupérer TOUTES les données nécessaires
+    try {
+        const resVentes = await fetchSecurise('/api/ventes');
+        toutesLesVentes = await resVentes.json();
+        
+        if (!stockProduits || stockProduits.length === 0) {
+            const resStock = await fetchSecurise('/api/stock');
+            let dataStock = await resStock.json();
+            stockProduits = Array.isArray(dataStock) ? dataStock : (dataStock.produits || []);
+        }
 
-                // Dépenses (NOUVEAU)
-                const resDep = await fetchSecurise('/api/depenses');
-                let dataDep = await resDep.json();
-                depensesGlobales = Array.isArray(dataDep) ? dataDep : [];
+        const resDep = await fetchSecurise('/api/depenses');
+        let dataDep = await resDep.json();
+        depensesGlobales = Array.isArray(dataDep) ? dataDep : [];
 
-            } catch(e) { console.error("Erreur de chargement des données pour graphiques", e); return; }
+    } catch(e) { console.error("Erreur de chargement des données pour graphiques", e); return; }
 
-            // ==========================================
-            // 2. PRÉPARATION DES DATES (7 DERNIERS JOURS)
-            // ==========================================
-            const statsJours = {};
-            const statsDepensesJours = {}; // NOUVEAU
-            const labelsJours = [];
-            
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                
-                const jour = String(d.getDate()).padStart(2, '0');
-                const mois = String(d.getMonth() + 1).padStart(2, '0');
-                const annee = d.getFullYear();
-                const dateStandard = `${jour}/${mois}/${annee}`;
-                
-                labelsJours.push(dateStandard);
-                statsJours[dateStandard] = 0;
-                statsDepensesJours[dateStandard] = 0; // NOUVEAU
-            }
+    // 2. PRÉPARATION DES DATES (7 DERNIERS JOURS)
+    const statsJours = {};
+    const statsDepensesJours = {};
+    const labelsJours = [];
+    
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const jour = String(d.getDate()).padStart(2, '0');
+        const mois = String(d.getMonth() + 1).padStart(2, '0');
+        const annee = d.getFullYear();
+        const dateStandard = `${jour}/${mois}/${annee}`;
+        
+        labelsJours.push(dateStandard);
+        statsJours[dateStandard] = 0;
+        statsDepensesJours[dateStandard] = 0;
+    }
 
-            // Remplir avec les Ventes (Revenus)
-            toutesLesVentes.forEach(v => {
-                const dateVente = v.date.split(' ')[0].trim();
-                const parts = dateVente.split('/');
-                if (parts.length === 3) {
-                    const cleanDate = `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
-                    if (statsJours[cleanDate] !== undefined) {
-                        statsJours[cleanDate] += parseFloat(v.total) || 0;
-                    }
-                }
-            });
-
-            // Remplir avec les Dépenses (NOUVEAU)
-            depensesGlobales.forEach(d => {
-                const dateDepense = d.date.split(' ')[0].trim();
-                const parts = dateDepense.split('/');
-                if (parts.length === 3) {
-                    const cleanDate = `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
-                    if (statsDepensesJours[cleanDate] !== undefined) {
-                        statsDepensesJours[cleanDate] += parseFloat(d.montantPaye || d.montant) || 0;
-                    }
-                }
-            });
-
-            // ==========================================
-            // 3. CAMEMBERT (RÉPARTITION) & TOP 5 (NOUVEAU)
-            // ==========================================
-            const statsCat = {};
-            const statsTop = {}; // NOUVEAU
-
-            toutesLesVentes.forEach(v => {
-                if(!v.articles) return;
-                v.articles.forEach(art => {
-                    const nomBase = art.nom.split('(')[0].trim();
-                    
-                    // Pour le Camembert (Catégories)
-                    const prod = stockProduits.find(p => p.nom.trim() === nomBase);
-                    const catId = prod ? prod.categorie : 'autre';
-                    const catNom = getCatName(catId);
-                    
-                    if (!statsCat[catNom]) statsCat[catNom] = 0;
-                    statsCat[catNom] += (parseFloat(art.prix || 0) * parseInt(art.quantite || 1));
-
-                    // Pour le Top 5 Produits (NOUVEAU)
-                    if (!statsTop[nomBase]) statsTop[nomBase] = 0;
-                    statsTop[nomBase] += parseInt(art.quantite || 1);
-                });
-            });
-
-            // Trier et garder seulement les 5 meilleurs produits
-            const sortedTop = Object.entries(statsTop).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            const labelsTop = sortedTop.map(item => item[0]);
-            const dataTop = sortedTop.map(item => item[1]);
-
-
-            // ==========================================
-            // 4. DESSIN DES GRAPHIQUES (CHART.JS)
-            // ==========================================
-            if (chartCAInstance) chartCAInstance.destroy();
-            if (chartCatInstance) chartCatInstance.destroy();
-            if (chartTopInstance) chartTopInstance.destroy(); // NOUVEAU
-            if (chartRevDepInstance) chartRevDepInstance.destroy(); // NOUVEAU
-
-            // 1. Dessiner la Courbe (Revenus)
-            const canvasCA = document.getElementById('chartCA');
-            if (canvasCA) {
-                chartCAInstance = new Chart(canvasCA.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: labelsJours,
-                        datasets: [{
-                            label: "Chiffre d'Affaires (DT)",
-                            data: labelsJours.map(date => statsJours[date]),
-                            borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', 
-                            borderWidth: 3, tension: 0.4, fill: true, pointBackgroundColor: '#143621', pointRadius: 4
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-                });
-            }
-
-            // 2. Dessiner le Camembert (Catégories)
-            const canvasCat = document.getElementById('chartCategories');
-            if (canvasCat) {
-                chartCatInstance = new Chart(canvasCat.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(statsCat),
-                        datasets: [{
-                            data: Object.values(statsCat),
-                            backgroundColor: ['#e67e22', '#3498db', '#9b59b6', '#2ecc71', '#f1c40f', '#e74c3c', '#34495e'],
-                            borderWidth: 0, hoverOffset: 10
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 15 } } }, cutout: '65%' }
-                });
-            }
-
-            // 3. Dessiner le Top 5 Produits (NOUVEAU)
-            const canvasTop = document.getElementById('chartTopProduits');
-            if (canvasTop) {
-                chartTopInstance = new Chart(canvasTop.getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels: labelsTop,
-                        datasets: [{
-                            label: 'Unités vendues',
-                            data: dataTop,
-                            backgroundColor: '#3498db', // Bleu info
-                            borderRadius: 6
-                        }]
-                    },
-                    options: { 
-                        responsive: true, maintainAspectRatio: false, 
-                        plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-                    }
-                });
-            }
-
-            // 4. Dessiner Revenus vs Dépenses (NOUVEAU)
-            const canvasRevDep = document.getElementById('chartRevDep');
-            if (canvasRevDep) {
-                chartRevDepInstance = new Chart(canvasRevDep.getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels: labelsJours,
-                        datasets: [
-                            {
-                                label: 'Revenus (DT)',
-                                data: labelsJours.map(date => statsJours[date]),
-                                backgroundColor: '#27ae60', // Vert
-                                borderRadius: 4
-                            },
-                            {
-                                label: 'Dépenses (DT)',
-                                data: labelsJours.map(date => statsDepensesJours[date]),
-                                backgroundColor: '#e74c3c', // Rouge
-                                borderRadius: 4
-                            }
-                        ]
-                    },
-                    options: { 
-                        responsive: true, maintainAspectRatio: false,
-                        scales: { y: { beginAtZero: true } }
-                    }
-                });
+    toutesLesVentes.forEach(v => {
+        const dateVente = v.date.split(' ')[0].trim();
+        const parts = dateVente.split('/');
+        if (parts.length === 3) {
+            const cleanDate = `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+            if (statsJours[cleanDate] !== undefined) {
+                statsJours[cleanDate] += parseFloat(v.total) || 0;
             }
         }
+    });
+
+    depensesGlobales.forEach(d => {
+        const dateDepense = d.date.split(' ')[0].trim();
+        const parts = dateDepense.split('/');
+        if (parts.length === 3) {
+            const cleanDate = `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+            if (statsDepensesJours[cleanDate] !== undefined) {
+                statsDepensesJours[cleanDate] += parseFloat(d.montantPaye || d.montant) || 0;
+            }
+        }
+    });
+
+    // 3. CAMEMBERT (RÉPARTITION) & TOP 5
+    const statsCat = {};
+    const statsTop = {};
+
+    toutesLesVentes.forEach(v => {
+        if(!v.articles) return;
+        v.articles.forEach(art => {
+            const nomBase = art.nom.split('(')[0].trim();
+            const prod = stockProduits.find(p => p.nom.trim() === nomBase);
+            const catId = prod ? prod.categorie : 'autre';
+            const catNom = getCatName(catId);
+            
+            if (!statsCat[catNom]) statsCat[catNom] = 0;
+            statsCat[catNom] += (parseFloat(art.prix || 0) * parseInt(art.quantite || 1));
+
+            if (!statsTop[nomBase]) statsTop[nomBase] = 0;
+            statsTop[nomBase] += parseInt(art.quantite || 1);
+        });
+    });
+
+    const sortedTop = Object.entries(statsTop).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const labelsTop = sortedTop.map(item => item[0]);
+    const dataTop = sortedTop.map(item => item[1]);
+
+    // 4. DESSIN DES GRAPHIQUES CLASSIQUES
+    if (chartCAInstance) chartCAInstance.destroy();
+    if (chartCatInstance) chartCatInstance.destroy();
+    if (chartTopInstance) chartTopInstance.destroy();
+    if (chartRevDepInstance) chartRevDepInstance.destroy();
+
+    const canvasCA = document.getElementById('chartCA');
+    if (canvasCA) {
+        chartCAInstance = new Chart(canvasCA.getContext('2d'), {
+            type: 'line',
+            data: { labels: labelsJours, datasets: [{ label: "Chiffre d'Affaires (DT)", data: labelsJours.map(date => statsJours[date]), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', borderWidth: 3, tension: 0.4, fill: true, pointBackgroundColor: '#143621', pointRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+    }
+
+    const canvasCat = document.getElementById('chartCategories');
+    if (canvasCat) {
+        chartCatInstance = new Chart(canvasCat.getContext('2d'), {
+            type: 'doughnut',
+            data: { labels: Object.keys(statsCat), datasets: [{ data: Object.values(statsCat), backgroundColor: ['#e67e22', '#3498db', '#9b59b6', '#2ecc71', '#f1c40f', '#e74c3c', '#34495e'], borderWidth: 0, hoverOffset: 10 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 15 } } }, cutout: '65%' }
+        });
+    }
+
+    const canvasTop = document.getElementById('chartTopProduits');
+    if (canvasTop) {
+        chartTopInstance = new Chart(canvasTop.getContext('2d'), {
+            type: 'bar',
+            data: { labels: labelsTop, datasets: [{ label: 'Unités vendues', data: dataTop, backgroundColor: '#3498db', borderRadius: 6 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+    }
+
+    const canvasRevDep = document.getElementById('chartRevDep');
+    if (canvasRevDep) {
+        chartRevDepInstance = new Chart(canvasRevDep.getContext('2d'), {
+            type: 'bar',
+            data: { labels: labelsJours, datasets: [{ label: 'Revenus (DT)', data: labelsJours.map(date => statsJours[date]), backgroundColor: '#27ae60', borderRadius: 4 }, { label: 'Dépenses (DT)', data: labelsJours.map(date => statsDepensesJours[date]), backgroundColor: '#e74c3c', borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+        });
+    }
+
+    // ==========================================
+    // 5. MATRICE MENU ENGINEERING
+    // ==========================================
+    let statMenu = [];
+    let totalVendusGlob = 0;
+
+    Object.keys(statsTop).forEach(nom => {
+        const prod = stockProduits.find(p => p.nom.trim() === nom);
+        if(prod) {
+            const cout = window.calculerCoutRevient(prod);
+            const prixNet = (prod.prixPromo > 0) ? prod.prixPromo : prod.prix;
+            const marge = prixNet - cout;
+            const qte = statsTop[nom];
+            totalVendusGlob += qte;
+            statMenu.push({ nom: nom, marge: marge, qte: qte });
+        }
+    });
+
+    const moyenneMarge = statMenu.length ? statMenu.reduce((s, item) => s + item.marge, 0) / statMenu.length : 0;
+    const moyenneQte = statMenu.length ? totalVendusGlob / statMenu.length : 0;
+
+    const tbodyMenu = document.getElementById('menuEngineeringBody');
+    if(tbodyMenu) {
+        tbodyMenu.innerHTML = statMenu.map(item => {
+            let statut = '', couleur = '', conseil = '';
+            if(item.marge >= moyenneMarge && item.qte >= moyenneQte) { statut = '⭐ Étoile'; couleur = 'var(--success)'; conseil = 'Mettre en avant'; }
+            else if(item.marge < moyenneMarge && item.qte >= moyenneQte) { statut = '🐴 Cheval de trait'; couleur = 'var(--info)'; conseil = 'Augmenter le prix'; }
+            else if(item.marge >= moyenneMarge && item.qte < moyenneQte) { statut = '🧩 Puzzle'; couleur = 'var(--warning)'; conseil = 'Promouvoir / Suggérer'; }
+            else { statut = '🐕 Chien'; couleur = 'var(--danger)'; conseil = 'Revoir ou Supprimer'; }
+
+            return `<tr>
+                <td><strong>${item.nom}</strong></td>
+                <td style="color:${couleur}; font-weight:bold;">${statut}</td>
+                <td style="color:var(--text-muted);">${conseil}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ==========================================
+    // 6. GRAPHIQUE DES PERTES (WASTAGE)
+    // ==========================================
+    try {
+        const resInv = await fetchSecurise('/api/stock/inventaires');
+        const inventaires = await resInv.json();
+        let raisonsPertes = {};
+
+        if (Array.isArray(inventaires)) {
+            inventaires.forEach(inv => {
+                if (inv.ecarts) {
+                    inv.ecarts.forEach(e => {
+                        if(e.ecart < 0) {
+                            const raison = e.raison || 'Non justifié';
+                            if(!raisonsPertes[raison]) raisonsPertes[raison] = 0;
+                            raisonsPertes[raison] += Math.abs(e.ecart); 
+                        }
+                    });
+                }
+            });
+        }
+
+        const canvasPertes = document.getElementById('chartPertes');
+        if (canvasPertes && window.chartPertesInstance) window.chartPertesInstance.destroy();
+        if (canvasPertes) {
+            window.chartPertesInstance = new Chart(canvasPertes.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(raisonsPertes).length > 0 ? Object.keys(raisonsPertes) : ['Aucune perte'],
+                    datasets: [{
+                        data: Object.keys(raisonsPertes).length > 0 ? Object.values(raisonsPertes) : [1],
+                        backgroundColor: Object.keys(raisonsPertes).length > 0 ? ['#e74c3c', '#e67e22', '#f1c40f', '#95a5a6'] : ['#ecf0f1']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+    } catch (e) { console.error("Erreur graphe pertes", e); }
+}
         // ========== INIT DOM ==========
 document.addEventListener("DOMContentLoaded", () => {
             chargerDashboard(); chargerStock(); chargerCategories(); chargerHistorique(); chargerAlertes(); chargerDepenses();
