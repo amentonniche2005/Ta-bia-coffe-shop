@@ -1217,21 +1217,32 @@ function ouvrirModalNouveauProduit() {
 
                         <div style="margin-top:25px; border-top:2px dashed var(--border-soft); padding-top:20px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                                <label style="font-weight:800; color:#db800a; margin:0;"><i class="fas fa-plus-circle"></i> Suppléments Payants (Vente Incitative)</label>
+                                <label style="font-weight:800; color:#db800a; margin:0;"><i class="fas fa-plus-circle"></i> Suppléments Payants</label>
                                 <button type="button" onclick="ajouterLigneSupplement()" class="btn-action" style="background:#e3c496; color:#143621;"><i class="fas fa-plus"></i> Ajouter</button>
                             </div>
                             <div id="containerSupplements"></div>
                         </div>
+
+                        <!-- 🔥 NOUVEAU : CROSS-SELLING -->
+                        <div style="margin-top:25px; border-top:2px dashed var(--border-soft); padding-top:20px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                                <div>
+                                    <label style="font-weight:800; color:#8b5cf6; margin:0;"><i class="fas fa-magic"></i> Recommandations (Cross-Selling)</label>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Suggérer au client après l'ajout au panier.</div>
+                                </div>
+                                <button type="button" onclick="ajouterLigneCrossSell('new')" class="btn-action" style="background:#8b5cf6; color:white;"><i class="fas fa-plus"></i> Lier produit</button>
+                            </div>
+                            <div id="containerCrossSell_new"></div>
+                        </div>
                     </div>
 
-                    <!-- ONGLET 4 : AVANCÉ -->
+                    <!-- ONGLET 4 : AVANCÉ (MENU CLIENT) -->
                     <div id="tab-avance" class="m-tab-content">
                         <div class="form-group"><label>URL de la photo :</label><input type="text" id="newProdImage" placeholder="https://..."></div>
                     </div>
 
                 </div>
                 
-                <!-- BOUTONS (Avec la bonne classe modal-buttons !) -->
                 <div class="modal-buttons" style="padding: 15px 25px; margin: 0; background: #f8fafc; border-top: 1px solid var(--border-soft); flex-shrink: 0;">
                     <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
                     <button class="btn-primary" style="flex:2;" onclick="sauvegarderNouveauProduit()"><i class="fas fa-save"></i> Enregistrer la Fiche</button>
@@ -1329,7 +1340,39 @@ window.updateSuppPrix = function(selectElem) {
         inputPrix.value = opt.getAttribute('data-prix'); 
     }
 };
+window.ajouterLigneCrossSell = function(prefix = 'new', selectedId = '') {
+    const div = document.createElement('div');
+    div.className = 'crosssell-row';
+    div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+    
+    // On exclut les matières premières et les suppléments invisibles
+    const produitsDispos = stockProduits.filter(p => p.categorie !== 'matiere' && p.categorie !== 'supplement');
+    
+    let optionsHtml = '<option value="">-- Sélectionner un produit à recommander --</option>';
+    produitsDispos.forEach(p => {
+        const isSelected = (String(p.id || p._id) === String(selectedId)) ? 'selected' : '';
+        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)}</option>`;
+    });
 
+    div.innerHTML = `
+        <select class="cs-select" style="flex: 1; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white; font-weight: bold; color: var(--primary);">
+            ${optionsHtml}
+        </select>
+        <button type="button" onclick="this.closest('.crosssell-row').remove();" style="background: #fee2e2; border: none; color: var(--danger); cursor: pointer; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: 0.2s;">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    document.getElementById(`containerCrossSell_${prefix}`).appendChild(div);
+};
+
+window.extraireCrossSell = function(prefix = 'new') {
+    const rows = document.querySelectorAll(`#containerCrossSell_${prefix} .cs-select`);
+    const crossSells = [];
+    rows.forEach(select => {
+        if (select.value) crossSells.push(select.value);
+    });
+    return crossSells;
+};
 window.ajouterLigneSupplement = function(nom = '', prix = '', ingredientId = '', qte = '1', unite = 'g', prixPromo = '') {
     const div = document.createElement('div');
     div.className = 'supplement-row';
@@ -1454,7 +1497,8 @@ const produitData = {
         unite: document.getElementById('newProdUnite').value, // 🔥 NOUVEAU : Sauvegarde l'unité
         supplements: extraireSupplements(),
         isManufactured: isManuf,
-        recipe: isManuf ? extraireRecette('new') : []
+        recipe: isManuf ? extraireRecette('new') : [],
+        crossSellItems: extraireCrossSell('new'),
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");
@@ -1611,6 +1655,17 @@ function ouvrirModalEdition(id) {
                             </div>
                             <div id="containerSupplements"></div>
                         </div>
+
+                        <!-- 🔥 NOUVEAU : CROSS-SELLING -->
+                        <div style="margin-top:25px; border-top:2px dashed var(--border-soft); padding-top:20px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                                <div>
+                                    <label style="font-weight:800; color:#8b5cf6; margin:0;"><i class="fas fa-magic"></i> Recommandations (Cross-Selling)</label>
+                                </div>
+                                <button type="button" onclick="ajouterLigneCrossSell('edit')" class="btn-action" style="background:#8b5cf6; color:white;"><i class="fas fa-plus"></i> Lier produit</button>
+                            </div>
+                            <div id="containerCrossSell_edit"></div>
+                        </div>
                     </div>
 
                     <!-- ONGLET 4 : AVANCÉ -->
@@ -1620,7 +1675,6 @@ function ouvrirModalEdition(id) {
 
                 </div>
                 
-                <!-- BOUTONS (Avec la bonne classe modal-buttons !) -->
                 <div class="modal-buttons" style="padding: 15px 25px; margin: 0; background: #f8fafc; border-top: 1px solid var(--border-soft); flex-shrink: 0;">
                     <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
                     <button class="btn-primary" style="flex:2;" onclick="sauvegarderEditionProduit('${p.id || p._id}')"><i class="fas fa-sync"></i> Mettre à jour</button>
@@ -1634,6 +1688,9 @@ function ouvrirModalEdition(id) {
     }
     if (isManuf && p.recipe && Array.isArray(p.recipe)) {
         p.recipe.forEach(r => ajouterLigneRecette('edit', r.ingredientId, r.quantity, r.unit));
+    }
+    if (p.crossSellItems && Array.isArray(p.crossSellItems)) {
+        p.crossSellItems.forEach(csId => ajouterLigneCrossSell('edit', csId));
     }
     
     // Délai pour que le DOM se charge avant de calculer le prix live
@@ -1662,7 +1719,8 @@ const produitData = {
         unite: document.getElementById('editProdUnite').value, // 🔥 NOUVEAU : Mise à jour de l'unité
         supplements: extraireSupplements(),
         isManufactured: isManuf,
-        recipe: isManuf ? extraireRecette('edit') : []
+        recipe: isManuf ? extraireRecette('edit') : [],
+        crossSellItems: extraireCrossSell('new'),
     };
 
     if(!produitData.nom || isNaN(produitData.prix)) return showNotification("Nom et Prix requis", "var(--danger)");

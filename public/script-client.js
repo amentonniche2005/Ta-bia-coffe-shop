@@ -668,34 +668,23 @@ styleCrossSell.textContent = `
 document.head.appendChild(styleCrossSell);
 
 window.proposerCrossSelling = function(produitBase) {
-    // 1. Définir la catégorie à suggérer en fonction de ce que le client a pris
-    let categorieCible = null;
-    const catBase = produitBase.categorie;
+    // 1. Lire les recommandations configurées manuellement sur le Dashboard
+    if (!produitBase.crossSellItems || produitBase.crossSellItems.length === 0) return;
 
-    // Si on achète du salé -> Proposer des Boissons
-    if (['Pizza', 'Burger', 'sandwish', 'sale', 'Tacos', 'Ma9loub', 'plats', 'Pasta', 'Libanai'].includes(catBase)) {
-        categorieCible = 'boissons';
-    } 
-    // Si on achète du Café/Thé -> Proposer des Pâtisseries/Desserts
-    else if (['cafe', 'the'].includes(catBase)) {
-        categorieCible = 'dessert';
-    }
+    // 2. Trouver les produits correspondants dans le catalogue ET vérifier le stock réel
+    let recommandations = [];
+    produitBase.crossSellItems.forEach(idRec => {
+        const p = produits.find(p => String(p.id) === String(idRec) || String(p._id) === String(idRec));
+        // Si le produit est trouvé et qu'il est en stock
+        if (p && window.calculerStockReel(p, true) > 0) {
+            recommandations.push(p);
+        }
+    });
 
-    // Si pas de correspondance logique, on s'arrête
-    if (!categorieCible) return;
+    // Si tout est en rupture ou supprimé, on n'affiche pas la popup
+    if (recommandations.length === 0) return;
 
-    // 2. Trouver des produits disponibles dans la catégorie cible
-    const suggestionsPossibles = produits.filter(p => 
-        p.categorie === categorieCible && 
-        window.calculerStockReel(p, true) > 0 // On vérifie qu'il y a du stock
-    );
-
-    if (suggestionsPossibles.length === 0) return;
-
-    // 3. Sélectionner 2 produits au hasard pour varier les propositions
-    const recommandations = suggestionsPossibles.sort(() => 0.5 - Math.random()).slice(0, 2);
-
-    // 4. Construire l'interface visuelle
+    // 3. Construire l'interface visuelle de la Pop-up
     const modalId = 'modalCrossSelling';
     let modalExistante = document.getElementById(modalId);
     if (modalExistante) modalExistante.remove();
@@ -713,7 +702,7 @@ window.proposerCrossSelling = function(produitBase) {
                         <div style="color:#ea580c; font-weight:900; font-size:0.85rem; margin-top: 3px;">+${prixAffiche} DT</div>
                     </div>
                 </div>
-                <button onclick="ajouterRecommandation('${p.id || p._id}')" style="background:#10b981; color:white; border:none; width:40px; height:40px; border-radius:12px; font-weight:bold; cursor:pointer; font-size: 1.2rem; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);">
+                <button onclick="ajouterRecommandation('${p.id || p._id}')" style="background:#8b5cf6; color:white; border:none; width:40px; height:40px; border-radius:12px; font-weight:bold; cursor:pointer; font-size: 1.2rem; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);">
                     <i class="fas fa-plus"></i>
                 </button>
             </div>
@@ -725,8 +714,8 @@ window.proposerCrossSelling = function(produitBase) {
             <div style="background:white; width:100%; max-width:500px; border-radius:28px 28px 0 0; padding:25px 20px; animation: slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
                 <div style="text-align: center; margin-bottom: 20px;">
                     <div style="width: 50px; height: 5px; background: #cbd5e1; border-radius: 10px; margin: 0 auto 15px;"></div>
-                    <h3 style="margin:0; font-size:1.3rem; color:#143621; font-weight: 800;"><i class="fas fa-magic" style="color:#f59e0b; margin-right: 5px;"></i> Accompagnement idéal</h3>
-                    <p style="font-size:0.85rem; color:#64748b; margin-top:5px; font-weight: 500;">Complétez votre commande pour une expérience parfaite !</p>
+                    <h3 style="margin:0; font-size:1.3rem; color:#143621; font-weight: 800;"><i class="fas fa-magic" style="color:#8b5cf6; margin-right: 5px;"></i> Recommandé pour vous</h3>
+                    <p style="font-size:0.85rem; color:#64748b; margin-top:5px; font-weight: 500;">Nos clients accompagnent souvent cela avec...</p>
                 </div>
                 
                 ${itemsHtml}
@@ -739,8 +728,8 @@ window.proposerCrossSelling = function(produitBase) {
     `;
     
     document.body.insertAdjacentHTML('beforeend', html);
-    if(navigator.vibrate) navigator.vibrate(20); // Petit retour tactile quand la popup s'ouvre
-};
+    if(navigator.vibrate) navigator.vibrate(20);
+};;
 
 window.ajouterRecommandation = function(id) {
     const produit = produits.find(p => String(p.id) === String(id) || String(p._id) === String(id));

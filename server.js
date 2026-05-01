@@ -207,7 +207,8 @@ supplements: [{
         ingredientId: { type: String }, // ID du produit utilisé comme ingrédient
         quantity: { type: Number },     // Quantité nécessaire pour 1 unité du produit fini
         unit: { type: String }          // g, ml, unité, etc.
-    }]
+    }],
+    crossSellItems: [{ type: String }]
 }));
 
 const Movement = mongoose.model('Movement', new mongoose.Schema({
