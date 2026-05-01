@@ -515,6 +515,7 @@ window.ouvrirModalOptions = function(produit, options) {
         }).join('');
         sectionVar.style.display = "block";
     } else { 
+        containerVar.innerHTML = "";
         sectionVar.style.display = "none"; 
     }
 
@@ -570,6 +571,7 @@ let estRupture = false;
         }).join('');
         sectionSupp.style.display = "block";
     } else { 
+        containerSupp.innerHTML = "";
         sectionSupp.style.display = "none"; 
     }
 
