@@ -734,36 +734,49 @@ button:hover:not(:disabled) {
             return (valeur * facteurSource) / facteurCible;
         };
         // 🔥 MOTEUR ERP : Calcul du Prix en Temps Réel (Gère le Happy Hour)
+// 🔥 MOTEUR ERP : Calcul du Prix en Temps Réel (Anti-Bug)
 window.calculerPrixApplicable = function(p) {
     let prixBase = parseFloat(p.prix) || 0;
     let prixPromo = parseFloat(p.prixPromo) || 0;
     let prixFinal = (prixPromo > 0) ? prixPromo : prixBase;
     let isHappyHourActive = false;
 
-    if (p.hhActive && p.hhStart && p.hhEnd && parseFloat(p.hhPrice) > 0) {
-        const now = new Date();
-        const currentTotalMins = now.getHours() * 60 + now.getMinutes();
+    try {
+        // Sécurité : On s'assure que le Happy Hour est bien activé et que le prix n'est pas zéro
+        const isHHConfigured = (p.hhActive === true || String(p.hhActive) === 'true');
+        const hhPrice = parseFloat(p.hhPrice) || 0;
 
-        const [startH, startM] = p.hhStart.split(':').map(Number);
-        const startTotalMins = startH * 60 + startM;
+        if (isHHConfigured && p.hhStart && p.hhEnd && hhPrice > 0) {
+            const startParts = String(p.hhStart).split(':');
+            const endParts = String(p.hhEnd).split(':');
 
-        const [endH, endM] = p.hhEnd.split(':').map(Number);
-        const endTotalMins = endH * 60 + endM;
+            // Vérification que l'heure est au bon format (HH:MM)
+            if (startParts.length === 2 && endParts.length === 2) {
+                const now = new Date();
+                const currentMins = now.getHours() * 60 + now.getMinutes();
+                const startMins = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
+                const endMins = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
 
-        if (startTotalMins <= endTotalMins) {
-            if (currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins) {
-                prixFinal = parseFloat(p.hhPrice);
-                isHappyHourActive = true;
-            }
-        } else {
-            if (currentTotalMins >= startTotalMins || currentTotalMins <= endTotalMins) {
-                prixFinal = parseFloat(p.hhPrice);
-                isHappyHourActive = true;
+                if (startMins <= endMins) {
+                    // Si Happy Hour dans la même journée (ex: 16h à 18h)
+                    if (currentMins >= startMins && currentMins <= endMins) {
+                        prixFinal = hhPrice;
+                        isHappyHourActive = true;
+                    }
+                } else {
+                    // Si Happy Hour traverse minuit (ex: 22h à 02h)
+                    if (currentMins >= startMins || currentMins <= endMins) {
+                        prixFinal = hhPrice;
+                        isHappyHourActive = true;
+                    }
+                }
             }
         }
+    } catch (e) {
+        console.error("Erreur moteur de prix:", e);
     }
     
-    return { prixFinal, isHappyHourActive, prixBaseInitial: prixBase };
+    return { prixFinal: prixFinal, isHappyHourActive: isHappyHourActive, prixBaseOriginal: prixBase };
 };
 // 🔥 MOTEUR ERP : Calcul du stock virtuel sécurisé (AVEC CONVERSION)
 window.calculerStockReel = function(produit) {
@@ -1057,20 +1070,22 @@ function afficherStockDOM(produits) {
         const pPromo = parseFloat(p.prixPromo) || 0;
         const valAchat = stockReel * (parseFloat(p.prixAchat) || 0);
 
-// Calcul du Food Cost, Marge et Tarification dynamique (Happy Hour)
+// Calcul du Food Cost, Marge et Tarification dynamique
         const coutRevient = window.calculerCoutRevient(p);
-        const tarif = window.calculerPrixApplicable(p); // Utilise le moteur ERP
+        const tarif = window.calculerPrixApplicable(p); 
         
         const margeBrute = tarif.prixFinal > 0 ? ((tarif.prixFinal - coutRevient) / tarif.prixFinal) * 100 : 0;
         let couleurMarge = margeBrute > 65 ? 'var(--success)' : (margeBrute > 40 ? 'var(--warning)' : 'var(--danger)');
 
+        const prixNormalTexte = parseFloat(p.prix || 0).toFixed(2);
         let htmlPrix = '';
+        
         if (tarif.isHappyHourActive) {
-            htmlPrix = `<td><s style="color:#94a3b8; font-size:0.75rem;">${formatMoney(tarif.prixBaseInitial)}</s><br><strong style="color:#8b5cf6;"><i class="fas fa-clock"></i> HH ${formatMoney(tarif.prixFinal)}</strong></td>`;
-        } else if (p.prixPromo > 0) {
-            htmlPrix = `<td><s style="color:#94a3b8; font-size:0.75rem;">${formatMoney(tarif.prixBaseInitial)}</s><br><strong style="color:#e74c3c;">${formatMoney(tarif.prixFinal)}</strong></td>`;
+            htmlPrix = `<td><s style="color:#94a3b8; font-size:0.75rem;">${prixNormalTexte}</s><br><strong style="color:#8b5cf6;"><i class="fas fa-clock"></i> HH ${tarif.prixFinal.toFixed(2)}</strong></td>`;
+        } else if (parseFloat(p.prixPromo || 0) > 0) {
+            htmlPrix = `<td><s style="color:#94a3b8; font-size:0.75rem;">${prixNormalTexte}</s><br><strong style="color:#e74c3c;">${tarif.prixFinal.toFixed(2)}</strong></td>`;
         } else {
-            htmlPrix = `<td><strong>${formatMoney(tarif.prixFinal)}</strong></td>`;
+            htmlPrix = `<td><strong>${tarif.prixFinal.toFixed(2)}</strong></td>`;
         }
 
         const typeBadge = p.isManufactured 
