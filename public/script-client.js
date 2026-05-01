@@ -652,8 +652,114 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsC
     if(modal) modal.style.display = "none";
     
     playSound('pop'); 
+    setTimeout(() => proposerCrossSelling(produit), 400);
+};
+// ============================================================================
+// 🔥 MOTEUR DE CROSS-SELLING (RECOMMANDATIONS INTELLIGENTES) 🔥
+// ============================================================================
+
+// Ajout des animations CSS nécessaires pour la fluidité sur mobile
+const styleCrossSell = document.createElement('style');
+styleCrossSell.textContent = `
+    @keyframes slideUpModal { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .cross-sell-item { display:flex; align-items:center; justify-content:space-between; padding:12px; background:#f8fafc; border-radius:16px; margin-bottom:12px; border:2px solid #e2e8f0; transition: 0.2s; }
+    .cross-sell-item:active { transform: scale(0.97); border-color: var(--info); }
+`;
+document.head.appendChild(styleCrossSell);
+
+window.proposerCrossSelling = function(produitBase) {
+    // 1. Définir la catégorie à suggérer en fonction de ce que le client a pris
+    let categorieCible = null;
+    const catBase = produitBase.categorie;
+
+    // Si on achète du salé -> Proposer des Boissons
+    if (['Pizza', 'Burger', 'sandwish', 'sale', 'Tacos', 'Ma9loub', 'plats', 'Pasta', 'Libanai'].includes(catBase)) {
+        categorieCible = 'boissons';
+    } 
+    // Si on achète du Café/Thé -> Proposer des Pâtisseries/Desserts
+    else if (['cafe', 'the'].includes(catBase)) {
+        categorieCible = 'dessert';
+    }
+
+    // Si pas de correspondance logique, on s'arrête
+    if (!categorieCible) return;
+
+    // 2. Trouver des produits disponibles dans la catégorie cible
+    const suggestionsPossibles = produits.filter(p => 
+        p.categorie === categorieCible && 
+        window.calculerStockReel(p, true) > 0 // On vérifie qu'il y a du stock
+    );
+
+    if (suggestionsPossibles.length === 0) return;
+
+    // 3. Sélectionner 2 produits au hasard pour varier les propositions
+    const recommandations = suggestionsPossibles.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+    // 4. Construire l'interface visuelle
+    const modalId = 'modalCrossSelling';
+    let modalExistante = document.getElementById(modalId);
+    if (modalExistante) modalExistante.remove();
+
+    const itemsHtml = recommandations.map(p => {
+        const imgUrl = p.image || defaultImages[p.categorie] || 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=200&q=80';
+        const prixAffiche = (p.prixPromo > 0 ? p.prixPromo : parseFloat(p.prix)).toFixed(2);
+        
+        return `
+            <div class="cross-sell-item">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <img src="${imgUrl}" style="width:55px; height:55px; border-radius:12px; object-fit:cover; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div>
+                        <div style="font-weight:800; color:#1e293b; font-size:0.95rem; line-height: 1.2;">${escapeHtml(p.nom)}</div>
+                        <div style="color:#ea580c; font-weight:900; font-size:0.85rem; margin-top: 3px;">+${prixAffiche} DT</div>
+                    </div>
+                </div>
+                <button onclick="ajouterRecommandation('${p.id || p._id}')" style="background:#10b981; color:white; border:none; width:40px; height:40px; border-radius:12px; font-weight:bold; cursor:pointer; font-size: 1.2rem; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    const html = `
+        <div id="${modalId}" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.7); backdrop-filter:blur(6px); display:flex; align-items:flex-end; justify-content:center; z-index:99999;">
+            <div style="background:white; width:100%; max-width:500px; border-radius:28px 28px 0 0; padding:25px 20px; animation: slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow:0 -10px 40px rgba(0,0,0,0.2);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="width: 50px; height: 5px; background: #cbd5e1; border-radius: 10px; margin: 0 auto 15px;"></div>
+                    <h3 style="margin:0; font-size:1.3rem; color:#143621; font-weight: 800;"><i class="fas fa-magic" style="color:#f59e0b; margin-right: 5px;"></i> Accompagnement idéal</h3>
+                    <p style="font-size:0.85rem; color:#64748b; margin-top:5px; font-weight: 500;">Complétez votre commande pour une expérience parfaite !</p>
+                </div>
+                
+                ${itemsHtml}
+                
+                <button onclick="document.getElementById('${modalId}').remove()" style="width:100%; padding:16px; background:#f1f5f9; color:#475569; border:none; border-radius:16px; font-weight:800; font-size:1rem; margin-top:10px; cursor:pointer;">
+                    Non merci, passer à la suite
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', html);
+    if(navigator.vibrate) navigator.vibrate(20); // Petit retour tactile quand la popup s'ouvre
 };
 
+window.ajouterRecommandation = function(id) {
+    const produit = produits.find(p => String(p.id) === String(id) || String(p._id) === String(id));
+    if(produit) {
+        document.getElementById('modalCrossSelling').remove();
+        
+        // S'il y a des options obligatoires (cuisson, taille) on ouvre la modale des options
+        const aDesVariantes = produit.variantes && produit.variantes.trim() !== "";
+        const aDesSupplements = produit.supplements && produit.supplements.length > 0;
+        
+        if (aDesVariantes || aDesSupplements) {
+            ouvrirModalOptions(produit);
+        } else {
+            // Sinon on ajoute directement au panier en toute fluidité
+            executerAjoutPanier(produit.id || produit._id);
+            if (typeof afficherNotification === 'function') afficherNotification("✅ Excellent choix !");
+        }
+    }
+};
 function changerQuantite(cartId, delta) {
     const indexArticle = panier.findIndex(item => item.cartId === cartId);
     if (indexArticle === -1) return;

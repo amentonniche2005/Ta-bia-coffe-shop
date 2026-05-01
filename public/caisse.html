@@ -2167,6 +2167,10 @@ function imprimerTicket(panierArticles, numTable, methodePaiement, total, nomCli
     async function ouvrirTiroirManuel() {
         if (!portTiroirUSB) return showNotification("⚠️ Connectez le tiroir USB", "#f39c12");
         try { const writer = portTiroirUSB.writable.getWriter(); await writer.write(new Uint8Array([0x1B, 0x70, 0x00, 0x19, 0xFA])); writer.releaseLock(); } catch (e) { }
+// A ajouter dans la caisse
+let audit = JSON.parse(localStorage.getItem('tabia_audit_logs') || '[]');
+audit.push({ type: 'TIROIR', timestamp: Date.now(), details: 'Ouverture sans encaissement via bouton.' });
+localStorage.setItem('tabia_audit_logs', JSON.stringify(audit));   
     }
 
 function afficherCommandesWeb() {

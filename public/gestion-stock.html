@@ -248,6 +248,7 @@ button:hover:not(:disabled) {
             <button class="tab" data-tab="depenses" onclick="ouvrirOnglet('depenses')"><i class="fas fa-wallet"></i> Dépenses</button>
             <button class="tab" data-tab="fidelite" onclick="ouvrirOnglet('fidelite')"><i class="fas fa-star"></i> Clients Fidèles</button>
             <button class="tab" data-tab="analytics" onclick="ouvrirOnglet('analytics')"><i class="fas fa-chart-pie"></i> Graphiques</button>
+            <button class="tab" data-tab="securite" onclick="ouvrirOnglet('securite')" style="color: var(--danger);"><i class="fas fa-shield-alt"></i> Audit & Sécurité</button>
         </div>
 
         <div class="panel active" id="panel-stock">
@@ -593,7 +594,16 @@ button:hover:not(:disabled) {
                     </div>
                 </div>
             </div>
-
+            <!-- NOUVEAU GRAPHIQUE : RUSH HOURS -->
+            <div style="margin-bottom: 1.5rem;">
+                <div class="table-container" style="padding: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem; color: var(--primary);"><i class="fas fa-fire"></i> Heatmap des Heures de Pointe (Rush Hours)</h4>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Chiffre d'Affaires généré par heure pour optimiser le planning du personnel.</p>
+                    <div style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="chartRushHours"></canvas>
+                    </div>
+                </div>
+            </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
                 
                 <div class="table-container" style="padding: 1.5rem;">
@@ -628,6 +638,49 @@ button:hover:not(:disabled) {
         </table>
     </div>
 </div>
+        </div>
+        <!-- NOUVEAU PANEL : AUDIT ET SÉCURITÉ -->
+        <div class="panel" id="panel-securite">
+            <div class="toolbar" style="background: #fff5f5; border: 1px solid #fecaca;">
+                <div>
+                    <h3 style="font-size:1.1rem; color:var(--danger);"><i class="fas fa-user-secret"></i> Journal d'Audit & Prévention des Fraudes</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted);">Surveillance des remises manuelles, suppressions suspectes et ouvertures de tiroir.</p>
+                </div>
+                <button class="btn-action btn-danger" onclick="chargerJournalSecurite()"><i class="fas fa-sync"></i> Actualiser</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid #fecaca; text-align: center; border-left: 5px solid #ef4444;">
+                    <div style="color: var(--danger); font-weight: 700; font-size: 0.9rem; text-transform: uppercase;">Remises Accordées</div>
+                    <div id="kpiRemisesCount" style="font-size: 2rem; font-weight: 900; color: #1e293b; margin-top: 5px;">0</div>
+                    <div id="kpiRemisesTotal" style="font-size: 0.9rem; color: var(--text-muted);">0.00 DT de perte</div>
+                </div>
+                <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid #fecaca; text-align: center; border-left: 5px solid #f59e0b;">
+                    <div style="color: #f59e0b; font-weight: 700; font-size: 0.9rem; text-transform: uppercase;">Suppressions Post-Cuisine</div>
+                    <div id="kpiSuppressionsCount" style="font-size: 2rem; font-weight: 900; color: #1e293b; margin-top: 5px;">0</div>
+                    <div style="font-size: 0.9rem; color: var(--text-muted);">Plats annulés</div>
+                </div>
+                <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid #fecaca; text-align: center; border-left: 5px solid #8b5cf6;">
+                    <div style="color: #8b5cf6; font-weight: 700; font-size: 0.9rem; text-transform: uppercase;">Ouvertures Tiroir Vides</div>
+                    <div id="kpiTiroirCount" style="font-size: 2rem; font-weight: 900; color: #1e293b; margin-top: 5px;">0</div>
+                    <div style="font-size: 0.9rem; color: var(--text-muted);">Sans encaissement</div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date & Heure</th>
+                            <th>Niveau d'Alerte</th>
+                            <th>Type d'Action</th>
+                            <th>Détails / Ticket</th>
+                            <th style="text-align:right;">Impact Financier</th>
+                        </tr>
+                    </thead>
+                    <tbody id="securiteTableBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -849,6 +902,7 @@ function getIconPaiement(methode) {
             if (tabId === 'analytics') {
                 setTimeout(rafraichirGraphiques, 50); 
             }
+            if (tabId === 'securite') chargerJournalSecurite();
             
             if (tabId === 'ventes') {
                 if (!document.getElementById('rapportDateDebut').value) {
@@ -2718,7 +2772,45 @@ async function rafraichirGraphiques() {
             }
         }
     });
+// === NOUVEAU : CALCUL DES HEURES DE POINTE (RUSH HOURS) ===
+    let rushHours = new Array(24).fill(0);
+    
+    toutesLesVentes.forEach(v => {
+        // Extraction de l'heure depuis le timestamp ou la date
+        let heure = 0;
+        if (v.timestamp) {
+            heure = new Date(v.timestamp).getHours();
+        } else if (v.date) {
+            // Fallback si on lit la date formatée "JJ/MM/AAAA HH:mm:ss"
+            const timePart = v.date.split(' ')[1];
+            if(timePart) heure = parseInt(timePart.split(':')[0]);
+        }
+        rushHours[heure] += parseFloat(v.total) || 0;
+    });
 
+    const labelsHeures = Array.from({length: 24}, (_, i) => `${String(i).padStart(2, '0')}h`);
+    
+    if (window.chartRushHoursInstance) window.chartRushHoursInstance.destroy();
+    const canvasRush = document.getElementById('chartRushHours');
+    if (canvasRush) {
+        window.chartRushHoursInstance = new Chart(canvasRush.getContext('2d'), {
+            type: 'bar',
+            data: { 
+                labels: labelsHeures, 
+                datasets: [{ 
+                    label: "Chiffre d'Affaires par Heure (DT)", 
+                    data: rushHours, 
+                    backgroundColor: rushHours.map(val => val > 100 ? '#ea580c' : '#fcd34d'), // Devient orange vif si gros rush
+                    borderRadius: 6 
+                }] 
+            },
+            options: { 
+                responsive: true, maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } } 
+            }
+        });
+    }
     // 3. CAMEMBERT (RÉPARTITION) & TOP 5
     const statsCat = {};
     const statsTop = {};
@@ -2862,6 +2954,88 @@ async function rafraichirGraphiques() {
         }
     } catch (e) { console.error("Erreur graphe pertes", e); }
 }
+// ========== NOUVEAU : MODULE D'AUDIT ET SÉCURITÉ ==========
+window.chargerJournalSecurite = async function() {
+    const tbody = document.getElementById('securiteTableBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-spinner fa-spin"></i> Analyse en cours...</td></tr>';
+    
+    let logsSecurite = [];
+    let compteRemises = 0, perteRemises = 0;
+    let compteSuppressions = 0, compteTiroir = 0;
+
+    try {
+        // 1. Détection des Remises manuelles via les Ventes
+        const resVentes = await fetchSecurise('/api/ventes');
+        const ventes = await resVentes.json();
+        
+        ventes.forEach(v => {
+            if (v.remise && parseFloat(v.remise) > 0) {
+                compteRemises++;
+                const totalAvantRemise = parseFloat(v.total) / (1 - (parseFloat(v.remise) / 100));
+                const perte = totalAvantRemise - parseFloat(v.total);
+                perteRemises += perte;
+                
+                logsSecurite.push({
+                    timestamp: v.timestamp || parseDateFR(v.date),
+                    date: v.date,
+                    gravite: perte > 20 ? 'HAUTE' : 'MOYENNE', // Grosse remise = Alerte Haute
+                    type: 'Remise Manuelle',
+                    icon: 'fa-tags',
+                    details: `Ticket #${v.numero} (${v.remise}% accordés)`,
+                    impact: `- ${perte.toFixed(3)} DT`
+                });
+            }
+        });
+
+        // 2. Détection des actions matérielles (Sauvegardées dans le LocalStorage par la Caisse)
+        const localLogs = JSON.parse(localStorage.getItem('tabia_audit_logs') || '[]');
+        localLogs.forEach(log => {
+            if (log.type === 'TIROIR') compteTiroir++;
+            if (log.type === 'SUPPRESSION_CUISINE') compteSuppressions++;
+            
+            logsSecurite.push({
+                timestamp: log.timestamp,
+                date: new Date(log.timestamp).toLocaleString('fr-FR'),
+                gravite: log.type === 'TIROIR' ? 'MOYENNE' : 'HAUTE',
+                type: log.type === 'TIROIR' ? 'Ouverture Tiroir' : 'Plat Annulé (Déjà en cuisine)',
+                icon: log.type === 'TIROIR' ? 'fa-lock-open' : 'fa-trash-alt',
+                details: log.details,
+                impact: 'Inconnu'
+            });
+        });
+
+        // Mise à jour des KPI
+        document.getElementById('kpiRemisesCount').innerText = compteRemises;
+        document.getElementById('kpiRemisesTotal').innerText = `${perteRemises.toFixed(2)} DT de perte`;
+        document.getElementById('kpiSuppressionsCount').innerText = compteSuppressions;
+        document.getElementById('kpiTiroirCount').innerText = compteTiroir;
+
+        // Tri et Affichage
+        logsSecurite.sort((a, b) => b.timestamp - a.timestamp);
+
+        if (logsSecurite.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-message"><i class="fas fa-shield-check fa-2x" style="color:var(--success);"></i><br>Aucune activité suspecte détectée.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = logsSecurite.map(log => {
+            const colorGravite = log.gravite === 'HAUTE' ? 'var(--danger)' : '#f59e0b';
+            const badgeGravite = `<span style="background:${colorGravite}22; color:${colorGravite}; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:900;">${log.gravite}</span>`;
+            
+            return `
+            <tr>
+                <td><div style="font-weight:600;">${log.date.split(' ')[0]}</div><div style="font-size:0.75rem; color:var(--text-muted);">${log.date.split(' ').slice(1).join(' ')}</div></td>
+                <td>${badgeGravite}</td>
+                <td><i class="fas ${log.icon}" style="color:var(--text-muted); margin-right:8px;"></i> <strong>${log.type}</strong></td>
+                <td style="color:var(--text-muted);">${escapeHtml(log.details)}</td>
+                <td style="text-align:right; font-weight:800; color:var(--danger);">${log.impact}</td>
+            </tr>`;
+        }).join('');
+
+    } catch(e) { 
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-message error">Erreur de chargement de l\'audit</td></tr>'; 
+    }
+};
         // ========== INIT DOM ==========
 document.addEventListener("DOMContentLoaded", () => {
             chargerDashboard(); chargerStock(); chargerCategories(); chargerHistorique(); chargerAlertes(); chargerDepenses();
