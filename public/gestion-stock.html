@@ -1061,22 +1061,22 @@ window.onload = appliquerBranding;
 function ouvrirModalNouveauProduit() {
     document.getElementById('modalContainer').innerHTML = `
         <div class="modal active">
-            <div class="modal-content" style="max-width:650px; padding: 0; overflow: hidden;">
+            <div class="modal-content" style="max-width:650px; padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
                 
-                <div class="modal-header" style="padding: 20px 25px 15px; margin-bottom: 0; background: #f8fafc;">
-                    <h3><i class="fas fa-box-open"></i> Fiche Technique Produit</h3>
+                <div class="modal-header" style="padding: 20px 25px 15px; margin-bottom: 0; background: #f8fafc; flex-shrink: 0;">
+                    <h3 style="margin: 0;"><i class="fas fa-box-open"></i> Fiche Technique Produit</h3>
                     <span class="modal-close" onclick="fermerModal()">&times;</span>
                 </div>
 
                 <!-- ONGLETS -->
-                <div class="modal-tabs-header" style="padding: 0 25px; background: #f8fafc;">
+                <div class="modal-tabs-header" style="padding: 0 25px; background: #f8fafc; flex-shrink: 0;">
                     <button class="m-tab-btn active" onclick="switchModalTab(this, 'tab-general')"><i class="fas fa-info-circle"></i> Infos & Prix</button>
                     <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-recette')"><i class="fas fa-blender"></i> Recette & Marge</button>
                     <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-options')"><i class="fas fa-layer-group"></i> Options & Extras</button>
                     <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-avance')"><i class="fas fa-star"></i> Menu Client</button>
                 </div>
 
-                <div style="padding: 20px 25px; max-height: 60vh; overflow-y: auto; background: white;">
+                <div style="padding: 20px 25px; overflow-y: auto; background: white; flex: 1;">
                     
                     <!-- ONGLET 1 : GÉNÉRAL -->
                     <div id="tab-general" class="m-tab-content active">
@@ -1095,15 +1095,15 @@ function ouvrirModalNouveauProduit() {
                         </div>
 
                         <div style="display:flex; gap:15px;">
-                            <div class="form-group" style="flex:1;"><label>Prix Achat (Fixe):</label><input type="number" id="newProdPrixAchat" value="0" step="0.001" oninput="mettreAJourMargeLive()"></div>
-                            <div class="form-group" style="flex:1;"><label>Prix Vente :</label><input type="number" id="newProdPrice" step="0.1" oninput="mettreAJourMargeLive()" style="font-weight:900; color:var(--primary);"></div>
-                            <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" oninput="mettreAJourMargeLive()"></div>
+                            <div class="form-group" style="flex:1;"><label>Prix Achat (Fixe):</label><input type="number" id="newProdPrixAchat" value="0" step="0.001" oninput="mettreAJourMargeLive('new')"></div>
+                            <div class="form-group" style="flex:1;"><label>Prix Vente :</label><input type="number" id="newProdPrice" step="0.1" oninput="mettreAJourMargeLive('new')" style="font-weight:900; color:var(--primary);"></div>
+                            <div class="form-group" style="flex:1;"><label style="color:#e74c3c;">Prix Promo:</label><input type="number" id="newProdPrixPromo" step="0.1" value="0" oninput="mettreAJourMargeLive('new')"></div>
                         </div>
 
                         <div class="form-group">
                             <label>Nature de l'article :</label>
-                            <select id="newProdIsManufactured" onchange="toggleRecipeSection(this.value, 'new'); mettreAJourMargeLive();" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
-                                <option value="false">📦 Article Simple / Stock direct (Boisson, Matière...)</option>
+                            <select id="newProdIsManufactured" onchange="toggleRecipeSection(this.value, 'new'); mettreAJourMargeLive('new');" style="background:#f1f5f9; font-weight:bold; color:var(--primary);">
+                                <option value="false">📦 Article Simple / Stock direct</option>
                                 <option value="true">👨‍🍳 Produit Manufacturé (Recette calculée)</option>
                             </select>
                         </div>
@@ -1122,7 +1122,7 @@ function ouvrirModalNouveauProduit() {
 
                     <!-- ONGLET 2 : RECETTE ET MARGE LIVE -->
                     <div id="tab-recette" class="m-tab-content">
-                        <div id="msgRecetteInactive" style="text-align:center; padding:30px; color:var(--text-muted);">
+                        <div id="msgRecetteInactive_new" style="text-align:center; padding:30px; color:var(--text-muted);">
                             <i class="fas fa-info-circle fa-2x" style="margin-bottom:10px; color:#cbd5e1;"></i><br>
                             Cet onglet est réservé aux <b>Produits Manufacturés</b>.<br>Changez la nature de l'article dans l'onglet "Infos & Prix".
                         </div>
@@ -1132,15 +1132,13 @@ function ouvrirModalNouveauProduit() {
                                 <label style="font-weight:800; color:var(--primary); margin:0;"><i class="fas fa-blender"></i> Fiche Technique (Ingrédients)</label>
                                 <button type="button" onclick="ajouterLigneRecette('new')" class="btn-action" style="background:var(--primary);"><i class="fas fa-plus"></i> Ajouter</button>
                             </div>
-                            
                             <div id="containerRecette_new"></div>
 
-                            <!-- 🔥 LE CALCULATEUR MAGIQUE 🔥 -->
-                            <div class="live-margin-box" id="liveMarginBox">
-                                <div class="live-stat"><span>Coût Ingrédients</span><strong id="liveCost" style="color:var(--text-main);">0.00 DT</strong></div>
-                                <div class="live-stat"><span>Prix Vente</span><strong id="livePrice" style="color:var(--info);">0.00 DT</strong></div>
-                                <div class="live-stat"><span>Marge Brute</span><strong id="liveMarginPct" style="color:var(--success);">0%</strong></div>
-                                <div class="live-stat"><span>Bénéfice Net</span><strong id="liveProfit" style="color:var(--success);">0.00 DT</strong></div>
+                            <div class="live-margin-box" id="liveMarginBox_new">
+                                <div class="live-stat"><span>Coût Ingrédients</span><strong id="liveCost_new" style="color:var(--text-main);">0.00 DT</strong></div>
+                                <div class="live-stat"><span>Prix Vente</span><strong id="livePrice_new" style="color:var(--info);">0.00 DT</strong></div>
+                                <div class="live-stat"><span>Marge Brute</span><strong id="liveMarginPct_new" style="color:var(--success);">0%</strong></div>
+                                <div class="live-stat"><span>Bénéfice Net</span><strong id="liveProfit_new" style="color:var(--success);">0.00 DT</strong></div>
                             </div>
                         </div>
                     </div>
@@ -1172,30 +1170,15 @@ function ouvrirModalNouveauProduit() {
                         </div>
                     </div>
 
-                    <!-- ONGLET 4 : AVANCÉ (MENU CLIENT) -->
+                    <!-- ONGLET 4 : AVANCÉ -->
                     <div id="tab-avance" class="m-tab-content">
-                        <div class="form-group"><label>URL de la belle photo (Menu Digital) :</label><input type="text" id="newProdImage" placeholder="https://..."></div>
-                        
-                        <label style="font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; display:block;">Badges & Informations (Visibles par les clients) :</label>
-                        <div class="badge-grid">
-                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-leaf" style="color:#27ae60;"></i> Végétarien</div></label>
-                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-pepper-hot" style="color:#e74c3c;"></i> Pimenté</div></label>
-                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-wheat-awn-circle-exclamation" style="color:#f39c12;"></i> Sans Gluten</div></label>
-                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-star" style="color:#f1c40f;"></i> Nouveau</div></label>
-                            <label><input type="checkbox" class="badge-checkbox"><div class="badge-label"><i class="fas fa-fire" style="color:#e67e22;"></i> Populaire</div></label>
-                        </div>
-                        
-                        <div class="form-group" style="margin-top:20px;">
-                            <label>Temps de préparation estimé (Cuisine) :</label>
-                            <select style="width:50%;">
-                                <option>Instantané</option><option>5-10 minutes</option><option>15-20 minutes</option><option>+25 minutes</option>
-                            </select>
-                        </div>
+                        <div class="form-group"><label>URL de la photo :</label><input type="text" id="newProdImage" placeholder="https://..."></div>
                     </div>
 
                 </div>
                 
-                <div style="padding: 15px 25px; background: #f8fafc; border-top: 1px solid var(--border-soft); display:flex; gap:10px;">
+                <!-- BOUTONS (Avec la bonne classe modal-buttons !) -->
+                <div class="modal-buttons" style="padding: 15px 25px; margin: 0; background: #f8fafc; border-top: 1px solid var(--border-soft); flex-shrink: 0;">
                     <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
                     <button class="btn-primary" style="flex:2;" onclick="sauvegarderNouveauProduit()"><i class="fas fa-save"></i> Enregistrer la Fiche</button>
                 </div>
@@ -1471,21 +1454,22 @@ function ouvrirModalEdition(id) {
 
     document.getElementById('modalContainer').innerHTML = `
         <div class="modal active">
-            <div class="modal-content" style="max-width:650px; padding: 0; overflow: hidden;">
+            <div class="modal-content" style="max-width:650px; padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
                 
-                <div class="modal-header" style="padding: 20px 25px 15px; margin-bottom: 0; background: #f8fafc;">
-                    <h3><i class="fas fa-pen"></i> Modifier : ${escapeHtml(p.nom)}</h3>
+                <div class="modal-header" style="padding: 20px 25px 15px; margin-bottom: 0; background: #f8fafc; flex-shrink: 0;">
+                    <h3 style="margin: 0;"><i class="fas fa-pen"></i> Modifier : ${escapeHtml(p.nom)}</h3>
                     <span class="modal-close" onclick="fermerModal()">&times;</span>
                 </div>
 
                 <!-- ONGLETS -->
-                <div class="modal-tabs-header" style="padding: 0 25px; background: #f8fafc;">
+                <div class="modal-tabs-header" style="padding: 0 25px; background: #f8fafc; flex-shrink: 0;">
                     <button class="m-tab-btn active" onclick="switchModalTab(this, 'tab-general-edit')"><i class="fas fa-info-circle"></i> Infos & Prix</button>
                     <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-recette-edit')"><i class="fas fa-blender"></i> Recette & Marge</button>
                     <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-options-edit')"><i class="fas fa-layer-group"></i> Options & Extras</button>
+                    <button class="m-tab-btn" onclick="switchModalTab(this, 'tab-avance-edit')"><i class="fas fa-star"></i> Menu Client</button>
                 </div>
 
-                <div style="padding: 20px 25px; max-height: 60vh; overflow-y: auto; background: white;">
+                <div style="padding: 20px 25px; overflow-y: auto; background: white; flex: 1;">
                     
                     <!-- ONGLET 1 : GÉNÉRAL -->
                     <div id="tab-general-edit" class="m-tab-content active">
@@ -1575,9 +1559,15 @@ function ouvrirModalEdition(id) {
                         </div>
                     </div>
 
+                    <!-- ONGLET 4 : AVANCÉ -->
+                    <div id="tab-avance-edit" class="m-tab-content">
+                        <div class="form-group"><label>URL de la photo :</label><input type="text" id="editProdImage" value="${p.image || ''}" placeholder="https://..."></div>
+                    </div>
+
                 </div>
                 
-                <div style="padding: 15px 25px; background: #f8fafc; border-top: 1px solid var(--border-soft); display:flex; gap:10px;">
+                <!-- BOUTONS (Avec la bonne classe modal-buttons !) -->
+                <div class="modal-buttons" style="padding: 15px 25px; margin: 0; background: #f8fafc; border-top: 1px solid var(--border-soft); flex-shrink: 0;">
                     <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
                     <button class="btn-primary" style="flex:2;" onclick="sauvegarderEditionProduit('${p.id || p._id}')"><i class="fas fa-sync"></i> Mettre à jour</button>
                 </div>
