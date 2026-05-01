@@ -864,8 +864,7 @@ window.extraireRecette = function(prefix = 'new') {
         };
 
         const formatMoney = (amount) => parseFloat(amount || 0).toFixed(3) + " DT";
-        const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches','chicha': '💨 Chichas','Ma9loub': '🌮 ma9loub','Pizza': '🍕 Pizza','BagetteFarci': '🥖 Bagette Farci','Tacos': '🌯 Tacos','Burger': '🍔 Burger','Crepes': '🦪Crepes','plats': '🍽 Plats','Pasta': '🍝 Pasta','Libanai': '🌯 Libanai' }; return dict[cat] || cat; };        
-        
+const getCatName = (cat) => { const dict = { 'cafe': '☕ Cafés', 'the': '🫖 Thés', 'boissons': '🥤 Boissons', 'dessert': '🍰 Pâtisseries', 'sale': '🥪 Salé', 'sandwish': '🥪 Sandwiches','chicha': '💨 Chichas','Ma9loub': '🌮 ma9loub','Pizza': '🍕 Pizza','BagetteFarci': '🥖 Bagette Farci','Tacos': '🌯 Tacos','Burger': '🍔 Burger','Crepes': '🦪Crepes','plats': '🍽 Plats','Pasta': '🍝 Pasta','Libanai': '🌯 Libanai', 'menu': '🍽️ Menu / Formule' }; return dict[cat] || cat; };        
         function fermerModal() { document.getElementById('modalContainer').innerHTML = ''; }
 
         function parseDateFR(dateStr) {
@@ -1138,13 +1137,14 @@ function ouvrirModalNouveauProduit() {
                             <div class="form-group" style="flex:2;"><label>Nom du produit :</label><input type="text" id="newProdName" placeholder="Ex: Pizza Margarita"></div>
                             <div class="form-group" style="flex:1;">
                                 <label>Catégorie :</label>
-                                <select id="newProdCat" onchange="gererAffichagePrix('new')">
-                                    <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option>
-                                    <option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="sandwish">🥪 Sandwiches</option>
-                                    <option value="chicha">💨 Chicha</option><option value="Ma9loub">🌮 Ma9loub</option><option value="Pizza">🍕 Pizza</option>
-                                    <option value="plats">🍽 Plats</option><option value="supplement" style="color:var(--primary);">➕ SUPPLÉMENT</option>
-                                    <option value="matiere" style="color:#e67e22;">🌾 Matière Première</option>
-                                </select>
+<select id="newProdCat" onchange="gererAffichagePrix('new')">
+    <option value="menu" style="color:#8b5cf6; font-weight:bold;">🍽️ Menu / Formule</option>
+    <option value="cafe">☕ Café</option><option value="the">🫖 Thé</option><option value="boissons">🍹 Boisson</option>
+    <option value="dessert">🍰 Pâtisserie</option><option value="sale">🥪 Salé</option><option value="sandwish">🥪 Sandwiches</option>
+    <option value="chicha">💨 Chicha</option><option value="Ma9loub">🌮 Ma9loub</option><option value="Pizza">🍕 Pizza</option>
+    <option value="plats">🍽 Plats</option><option value="supplement" style="color:var(--primary);">➕ SUPPLÉMENT</option>
+    <option value="matiere" style="color:#e67e22;">🌾 Matière Première</option>
+</select>
                             </div>
                         </div>
 
@@ -1575,13 +1575,14 @@ function ouvrirModalEdition(id) {
                             <div class="form-group" style="flex:2;"><label>Nom :</label><input type="text" id="editProdName" value="${escapeHtml(p.nom)}"></div>
                             <div class="form-group" style="flex:1;">
                                 <label>Catégorie :</label>
-                                <select id="editProdCat" onchange="gererAffichagePrix('edit')">
-                                    <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option><option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option><option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
-                                    <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option><option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option><option value="sandwish" ${p.categorie==='sandwish'?'selected':''}>🥪 Sandwiches</option>
-                                    <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option><option value="Ma9loub" ${p.categorie==='Ma9loub'?'selected':''}>🌮 Ma9loub</option><option value="Pizza" ${p.categorie==='Pizza'?'selected':''}>🍕 Pizza</option>
-                                    <option value="plats" ${p.categorie==='plats'?'selected':''}>🍽 Plats</option><option value="supplement" ${p.categorie==='supplement'?'selected':''} style="color:var(--primary);">➕ SUPPLÉMENT</option>
-                                    <option value="matiere" ${p.categorie==='matiere'?'selected':''} style="color:#e67e22;">🌾 Matière Première</option>
-                                </select>
+<select id="editProdCat" onchange="gererAffichagePrix('edit')">
+    <option value="menu" ${p.categorie==='menu'?'selected':''} style="color:#8b5cf6; font-weight:bold;">🍽️ Menu / Formule</option>
+    <option value="cafe" ${p.categorie==='cafe'?'selected':''}>☕ Café</option><option value="the" ${p.categorie==='the'?'selected':''}>🫖 Thé</option><option value="boissons" ${p.categorie==='boissons'?'selected':''}>🍹 Boisson</option>
+    <option value="dessert" ${p.categorie==='dessert'?'selected':''}>🍰 Pâtisserie</option><option value="sale" ${p.categorie==='sale'?'selected':''}>🥪 Salé</option><option value="sandwish" ${p.categorie==='sandwish'?'selected':''}>🥪 Sandwiches</option>
+    <option value="chicha" ${p.categorie==='chicha'?'selected':''}>💨 Chicha</option><option value="Ma9loub" ${p.categorie==='Ma9loub'?'selected':''}>🌮 Ma9loub</option><option value="Pizza" ${p.categorie==='Pizza'?'selected':''}>🍕 Pizza</option>
+    <option value="plats" ${p.categorie==='plats'?'selected':''}>🍽 Plats</option><option value="supplement" ${p.categorie==='supplement'?'selected':''} style="color:var(--primary);">➕ SUPPLÉMENT</option>
+    <option value="matiere" ${p.categorie==='matiere'?'selected':''} style="color:#e67e22;">🌾 Matière Première</option>
+</select>
                             </div>
                         </div>
 
