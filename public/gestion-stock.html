@@ -733,10 +733,14 @@ button:hover:not(:disabled) {
             const facteurCible = CONVERSIONS[uniteCible] || 1;
             return (valeur * facteurSource) / facteurCible;
         };
-// 🔥 MOTEUR ERP : Calcul du stock virtuel sécurisé (AVEC CONVERSION)
-window.calculerStockReel = function(produit) {
+// 🔥 MOTEUR ERP : Calcul du stock virtuel sécurisé (AVEC CONVERSION & CASCADE)
+window.calculerStockReel = function(produit, visited = new Set()) {
+    // Sécurité : éviter une boucle infinie si un produit est son propre ingrédient par erreur
+    if (visited.has(produit.id || produit._id)) return 0;
+    visited.add(produit.id || produit._id);
+
     if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
-        return Number(produit.stock) || 0; // Matière première
+        return Number(produit.stock) || 0; // Matière première directe
     }
     
     let maxRealisable = Infinity;
@@ -744,14 +748,13 @@ window.calculerStockReel = function(produit) {
         const ingredient = stockProduits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
         if (!ingredient) return 0; // Ingrédient introuvable = 0 produit possible
         
-        const stockIng = Number(ingredient.stock) || 0;
-        const unitStock = ingredient.unite || 'g'; // L'unité du sac en réserve
-        const unitRecette = item.unit || 'g';      // L'unité dans la recette
+        // 🔥 CASCADE : Si l'ingrédient est un assemblage (ex: Sandwich), on calcule son propre stock virtuel
+        const stockIng = ingredient.isManufactured ? window.calculerStockReel(ingredient, new Set(visited)) : (Number(ingredient.stock) || 0);
         
-        // 🔥 On convertit la quantité de la recette vers l'unité du stock
+        const unitStock = ingredient.unite || 'g'; 
+        const unitRecette = item.unit || 'g';      
+        
         const qteRecetteConvertie = window.convertirQuantite(Number(item.quantity) || 0, unitRecette, unitStock);
-        
-        // 🛡️ SÉCURITÉ : Empêche la division par zéro
         const safeQte = qteRecetteConvertie > 0 ? qteRecetteConvertie : 1; 
         
         const possible = Math.floor(stockIng / safeQte);
@@ -760,22 +763,26 @@ window.calculerStockReel = function(produit) {
     return maxRealisable === Infinity ? 0 : maxRealisable;
 };
 // 🔥 MOTEUR ERP : Calcul du coût de revient (Food Cost)
-window.calculerCoutRevient = function(produit) {
-    // Si c'est une matière première, le coût est simplement son prix d'achat
+// 🔥 MOTEUR ERP : Calcul du coût de revient (Food Cost & CASCADE)
+window.calculerCoutRevient = function(produit, visited = new Set()) {
+    if (visited.has(produit.id || produit._id)) return 0;
+    visited.add(produit.id || produit._id);
+
     if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
         return parseFloat(produit.prixAchat) || 0;
     }
     
-    // Si c'est une recette, on additionne le coût des ingrédients
     let coutTotal = 0;
     for (let item of produit.recipe) {
         const ingredient = stockProduits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
         if (ingredient) {
             const unitStock = ingredient.unite || 'g';
             const unitRecette = item.unit || 'g';
-            // On convertit la quantité requise dans l'unité du stock
             const qteConvertie = window.convertirQuantite(Number(item.quantity) || 0, unitRecette, unitStock);
-            const prixUnitaire = parseFloat(ingredient.prixAchat) || 0;
+            
+            // 🔥 CASCADE : Si l'ingrédient est un assemblage, on calcule son coût récursif
+            const prixUnitaire = ingredient.isManufactured ? window.calculerCoutRevient(ingredient, new Set(visited)) : (parseFloat(ingredient.prixAchat) || 0);
+            
             coutTotal += (qteConvertie * prixUnitaire);
         }
     }
