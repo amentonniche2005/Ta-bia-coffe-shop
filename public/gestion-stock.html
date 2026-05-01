@@ -733,6 +733,38 @@ button:hover:not(:disabled) {
             const facteurCible = CONVERSIONS[uniteCible] || 1;
             return (valeur * facteurSource) / facteurCible;
         };
+        // 🔥 MOTEUR ERP : Calcul du Prix en Temps Réel (Gère le Happy Hour)
+window.calculerPrixApplicable = function(p) {
+    let prixBase = parseFloat(p.prix) || 0;
+    let prixPromo = parseFloat(p.prixPromo) || 0;
+    let prixFinal = (prixPromo > 0) ? prixPromo : prixBase;
+    let isHappyHourActive = false;
+
+    if (p.hhActive && p.hhStart && p.hhEnd && parseFloat(p.hhPrice) > 0) {
+        const now = new Date();
+        const currentTotalMins = now.getHours() * 60 + now.getMinutes();
+
+        const [startH, startM] = p.hhStart.split(':').map(Number);
+        const startTotalMins = startH * 60 + startM;
+
+        const [endH, endM] = p.hhEnd.split(':').map(Number);
+        const endTotalMins = endH * 60 + endM;
+
+        if (startTotalMins <= endTotalMins) {
+            if (currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins) {
+                prixFinal = parseFloat(p.hhPrice);
+                isHappyHourActive = true;
+            }
+        } else {
+            if (currentTotalMins >= startTotalMins || currentTotalMins <= endTotalMins) {
+                prixFinal = parseFloat(p.hhPrice);
+                isHappyHourActive = true;
+            }
+        }
+    }
+    
+    return { prixFinal, isHappyHourActive, prixBaseInitial: prixBase };
+};
 // 🔥 MOTEUR ERP : Calcul du stock virtuel sécurisé (AVEC CONVERSION)
 window.calculerStockReel = function(produit) {
     if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
