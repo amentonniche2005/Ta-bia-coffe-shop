@@ -486,90 +486,96 @@ button:hover:not(:disabled) {
     for (let i = 1; i <= 160; i++) tickets[String(i)] = { articles: [], total: 0 };/////////////////////////////////////////nombre de tables/////////////////////////////////////////////////
     if (!window.commandesTraiteesTickets) { window.commandesTraiteesTickets = new Set(); }
     // 🔥 MOTEUR ERP CAISSE : Calcule la disponibilité réelle d'un article
-// 🔥 MOTEUR ERP CAISSE : Calcule le stock APRES simulation du ticket en cours (MULTI-NIVEAUX)
-window.calculerStockReel = function(produit, simulerPanier = true, visited = new Set(), consommationGlobale = null) {
-    if (visited.has(produit.id || produit._id)) return 0;
-    visited.add(produit.id || produit._id);
-
-    let consommation = consommationGlobale;
+// 🔥 MOTEUR ERP CAISSE : Calcule le stock APRES simulation du ticket en cours (AVEC CONVERSION)
+window.calculerStockReel = function(produit, simulerPanier = true) {
+    let consommation = {};
     
     // 1. Détecter si on est sur la caisse ou le tel du client
     const listeArticles = (typeof panier !== 'undefined') ? panier : (currentTable && tickets[currentTable] ? tickets[currentTable].articles : []);
     
-    // ÉTAPE 1 : Calcul de toute la consommation du ticket
-    if (simulerPanier && consommation === null) {
-        consommation = {};
-        if (listeArticles.length > 0) {
-            const ajouterConsommation = (idProd, qteMultiplier) => {
-                const pDB = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
-                if (!pDB) return;
+    if (simulerPanier && listeArticles.length > 0) {
+        listeArticles.forEach(art => {
+            const isEnvoye = typeof art.envoye !== 'undefined' ? art.envoye : false;
+            
+            // On ne simule que les articles NON envoyés en cuisine
+            if (!isEnvoye) {
+                const qte = parseInt(art.quantite) || 0;
                 
-                if (pDB.isManufactured && pDB.recipe && pDB.recipe.length > 0) {
-                    pDB.recipe.forEach(item => {
-                        const ing = produits.find(x => String(x.id) === String(item.ingredientId) || String(x._id) === String(item.ingredientId));
-                        const unitStock = ing ? (ing.unite || 'g') : 'g';
-                        const qteConv = window.convertirQuantite(Number(item.quantity) || 0, item.unit || 'g', unitStock);
-                        ajouterConsommation(item.ingredientId, qteConv * qteMultiplier);
-                    });
-                } else {
-                    const cle = String(pDB.id || pDB._id);
-                    if (!consommation[cle]) consommation[cle] = 0;
-                    consommation[cle] += qteMultiplier;
-                }
-            };
-
-            listeArticles.forEach(art => {
-                const isEnvoye = typeof art.envoye !== 'undefined' ? art.envoye : false;
-                if (!isEnvoye) {
-                    const qte = parseInt(art.quantite) || 0;
-                    if (art.isSupplement) {
-                        const parentArt = listeArticles.find(a => String(a.uniqueGroupId) === String(art.parentId));
-                        if (parentArt) {
-                            const parentDB = produits.find(p => String(p.id) === String(parentArt.baseId || parentArt.id) || String(p._id) === String(parentArt.baseId || parentArt.id));
-                            if (parentDB && parentDB.supplements) {
-                                const nomClean = art.nom.replace('+ ', '').trim();
-                                const suppConfig = parentDB.supplements.find(s => s.nom === nomClean || s.nom === art.nom);
-                                if (suppConfig && suppConfig.ingredientId) {
-                                    const ingDB = produits.find(p => String(p.id) === String(suppConfig.ingredientId) || String(p._id) === String(suppConfig.ingredientId));
-                                    const unitStock = ingDB ? (ingDB.unite || 'g') : 'g';
-                                    const qteConv = window.convertirQuantite(Number(suppConfig.quantiteADeduire) || 0, suppConfig.unite || 'g', unitStock);
-                                    ajouterConsommation(suppConfig.ingredientId, qteConv * qte);
-                                }
+                // CAS A : L'article est un supplément
+                if (art.isSupplement) {
+                    const parentArt = listeArticles.find(a => String(a.uniqueGroupId) === String(art.parentId));
+                    if (parentArt) {
+                        const parentDB = produits.find(p => String(p.id) === String(parentArt.baseId || parentArt.id) || String(p._id) === String(parentArt.baseId || parentArt.id));
+                        if (parentDB && parentDB.supplements) {
+                            const nomClean = art.nom.replace('+ ', '').trim();
+                            const suppConfig = parentDB.supplements.find(s => s.nom === nomClean || s.nom === art.nom);
+                            
+                            if (suppConfig && suppConfig.ingredientId) {
+                                const ingId = String(suppConfig.ingredientId);
+                                const ingredientDB = produits.find(p => String(p.id) === ingId || String(p._id) === ingId);
+                                const unitStock = ingredientDB ? (ingredientDB.unite || 'g') : 'g';
+                                
+                                // 🔥 CONVERSION DE LA CONSOMMATION VIRTUELLE
+                                const qteConvertie = window.convertirQuantite(Number(suppConfig.quantiteADeduire) || 0, suppConfig.unite || 'g', unitStock);
+                                
+                                if (!consommation[ingId]) consommation[ingId] = 0;
+                                consommation[ingId] += (qteConvertie * qte);
                             }
                         }
-                    } else {
-                        ajouterConsommation(art.baseId || art.id, qte);
+                    }
+                } 
+                // CAS B : L'article est un plat/boisson
+                else {
+                    const pDB = produits.find(p => String(p.id) === String(art.baseId || art.id) || String(p._id) === String(art.baseId || art.id));
+                    if (pDB) {
+                        if (pDB.isManufactured && pDB.recipe) {
+                            pDB.recipe.forEach(item => {
+                                const ingId = String(item.ingredientId);
+                                const ingredientDB = produits.find(p => String(p.id) === ingId || String(p._id) === ingId);
+                                const unitStock = ingredientDB ? (ingredientDB.unite || 'g') : 'g';
+                                
+                                // 🔥 CONVERSION DE LA CONSOMMATION VIRTUELLE
+                                const qteConvertie = window.convertirQuantite(Number(item.quantity) || 0, item.unit || 'g', unitStock);
+                                
+                                if (!consommation[ingId]) consommation[ingId] = 0;
+                                consommation[ingId] += (qteConvertie * qte);
+                            });
+                        } else if (!pDB.isManufactured) {
+                            const idDb = String(pDB.id || pDB._id);
+                            if (!consommation[idDb]) consommation[idDb] = 0;
+                            consommation[idDb] += qte;
+                        }
                     }
                 }
-            });
-        }
-    } else if (consommation === null) {
-        consommation = {};
+            }
+        });
     }
 
-    // ÉTAPE 2 : Produit direct (Matière Première ou Canette)
+    // 2. Calcul du stock restant pour le produit demandé
     if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
         const idProd = String(produit.id || produit._id);
         const dejaConsomme = consommation[idProd] || 0;
         return produit.stock !== undefined ? Math.max(0, Number(produit.stock) - dejaConsomme) : 999;
     }
     
-    // ÉTAPE 3 : Produit Manufacturé ou Menu (CASCADE)
     let maxRealisable = Infinity;
     for (let item of produit.recipe) {
         const ingredient = produits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
         if (!ingredient) return 0;
         
-        // 🔥 CASCADE
-        const stockDispoIng = window.calculerStockReel(ingredient, false, new Set(visited), consommation);
-        
+        const stockInitialIng = Number(ingredient.stock) || 0;
         const unitStock = ingredient.unite || 'g'; 
         const unitRecette = item.unit || 'g';      
         
+        // 🔥 CONVERSION POUR LE MAXIMUM RÉALISABLE
         const qteRecetteConvertie = window.convertirQuantite(Number(item.quantity) || 0, unitRecette, unitStock);
+        
+        const dejaConsomme = consommation[String(item.ingredientId)] || 0;
+        const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
+
         const safeQte = qteRecetteConvertie > 0 ? qteRecetteConvertie : 1;
         
-        const possible = Math.floor(stockDispoIng / safeQte);
+        const possible = Math.floor(stockDispo / safeQte);
         if (possible < maxRealisable) maxRealisable = possible;
     }
     return maxRealisable === Infinity ? 0 : maxRealisable;

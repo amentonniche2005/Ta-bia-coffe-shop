@@ -226,25 +226,21 @@ container.innerHTML = commandesFiltrees.map(cmd => {
                        </div>`;
         }
 
-const platsPrincipaux = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
+        const platsPrincipaux = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
         
         const itemsHtml = platsPrincipaux.map(a => {
-            // Affichage principal du plat ou du menu
             let html = `
             <li class="item-row" style="margin-bottom: 2px;">
                 <div class="item-qty">${a.quantite || 1}</div>
-                <div class="item-name" style="font-weight:bold;">${escapeHtml(a.nom)} ${a.variante ? `<span style="display:block; font-size:0.8rem; color:#e67e22; font-weight:bold;">↳ ${escapeHtml(a.variante)}</span>` : ''}</div>
+                <div class="item-name" style="font-weight:bold;">${a.nom} ${a.variante ? `<span style="display:block; font-size:0.8rem; color:#e67e22; font-weight:bold;">↳ ${a.variante}</span>` : ''}</div>
             </li>`;
             
-            // 🔥 NOUVEAU : Si c'est un menu, il faut aussi chercher ses composants de recette envoyés par la caisse
-            // (La caisse n'envoie que les suppléments dans 'articles', donc on affiche les suppléments ici)
-            const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && String(supp.parentId) === String(a.uniqueGroupId));
-            
+            const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
             mesSupps.forEach(supp => {
                 html += `
                 <li class="item-row" style="margin-bottom: 2px; padding-left: 20px; opacity: 0.9;">
                     <div class="item-qty" style="visibility:hidden;">-</div>
-                    <div class="item-name" style="font-size:0.85rem; color:#d35400; font-weight:bold;"><i class="fas fa-plus-circle" style="font-size:0.7rem;"></i> Supp: ${escapeHtml(supp.nom.replace('+ ', ''))}</div>
+                    <div class="item-name" style="font-size:0.85rem; color:#d35400; font-weight:bold;"><i class="fas fa-plus-circle" style="font-size:0.7rem;"></i> Supp: ${supp.nom.replace('+ ', '')}</div>
                 </li>`;
             });
             return html;
@@ -298,22 +294,21 @@ function voirDetails(id) {
     const textTable = (cmd.numeroTable === 'Emporter' || !cmd.numeroTable) ? 'À Emporter' : `Table ${cmd.numeroTable}`;
 
     // 🔥 Génération du HTML des articles avec la logique Parent-Enfant
-// 🔥 Génération du HTML des articles avec la logique Parent-Enfant
     const platsCuisine = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
     const articlesHtml = platsCuisine.map(a => {
         let htmlDetail = `
             <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom:0.2rem; font-weight:700; font-size: 1.1rem; color:#1e293b;">
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <span style="background: #e2e8f0; padding: 4px 10px; border-radius: 6px;">${a.quantite}x</span>
-                    <span>${escapeHtml(a.nom)} ${a.variante ? `<i style="color:#64748b; font-size:0.9rem;">(${escapeHtml(a.variante)})</i>` : ''}</span>
+                    <span>${a.nom} ${a.variante ? `<i style="color:#64748b; font-size:0.9rem;">(${a.variante})</i>` : ''}</span>
                 </div>
             </div>`;
         
-        const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && String(supp.parentId) === String(a.uniqueGroupId));
+        const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
         mesSupps.forEach(supp => {
             htmlDetail += `
             <div style="display:flex; align-items: center; margin-bottom:0.6rem; margin-left:45px; font-weight:800; font-size: 0.95rem; color:#d35400;">
-                <i class="fas fa-plus-circle" style="margin-right:5px; font-size:0.8rem;"></i> Supp: ${escapeHtml(supp.nom.replace('+ ', ''))}
+                <i class="fas fa-plus-circle" style="margin-right:5px; font-size:0.8rem;"></i> Supp: ${supp.nom.replace('+ ', '')}
             </div>`;
         });
         return htmlDetail;
@@ -591,19 +586,19 @@ window.imprimerTicket = function(id) {
     let articlesHTML = '';
     const platsPrint = cmd.articles.filter(a => !a.isSupplement && !(a.nom && a.nom.startsWith('+')));
     
-platsPrint.forEach(a => {
+    platsPrint.forEach(a => {
         articlesHTML += `
         <div style="display: flex; justify-content: space-between; font-family: 'Courier New', Courier, monospace; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
-            <div style="flex: 1;">${a.quantite}x ${escapeHtml(a.nom).toUpperCase()}</div>
+            <div style="flex: 1;">${a.quantite}x ${a.nom.toUpperCase()}</div>
             <div style="width: 70px; text-align: right;">${(parseFloat(a.prix) * a.quantite).toFixed(2)}</div>
         </div>
-        ${a.variante ? `<div style="font-family: 'Courier New', Courier, monospace; font-size: 12px; margin-left: 15px; margin-bottom: 4px;">> ${escapeHtml(a.variante)}</div>` : ''}`;
+        ${a.variante ? `<div style="font-family: 'Courier New', Courier, monospace; font-size: 12px; margin-left: 15px; margin-bottom: 4px;">> ${a.variante}</div>` : ''}`;
         
-        const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && String(supp.parentId) === String(a.uniqueGroupId));
+        const mesSupps = cmd.articles.filter(supp => (supp.isSupplement || (supp.nom && supp.nom.startsWith('+'))) && supp.parentId === a.uniqueGroupId);
         mesSupps.forEach(supp => {
             articlesHTML += `
             <div style="display: flex; justify-content: space-between; font-family: 'Courier New', Courier, monospace; font-size: 12px; font-weight: bold; margin-bottom: 4px; padding-left: 20px; color: #555;">
-                <div style="flex: 1;">+ ${escapeHtml(supp.nom.replace('+ ', '')).toUpperCase()}</div>
+                <div style="flex: 1;">+ ${supp.nom.replace('+ ', '').toUpperCase()}</div>
             </div>`;
         });
     });

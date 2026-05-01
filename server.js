@@ -554,41 +554,27 @@ app.post('/api/commandes', async (req, res) => {
                     totalSecurise += (prixBaseDb * qteCmd);
                     articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, baseId: produitDb.id || produitDb._id, nom: produitDb.nom });
 
-// 🔥 DÉSTOCKAGE DU PRODUIT AVEC CONVERSION (MULTI-NIVEAUX)
+                    // 🔥 DÉSTOCKAGE DU PRODUIT AVEC CONVERSION
                     if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
                         for (let comp of produitDb.recipe) {
                             let queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                            const qteADeduireMenu = (comp.quantity || 0) * qteCmd; 
-
-                            const compMenuDb = await Product.findOne({ cafeId: req.cafeId, ...queryIng });
+                            const ingDb = await Product.findOne({ cafeId: req.cafeId, ...queryIng });
                             
-                            if (compMenuDb) {
-                                // NIVEAU 2 : Le composant du menu est LUI-MÊME une recette (Ex: Sandwich)
-                                if (compMenuDb.isManufactured && compMenuDb.recipe && compMenuDb.recipe.length > 0) {
-                                    for (let sousComp of compMenuDb.recipe) {
-                                        let querySousIng = !isNaN(sousComp.ingredientId) ? { id: Number(sousComp.ingredientId) } : { _id: sousComp.ingredientId };
-                                        const ingFinal = await Product.findOne({ cafeId: req.cafeId, ...querySousIng });
-                                        
-                                        if (ingFinal) {
-                                            const qteADeduireFinal = calculerQuantiteDestockage((sousComp.quantity || 0) * qteADeduireMenu, sousComp.unit || 'g', ingFinal.unite || 'g');
-                                            const updatedIng = await Product.findOneAndUpdate(
-                                                { cafeId: req.cafeId, ...querySousIng }, { $inc: { stock: -qteADeduireFinal } }, { new: true }
-                                            );
-                                            if (updatedIng) {
-                                                await new Movement({ cafeId: req.cafeId, type: 'commande', produit: updatedIng.nom, produitId: updatedIng.id || updatedIng._id, quantite: qteADeduireFinal, ancienStock: updatedIng.stock + qteADeduireFinal, nouveauStock: updatedIng.stock, raison: `Menu ${produitDb.nom} -> ${compMenuDb.nom}` }).save();
-                                            }
-                                        }
-                                    }
-                                } 
-                                // NIVEAU 1 : Le composant est direct (Ex: Canette) ou c'est une recette classique
-                                else {
-                                    const qteADeduireFinal = calculerQuantiteDestockage(qteADeduireMenu, comp.unit || 'u', compMenuDb.unite || 'u');
-                                    const updatedIng = await Product.findOneAndUpdate(
-                                        { cafeId: req.cafeId, ...queryIng }, { $inc: { stock: -qteADeduireFinal } }, { new: true }
-                                    );
-                                    if (updatedIng) {
-                                        await new Movement({ cafeId: req.cafeId, type: 'commande', produit: updatedIng.nom, produitId: updatedIng.id || updatedIng._id, quantite: qteADeduireFinal, ancienStock: updatedIng.stock + qteADeduireFinal, nouveauStock: updatedIng.stock, raison: `Composant de : ${produitDb.nom}` }).save();
-                                    }
+                            if (ingDb) {
+                                const qteBase = (comp.quantity || 0) * qteCmd;
+                                const qteADeduireTotal = calculerQuantiteDestockage(qteBase, comp.unit || 'g', ingDb.unite || 'g');
+
+                                const ing = await Product.findOneAndUpdate(
+                                    { cafeId: req.cafeId, ...queryIng },
+                                    { $inc: { stock: -qteADeduireTotal } },
+                                    { new: true }
+                                );
+                                if (ing) {
+                                    await new Movement({
+                                        cafeId: req.cafeId, type: 'commande', produit: ing.nom, produitId: ing.id || ing._id,
+                                        quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
+                                        raison: `Composant de : ${produitDb.nom}`
+                                    }).save();
                                 }
                             }
                         }
@@ -1098,43 +1084,24 @@ app.post('/api/ventes', verifierToken, async (req, res) => {
                     vraiTotalReel += (prixBaseDb * qteCmd);
                     articlesSecurises.push({ ...art, prix: prixBaseDb, id: produitDb.id || produitDb._id, baseId: produitDb.id || produitDb._id, nom: produitDb.nom });
 
-// DÉSTOCKAGE DU PRODUIT (MULTI-NIVEAUX)
+                    // DÉSTOCKAGE DU PRODUIT
                     if (!estDejaDestocke) {
                         if (produitDb.isManufactured && produitDb.recipe && produitDb.recipe.length > 0) {
                             for (let comp of produitDb.recipe) {
                                 let queryIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                                const qteADeduireMenu = (comp.quantity || 0) * qteCmd; 
+                                const qteADeduireTotal = (comp.quantity || 0) * qteCmd; 
 
-                                const compMenuDb = await Product.findOne({ cafeId: req.cafeId, ...queryIng });
-                                
-                                if (compMenuDb) {
-                                    // NIVEAU 2 : Le composant du menu est LUI-MÊME une recette (Ex: Sandwich)
-                                    if (compMenuDb.isManufactured && compMenuDb.recipe && compMenuDb.recipe.length > 0) {
-                                        for (let sousComp of compMenuDb.recipe) {
-                                            let querySousIng = !isNaN(sousComp.ingredientId) ? { id: Number(sousComp.ingredientId) } : { _id: sousComp.ingredientId };
-                                            const ingFinal = await Product.findOne({ cafeId: req.cafeId, ...querySousIng });
-                                            
-                                            if (ingFinal) {
-                                                const qteADeduireFinal = calculerQuantiteDestockage((sousComp.quantity || 0) * qteADeduireMenu, sousComp.unit || 'g', ingFinal.unite || 'g');
-                                                const updatedIng = await Product.findOneAndUpdate(
-                                                    { cafeId: req.cafeId, ...querySousIng }, { $inc: { stock: -qteADeduireFinal } }, { new: true }
-                                                );
-                                                if (updatedIng) {
-                                                    await new Movement({ cafeId: req.cafeId, type: 'vente', produit: updatedIng.nom, produitId: updatedIng.id || updatedIng._id, quantite: qteADeduireFinal, ancienStock: updatedIng.stock + qteADeduireFinal, nouveauStock: updatedIng.stock, raison: `Menu ${produitDb.nom} -> ${compMenuDb.nom}` }).save();
-                                                }
-                                            }
-                                        }
-                                    } 
-                                    // NIVEAU 1 : Le composant est direct (Ex: Canette) ou c'est une recette classique
-                                    else {
-                                        const qteADeduireFinal = calculerQuantiteDestockage(qteADeduireMenu, comp.unit || 'u', compMenuDb.unite || 'u');
-                                        const updatedIng = await Product.findOneAndUpdate(
-                                            { cafeId: req.cafeId, ...queryIng }, { $inc: { stock: -qteADeduireFinal } }, { new: true }
-                                        );
-                                        if (updatedIng) {
-                                            await new Movement({ cafeId: req.cafeId, type: 'vente', produit: updatedIng.nom, produitId: updatedIng.id || updatedIng._id, quantite: qteADeduireFinal, ancienStock: updatedIng.stock + qteADeduireFinal, nouveauStock: updatedIng.stock, raison: `Composant de : ${produitDb.nom}` }).save();
-                                        }
-                                    }
+                                const ing = await Product.findOneAndUpdate(
+                                    { cafeId: req.cafeId, ...queryIng },
+                                    { $inc: { stock: -qteADeduireTotal } },
+                                    { new: true }
+                                );
+                                if (ing) {
+                                    await new Movement({
+                                        cafeId: req.cafeId, type: 'vente', produit: ing.nom, produitId: ing.id || ing._id,
+                                        quantite: qteADeduireTotal, ancienStock: ing.stock + qteADeduireTotal, nouveauStock: ing.stock,
+                                        raison: `Composant de : ${produitDb.nom}`
+                                    }).save();
                                 }
                             }
                         } else if (produitDb.stock !== undefined && !produitDb.isManufactured) {
@@ -1220,34 +1187,18 @@ app.post('/api/commandes/annuler-article-unique', verifierToken, async (req, res
                             }
                         }
                     } 
-// SI C'EST UN PLAT AVEC RECETTE (OU UN MENU MULTI-NIVEAUX)
+                    // SI C'EST UN PLAT AVEC RECETTE
                     else if (produitDb.isManufactured && produitDb.recipe) {
                         for (let comp of produitDb.recipe) {
                             const qIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                            const compMenuDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
-
-                            if (compMenuDb) {
-                                const qteARendreMenu = (comp.quantity || 0) * 1; // 1 = quantité annulée
-
-                                // NIVEAU 2: Le composant a lui-même une recette (Ex: Sandwich)
-                                if (compMenuDb.isManufactured && compMenuDb.recipe) {
-                                    for (let sousComp of compMenuDb.recipe) {
-                                        let querySousIng = !isNaN(sousComp.ingredientId) ? { id: Number(sousComp.ingredientId) } : { _id: sousComp.ingredientId };
-                                        const ingFinal = await Product.findOne({ cafeId: req.cafeId, ...querySousIng });
-                                        if (ingFinal) {
-                                            const qteARendreFinal = calculerQuantiteDestockage((sousComp.quantity || 0) * qteARendreMenu, sousComp.unit || 'g', ingFinal.unite || 'g');
-                                            await Product.findOneAndUpdate({ cafeId: req.cafeId, ...querySousIng }, { $inc: { stock: qteARendreFinal } });
-                                        }
-                                    }
-                                }
-                                // NIVEAU 1
-                                else {
-                                    const qteARendreFinal = calculerQuantiteDestockage(qteARendreMenu, comp.unit || 'u', compMenuDb.unite || 'u');
-                                    await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendreFinal } });
-                                }
+                            const ingDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
+                            if (ingDb) {
+                                // Conversion pour 1 seule unité
+                                const qteARendre = calculerQuantiteDestockage((comp.quantity || 0) * 1, comp.unit || 'g', ingDb.unite || 'g');
+                                await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
                             }
                         }
-                    }
+                    } 
                     // SI C'EST UN PRODUIT SIMPLE (Ex: Canette)
                     else {
                         await Product.findOneAndUpdate({ cafeId: req.cafeId, _id: produitDb._id }, { $inc: { stock: 1 } });
@@ -1321,30 +1272,14 @@ app.post('/api/commandes/annuler-logique', verifierToken, async (req, res) => {
                         if (idSrc) pDb = await Product.findOne({ cafeId: req.cafeId, $or: [{ id: Number(idSrc) }, { _id: idSrc }] });
                         
                         if (pDb) {
-if (pDb.isManufactured && pDb.recipe) {
+                            if (pDb.isManufactured && pDb.recipe) {
                                 for (let comp of pDb.recipe) {
                                     const qIng = !isNaN(comp.ingredientId) ? { id: Number(comp.ingredientId) } : { _id: comp.ingredientId };
-                                    const compMenuDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
-
-                                    if (compMenuDb) {
-                                        const qteARendreMenu = (comp.quantity || 0) * qteCmd;
-
-                                        // NIVEAU 2: Le composant a lui-même une recette (Ex: Sandwich)
-                                        if (compMenuDb.isManufactured && compMenuDb.recipe) {
-                                            for (let sousComp of compMenuDb.recipe) {
-                                                let querySousIng = !isNaN(sousComp.ingredientId) ? { id: Number(sousComp.ingredientId) } : { _id: sousComp.ingredientId };
-                                                const ingFinal = await Product.findOne({ cafeId: req.cafeId, ...querySousIng });
-                                                if (ingFinal) {
-                                                    const qteARendreFinal = calculerQuantiteDestockage((sousComp.quantity || 0) * qteARendreMenu, sousComp.unit || 'g', ingFinal.unite || 'g');
-                                                    await Product.findOneAndUpdate({ cafeId: req.cafeId, ...querySousIng }, { $inc: { stock: qteARendreFinal } });
-                                                }
-                                            }
-                                        }
-                                        // NIVEAU 1
-                                        else {
-                                            const qteARendreFinal = calculerQuantiteDestockage(qteARendreMenu, comp.unit || 'u', compMenuDb.unite || 'u');
-                                            await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendreFinal } });
-                                        }
+                                    const ingDb = await Product.findOne({ cafeId: req.cafeId, ...qIng });
+                                    if (ingDb) {
+                                        // Conversion avec la quantité totale
+                                        const qteARendre = calculerQuantiteDestockage((comp.quantity || 0) * qteCmd, comp.unit || 'g', ingDb.unite || 'g');
+                                        await Product.findOneAndUpdate({ cafeId: req.cafeId, ...qIng }, { $inc: { stock: qteARendre } });
                                     }
                                 }
                             } else {

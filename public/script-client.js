@@ -19,42 +19,17 @@ window.convertirQuantite = function(valeur, uniteSource, uniteCible) {
 };
 window.escapeHtml = function(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; };
 // 🔥 MOTEUR ERP CLIENT : Calcule le stock réel tenant compte du panier et des CONVERSIONS D'UNITÉS
-// 🔥 MOTEUR ERP CLIENT : Calcule le stock réel (MULTI-NIVEAUX) tenant compte du panier
-window.calculerStockReel = function(produit, simulerPanier = true, visited = new Set(), consommationGlobale = null) {
-    // Sécurité anti-boucle infinie
-    if (visited.has(produit.id || produit._id)) return 0;
-    visited.add(produit.id || produit._id);
-
-    let consommation = consommationGlobale;
-
-    // ÉTAPE 1 : Si c'est l'appel principal, on calcule TOUTE la consommation du panier (en cascade)
-    if (simulerPanier && consommation === null) {
-        consommation = {};
-        if (typeof panier !== 'undefined' && panier.length > 0) {
+window.calculerStockReel = function(produit, simulerPanier = true) {
+    let consommation = {};
+    
+    if (simulerPanier && typeof panier !== 'undefined' && panier.length > 0) {
+        panier.forEach(art => {
+            const isEnvoye = typeof art.envoye !== 'undefined' ? art.envoye : false;
             
-            // Fonction récursive pour décomposer un produit du panier jusqu'aux matières premières
-            const ajouterConsommation = (idProd, qteMultiplier) => {
-                const pDB = produits.find(p => String(p.id) === String(idProd) || String(p._id) === String(idProd));
-                if (!pDB) return;
-                
-                if (pDB.isManufactured && pDB.recipe && pDB.recipe.length > 0) {
-                    pDB.recipe.forEach(item => {
-                        const ing = produits.find(x => String(x.id) === String(item.ingredientId) || String(x._id) === String(item.ingredientId));
-                        const unitStock = ing ? (ing.unite || 'g') : 'g';
-                        const qteConv = window.convertirQuantite(Number(item.quantity) || 0, item.unit || 'g', unitStock);
-                        ajouterConsommation(item.ingredientId, qteConv * qteMultiplier);
-                    });
-                } else {
-                    const cle = String(pDB.id || pDB._id);
-                    if (!consommation[cle]) consommation[cle] = 0;
-                    consommation[cle] += qteMultiplier;
-                }
-            };
-
-            panier.forEach(art => {
-                if (art.envoye) return;
+            if (!isEnvoye) {
                 const qte = parseInt(art.quantite) || 0;
-
+                
+                // CAS A : L'article est un supplément
                 if (art.isSupplement) {
                     const parentArt = panier.find(a => String(a.uniqueGroupId) === String(art.parentId));
                     if (parentArt) {
@@ -62,47 +37,72 @@ window.calculerStockReel = function(produit, simulerPanier = true, visited = new
                         if (parentDB && parentDB.supplements) {
                             const nomClean = art.nom.replace('+ ', '').trim();
                             const suppConfig = parentDB.supplements.find(s => s.nom === nomClean || s.nom === art.nom);
+                            
                             if (suppConfig && suppConfig.ingredientId) {
-                                const ingDB = produits.find(p => String(p.id) === String(suppConfig.ingredientId) || String(p._id) === String(suppConfig.ingredientId));
-                                const unitStock = ingDB ? (ingDB.unite || 'g') : 'g';
-                                const qteConv = window.convertirQuantite(Number(suppConfig.quantiteADeduire) || 0, suppConfig.unite || 'g', unitStock);
+                                const ingId = String(suppConfig.ingredientId);
+                                const ingredientDB = produits.find(p => String(p.id) === ingId || String(p._id) === ingId);
+                                const unitStock = ingredientDB ? (ingredientDB.unite || 'g') : 'g';
                                 
-                                ajouterConsommation(suppConfig.ingredientId, qteConv * qte);
+                                // 🔥 CONVERSION
+                                const qteConvertie = window.convertirQuantite(Number(suppConfig.quantiteADeduire) || 0, suppConfig.unite || 'g', unitStock);
+                                
+                                if (!consommation[ingId]) consommation[ingId] = 0;
+                                consommation[ingId] += (qteConvertie * qte);
                             }
                         }
                     }
-                } else {
-                    ajouterConsommation(art.baseId || art.id, qte);
+                } 
+                // CAS B : L'article est un plat/boisson
+                else {
+                    const pDB = produits.find(p => String(p.id) === String(art.baseId || art.id) || String(p._id) === String(art.baseId || art.id));
+                    if (pDB) {
+                        if (pDB.isManufactured && pDB.recipe) {
+                            pDB.recipe.forEach(item => {
+                                const ingId = String(item.ingredientId);
+                                const ingredientDB = produits.find(p => String(p.id) === ingId || String(p._id) === ingId);
+                                const unitStock = ingredientDB ? (ingredientDB.unite || 'g') : 'g';
+                                
+                                // 🔥 CONVERSION
+                                const qteConvertie = window.convertirQuantite(Number(item.quantity) || 0, item.unit || 'g', unitStock);
+                                
+                                if (!consommation[ingId]) consommation[ingId] = 0;
+                                consommation[ingId] += (qteConvertie * qte);
+                            });
+                        } else if (!pDB.isManufactured) {
+                            const idDb = String(pDB.id || pDB._id);
+                            if (!consommation[idDb]) consommation[idDb] = 0;
+                            consommation[idDb] += qte;
+                        }
+                    }
                 }
-            });
-        }
-    } else if (consommation === null) {
-        consommation = {};
+            }
+        });
     }
 
-    // ÉTAPE 2 : Si c'est une matière première directe (Niveau Final)
     if (!produit.isManufactured || !produit.recipe || produit.recipe.length === 0) {
         const idProd = String(produit.id || produit._id);
         const dejaConsomme = consommation[idProd] || 0;
         return produit.stock !== undefined ? Math.max(0, Number(produit.stock) - dejaConsomme) : 999;
     }
     
-    // ÉTAPE 3 : Si c'est un Menu ou un Produit Manufacturé (CASCADE)
     let maxRealisable = Infinity;
     for (let item of produit.recipe) {
         const ingredient = produits.find(p => String(p.id) === String(item.ingredientId) || String(p._id) === String(item.ingredientId));
         if (!ingredient) return 0;
         
-        // 🔥 MAGIE : On demande à l'ingrédient de calculer son propre stock en lui transférant le panier !
-        const stockDispoIng = window.calculerStockReel(ingredient, false, new Set(visited), consommation);
-        
+        const stockInitialIng = Number(ingredient.stock) || 0;
         const unitStock = ingredient.unite || 'g'; 
         const unitRecette = item.unit || 'g';      
         
+        // 🔥 CONVERSION
         const qteRecetteConvertie = window.convertirQuantite(Number(item.quantity) || 0, unitRecette, unitStock);
+        
+        const dejaConsomme = consommation[String(item.ingredientId)] || 0;
+        const stockDispo = Math.max(0, stockInitialIng - dejaConsomme);
+
         const safeQte = qteRecetteConvertie > 0 ? qteRecetteConvertie : 1;
         
-        const possible = Math.floor(stockDispoIng / safeQte);
+        const possible = Math.floor(stockDispo / safeQte);
         if (possible < maxRealisable) maxRealisable = possible;
     }
     return maxRealisable === Infinity ? 0 : maxRealisable;
