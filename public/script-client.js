@@ -17,6 +17,41 @@ window.convertirQuantite = function(valeur, uniteSource, uniteCible) {
     const facteurCible = CONVERSIONS[uniteCible] || 1;
     return (valeur * facteurSource) / facteurCible;
 };
+// 🔥 MOTEUR ERP : Calcul du Prix en Temps Réel (Gère le Happy Hour)
+window.calculerPrixApplicable = function(p) {
+    let prixBase = parseFloat(p.prix) || 0;
+    let prixPromo = parseFloat(p.prixPromo) || 0;
+    let prixFinal = (prixPromo > 0) ? prixPromo : prixBase;
+    let isHappyHourActive = false;
+
+    if (p.hhActive && p.hhStart && p.hhEnd && parseFloat(p.hhPrice) > 0) {
+        const now = new Date();
+        const currentTotalMins = now.getHours() * 60 + now.getMinutes();
+
+        const [startH, startM] = p.hhStart.split(':').map(Number);
+        const startTotalMins = startH * 60 + startM;
+
+        const [endH, endM] = p.hhEnd.split(':').map(Number);
+        const endTotalMins = endH * 60 + endM;
+
+        // Si le Happy Hour se passe dans la même journée (ex: 16h à 18h)
+        if (startTotalMins <= endTotalMins) {
+            if (currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins) {
+                prixFinal = parseFloat(p.hhPrice);
+                isHappyHourActive = true;
+            }
+        } 
+        // Si le Happy Hour traverse minuit (ex: 22h à 02h du matin)
+        else {
+            if (currentTotalMins >= startTotalMins || currentTotalMins <= endTotalMins) {
+                prixFinal = parseFloat(p.hhPrice);
+                isHappyHourActive = true;
+            }
+        }
+    }
+    
+    return { prixFinal, isHappyHourActive, prixBaseInitial: prixBase };
+};
 window.escapeHtml = function(text) { if (!text) return text; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; };
 // 🔥 MOTEUR ERP CLIENT : Calcule le stock réel tenant compte du panier et des CONVERSIONS D'UNITÉS
 window.calculerStockReel = function(produit, simulerPanier = true) {
@@ -408,13 +443,16 @@ function afficherProduits() {
         
         const imgSrc = p.image || defaultImages[p.categorie] || defaultImages['plat'];
         
-        // Logique Prix & Promo
-        const prixNormal = parseFloat(p.prix || 0).toFixed(2);
-        const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
+const tarif = window.calculerPrixApplicable(p);
+        let affichagePrix = '';
         
-        const affichagePrix = (p.prixPromo && p.prixPromo > 0) 
-            ? `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${prixNormal} DT</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>` 
-            : `<span>${prixNormal} DT</span>`;
+        if (tarif.isHappyHourActive) {
+            affichagePrix = `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${tarif.prixBaseInitial.toFixed(2)} DT</s> <span style="color:#8b5cf6; font-weight:900;"><i class="fas fa-clock"></i> Happy Hour ${tarif.prixFinal.toFixed(2)} DT</span>`;
+        } else if (p.prixPromo > 0) {
+            affichagePrix = `<s style="color:#94a3b8; font-size:0.85rem; margin-right:5px;">${tarif.prixBaseInitial.toFixed(2)} DT</s> <span style="color:#e74c3c; font-weight:900;">${tarif.prixFinal.toFixed(2)} DT</span>`;
+        } else {
+            affichagePrix = `<span style="font-weight:700;">${tarif.prixFinal.toFixed(2)} DT</span>`;
+        }
 
         return `
             <div class="menu-item ${classeRupture}">
@@ -457,7 +495,8 @@ function gererClicAjout(event, id) {
 
 window.ouvrirModalOptions = function(produit, options) {
     produitEnAttenteOption = produit;
-    prixBaseEnAttente = (produit.prixPromo && produit.prixPromo > 0) ? parseFloat(produit.prixPromo) : parseFloat(produit.prix);    
+    const tarif = window.calculerPrixApplicable(produit);
+    prixBaseEnAttente = tarif.prixFinal;
     document.getElementById("optionsTitle").textContent = produit.nom;
     document.getElementById("optionPriceDisplay").textContent = `${prixBaseEnAttente.toFixed(2)} DT`;
     
@@ -599,12 +638,8 @@ window.executerAjoutPanier = function(idOuObjetProduit, varForcee = null, suppsC
 
     if (!produit) return;
 
-    // 2. Calcul mathématique sécurisé du prix (Évite le bug des milliards)
-    const pVente = parseFloat(produit.prix) || 0;
-    const pPromo = parseFloat(produit.prixPromo) || 0;
-    
-    // Si une promo existe et est > 0, on l'utilise, sinon prix normal
-    const prixFinal = (pPromo > 0) ? pPromo : pVente;
+const tarif = window.calculerPrixApplicable(produit);
+    const prixFinal = tarif.prixFinal;
 
     // 3. Création du lien de parenté unique pour lier plats et suppléments
     const idGroupeUnique = Date.now(); 

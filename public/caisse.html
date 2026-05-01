@@ -477,6 +477,41 @@ button:hover:not(:disabled) {
         const facteurCible = CONVERSIONS[uniteCible] || 1;
         return (valeur * facteurSource) / facteurCible;
     };
+    // 🔥 MOTEUR ERP : Calcul du Prix en Temps Réel (Gère le Happy Hour)
+window.calculerPrixApplicable = function(p) {
+    let prixBase = parseFloat(p.prix) || 0;
+    let prixPromo = parseFloat(p.prixPromo) || 0;
+    let prixFinal = (prixPromo > 0) ? prixPromo : prixBase;
+    let isHappyHourActive = false;
+
+    if (p.hhActive && p.hhStart && p.hhEnd && parseFloat(p.hhPrice) > 0) {
+        const now = new Date();
+        const currentTotalMins = now.getHours() * 60 + now.getMinutes();
+
+        const [startH, startM] = p.hhStart.split(':').map(Number);
+        const startTotalMins = startH * 60 + startM;
+
+        const [endH, endM] = p.hhEnd.split(':').map(Number);
+        const endTotalMins = endH * 60 + endM;
+
+        // Si le Happy Hour se passe dans la même journée (ex: 16h à 18h)
+        if (startTotalMins <= endTotalMins) {
+            if (currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins) {
+                prixFinal = parseFloat(p.hhPrice);
+                isHappyHourActive = true;
+            }
+        } 
+        // Si le Happy Hour traverse minuit (ex: 22h à 02h du matin)
+        else {
+            if (currentTotalMins >= startTotalMins || currentTotalMins <= endTotalMins) {
+                prixFinal = parseFloat(p.hhPrice);
+                isHappyHourActive = true;
+            }
+        }
+    }
+    
+    return { prixFinal, isHappyHourActive, prixBaseInitial: prixBase };
+};
     let tickets = {}; let currentTable = null; let activeCategory = "all"; let produits = [];
     let derniereTableModal = null; let socket = null; let commandesRecues = []; 
     let articlesDecomposes = []; let selectedUnits = []; let currentTableSelection = null;
@@ -1240,13 +1275,16 @@ function renderProducts() {
         const stockActuel = window.calculerStockReel(p, true);
         const stockColor = stockActuel <= 0 ? 'color: var(--danger); font-weight: bold;' : 'color: var(--text-muted);'; 
         
-        // LOGIQUE VISUELLE PROMO
-        const prixNormal = parseFloat(p.prix || 0).toFixed(2);
-        const prixPromo = parseFloat(p.prixPromo || 0).toFixed(2);
+const tarif = window.calculerPrixApplicable(p);
+        let affichagePrix = '';
         
-        const affichagePrix = (p.prixPromo > 0) 
-            ? `<s style="font-size:0.75rem; color:#94a3b8;">${prixNormal}</s> <span style="color:#e74c3c; font-weight:800;">${prixPromo} DT</span>`
-            : `<span style="font-weight:800;">${prixNormal} DT</span>`;
+        if (tarif.isHappyHourActive) {
+            affichagePrix = `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">${tarif.prixBaseInitial.toFixed(2)}</s> <span style="color:#8b5cf6; font-weight:900;"><i class="fas fa-clock"></i> HH ${tarif.prixFinal.toFixed(2)} DT</span>`;
+        } else if (p.prixPromo > 0) {
+            affichagePrix = `<s style="font-size:0.75rem; color:#94a3b8; margin-right:5px;">${tarif.prixBaseInitial.toFixed(2)}</s> <span style="color:#e74c3c; font-weight:900;">${tarif.prixFinal.toFixed(2)} DT</span>`;
+        } else {
+            affichagePrix = `<span style="font-weight:800;">${tarif.prixFinal.toFixed(2)} DT</span>`;
+        }
 
         // Si c'est un produit à recette, on met un petit icône visuel
         const iconeRecette = p.isManufactured ? `<i class="fas fa-blender" style="font-size:0.6rem; color:#8b5cf6;"></i> ` : '';
@@ -1288,9 +1326,8 @@ window.ouvrirModalOptionsCaisse = function(produit) {
     produitEnAttenteCaisse = produit;
     
     // 1. Définition du prix de base (Priorité à la Promo)
-    prixBaseEnAttenteCaisse = (produit.prixPromo && produit.prixPromo > 0) 
-        ? parseFloat(produit.prixPromo) 
-        : parseFloat(produit.prix);
+const tarif = window.calculerPrixApplicable(produit);
+    prixBaseEnAttenteCaisse = tarif.prixFinal;
     
     let htmlContent = `
         <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-soft); background: #f8fafc; display:flex; justify-content:space-between; align-items:center;">
@@ -1424,11 +1461,10 @@ window.validerOptionsCaisse = function() {
 
 window.ajouterProduitCaisse = function(produit, variante, supplements) {
     const idGroupeUnique = Date.now();
-    
-    // 🔥 Sécurité Prix Promo
-    const prixInitial = (produit.prixPromo && produit.prixPromo > 0) 
-        ? parseFloat(produit.prixPromo) 
-        : parseFloat(produit.prix);
+
+    // 🔥 Sécurité Prix (Prend en compte le Happy Hour)
+    const tarif = window.calculerPrixApplicable(produit);
+    const prixInitial = tarif.prixFinal;
 
     // 1. Produit Principal
     ajouterAuTicket(currentTable, { 
