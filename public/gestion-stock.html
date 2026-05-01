@@ -788,32 +788,43 @@ window.toggleRecipeSection = function(isManufactured, prefix = 'new') {
     document.getElementById(`stockInputSection_${prefix}`).style.display = isMan ? 'none' : 'block';
 };
 
-window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unite = 'g') {
+window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unite = '') {
+    // 🔥 OPTIMISATION MENU : Si c'est un menu, l'unité par défaut est la pièce (u) au lieu du gramme (g)
+    const categorieActuelle = document.getElementById(`${prefix}ProdCat`).value;
+    if (!unite) {
+        unite = (categorieActuelle === 'menu') ? 'u' : 'g';
+    }
+
     const div = document.createElement('div');
     div.className = 'recette-row';
-    // 🔥 AJOUT : flex-wrap et padding pour éviter les débordements
     div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px; align-items: flex-end; flex-wrap: wrap; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid #e2e8f0;';
     
-    let optionsHtml = '<option value="">-- Ingrédient --</option>';
+    let optionsHtml = '<option value="">-- Sélectionner --</option>';
     stockProduits.forEach(p => {
         const isSelected = (String(p.id) === String(idIng)) ? 'selected' : '';
-        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)}</option>`;
+        // Petite aide visuelle : on affiche le stock et l'unité dans la liste
+        optionsHtml += `<option value="${p.id || p._id}" ${isSelected}>${escapeHtml(p.nom)} (${p.unite || 'u'})</option>`;
     });
 
+    // Changement du label "Matière Première" par "Article / Composant" plus universel
     div.innerHTML = `
         <div style="flex: 2; min-width: 200px;">
-            <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Matière Première</label>
-            <select class="rec-select" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;" onchange="mettreAJourMargeLive('${prefix}')">
+            <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Article / Composant</label>
+            <select class="rec-select" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white; font-weight: bold; color: var(--primary);" onchange="mettreAJourMargeLive('${prefix}')">
                 ${optionsHtml}
             </select>
         </div>
         <div style="width: 80px;">
             <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Quantité</label>
-            <input type="number" step="0.01" class="rec-qte" placeholder="0" value="${qte}" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color);" oninput="mettreAJourMargeLive()">
+            <input type="number" step="0.01" class="rec-qte" placeholder="0" value="${qte}" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); font-weight: bold;" oninput="mettreAJourMargeLive('${prefix}')">
         </div>
         <div style="width: 100px;">
             <label style="font-size: 0.7rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 4px;">Unité</label>
-            <select class="rec-unit" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;" onchange="mettreAJourMargeLive()">
+            <select class="rec-unit" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border-color); background: white;" onchange="mettreAJourMargeLive('${prefix}')">
+                <optgroup label="Cuisine / Menu">
+                    <option value="u" ${unite === 'u' ? 'selected' : ''}>Pièce (u)</option>
+                    <option value="portion" ${unite === 'portion' ? 'selected' : ''}>portion</option>
+                </optgroup>
                 <optgroup label="Poids">
                     <option value="g" ${unite === 'g' ? 'selected' : ''}>g</option>
                     <option value="kg" ${unite === 'kg' ? 'selected' : ''}>kg</option>
@@ -823,15 +834,9 @@ window.ajouterLigneRecette = function(prefix = 'new', idIng = '', qte = '', unit
                     <option value="cl" ${unite === 'cl' ? 'selected' : ''}>cl</option>
                     <option value="L" ${unite === 'L' ? 'selected' : ''}>L</option>
                 </optgroup>
-                <optgroup label="Cuisine">
-                    <option value="u" ${unite === 'u' ? 'selected' : ''}>u</option>
-                    <option value="portion" ${unite === 'portion' ? 'selected' : ''}>portion</option>
-                    <option value="cac" ${unite === 'cac' ? 'selected' : ''}>cac</option>
-                    <option value="cas" ${unite === 'cas' ? 'selected' : ''}>cas</option>
-                </optgroup>
             </select>
         </div>
-        <button type="button" onclick="this.closest('.recette-row').remove(); mettreAJourMargeLive();" style="background: #fee2e2; border: none; color: var(--danger); cursor: pointer; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: 0.2s;">
+        <button type="button" onclick="this.closest('.recette-row').remove(); mettreAJourMargeLive('${prefix}');" style="background: #fee2e2; border: none; color: var(--danger); cursor: pointer; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: 0.2s;">
             <i class="fas fa-times"></i>
         </button>
     `;
@@ -1295,8 +1300,7 @@ window.mettreAJourMargeLive = function(prefix = 'new') {
                 const ingredient = stockProduits.find(p => String(p.id) === String(idIng) || String(p._id) === String(idIng));
                 if (ingredient) {
                     const unitStock = ingredient.unite || 'g';
-                    const prixAchat = parseFloat(ingredient.prixAchat) || 0;
-                    const qteConvertie = window.convertirQuantite(qte, unite, unitStock);
+const prixAchat = ingredient.isManufactured ? window.calculerCoutRevient(ingredient) : (parseFloat(ingredient.prixAchat) || 0);                    const qteConvertie = window.convertirQuantite(qte, unite, unitStock);
                     coutTotal += (qteConvertie * prixAchat);
                 }
             }
@@ -1458,10 +1462,15 @@ window.extraireSupplements = function() {
 };
 
 // 🔥 SÉCURITÉ : Griser le prix de vente si c'est une matière première
+// 🔥 SÉCURITÉ & UX : Gère l'affichage selon le type de produit sélectionné
 window.gererAffichagePrix = function(prefix) {
     const cat = document.getElementById(`${prefix}ProdCat`).value;
     const inputPrixVente = document.getElementById(`${prefix}ProdPrice`);
     const inputPrixPromo = document.getElementById(`${prefix}ProdPrixPromo`);
+    const isManufSelect = document.getElementById(`${prefix}ProdIsManufactured`);
+    
+    // On récupère le titre de l'onglet Recette pour l'adapter dynamiquement
+    const recipeTitleBlock = document.querySelector(`#recipeSection_${prefix} label`);
     
     if (cat === 'matiere') {
         inputPrixVente.value = 0;
@@ -1470,12 +1479,40 @@ window.gererAffichagePrix = function(prefix) {
         inputPrixPromo.closest('.form-group').style.opacity = '0.4';
         inputPrixVente.readOnly = true;
         inputPrixPromo.readOnly = true;
+        
+        if(isManufSelect) {
+            isManufSelect.value = "false"; 
+            isManufSelect.style.pointerEvents = 'auto';
+            toggleRecipeSection('false', prefix);
+        }
+    } else if (cat === 'menu') {
+        inputPrixVente.closest('.form-group').style.opacity = '1';
+        inputPrixPromo.closest('.form-group').style.opacity = '1';
+        inputPrixVente.readOnly = false;
+        inputPrixPromo.readOnly = false;
+        
+        // 🔥 Automatisation : Un menu EST obligatoirement un assemblage de produits
+        if(isManufSelect) {
+            isManufSelect.value = "true";
+            toggleRecipeSection('true', prefix);
+        }
+        if (recipeTitleBlock) {
+            recipeTitleBlock.innerHTML = '<i class="fas fa-utensils"></i> Composition du Menu (Plats & Boissons)';
+            recipeTitleBlock.style.color = '#8b5cf6';
+        }
     } else {
         inputPrixVente.closest('.form-group').style.opacity = '1';
         inputPrixPromo.closest('.form-group').style.opacity = '1';
         inputPrixVente.readOnly = false;
         inputPrixPromo.readOnly = false;
+        
+        if (recipeTitleBlock) {
+            recipeTitleBlock.innerHTML = '<i class="fas fa-blender"></i> Fiche Technique (Ingrédients)';
+            recipeTitleBlock.style.color = 'var(--primary)';
+        }
     }
+    
+    mettreAJourMargeLive(prefix);
 };
 
 async function sauvegarderNouveauProduit() {
